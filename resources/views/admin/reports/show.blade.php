@@ -1,89 +1,95 @@
-@extends('layouts.app')
-@section('title', 'Report ' . $report->tracking_code)
+@extends('layouts.admin')
+@section('title', 'Review ' . $report->tracking_code)
+@section('page-heading', 'Review report')
 
 @section('content')
-<p class="mb-4">
-  <a href="{{ route('admin.reports.index') }}" class="text-green-800 underline">&larr; Back to reports</a>
-</p>
+<a href="{{ route('admin.reports.index') }}" class="back-link">
+  <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Back to report queue
+</a>
 
-@if(session('success'))
-  <div role="status" class="mb-4 rounded border border-green-300 bg-green-100 p-3 text-green-800">
-    {{ session('success') }}
-  </div>
+@if($errors->any())
+  <div role="alert" class="form-errors">{{ $errors->first() }}</div>
 @endif
 
-<div class="grid gap-6 lg:grid-cols-3">
-  <section class="space-y-4 rounded bg-white p-5 shadow lg:col-span-2">
-    <div class="flex flex-wrap items-start justify-between gap-3">
-      <div>
-        <p class="text-sm text-gray-600">Tracking code</p>
-        <h1 class="text-2xl font-bold font-mono">{{ $report->tracking_code }}</h1>
-      </div>
+<div class="page-heading">
+  <h2 class="tracking-code">{{ $report->tracking_code }}</h2>
+  <p>Submitted {{ $report->created_at->format('M d, Y \a\t h:i A') }}</p>
+</div>
+
+<div class="detail-grid">
+  <div class="detail-column">
+    <section class="card">
+      <h2 class="card-title"><i class="fa-solid fa-comment-dots" aria-hidden="true"></i> Resident report</h2>
       <x-status-badge :status="$report->status" />
-    </div>
+      <p class="whitespace-pre-line resident-report-text">{{ $report->description }}</p>
 
-    <div>
-      <h2 class="mb-1 font-semibold">Description</h2>
-      <p class="whitespace-pre-line">{{ $report->description }}</p>
-    </div>
-
-    @if($report->photo_path)
-      <div>
-        <h2 class="mb-2 font-semibold">Attached photo</h2>
+      @if($report->photo_path)
         <a href="{{ asset('storage/' . $report->photo_path) }}" target="_blank" rel="noopener noreferrer">
-          <img src="{{ asset('storage/' . $report->photo_path) }}" alt="Photo attached to this report"
-            class="max-h-96 rounded border object-contain">
+          <img src="{{ asset('storage/' . $report->photo_path) }}" alt="Photo attached to this report" class="report-photo">
         </a>
-      </div>
-    @endif
-
-    <dl class="grid gap-3 border-t pt-4 sm:grid-cols-2">
-      <div>
-        <dt class="text-sm text-gray-600">Submitted</dt>
-        <dd>{{ $report->created_at->format('M d, Y h:i A') }}</dd>
-      </div>
-      <div>
-        <dt class="text-sm text-gray-600">Purok</dt>
-        <dd>{{ $report->purok?->name ?? 'Not specified' }}</dd>
-      </div>
-      <div>
-        <dt class="text-sm text-gray-600">Landmark</dt>
-        <dd>{{ $report->landmark ?: 'Not specified' }}</dd>
-      </div>
-      @if($report->reporter_email)
-        <div>
-          <dt class="text-sm text-gray-600">Reporter email</dt>
-          <dd><a href="mailto:{{ $report->reporter_email }}" class="text-green-800 underline">{{ $report->reporter_email }}</a></dd>
+      @else
+        <div class="photo-empty" role="note">
+          <span><i class="fa-regular fa-image" aria-hidden="true"></i><br>No photo attached</span>
         </div>
       @endif
-      @if($report->lat !== null && $report->lng !== null)
+    </section>
+
+    <section class="card">
+      <h2 class="card-title"><i class="fa-solid fa-map-location-dot" aria-hidden="true"></i> Location details</h2>
+      <dl class="detail-meta location-meta">
         <div>
-          <dt class="text-sm text-gray-600">Location</dt>
+          <dt>Purok</dt>
+          <dd>{{ $report->purok?->name ?? 'Not specified' }}</dd>
+        </div>
+        <div>
+          <dt>Landmark</dt>
+          <dd>{{ $report->landmark ?: 'Not provided' }}</dd>
+        </div>
+        <div>
+          <dt>Submitted</dt>
+          <dd>{{ $report->created_at->format('M d, Y h:i A') }}</dd>
+        </div>
+        <div>
+          <dt>Reporter email</dt>
           <dd>
-            <a href="https://www.google.com/maps?q={{ $report->lat }},{{ $report->lng }}"
-              target="_blank" rel="noopener noreferrer" class="text-green-800 underline">
-              View on map
-            </a>
+            @if($report->reporter_email)
+              <a href="mailto:{{ $report->reporter_email }}">{{ $report->reporter_email }}</a>
+            @else
+              Not provided
+            @endif
           </dd>
         </div>
-      @endif
-    </dl>
-  </section>
+      </dl>
 
-  <aside class="space-y-6">
-    <section class="rounded bg-white p-5 shadow">
-      <h2 class="mb-4 text-lg font-semibold">Update status</h2>
-      @if($errors->any())
-        <div role="alert" class="mb-4 rounded border border-red-300 bg-red-100 p-3 text-sm text-red-800">
-          {{ $errors->first() }}
-        </div>
+      @if($report->lat !== null && $report->lng !== null)
+        <div id="report-location-map" class="map-frame location-map" data-lat="{{ $report->lat }}" data-lng="{{ $report->lng }}"
+          role="img" aria-label="Map showing the report location"></div>
+        <p class="field-hint">
+          <a href="https://www.google.com/maps?q={{ $report->lat }},{{ $report->lng }}"
+            target="_blank" rel="noopener noreferrer">Open location in Google Maps</a>
+        </p>
+      @else
+        <p class="field-hint">No map coordinates were provided with this report.</p>
       @endif
-      <form method="POST" action="{{ route('admin.reports.status', $report) }}" class="space-y-3">
+    </section>
+  </div>
+
+  <div class="detail-column">
+    <section class="card ai-card">
+      <h2 class="card-title"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> AI suggestion</h2>
+      <p class="ai-placeholder">
+        Automated suggestions are not available yet. Review the resident’s description and location before updating the report.
+      </p>
+      <p class="field-hint"><i class="fa-solid fa-user-check" aria-hidden="true"></i> Staff make the final decision on every report.</p>
+    </section>
+
+    <section class="card">
+      <h2 class="card-title"><i class="fa-solid fa-pen" aria-hidden="true"></i> Update status</h2>
+      <form method="POST" action="{{ route('admin.reports.status', $report) }}" class="status-form">
         @csrf
         @method('PATCH')
-        <label class="block">
-          <span class="mb-1 block text-sm font-medium">New status</span>
-          <select name="status" required class="w-full rounded border p-2">
+        <label for="status">New status
+          <select id="status" name="status" required>
             @foreach($manualStatuses as $status)
               <option value="{{ $status }}" @selected(old('status', $report->status) === $status)>
                 {{ \App\Models\Report::STATUSES[$status] }}
@@ -91,33 +97,32 @@
             @endforeach
           </select>
         </label>
-        <label class="block">
-          <span class="mb-1 block text-sm font-medium">Note <span class="font-normal text-gray-600">(required for out of scope)</span></span>
-          <textarea name="note" rows="3" maxlength="500" class="w-full rounded border p-2">{{ old('note') }}</textarea>
+        <label for="note">Note <span class="field-hint">(required for out of scope)</span>
+          <textarea id="note" name="note" rows="3" maxlength="500">{{ old('note') }}</textarea>
         </label>
-        <button type="submit" class="rounded bg-green-700 px-4 py-2 text-white hover:bg-green-800">
-          Save status
+        <button type="submit" class="btn btn-gold">
+          <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Save status
         </button>
       </form>
     </section>
 
-    <section class="rounded bg-white p-5 shadow">
-      <h2 class="mb-4 text-lg font-semibold">Status history</h2>
-      @forelse($report->statusLogs as $log)
-        <article class="border-l-2 border-green-700 pb-4 pl-3 last:pb-0">
-          <p class="font-medium">{{ \App\Models\Report::STATUSES[$log->to_status] ?? ucfirst(str_replace('_', ' ', $log->to_status)) }}</p>
-          <p class="text-xs text-gray-600">{{ $log->created_at->format('M d, Y h:i A') }}</p>
-          @if($log->user)
-            <p class="text-xs text-gray-600">Updated by {{ $log->user->name }}</p>
-          @endif
-          @if($log->note)
-            <p class="mt-1 text-sm">{{ $log->note }}</p>
-          @endif
-        </article>
-      @empty
-        <p class="text-sm text-gray-600">No status history yet.</p>
-      @endforelse
+    <section class="card">
+      <h2 class="card-title"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Status history</h2>
+      <ol class="timeline">
+        @forelse($report->statusLogs as $log)
+          <li>
+            <strong>{{ \App\Models\Report::STATUSES[$log->to_status] ?? ucfirst(str_replace('_', ' ', $log->to_status)) }}</strong>
+            <small>{{ $log->created_at->format('M d, Y h:i A') }}</small>
+            <small>{{ $log->user?->name ?? 'Resident or system' }}</small>
+            @if($log->note)
+              <small>{{ $log->note }}</small>
+            @endif
+          </li>
+        @empty
+          <li><strong>No status history yet.</strong></li>
+        @endforelse
+      </ol>
     </section>
-  </aside>
+  </div>
 </div>
 @endsection

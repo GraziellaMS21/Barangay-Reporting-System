@@ -1,133 +1,121 @@
 @extends('layouts.app')
 @section('title', 'Report a Problem')
 
-@push('head')
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
-@endpush
-
-@section('content')
-<div class="bg-red-50 border border-red-300 rounded p-4 mb-6">
-  <p class="font-semibold text-red-700">Emergency or crime? Call 911 or the local police first.</p>
-  <p class="text-sm text-red-700">This system is not monitored in real time.</p>
-  <ul class="text-sm mt-2 space-y-1">
-    @foreach($contacts as $c)
-      <li>{{ $c->name }}: <span class="font-mono">{{ $c->number }}</span></li>
-    @endforeach
-  </ul>
-</div>
-
-<h1 class="text-2xl font-bold mb-4">Report a Problem</h1>
-
-@if($errors->any())
-  <div class="bg-red-100 border border-red-300 text-red-800 rounded p-3 mb-4 text-sm">
-    <ul class="list-disc list-inside">
-      @foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach
-    </ul>
-  </div>
-@endif
-
-<form method="POST" action="{{ route('reports.store') }}" enctype="multipart/form-data"
-      class="space-y-5 bg-white p-5 rounded shadow">
-  @csrf
-
-  <div>
-    <label for="description" class="block font-medium mb-1">Describe the problem</label>
-    <textarea id="description" name="description" rows="4" required
-      class="w-full border rounded p-2"
-      placeholder="Example: Barado ang drainage sa harap ng tindahan, bumabaha na kapag umuulan.">{{ old('description') }}</textarea>
-  </div>
-
-  <div>
-    <label for="photo" class="block font-medium mb-1">Photo (optional)</label>
-    <input type="file" id="photo" name="photo" accept="image/*" class="w-full text-sm">
-  </div>
-
-  <div>
-    <label class="block font-medium mb-1">Location</label>
-    <button type="button" id="btn-locate"
-      class="bg-gray-700 text-white text-sm px-3 py-1 rounded mb-2">Use my current location</button>
-    <div id="map" class="h-72 rounded border"></div>
-    <p class="text-xs text-gray-500 mt-1">Tap the map or drag the pin to adjust the location.</p>
-    <input type="hidden" name="lat" id="lat" value="{{ old('lat') }}">
-    <input type="hidden" name="lng" id="lng" value="{{ old('lng') }}">
-  </div>
-
-  <div class="grid sm:grid-cols-2 gap-4">
-    <div>
-      <label for="purok_id" class="block font-medium mb-1">Purok (optional)</label>
-      <select id="purok_id" name="purok_id" class="w-full border rounded p-2">
-        <option value="">Select purok</option>
-        @foreach($puroks as $p)
-          <option value="{{ $p->id }}" @selected(old('purok_id') == $p->id)>{{ $p->name }}</option>
-        @endforeach
-      </select>
+@section('hero')
+  <section class="hero">
+    <div class="hero-inner">
+      <div>
+        <h1>Report a problem in Barangay Calarian</h1>
+        <p>Send a report with a photo and location. Barangay staff will review it, route it to the proper office, and keep you updated with a tracking code.</p>
+        <em class="hero-motto">Pusong May Malasakit, Serbisyong Tapat sa Mamamayan</em>
+        <div class="hero-actions">
+          <a class="btn btn-gold" href="#report-form">
+            <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i> Report a problem
+          </a>
+          <a class="btn btn-ghost" href="{{ route('track.index') }}">
+            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Track a report
+          </a>
+        </div>
+      </div>
+      <div class="hero-seal" aria-hidden="true"><img src="{{ asset('storage/calarian-seal.png') }}" alt=""></div>
     </div>
-    <div>
-      <label for="landmark" class="block font-medium mb-1">Landmark (optional)</label>
-      <input type="text" id="landmark" name="landmark" value="{{ old('landmark') }}"
-        class="w-full border rounded p-2" placeholder="Near the chapel, beside the school...">
-    </div>
-  </div>
-
-  <div>
-    <label for="reporter_email" class="block font-medium mb-1">Email for updates (optional)</label>
-    <input type="email" id="reporter_email" name="reporter_email" value="{{ old('reporter_email') }}"
-      class="w-full border rounded p-2">
-  </div>
-
-  <button type="submit" class="bg-green-700 hover:bg-green-800 text-white px-5 py-2 rounded">
-    Submit Report
-  </button>
-</form>
+  </section>
 @endsection
 
-@push('scripts')
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
-<script>
-  // TODO: change to Barangay Calarian's coordinates (Google Maps > right-click > copy coordinates)
-  const defaultCenter = [6.9214, 122.0790];
+@section('content')
+<section class="card alert" role="alert">
+  <span class="alert-icon" aria-hidden="true"><i class="fa-solid fa-triangle-exclamation"></i></span>
+  <div>
+    <h2>Emergency or crime? Call 911 or the local police first.</h2>
+    <p>This system is not monitored in real time.</p>
+    @if($contacts->isNotEmpty())
+      <div class="contact-chips">
+        @foreach($contacts as $contact)
+          <span><b>{{ $contact->name }}:</b> {{ $contact->number }}</span>
+        @endforeach
+      </div>
+    @endif
+  </div>
+</section>
 
-  const latInput = document.getElementById('lat');
-  const lngInput = document.getElementById('lng');
-  const map = L.map('map').setView(defaultCenter, 15);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; OpenStreetMap contributors'
-  }).addTo(map);
+<section id="report-form" class="card form-card">
+  <h2><i class="fa-solid fa-file-circle-plus" aria-hidden="true"></i> Submit a report</h2>
 
-  let marker = null;
-  function setPin(lat, lng) {
-    if (marker) {
-      marker.setLatLng([lat, lng]);
-    } else {
-      marker = L.marker([lat, lng], { draggable: true }).addTo(map);
-      marker.on('dragend', e => {
-        const p = e.target.getLatLng();
-        setPin(p.lat, p.lng);
-      });
-    }
-    latInput.value = Number(lat).toFixed(7);
-    lngInput.value = Number(lng).toFixed(7);
-  }
-
-  map.on('click', e => setPin(e.latlng.lat, e.latlng.lng));
-
-  document.getElementById('btn-locate').addEventListener('click', () => {
-    if (!navigator.geolocation) {
-      alert('Location is not supported by this browser.');
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      pos => {
-        setPin(pos.coords.latitude, pos.coords.longitude);
-        map.setView([pos.coords.latitude, pos.coords.longitude], 17);
-      },
-      () => alert('Could not get your location. Tap the map or choose a purok instead.')
-    );
-  });
-
-  @if(old('lat') && old('lng'))
-    setPin({{ old('lat') }}, {{ old('lng') }});
+  @if($errors->any())
+    <div role="alert" class="form-errors">
+      <ul>
+        @foreach($errors->all() as $error)
+          <li>{{ $error }}</li>
+        @endforeach
+      </ul>
+    </div>
   @endif
-</script>
-@endpush
+
+  <form method="POST" action="{{ route('reports.store') }}" enctype="multipart/form-data">
+    @csrf
+
+    <div class="field">
+      <label for="description"><i class="fa-solid fa-align-left" aria-hidden="true"></i> What is the problem?</label>
+      <textarea id="description" name="description" rows="4" required
+        placeholder="Example: Barado ang drainage sa harap ng tindahan, bumabaha na kapag umuulan.">{{ old('description') }}</textarea>
+      <p class="field-hint">You may write in English, Filipino, Bisaya, or Chavacano.</p>
+    </div>
+
+    <div class="field">
+      <span class="field-label"><i class="fa-solid fa-camera" aria-hidden="true"></i> Photo (optional)</span>
+      <label class="file-drop">
+        <span>
+          <i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i>
+          <b>Tap to add a photo</b><br>
+          <small>JPG or PNG, up to 5 MB</small>
+        </span>
+        <input type="file" id="photo" name="photo" accept="image/*" aria-label="Photo (optional)">
+      </label>
+      @error('photo')
+        <p class="field-hint">{{ $message }}</p>
+      @enderror
+    </div>
+
+    <div class="field">
+      <label for="map"><i class="fa-solid fa-location-dot" aria-hidden="true"></i> Location</label>
+      <div id="map" class="map-frame" aria-label="Choose the report location on the map"></div>
+      <div class="map-controls">
+        <button type="button" id="btn-locate" class="btn btn-outline btn-small">
+          <i class="fa-solid fa-crosshairs" aria-hidden="true"></i> Use my location
+        </button>
+      </div>
+      <p class="field-hint">Tap the map or drag the pin to adjust, or choose a purok or landmark below.</p>
+      <input type="hidden" name="lat" id="lat" value="{{ old('lat') }}">
+      <input type="hidden" name="lng" id="lng" value="{{ old('lng') }}">
+    </div>
+
+    <div class="form-grid">
+      <div class="field">
+        <label for="purok_id"><i class="fa-solid fa-map" aria-hidden="true"></i> Purok (optional)</label>
+        <select id="purok_id" name="purok_id">
+          <option value="">Select purok</option>
+          @foreach($puroks as $purok)
+            <option value="{{ $purok->id }}" @selected(old('purok_id') == $purok->id)>{{ $purok->name }}</option>
+          @endforeach
+        </select>
+      </div>
+      <div class="field">
+        <label for="landmark"><i class="fa-solid fa-landmark" aria-hidden="true"></i> Landmark (optional)</label>
+        <input type="text" id="landmark" name="landmark" value="{{ old('landmark') }}"
+          placeholder="Near the chapel, beside the school">
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="reporter_email"><i class="fa-solid fa-envelope" aria-hidden="true"></i> Email for updates (optional)</label>
+      <input type="email" id="reporter_email" name="reporter_email" value="{{ old('reporter_email') }}"
+        autocomplete="email" placeholder="name@example.com">
+      <p class="field-hint"><i class="fa-solid fa-lock" aria-hidden="true"></i> Your contact details are never shown on the public page.</p>
+    </div>
+
+    <button type="submit" class="btn btn-gold">
+      <i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Submit report
+    </button>
+  </form>
+</section>
+@endsection

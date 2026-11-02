@@ -1,15 +1,31 @@
 @extends('layouts.app')
 @section('title', 'Report Submitted')
 
+@section('hero')
+  <section class="hero hero-compact">
+    <div class="hero-inner">
+      <h1>Thank you for letting us know</h1>
+      <p>Your report has been received by Barangay Calarian. Save the tracking code below to check for updates.</p>
+    </div>
+  </section>
+@endsection
+
 @section('content')
-<div class="bg-white p-6 rounded shadow text-center">
-  <h1 class="text-2xl font-bold text-green-700 mb-2">Report received</h1>
-  <p>Please save your tracking code:</p>
-  <p class="text-3xl font-mono font-bold my-4">{{ $report->tracking_code }}</p>
-  <a href="{{ route('track.show', $report->tracking_code) }}"
-     class="inline-block bg-green-700 text-white px-5 py-2 rounded">Track this report</a>
-  <p class="text-sm text-gray-600 mt-6">
-    If this is an emergency, call 911 or the local police. This system is not monitored in real time.
-  </p>
-</div>
+<section class="card success-card">
+  <span class="alert-icon success-icon">
+    <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+  </span>
+  <p class="field-hint">Your tracking code</p>
+  <p class="tracking-code">{{ $report->tracking_code }}</p>
+  <p class="tracking-meta">Keep this code to check your report status.</p>
+  <div class="hero-actions success-actions">
+    <a class="btn btn-gold" href="{{ route('track.show', $report->tracking_code) }}">
+      <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Track this report
+    </a>
+    <a class="btn btn-outline" href="{{ route('reports.create') }}">
+      <i class="fa-solid fa-plus" aria-hidden="true"></i> Submit another report
+    </a>
+  </div>
+  <p class="field-hint success-disclaimer">If this is an emergency, call 911 or the local police. This system is not monitored in real time.</p>
+</section>
 @endsection

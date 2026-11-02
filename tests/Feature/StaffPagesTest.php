@@ -19,6 +19,30 @@ class StaffPagesTest extends TestCase
             ->assertSee(route('login'), false);
     }
 
+    public function test_resident_pages_render_with_the_shared_theme(): void
+    {
+        $this->get(route('reports.create'))
+            ->assertOk()
+            ->assertSee('Report a problem in Barangay Calarian')
+            ->assertSee(asset('storage/Calarian_Barangay_Hall.jpg'), false)
+            ->assertSee(asset('storage/calarian-seal.png'), false);
+
+        $this->get(route('track.index'))
+            ->assertOk()
+            ->assertSee('Track a report');
+
+        $report = Report::factory()->create();
+
+        $this->get(route('reports.success', $report->tracking_code))
+            ->assertOk()
+            ->assertSee('Your tracking code');
+
+        $this->get(route('track.show', $report->tracking_code))
+            ->assertOk()
+            ->assertSee($report->tracking_code)
+            ->assertSee('Status history');
+    }
+
     public function test_staff_can_sign_in_and_reach_the_dashboard(): void
     {
         $staff = User::factory()->staff()->create();
@@ -30,7 +54,7 @@ class StaffPagesTest extends TestCase
 
         $this->get(route('admin.reports.index'))
             ->assertOk()
-            ->assertSee('Staff Dashboard');
+            ->assertSee('Resident reports');
     }
 
     public function test_staff_can_open_report_dashboard_and_details(): void
@@ -41,7 +65,7 @@ class StaffPagesTest extends TestCase
         $this->actingAs($staff)
             ->get(route('admin.reports.index'))
             ->assertOk()
-            ->assertSee('Staff Dashboard')
+            ->assertSee('Resident reports')
             ->assertSee($report->tracking_code);
 
         $this->get(route('admin.reports.show', $report))

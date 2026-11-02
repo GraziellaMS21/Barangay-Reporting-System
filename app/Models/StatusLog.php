@@ -12,4 +12,9 @@ class StatusLog extends Model
     {
         return $this->belongsTo(Report::class);
     }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 }

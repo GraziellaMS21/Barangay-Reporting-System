@@ -14,6 +14,15 @@
       <nav class="space-x-4 text-sm">
         <a href="{{ route('reports.create') }}">Report a Problem</a>
         <a href="{{ route('track.index') }}">Track a Report</a>
+        @auth
+          <a href="{{ route('admin.reports.index') }}">Staff Dashboard</a>
+          <form method="POST" action="{{ route('logout') }}" class="inline">
+            @csrf
+            <button type="submit">Log out</button>
+          </form>
+        @else
+          <a href="{{ route('login') }}">Staff Login</a>
+        @endauth
       </nav>
     </div>
   </header>

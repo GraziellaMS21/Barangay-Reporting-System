@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Barangay Calarian Problem Reporting | Modern Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+:root{color-scheme:light;--ink:#0b1f4b;--blue:#2456d6;--gold:#ffc21a;--red:#e0352b;--mist:#f3f5fb;--tx:#1b2a4a;--mut:#64708f;--line:#e3e8f4;--sh:0 1px 2px rgba(11,31,75,.06),0 12px 32px rgba(11,31,75,.08)}
+*{box-sizing:border-box;margin:0}
+
+body{
+  font:16px/1.6 "Plus Jakarta Sans","Segoe UI",Arial,sans-serif;
+  background: linear-gradient(rgba(11, 31, 75, 0.85), rgba(36, 86, 214, 0.8)), url('Calarian_Barangay_Hall.jpg') center/cover fixed no-repeat, var(--mist);
+  color:var(--tx)
+}
+
+a{color:var(--blue)}h1,h2,h3{line-height:1.2;color:var(--ink);letter-spacing:-.02em}
+:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.area,.view{display:none}.area.on,.view.on{display:block}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.55rem;border:0;border-radius:999px;padding:.75rem 1.35rem;font:700 .95rem inherit;font-family:inherit;cursor:pointer;text-decoration:none;transition:transform .15s,box-shadow .15s}
+.btn:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(11,31,75,.18)}
+.gold{background:var(--gold);color:var(--ink)}.navy{background:var(--ink);color:#fff}.ghost{background:#ffffff1f;color:#fff;border:1px solid #ffffff55}.out{background:#fff;color:var(--ink);border:1px solid var(--line)}
+.sm{padding:.4rem .9rem;font-size:.85rem}
+input,select,textarea{width:100%;padding:.8rem 1rem;border:1.5px solid var(--line);border-radius:12px;font:inherit;background:#fff;color:var(--tx)}
+input:focus,select:focus,textarea:focus{border-color:var(--blue);outline:3px solid #2456d622}
+label{display:flex;gap:.5rem;align-items:center;font-weight:700;margin:0 0 .4rem;color:var(--ink)}label i{color:var(--blue)}
+.hint{font-size:.85rem;color:var(--mut);margin-top:.35rem}
+.badge{display:inline-flex;align-items:center;gap:.35rem;padding:.15rem .65rem;border-radius:99px;font-size:.78rem;font-weight:700;white-space:nowrap}
+.b-blue{background:#e3ebff;color:#1b45b5}.b-gold{background:#fff1c2;color:#7a5600}.b-red{background:#ffe0dd;color:#b3261b}.b-green{background:#d9f5e3;color:#13693a}.b-gray{background:#e9edf6;color:#4b5775}
+.card{background:#fff;border-radius:20px;box-shadow:var(--sh);padding:1.4rem}
+.card>h2{font-size:1.05rem;margin-bottom:1rem;display:flex;gap:.6rem;align-items:center}
+.card>h2 i{width:2rem;height:2rem;border-radius:10px;background:#fff4d1;color:#a87400;display:grid;place-items:center;font-size:.9rem}
+.fld{margin-bottom:1.2rem}.g2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+
+/* resident */
+.hero{color:#fff;background:radial-gradient(520px 320px at 88% 25%,#ffc21a59,transparent 65%),transparent;padding:3.2rem 1.2rem 6.5rem}
+.hero.s{padding:2.4rem 1.2rem 5rem}
+.hero .in{display:grid;grid-template-columns:1.4fr .6fr;gap:2rem;align-items:center;max-width:1120px;margin:auto;padding:0}.hero.s .in{display:block}
+.hero h1{color:#fff;font-size:clamp(2rem,5vw,3.2rem);font-weight:800}
+.hero p{margin:.9rem 0 0;color:#dbe5ff;max-width:52ch;font-size:1.05rem}
+.hero em{display:block;margin-top:1rem;color:var(--gold);font-weight:600}
+.cta{display:flex;gap:.7rem;flex-wrap:wrap;margin-top:1.6rem}
+.seal{justify-self:center;width:min(230px,100%);padding:14px;border-radius:50%;background:#ffffff1a;border:1px solid #ffffff44;box-shadow:0 0 0 14px #ffffff0d,0 0 70px #ffc21a55}.seal img{width:100%;display:block}
+.wrap{max-width:1120px;margin:-4.2rem auto 0;padding:0 1.2rem 1rem;position:relative}
+.alert{display:flex;gap:1rem;align-items:flex-start;margin-bottom:1.2rem;border-left:6px solid var(--red)}
+.alert>i{width:2.6rem;height:2.6rem;border-radius:50%;background:#ffe0dd;color:var(--red);display:grid;place-items:center;flex:none}
+.alert h2{font-size:1.05rem;color:var(--red)}.alert p{font-size:.9rem;color:var(--mut)}
+.chips{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.7rem}
+.chips span{background:var(--mist);border-radius:99px;padding:.3rem .8rem;font-size:.85rem}.chips b{color:var(--ink)}
+.formc{padding:1.8rem}.formc>h2{font-size:1.4rem}
+.drop{position:relative;border:2px dashed #b8c5e6;border-radius:16px;padding:1.5rem;text-align:center;background:#f8faff;color:var(--mut)}
+.drop i{font-size:1.8rem;color:var(--blue);display:block;margin-bottom:.3rem}.drop input{position:absolute;inset:0;opacity:0;cursor:pointer;height:100%}
+.map{height:230px;border-radius:16px;position:relative;overflow:hidden;display:grid;place-items:center;background:linear-gradient(90deg,transparent 48%,#fff 48% 52%,transparent 52%),linear-gradient(0deg,transparent 58%,#fff 58% 62%,transparent 62%),linear-gradient(135deg,#d6e6cf,#cfe0f3)}
+.map .pin{font-size:2.6rem;color:var(--red);filter:drop-shadow(0 4px 4px rgba(0,0,0,.3))}.map .btn{position:absolute;right:.8rem;bottom:.8rem}
+.rf{background:rgba(11,31,75,0.95);backdrop-filter:blur(10px);color:#b8c6ea;text-align:center;padding:2.5rem 1rem 1.6rem;font-size:.9rem;margin-top:3rem;border-top:1px solid rgba(255,255,255,0.1);display:flex;flex-direction:column;align-items:center;gap:1.5rem}
+.trk{display:flex;gap:.6rem;background:#fff;border-radius:99px;padding:.45rem;box-shadow:var(--sh);margin-bottom:1.2rem}.trk input{border:0;border-radius:99px;font-family:Consolas,monospace;font-weight:700;font-size:1.05rem}.trk input:focus{outline:0}
+.steps{list-style:none;padding:0;display:grid;grid-template-columns:repeat(4,1fr);margin:1.5rem 0 1.8rem}
+.steps li{text-align:center;position:relative;font-size:.85rem;font-weight:600;color:var(--mut)}
+.steps li i{width:3rem;height:3rem;border-radius:50%;background:#e9edf6;display:grid;place-items:center;margin:0 auto .5rem;position:relative;z-index:1}
+.steps li::after{content:"";position:absolute;top:1.5rem;left:50%;width:100%;height:3px;background:#e1e6f2}.steps li:last-child::after{display:none}
+.steps .d{color:var(--ink)}.steps .d i{background:var(--ink);color:#fff}.steps .d::after{background:var(--ink)}
+.steps .c{color:var(--ink)}.steps .c i{background:var(--gold);color:var(--ink);box-shadow:0 0 0 6px #ffc21a40}
+.tl{list-style:none;padding:0;border-left:3px solid var(--line);margin-left:.5rem}
+.tl li{padding:0 0 1.1rem 1.2rem;position:relative}.tl li::before{content:"";position:absolute;left:-8.5px;top:.45rem;width:14px;height:14px;border-radius:50%;background:var(--ink);border:3px solid #fff}
+.tl small{display:block;color:var(--mut)}
+
+/* staff - UPDATED SIDEBAR & HEADER COLORS */
+.adm.on{display:grid;grid-template-columns:256px 1fr;min-height:100vh;background:var(--mist)}
+.sb{background:var(--ink);border-right:1px solid rgba(255,255,255,0.1);padding:1.2rem .9rem;position:sticky;top:0;height:100vh;overflow:auto}
+.sb .br{display:flex;gap:.7rem;align-items:center;padding:0 .4rem 1.2rem}.sb .br img{width:44px;height:44px}
+.sb .br b{display:block;line-height:1.2;color:#fff}.sb .br small{color:#b8c6ea;font-size:.8rem}
+.sb nav{display:grid;gap:.2rem}
+.sb nav a{display:flex;gap:.8rem;align-items:center;padding:.7rem .9rem;border-radius:12px;color:#dbe5ff;text-decoration:none;font-weight:600;font-size:.94rem}
+.sb nav a i{width:1.2rem;text-align:center;color:#8ba8f0}
+.sb nav a em{margin-left:auto;font-style:normal;background:var(--gold);color:var(--ink);border-radius:99px;font-size:.75rem;padding:0 .5rem}
+.sb nav a:hover{background:rgba(255,255,255,0.1);color:#fff}
+.sb nav a.act{background:var(--blue);color:#fff}.sb nav a.act i{color:var(--gold)}
+.sb hr{border:0;border-top:1px solid rgba(255,255,255,0.1);margin:.8rem 0}
+
+.top{display:flex;gap:1rem;align-items:center;padding:1.2rem 1.6rem;flex-wrap:wrap;background:linear-gradient(90deg, var(--ink), var(--blue));color:#fff}
+.top h1{font-size:1.6rem;font-weight:800;color:#fff}.top p{color:#dbe5ff;font-size:.88rem}
+.top .r{margin-left:auto;display:flex;align-items:center;gap:.9rem}
+.sr{position:relative;width:260px}.sr i{position:absolute;left:1rem;top:50%;transform:translateY(-50%);color:var(--mut)}
+.sr input{padding-left:2.5rem;border-radius:99px;border:none;background:#fff;color:var(--tx)}
+.bell{position:relative;width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,0.15);color:#fff;box-shadow:var(--sh);display:grid;place-items:center;cursor:pointer}
+.bell::after{content:"";position:absolute;top:10px;right:11px;width:8px;height:8px;border-radius:50%;background:var(--red);border:2px solid var(--blue)}
+.av{width:42px;height:42px;border-radius:50%;background:var(--gold);color:var(--ink);display:grid;place-items:center;font-weight:800}
+
+.main{padding:1.6rem 1.6rem 2rem}
+.ea{background:linear-gradient(100deg,#c8281e,#e0352b);color:#fff;border-radius:16px;padding:.9rem 1.2rem;display:flex;gap:.9rem;align-items:center;flex-wrap:wrap;margin-bottom:1.2rem;box-shadow:0 10px 24px #e0352b44}
+.ea .btn{margin-left:auto;background:#fff;color:var(--red)}
+.kp{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:1.2rem}
+.kp .card{display:flex;gap:.9rem;align-items:center;padding:1.15rem}
+.kp .ic{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;font-size:1.2rem;background:#e3ebff;color:var(--blue);flex:none}
+.kp strong{display:block;font-size:1.8rem;line-height:1.1;font-weight:800;color:var(--ink)}.kp span{color:var(--mut);font-size:.85rem}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.2rem}
+.dn{display:flex;gap:1.4rem;align-items:center;flex-wrap:wrap}
+.donut{width:150px;aspect-ratio:1;border-radius:50%;flex:none;position:relative;display:grid;place-content:center;text-align:center;background:conic-gradient(var(--blue) 0 35%,var(--gold) 0 62%,var(--red) 0 82%,var(--ink) 0 94%,#9db8f5 0 100%)}
+.donut::before{content:"";position:absolute;inset:24px;background:#fff;border-radius:50%}.donut b,.donut small{position:relative;line-height:1.1}.donut b{font-size:1.6rem;color:var(--ink)}.donut small{color:var(--mut)}
+.lg{list-style:none;padding:0;display:grid;gap:.35rem;font-size:.9rem;flex:1}.lg li::before{content:"";display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:.55rem;background:var(--c)}
+.pa{display:grid;gap:.9rem}.pa div{display:grid;grid-template-columns:70px 1fr auto;gap:.8rem;align-items:center;font-size:.9rem;font-weight:600}
+.pa i{height:10px;border-radius:9px;background:#e9edf6;overflow:hidden;display:block}.pa i b{display:block;height:100%;border-radius:9px;background:linear-gradient(90deg,var(--blue),#6f93f0)}
+.tb{display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem}.tb>*{flex:1;min-width:150px}.tb .btn{flex:none}
+.tw{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:.9rem}
+th{text-align:left;color:var(--mut);font-weight:600;font-size:.8rem;padding:.6rem .8rem;white-space:nowrap}
+td{padding:.85rem .8rem;border-top:1px solid var(--line);vertical-align:middle}tr:hover td{background:#f8faff}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:.45rem;background:var(--c)}
+.dg{display:grid;grid-template-columns:1.5fr 1fr;gap:1rem}.dg>div{display:grid;gap:1rem;align-content:start}
+.ai{border:2px solid transparent;background:linear-gradient(#fff,#fff) padding-box,linear-gradient(135deg,var(--gold),var(--blue)) border-box}
+.ai dl{display:grid;grid-template-columns:96px 1fr;gap:.55rem .8rem;font-size:.9rem}.ai dt{font-weight:700;color:var(--ink)}.ai dd{margin:0}
+.meter{height:8px;border-radius:9px;background:#e9edf6;margin-top:.3rem;overflow:hidden}.meter i{display:block;width:88%;height:100%;background:var(--gold)}
+.ph{height:200px;border-radius:16px;background:linear-gradient(135deg,#cfd9ef,#e8edf8);display:grid;place-items:center;color:var(--mut);text-align:center;margin-top:1rem}
+
+@media(max-width:900px){
+  .adm.on{grid-template-columns:1fr}
+  .sb{position:static;height:auto;border-right:0;border-bottom:1px solid rgba(255,255,255,0.1)}
+  .sb nav{display:flex;overflow-x:auto}
+  .sb nav a{white-space:nowrap}
+  .sb hr{display:none}
+  .cols,.dg{grid-template-columns:1fr}
+  .sr{display:none}
+}
+@media(max-width:700px){.hero .in{grid-template-columns:1fr}.seal{width:110px;padding:8px;order:-1;justify-self:start;box-shadow:0 0 0 8px #ffffff0d}.hero{padding-top:2rem}}
+@media(max-width:560px){.g2{grid-template-columns:1fr}.formc{padding:1.2rem}.cta .btn{flex:1}.trk{flex-direction:column;border-radius:20px}.steps li{font-size:.72rem}.steps li i{width:2.4rem;height:2.4rem}.steps li::after{top:1.2rem}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<!-- ============ RESIDENT / GUEST ============ -->
+<div class="area">
+
+<!-- Report form -->
+<section class="view" data-v="home">
+  <div class="hero"><div class="in">
+    <div>
+      <h1>Report a problem in Barangay Calarian</h1>
+      <p>Send a report with a photo and location. Barangay staff review it, route it to the proper office, and keep you updated with a tracking code.</p>
+      <em>Pusong May Malasakit, Serbisyong Tapat sa Mamamayan</em>
+      <div class="cta"><button class="btn gold" onclick="document.getElementById('f').scrollIntoView({behavior:'smooth'})"><i class="fa-solid fa-pen-to-square"></i> Report a problem</button>
+      <a class="btn ghost" href="#/track" data-l="track"><i class="fa-solid fa-magnifying-glass"></i> Track a report</a></div>
+    </div>
+    <div class="seal"><img src="calarian-seal.png" alt=""></div>
+  </div></div>
+
+  <div class="wrap">
+    <div class="card alert" role="alert"><i class="fa-solid fa-triangle-exclamation"></i>
+      <div><h2>Emergency or crime? Call 911 or the police first.</h2><p>This system is not monitored in real time.</p>
+      <div class="chips"><span><i class="fa-solid fa-phone"></i> Emergency <b>911</b></span><span><i class="fa-solid fa-shield-halved"></i> Police <b>117</b></span><span><i class="fa-solid fa-fire-extinguisher"></i> Fire <b>(062) 991-1111</b></span><span><i class="fa-solid fa-truck-medical"></i> Ambulance <b>(062) 991-2222</b></span><span><i class="fa-solid fa-headset"></i> Barangay hotline <b>(062) 123-4567</b></span></div></div></div>
+
+    <form class="card formc" id="f" onsubmit="location.hash='#/track';return false">
+      <h2><i class="fa-solid fa-clipboard-list"></i> Problem report</h2>
+      <div class="fld"><label for="d"><i class="fa-solid fa-align-left"></i> What is the problem?</label>
+        <textarea id="d" rows="4" required placeholder="Example: Barado ang drainage sa harap ng tindahan, bumabaha na kapag umuulan."></textarea>
+        <p class="hint">You may write in English, Filipino, Bisaya, or Chavacano.</p></div>
+      <div class="fld"><label><i class="fa-solid fa-camera"></i> Photo (optional)</label>
+        <div class="drop"><i class="fa-solid fa-cloud-arrow-up"></i><b>Tap to add a photo</b><br><small>JPG or PNG, up to 5 MB</small><input type="file" accept="image/*" aria-label="Photo"></div></div>
+      <div class="fld"><label><i class="fa-solid fa-location-dot"></i> Location</label>
+        <div class="map" role="img" aria-label="Map preview with a location pin"><i class="fa-solid fa-location-dot pin"></i><button type="button" class="btn out sm"><i class="fa-solid fa-crosshairs"></i> Use my location</button></div>
+        <p class="hint">Drag the pin to adjust, or choose a purok or landmark below.</p></div>
+      <div class="g2 fld">
+        <div><label for="pu"><i class="fa-solid fa-map"></i> Purok</label><select id="pu"><option>Select purok</option><option>Purok 1</option><option>Purok 2</option><option>Purok 3</option></select></div>
+        <div><label for="lm"><i class="fa-solid fa-landmark"></i> Landmark</label><input id="lm" placeholder="Near the chapel, beside the school"></div></div>
+      <div class="fld"><label for="em"><i class="fa-solid fa-envelope"></i> Email for updates (optional)</label><input id="em" type="email" placeholder="name@example.com">
+        <p class="hint"><i class="fa-solid fa-lock"></i> Your contact details are never shown on the public map.</p></div>
+      <button class="btn gold" type="submit"><i class="fa-solid fa-paper-plane"></i> Submit report</button>
+    </form>
+  </div>
+</section>
+
+<!-- Track -->
+<section class="view" data-v="track">
+  <div class="hero s"><div class="in"><h1>Track a report</h1><p>Enter the code you received when you submitted your report.</p>
+  <div class="cta"><a class="btn ghost" href="#/" data-l="home"><i class="fa-solid fa-arrow-left"></i> Back to report form</a></div>
+  </div></div>
+  <div class="wrap">
+    <form class="trk" onsubmit="return false"><input aria-label="Tracking code" value="BRG-7K3X9Q"><button class="btn navy"><i class="fa-solid fa-magnifying-glass"></i> Search</button></form>
+    <div class="card">
+      <p class="hint" style="margin:0">Tracking code</p>
+      <h2 style="font-size:1.8rem;font-family:Consolas,monospace">BRG-7K3X9Q</h2>
+      <p style="margin-top:.3rem;color:var(--mut)">Submitted Nov 2, 2026 at 9:14 AM, Purok 2</p>
+      <ol class="steps">
+        <li class="d"><i class="fa-solid fa-inbox"></i>Received</li>
+        <li class="d"><i class="fa-solid fa-eye"></i>Under review</li>
+        <li class="c"><i class="fa-solid fa-route"></i>Routed</li>
+        <li><i class="fa-solid fa-circle-check"></i>Resolved</li>
+      </ol>
+      <ol class="tl">
+        <li><b>Routed to Engineering and Maintenance</b><small>Nov 2, 10:05 AM. A field team will inspect the drainage.</small></li>
+        <li><b>Under review</b><small>Nov 2, 9:40 AM by Barangay staff</small></li>
+        <li><b>Report received</b><small>Nov 2, 9:14 AM</small></li>
+      </ol>
+    </div>
+  </div>
+</section>
+<footer class="rf">
+  <a href="#/staff" data-l="staff" class="btn ghost"><i class="fa-solid fa-user-shield"></i> Staff Login</a>
+  <span>Barangay Calarian, Zamboanga City. Sama-sama tayo, mas maunlad na Calarian.</span>
+</footer>
+</div>
+
+<!-- ============ STAFF / ADMIN ============ -->
+<div class="area adm">
+<aside class="sb">
+  <div class="br"><img src="calarian-seal.png" alt=""><div><b>Calarian Reports</b><small>Staff dashboard</small></div></div>
+  <nav aria-label="Staff">
+    <a href="#/staff" data-l="staff"><i class="fa-solid fa-gauge-high"></i> Dashboard</a>
+    <a href="#/staff" data-l="q"><i class="fa-solid fa-inbox"></i> Report queue <em>14</em></a>
+    <a href="#/report" data-l="report"><i class="fa-solid fa-file-lines"></i> Review report</a>
+    <a href="#/staff" data-l="m"><i class="fa-solid fa-map-location-dot"></i> Problem map</a>
+    <a href="#/staff" data-l="r"><i class="fa-solid fa-share-from-square"></i> Referrals</a>
+    <a href="#/staff" data-l="s"><i class="fa-solid fa-gear"></i> Settings</a>
+    <hr>
+    <a href="#/"><i class="fa-solid fa-arrow-right-from-bracket"></i> Resident site</a>
+  </nav>
+</aside>
+<div>
+<div class="top"><div><h1 id="tt">Dashboard</h1><p>Monday, November 2, 2026</p></div>
+  <div class="r"><div class="sr"><i class="fa-solid fa-magnifying-glass"></i><input aria-label="Search" placeholder="Search reports"></div><div class="bell" aria-label="Notifications"><i class="fa-regular fa-bell"></i></div><div class="av">BA</div></div></div>
+
+<main class="main">
+<!-- Dashboard -->
+<section class="view" data-v="staff">
+  <div class="ea" role="alert"><i class="fa-solid fa-triangle-exclamation fa-lg"></i><div><b>1 emergency-flagged report needs confirmation</b><br><small>Reported 8 minutes ago. Hidden from the public map.</small></div><a class="btn" href="#/report">Open report</a></div>
+  <div class="kp">
+    <div class="card"><div class="ic"><i class="fa-solid fa-inbox"></i></div><div><strong>14</strong><span>Awaiting review</span></div></div>
+    <div class="card"><div class="ic" style="background:#ffe0dd;color:var(--red)"><i class="fa-solid fa-bolt"></i></div><div><strong>3</strong><span>High or critical</span></div></div>
+    <div class="card"><div class="ic" style="background:#fff1c2;color:#a87400"><i class="fa-solid fa-gears"></i></div><div><strong>9</strong><span>In progress</span></div></div>
+    <div class="card"><div class="ic" style="background:#d9f5e3;color:#13693a"><i class="fa-solid fa-circle-check"></i></div><div><strong>2.4 days</strong><span>Average time to resolve</span></div></div>
+  </div>
+  <div class="cols">
+    <div class="card"><h2><i class="fa-solid fa-chart-pie"></i> Reports by category</h2>
+      <div class="dn"><div class="donut"><b>50</b><small>reports</small></div>
+      <ul class="lg"><li style="--c:var(--blue)">Drainage, 17</li><li style="--c:var(--gold)">Garbage, 13</li><li style="--c:var(--red)">Road damage, 10</li><li style="--c:var(--ink)">Streetlight, 6</li><li style="--c:#9db8f5">Flooding, 4</li></ul></div></div>
+    <div class="card"><h2><i class="fa-solid fa-location-crosshairs"></i> Problem areas</h2>
+      <div class="pa"><div>Purok 2<i><b style="width:85%"></b></i>12</div><div>Purok 4<i><b style="width:57%"></b></i>8</div><div>Purok 1<i><b style="width:36%"></b></i>5</div><div>Purok 3<i><b style="width:21%"></b></i>3</div></div>
+      <p class="hint">Based on clustering of open reports.</p></div>
+  </div>
+  <div class="card"><h2><i class="fa-solid fa-list-check"></i> Report queue</h2>
+    <div class="tb"><input aria-label="Search" placeholder="Search code or description">
+      <select aria-label="Status"><option>All statuses</option><option>Submitted</option><option>Under review</option></select>
+      <select aria-label="Purok"><option>All puroks</option><option>Purok 2</option></select>
+      <button class="btn navy"><i class="fa-solid fa-filter"></i> Filter</button></div>
+    <div class="tw"><table>
+      <tr><th>Priority</th><th>Code</th><th>Summary (AI suggestion)</th><th>Category</th><th>Purok</th><th>Status</th><th></th></tr>
+      <tr><td><span class="dot" style="--c:var(--red)"></span>Critical</td><td>BRG-4M2PL8</td><td>Possible shooting reported near the market.</td><td>Emergency</td><td>Purok 3</td><td><span class="badge b-red">Flagged</span></td><td><a class="btn gold sm" href="#/report">Review</a></td></tr>
+      <tr><td><span class="dot" style="--c:var(--red)"></span>High</td><td>BRG-7K3X9Q</td><td>Clogged drainage causing flooding in front of a store.</td><td>Drainage</td><td>Purok 2</td><td><span class="badge b-blue">Submitted</span></td><td><a class="btn gold sm" href="#/report">Review</a></td></tr>
+      <tr><td><span class="dot" style="--c:var(--gold)"></span>Medium</td><td>BRG-2Q9ZDA</td><td>Streetlight not working beside the school.</td><td>Streetlight</td><td>Purok 4</td><td><span class="badge b-gold">Under review</span></td><td><a class="btn gold sm" href="#/report">Review</a></td></tr>
+      <tr><td><span class="dot" style="--c:#2fb36b"></span>Low</td><td>BRG-9T5HWC</td><td>Uncollected garbage near the chapel.</td><td>Garbage</td><td>Purok 1</td><td><span class="badge b-gray">In progress</span></td><td><a class="btn gold sm" href="#/report">Review</a></td></tr>
+    </table></div></div>
+</section>
+
+<!-- Report detail -->
+<section class="view" data-v="report">
+  <p style="margin-bottom:1rem"><a href="#/staff" style="font-weight:600;text-decoration:none"><i class="fa-solid fa-arrow-left"></i> Back to queue</a></p>
+  <div style="display:flex;gap:.8rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem">
+    <h2 style="font-size:1.6rem;font-family:Consolas,monospace">BRG-7K3X9Q</h2><span class="badge b-blue">Submitted</span><span class="badge b-red"><i class="fa-solid fa-bolt"></i> High priority</span></div>
+  <div class="dg">
+    <div>
+      <div class="card"><h2><i class="fa-solid fa-comment-dots"></i> Resident report</h2>
+        <p>Barado ang drainage sa harap ng tindahan, bumabaha na kapag umuulan.</p>
+        <div class="ph"><span><i class="fa-regular fa-image fa-2x"></i><br>Photo attached by resident</span></div></div>
+      <div class="card"><h2><i class="fa-solid fa-map-pin"></i> Location</h2>
+        <p style="font-size:.92rem;color:var(--mut)">Purok 2, near the chapel. Submitted Nov 2, 2026 at 9:14 AM. Email: not provided.</p>
+        <div class="map" style="margin-top:.8rem"><i class="fa-solid fa-location-dot pin"></i></div></div>
+    </div>
+    <div>
+      <div class="card ai"><h2><i class="fa-solid fa-wand-magic-sparkles"></i> AI suggestion</h2>
+        <dl><dt>Category</dt><dd>Drainage</dd><dt>Urgency</dt><dd><span class="badge b-red">High</span></dd>
+        <dt>Summary</dt><dd>Clogged drainage is flooding the road in front of a store.</dd>
+        <dt>Photo</dt><dd>Shows standing water and a blocked drain. Matches the text.</dd>
+        <dt>Duplicates</dt><dd>1 possible match: BRG-1A8KQW, 150 m away</dd>
+        <dt>Confidence</dt><dd>88%<div class="meter"><i></i></div></dd></dl>
+        <p class="hint"><i class="fa-solid fa-user-check"></i> Suggestion only. Staff review and decide.</p></div>
+      <div class="card"><h2><i class="fa-solid fa-sitemap"></i> Recommended office</h2>
+        <p><b>Engineering and Maintenance</b></p><p class="hint" style="margin-top:0">Within barangay authority.</p></div>
+      <div class="card"><h2><i class="fa-solid fa-pen"></i> Update status</h2>
+        <div class="fld"><select aria-label="Status"><option>Routed</option><option>Under review</option><option>In progress</option><option>Resolved</option><option>Out of scope</option></select></div>
+        <div class="fld"><textarea rows="3" aria-label="Note" placeholder="Note shown to the resident"></textarea></div>
+        <button class="btn gold"><i class="fa-solid fa-floppy-disk"></i> Save status</button></div>
+      <div class="card"><h2><i class="fa-solid fa-clock-rotate-left"></i> Status history</h2>
+        <ol class="tl"><li><b>Under review</b><small>Nov 2, 9:40 AM by Barangay staff</small></li><li><b>Submitted</b><small>Nov 2, 9:14 AM by Resident</small></li></ol></div>
+    </div>
+  </div>
+</section>
+</main>
+</div>
+</div>
+
+<script>
+const V=[...document.querySelectorAll('.view')],A=[...document.querySelectorAll('.area')],L=[...document.querySelectorAll('[data-l]')];
+const T={staff:'Dashboard',report:'Review report'};
+function go(){
+  const k=(location.hash||'#/').slice(2)||'home',t=V.find(v=>v.dataset.v===k)||V[0];
+  V.forEach(v=>v.classList.toggle('on',v===t));
+  A.forEach(a=>a.classList.toggle('on',a.contains(t)));
+  L.forEach(a=>a.classList.toggle('act',a.dataset.l===t.dataset.v));
+  document.getElementById('tt').textContent=T[t.dataset.v]||'Dashboard';
+  scrollTo(0,0);
+}
+addEventListener('hashchange',go);go();
+</script>
+</body>
+</html>

@@ -5,15 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>@yield('title', 'Staff Dashboard') | Barangay Calarian</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   @vite(['resources/css/app.css', 'resources/js/app.js'])
   @stack('head')
 </head>
 <body style="--hall-background: url('{{ asset('storage/Calarian_Barangay_Hall.jpg') }}')">
   <div class="staff-shell">
-    <aside class="staff-sidebar">
+    <aside id="staff-sidebar" class="staff-sidebar" aria-label="Staff navigation">
       <a href="{{ route('admin.reports.index') }}" class="site-brand staff-sidebar-brand">
         <span class="brand-seal" aria-hidden="true"><img src="{{ asset('storage/calarian-seal.png') }}" alt=""></span>
         <span>
@@ -51,6 +48,10 @@
 
     <div class="staff-main">
       <header class="staff-topbar">
+        <button type="button" class="staff-menu-toggle" aria-label="Open staff navigation"
+          aria-controls="staff-sidebar" aria-expanded="false">
+          <i class="fa-solid fa-bars" aria-hidden="true"></i>
+        </button>
         <div>
           <h1>@yield('page-heading', 'Staff dashboard')</h1>
           <p>Barangay Calarian · Report management</p>
@@ -72,6 +73,7 @@
       </main>
     </div>
   </div>
+  <button type="button" class="staff-drawer-overlay" aria-label="Close staff navigation" tabindex="-1"></button>
   @stack('scripts')
 </body>
 </html>

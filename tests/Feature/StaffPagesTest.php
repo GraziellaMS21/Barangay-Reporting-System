@@ -24,6 +24,9 @@ class StaffPagesTest extends TestCase
         $this->get(route('reports.create'))
             ->assertOk()
             ->assertSee('Report a problem in Barangay Calarian')
+            ->assertSee('aria-label="Open main navigation"', false)
+            ->assertSee('aria-controls="site-navigation"', false)
+            ->assertDontSee('fonts.googleapis.com')
             ->assertSee(asset('storage/Calarian_Barangay_Hall.jpg'), false)
             ->assertSee(asset('storage/calarian-seal.png'), false);
 
@@ -54,7 +57,10 @@ class StaffPagesTest extends TestCase
 
         $this->get(route('admin.reports.index'))
             ->assertOk()
-            ->assertSee('Resident reports');
+            ->assertSee('Resident reports')
+            ->assertSee('aria-label="Open staff navigation"', false)
+            ->assertSee('aria-controls="staff-sidebar"', false)
+            ->assertDontSee('fonts.googleapis.com');
     }
 
     public function test_staff_can_open_report_dashboard_and_details(): void

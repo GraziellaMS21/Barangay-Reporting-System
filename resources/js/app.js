@@ -15,6 +15,88 @@ L.Icon.Default.mergeOptions({
 
 window.L = L;
 
+const photosInput = document.getElementById('photos');
+const addPhotosButton = document.getElementById('add-photos');
+const photoEmptyState = document.getElementById('photo-empty-state');
+const photoPreviews = document.getElementById('photo-previews');
+const photoUploadError = document.getElementById('photo-upload-error');
+const photoTotalSize = document.getElementById('photo-total-size');
+
+if (photosInput && addPhotosButton && photoEmptyState && photoPreviews && photoUploadError && photoTotalSize) {
+  const maximumTotalSize = 5 * 1024 * 1024;
+  let selectedPhotos = [];
+  let previewUrls = [];
+
+  addPhotosButton.addEventListener('click', () => photosInput.click());
+
+  const updateInputFiles = () => {
+    const transfer = new DataTransfer();
+    selectedPhotos.forEach((photo) => transfer.items.add(photo));
+    photosInput.files = transfer.files;
+  };
+
+  const renderPhotoPreviews = () => {
+    previewUrls.forEach((url) => URL.revokeObjectURL(url));
+    previewUrls = [];
+    photoPreviews.replaceChildren();
+    photoEmptyState.hidden = selectedPhotos.length > 0;
+
+    selectedPhotos.forEach((photo, index) => {
+      const previewUrl = URL.createObjectURL(photo);
+      previewUrls.push(previewUrl);
+
+      const preview = document.createElement('figure');
+      preview.className = 'photo-preview-item';
+
+      const image = document.createElement('img');
+      image.src = previewUrl;
+      image.alt = `Preview of ${photo.name}`;
+
+      const caption = document.createElement('figcaption');
+      caption.textContent = photo.name;
+
+      const removeButton = document.createElement('button');
+      removeButton.type = 'button';
+      removeButton.className = 'photo-preview-remove';
+      removeButton.setAttribute('aria-label', `Remove ${photo.name}`);
+      removeButton.title = `Remove ${photo.name}`;
+      removeButton.innerHTML = '<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
+      removeButton.addEventListener('click', () => {
+        selectedPhotos = selectedPhotos.filter((_, photoIndex) => photoIndex !== index);
+        updateInputFiles();
+        renderPhotoPreviews();
+      });
+
+      preview.append(image, caption, removeButton);
+      photoPreviews.append(preview);
+    });
+
+    const totalSize = selectedPhotos.reduce((total, photo) => total + photo.size, 0);
+    photoTotalSize.textContent = selectedPhotos.length
+      ? `Combined size: ${(totalSize / (1024 * 1024)).toFixed(2)} MB / 5 MB`
+      : '';
+  };
+
+  photosInput.addEventListener('change', () => {
+    const addedPhotos = Array.from(photosInput.files ?? []);
+    const combinedSize = selectedPhotos.reduce((total, photo) => total + photo.size, 0)
+      + addedPhotos.reduce((total, photo) => total + photo.size, 0);
+
+    if (combinedSize > maximumTotalSize) {
+      photoUploadError.textContent = 'The combined size of all photos must not exceed 5 MB.';
+      photoUploadError.hidden = false;
+      updateInputFiles();
+      return;
+    }
+
+    photoUploadError.textContent = '';
+    photoUploadError.hidden = true;
+    selectedPhotos = [...selectedPhotos, ...addedPhotos];
+    updateInputFiles();
+    renderPhotoPreviews();
+  });
+}
+
 const reportMapElement = document.getElementById('map');
 const detailMapElement = document.getElementById('report-location-map');
 

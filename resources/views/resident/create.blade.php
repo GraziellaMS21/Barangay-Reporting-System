@@ -63,16 +63,23 @@
 
     <div class="field">
       <span class="field-label"><i class="fa-solid fa-camera" aria-hidden="true"></i> Photo (optional)</span>
-      <label class="file-drop">
-        <span>
-          <i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i>
-          <b>Tap to add a photo</b><br>
-          <small>JPG or PNG, up to 5 MB</small>
-        </span>
-        <input type="file" id="photo" name="photo" accept="image/*" aria-label="Photo (optional)">
-      </label>
-      @error('photo')
-        <p class="field-hint">{{ $message }}</p>
+      <div class="photo-preview-area">
+        <p id="photo-empty-state" class="photo-empty-state">Your selected photo previews will appear here.</p>
+        <div id="photo-previews" class="photo-preview-grid" aria-live="polite"></div>
+      </div>
+      <input type="file" id="photos" name="photos[]" accept="image/jpeg,image/png"
+        aria-label="Photos (optional)" multiple hidden>
+      <button type="button" id="add-photos" class="btn btn-outline btn-small photo-add-button">
+        <i class="fa-solid fa-plus" aria-hidden="true"></i> Tap to add photos
+      </button>
+      <p class="field-hint">JPG or PNG, combined up to 5 MB.</p>
+      <p id="photo-upload-error" class="field-hint" role="alert" hidden></p>
+      <p id="photo-total-size" class="field-hint" aria-live="polite"></p>
+      @error('photos')
+        <p class="field-hint" role="alert">{{ $message }}</p>
+      @enderror
+      @error('photos.*')
+        <p class="field-hint" role="alert">{{ $message }}</p>
       @enderror
     </div>
 
@@ -106,11 +113,34 @@
       </div>
     </div>
 
+    <div class="form-grid">
+      <div class="field">
+        <label for="reporter_name"><i class="fa-solid fa-user" aria-hidden="true"></i> Name (optional)</label>
+        <input type="text" id="reporter_name" name="reporter_name" value="{{ old('reporter_name') }}"
+          autocomplete="name" maxlength="100">
+      </div>
+      <div class="field">
+        <label for="reporter_contact">
+          <i class="fa-solid fa-phone" aria-hidden="true"></i> Contact number
+          @if(!config('reports.require_contact')) (optional) @endif
+        </label>
+        <input type="tel" id="reporter_contact" name="reporter_contact" value="{{ old('reporter_contact') }}"
+          autocomplete="tel" inputmode="tel" maxlength="20" @if(config('reports.require_contact')) required @endif>
+        <p class="field-hint">
+          @if(config('reports.require_contact'))
+            Lets barangay staff reach you if they need more details.
+          @else
+            Optional. Lets barangay staff reach you if they need more details.
+          @endif
+        </p>
+      </div>
+    </div>
+
     <div class="field">
       <label for="reporter_email"><i class="fa-solid fa-envelope" aria-hidden="true"></i> Email for updates (optional)</label>
       <input type="email" id="reporter_email" name="reporter_email" value="{{ old('reporter_email') }}"
         autocomplete="email" placeholder="name@example.com">
-      <p class="field-hint"><i class="fa-solid fa-lock" aria-hidden="true"></i> Your contact details are never shown on the public page.</p>
+      <p class="field-hint">Only barangay staff can see your contact details. They are never shown publicly.</p>
     </div>
 
     <button type="submit" class="btn btn-gold">

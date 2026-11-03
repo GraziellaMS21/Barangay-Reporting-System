@@ -3,19 +3,28 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Category;
+use App\Models\Office;
 use App\Models\Purok;
 use App\Models\Report;
+use App\Models\ReportPhoto;
+use App\Services\PriorityService;
+use App\Services\RoutingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportController extends Controller
 {
     public function index(Request $request): View
     {
-        $query = Report::query()->with('purok');
+        $query = Report::query()
+            ->select(['id', 'tracking_code', 'description', 'purok_id', 'status', 'created_at'])
+            ->with('purok:id,name');
 
         // Filter: Status
         if ($request->filled('status') && array_key_exists($request->input('status'), Report::STATUSES)) {
@@ -38,7 +47,7 @@ class ReportController extends Controller
 
         // Order: open reports first, then closed (resolved, out_of_scope, merged, referred), each newest first.
         // Note: Phase 5 replaces this ordering with priority score and emergency-first ordering.
-        $closedStatusesList = "'" . implode("','", Report::CLOSED_STATUSES) . "'";
+        $closedStatusesList = "'".implode("','", Report::CLOSED_STATUSES)."'";
         $query->orderByRaw("CASE WHEN status IN ({$closedStatusesList}) THEN 1 ELSE 0 END ASC")
             ->latest('created_at')
             ->latest('id');
@@ -70,41 +79,128 @@ class ReportController extends Controller
         ));
     }
 
-    public function show(Report $report): View
+    public function show(Report $report, RoutingService $routingService): View
     {
-        $report->load(['purok', 'statusLogs.user']);
+        $report->load(['purok', 'statusLogs.user', 'aiResult.confirmedBy', 'category', 'photos']);
         $manualStatuses = Report::MANUAL_STATUSES;
+        $categories = Category::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'slug']);
+        $offices = Office::query()->orderBy('name')->get();
+        $recommendedOffice = $report->category ? $routingService->recommendedOffice($report->category) : null;
 
-        return view('admin.reports.show', compact('report', 'manualStatuses'));
+        return view('admin.reports.show', compact('report', 'manualStatuses', 'categories', 'offices', 'recommendedOffice'));
     }
 
-    public function updateStatus(Request $request, Report $report): RedirectResponse
+    public function photo(Report $report): StreamedResponse
     {
-        $validated = $request->validate([
-            'status' => ['required', Rule::in(Report::MANUAL_STATUSES)],
-            'note' => [
-                'nullable',
-                'string',
-                'max:500',
-                'required_if:status,out_of_scope',
-            ],
-        ], [
-            'note.required_if' => 'A recorded explanation is required when a report is marked out of scope.',
-        ]);
+        abort_if(blank($report->photo_path), 404);
 
-        // Reject a no-op (same status and empty note)
-        if ($request->input('status') === $report->status && blank($request->input('note'))) {
+        return Storage::disk('local')->response($report->photo_path);
+    }
+
+    public function showPhoto(Report $report, ReportPhoto $photo): StreamedResponse
+    {
+        abort_unless($photo->report_id === $report->id, 404);
+
+        return Storage::disk('local')->response($photo->photo_path);
+    }
+
+    public function confirmAiResult(Request $request, Report $report): RedirectResponse
+    {
+        $aiResult = $report->aiResult()->whereNull('error')->firstOrFail();
+        $activeCategorySlugs = Category::query()
+            ->where('is_active', true)
+            ->pluck('slug')
+            ->all();
+        $validated = $request->validate([
+            'suggested_category' => ['required', Rule::in([...$activeCategorySlugs, 'unclassified'])],
+            'suggested_urgency' => ['required', Rule::in(['Low', 'Medium', 'High', 'Critical'])],
+            'summary' => ['required', 'string', 'max:500'],
+            'photo_description' => ['nullable', 'string', 'max:1000'],
+            'photo_mismatch' => ['required', 'boolean'],
+            'emergency_flag' => ['required', 'boolean'],
+            'location_details' => ['nullable', 'string', 'max:255'],
+            'key_facts_text' => ['nullable', 'string', 'max:2000'],
+            'confidence' => ['required', 'numeric', 'between:0,1'],
+            'confirmation_note' => ['required', 'string', 'max:500'],
+        ]);
+        $keyFacts = collect(preg_split('/\R/u', $validated['key_facts_text'] ?? ''))
+            ->map(fn (string $fact): string => trim($fact))
+            ->filter()
+            ->values();
+
+        if ($keyFacts->count() > 8 || $keyFacts->contains(fn (string $fact): bool => mb_strlen($fact) > 250)) {
             return back()
-                ->withErrors(['status' => 'No changes made. Please select a different status or add a note.'])
+                ->withErrors(['key_facts_text' => 'Enter up to 8 key facts, with no more than 250 characters per fact.'])
                 ->withInput();
         }
 
-        DB::transaction(function () use ($report, $validated, $request) {
+        $categoryId = $validated['suggested_category'] === 'unclassified'
+            ? null
+            : Category::query()
+                ->where('slug', $validated['suggested_category'])
+                ->where('is_active', true)
+                ->value('id');
+
+        DB::transaction(function () use ($aiResult, $categoryId, $keyFacts, $request, $report, $validated): void {
+            $aiResult->update([
+                'suggested_category' => $validated['suggested_category'],
+                'suggested_urgency' => $validated['suggested_urgency'],
+                'summary' => $validated['summary'],
+                'photo_description' => $validated['photo_description'] ?? null,
+                'photo_mismatch' => $request->boolean('photo_mismatch'),
+                'emergency_flag' => $request->boolean('emergency_flag'),
+                'location_details' => $validated['location_details'] ?? null,
+                'key_facts' => $keyFacts->all(),
+                'confidence' => $validated['confidence'],
+                'confirmed_by' => $request->user()->id,
+                'confirmed_at' => now(),
+                'confirmation_note' => $validated['confirmation_note'],
+            ]);
+
+            $report->update([
+                'category_id' => $categoryId,
+                'urgency' => $validated['suggested_urgency'],
+                'summary' => $validated['summary'],
+                'is_emergency' => $request->boolean('emergency_flag'),
+            ]);
+        });
+
+        return back()->with('success', 'Staff-reviewed AI suggestions saved to the report.');
+    }
+
+    public function updateStatus(Request $request, Report $report, RoutingService $routingService, PriorityService $priorityService): RedirectResponse
+    {
+        $validated = $request->validate([
+            'status' => ['required', Rule::in(Report::MANUAL_STATUSES)],
+            'note' => ['required', 'string', 'max:500'],
+            'office_id' => ['nullable', 'exists:offices,id'],
+        ], [
+            'note.required' => 'A note is required for every status change.',
+        ]);
+
+        DB::transaction(function () use ($report, $validated, $request, $routingService, $priorityService) {
             $fromStatus = $report->status;
             $toStatus = $validated['status'];
             $note = $validated['note'] ?? null;
+            $officeId = $validated['office_id'] ?? null;
 
-            $report->update(['status' => $toStatus]);
+            if ($officeId) {
+                $report->office_id = $officeId;
+            } elseif ($report->category) {
+                $recommendedOffice = $routingService->recommendedOffice($report->category);
+                $report->office_id = $recommendedOffice?->id ?? $report->office_id;
+            }
+
+            $report->priority_score = $priorityService->calculate($report);
+            $report->status = $toStatus;
+            $report->save();
+
+            if ($toStatus === 'routed' && $report->category && $report->office_id) {
+                $routingService->createReferral($report, Office::find($report->office_id));
+            }
 
             $report->statusLogs()->create([
                 'user_id' => $request->user()->id,

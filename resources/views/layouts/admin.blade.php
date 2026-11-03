@@ -22,8 +22,20 @@
         </span>
       </a>
       <nav class="staff-nav" aria-label="Staff navigation">
+        <a href="{{ route('admin.dashboard') }}" @class(['active' => request()->routeIs('admin.dashboard')])>
+          <i class="fa-solid fa-gauge-high" aria-hidden="true"></i> Dashboard
+        </a>
         <a href="{{ route('admin.reports.index') }}" @class(['active' => request()->routeIs('admin.reports.index')])>
           <i class="fa-solid fa-inbox" aria-hidden="true"></i> Report queue
+        </a>
+        <a href="{{ route('admin.map') }}" @class(['active' => request()->routeIs('admin.map')])>
+          <i class="fa-solid fa-map-location-dot" aria-hidden="true"></i> Staff map
+        </a>
+        <a href="{{ route('admin.referrals.index') }}" @class(['active' => request()->routeIs('admin.referrals.index')])>
+          <i class="fa-solid fa-clipboard-list" aria-hidden="true"></i> Referrals
+        </a>
+        <a href="{{ route('admin.settings.index') }}" @class(['active' => request()->routeIs('admin.settings.index')])>
+          <i class="fa-solid fa-gear" aria-hidden="true"></i> Settings
         </a>
         <a href="{{ route('reports.create') }}">
           <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Resident site

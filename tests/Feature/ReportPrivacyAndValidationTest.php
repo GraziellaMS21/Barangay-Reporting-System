@@ -1,0 +1,421 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Report;
+use App\Models\ReportPhoto;
+use App\Models\User;
+use Database\Seeders\DemoReportSeeder;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use PHPUnit\Framework\Attributes\DataProvider;
+use Tests\TestCase;
+
+class ReportPrivacyAndValidationTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config(['services.gemini.key' => '']);
+    }
+
+    /**
+     * @return array<string, array{array<string, float>, string}>
+     */
+    public static function partialCoordinates(): array
+    {
+        return [
+            'latitude without longitude' => [['lat' => 6.9214], 'lng'],
+            'longitude without latitude' => [['lng' => 122.079], 'lat'],
+        ];
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function validPhilippineContactNumbers(): array
+    {
+        return [
+            'local format' => ['0917 123-4567', '09171234567'],
+            'international format' => ['+63-917-123-4567', '+639171234567'],
+        ];
+    }
+
+    #[DataProvider('partialCoordinates')]
+    public function test_report_submission_requires_coordinate_pairs(
+        array $coordinates,
+        string $missingCoordinate
+    ): void {
+        $this->post(route('reports.store'), array_merge([
+            'description' => 'A drainage problem needs to be fixed.',
+        ], $coordinates))
+            ->assertSessionHasErrors($missingCoordinate);
+
+        $this->assertDatabaseCount('reports', 0);
+    }
+
+    public function test_report_submission_requires_a_location_method(): void
+    {
+        $this->post(route('reports.store'), [
+            'description' => 'A drainage problem needs to be fixed.',
+        ])
+            ->assertSessionHasErrors([
+                'location' => 'Please set a pin on the map, choose a purok, or enter a landmark.',
+            ]);
+
+        $this->assertDatabaseCount('reports', 0);
+    }
+
+    #[DataProvider('validPhilippineContactNumbers')]
+    public function test_report_submission_normalizes_optional_reporter_contact_numbers(
+        string $contactNumber,
+        string $normalizedNumber
+    ): void {
+        $this->from(route('reports.create'))
+            ->post(route('reports.store'), [
+                'description' => 'A drainage problem needs to be fixed.',
+                'landmark' => 'Near the community hall',
+                'reporter_name' => 'Juan Dela Cruz',
+                'reporter_contact' => $contactNumber,
+            ])
+            ->assertRedirect(route('reports.success', Report::query()->value('tracking_code')));
+
+        $this->assertDatabaseHas('reports', [
+            'reporter_name' => 'Juan Dela Cruz',
+            'reporter_contact' => $normalizedNumber,
+        ]);
+    }
+
+    public function test_report_submission_allows_omitting_optional_reporter_details(): void
+    {
+        $response = $this->post(route('reports.store'), [
+            'description' => 'A drainage problem needs to be fixed.',
+            'landmark' => 'Near the community hall',
+        ]);
+        $report = Report::query()->firstOrFail();
+
+        $response->assertRedirect(route('reports.success', $report->tracking_code));
+        $this->assertDatabaseHas('reports', [
+            'id' => $report->id,
+            'reporter_name' => null,
+            'reporter_contact' => null,
+        ]);
+    }
+
+    public function test_report_submission_rejects_invalid_contact_number_and_preserves_input(): void
+    {
+        $this->from(route('reports.create'))
+            ->post(route('reports.store'), [
+                'description' => 'A drainage problem needs to be fixed.',
+                'landmark' => 'Near the community hall',
+                'reporter_name' => 'Juan Dela Cruz',
+                'reporter_contact' => '12345',
+            ])
+            ->assertRedirect(route('reports.create'))
+            ->assertSessionHasErrors([
+                'reporter_contact' => 'Enter a Philippine mobile number, such as 09171234567 or +639171234567. Spaces and dashes are okay.',
+            ]);
+
+        $this->get(route('reports.create'))
+            ->assertOk()
+            ->assertSee('value="Juan Dela Cruz"', false)
+            ->assertSee('value="12345"', false);
+        $this->assertDatabaseCount('reports', 0);
+    }
+
+    public function test_contact_can_be_made_required_with_one_configuration_value(): void
+    {
+        config(['reports.require_contact' => true]);
+
+        $this->post(route('reports.store'), [
+            'description' => 'A drainage problem needs to be fixed.',
+            'landmark' => 'Near the community hall',
+        ])
+            ->assertSessionHasErrors([
+                'reporter_contact' => 'Please enter a contact number so barangay staff can reach you.',
+            ]);
+
+        $this->assertDatabaseCount('reports', 0);
+    }
+
+    public function test_reporter_details_are_only_available_on_staff_review_pages(): void
+    {
+        $reporterName = 'Private Demo Reporter';
+        $reporterContact = '+639170000001';
+        $report = Report::factory()->create([
+            'reporter_name' => $reporterName,
+            'reporter_contact' => $reporterContact,
+        ]);
+        $staff = User::factory()->staff()->create();
+
+        $this->actingAs($staff)
+            ->get(route('admin.reports.show', $report))
+            ->assertOk()
+            ->assertSee($reporterName)
+            ->assertSee('tel:'.$reporterContact, false)
+            ->assertSee($reporterContact);
+
+        $this->get(route('admin.reports.index'))
+            ->assertOk()
+            ->assertDontSee($reporterName)
+            ->assertDontSee($reporterContact)
+            ->assertViewHas('reports', fn ($reports): bool => $reports->getCollection()->every(
+                fn (Report $queueReport): bool => ! array_key_exists('reporter_name', $queueReport->getAttributes())
+                    && ! array_key_exists('reporter_contact', $queueReport->getAttributes())
+            ));
+
+        $this->get(route('track.show', $report->tracking_code))
+            ->assertOk()
+            ->assertDontSee($reporterName)
+            ->assertDontSee($reporterContact)
+            ->assertViewHas('report', fn (Report $publicReport): bool => ! array_key_exists('reporter_name', $publicReport->getAttributes())
+                && ! array_key_exists('reporter_contact', $publicReport->getAttributes()));
+
+        $this->get(route('reports.success', $report->tracking_code))
+            ->assertOk()
+            ->assertDontSee($reporterName)
+            ->assertDontSee($reporterContact);
+
+        $this->get(route('map.index'))
+            ->assertOk()
+            ->assertDontSee($reporterName)
+            ->assertDontSee($reporterContact)
+            ->assertViewHas('reports', fn ($publicReports): bool => $publicReports->every(
+                fn (Report $publicReport): bool => ! array_key_exists('reporter_name', $publicReport->getAttributes())
+                    && ! array_key_exists('reporter_contact', $publicReport->getAttributes())
+            ));
+    }
+
+    public function test_staff_review_shows_not_provided_for_missing_reporter_details(): void
+    {
+        $staff = User::factory()->staff()->create();
+        $report = Report::factory()->create([
+            'reporter_name' => null,
+            'reporter_contact' => null,
+        ]);
+
+        $this->actingAs($staff)
+            ->get(route('admin.reports.show', $report))
+            ->assertOk()
+            ->assertSeeText('Name Not provided')
+            ->assertSeeText('Contact number Not provided');
+    }
+
+    public function test_staff_review_escapes_reporter_name_output(): void
+    {
+        $staff = User::factory()->staff()->create();
+        $report = Report::factory()->create([
+            'reporter_name' => "<script>alert('xss')</script>",
+        ]);
+
+        $this->actingAs($staff)
+            ->get(route('admin.reports.show', $report))
+            ->assertOk()
+            ->assertSee('&lt;script&gt;', false)
+            ->assertDontSee("<script>alert('xss')</script>", false);
+    }
+
+    public function test_demo_report_seeder_includes_fake_and_unprovided_reporter_details(): void
+    {
+        $this->seed(DemoReportSeeder::class);
+
+        $this->assertDatabaseHas('reports', [
+            'tracking_code' => 'BRG-DEMO01',
+            'reporter_name' => 'Juan Dela Cruz',
+            'reporter_contact' => '09170000001',
+        ]);
+        $this->assertDatabaseHas('reports', [
+            'tracking_code' => 'BRG-DEMO04',
+            'reporter_name' => null,
+            'reporter_contact' => null,
+        ]);
+    }
+
+    public function test_uploaded_report_photos_are_stored_on_the_private_disk(): void
+    {
+        Storage::fake('local');
+        Storage::fake('public');
+
+        $response = $this->post(route('reports.store'), [
+            'description' => 'A drainage problem needs to be fixed.',
+            'lat' => 6.9214,
+            'lng' => 122.079,
+            'photos' => [UploadedFile::fake()->image('report.png')],
+        ]);
+        $report = Report::query()->firstOrFail();
+
+        $response->assertRedirect(route('reports.success', $report->tracking_code));
+        Storage::disk('local')->assertExists($report->photo_path);
+        Storage::disk('public')->assertMissing($report->photo_path);
+        $this->assertDatabaseHas('status_logs', [
+            'report_id' => $report->id,
+            'to_status' => 'submitted',
+            'user_id' => null,
+        ]);
+    }
+
+    public function test_resident_can_submit_multiple_photos_and_staff_can_review_them(): void
+    {
+        Storage::fake('local');
+        $staff = User::factory()->staff()->create();
+
+        $response = $this->post(route('reports.store'), [
+            'description' => 'A drainage problem needs to be fixed.',
+            'landmark' => 'Near the community hall',
+            'photos' => [
+                UploadedFile::fake()->image('drainage-one.jpg')->size(2000),
+                UploadedFile::fake()->image('drainage-two.jpg')->size(2000),
+            ],
+        ]);
+        $report = Report::query()->firstOrFail();
+        $photos = ReportPhoto::query()->where('report_id', $report->id)->get();
+
+        $response->assertRedirect(route('reports.success', $report->tracking_code));
+        $this->assertCount(2, $photos);
+        $this->assertSame($photos->first()->photo_path, $report->photo_path);
+
+        foreach ($photos as $photo) {
+            Storage::disk('local')->assertExists($photo->photo_path);
+        }
+
+        $this->get(route('admin.reports.photos.show', [$report, $photos[0]]))
+            ->assertRedirect(route('login'));
+
+        $this->actingAs($staff)
+            ->get(route('admin.reports.show', $report))
+            ->assertOk()
+            ->assertSee(route('admin.reports.photos.show', [$report, $photos[0]]), false)
+            ->assertSee(route('admin.reports.photos.show', [$report, $photos[1]]), false);
+
+        $otherReport = Report::factory()->create();
+
+        $this->get(route('admin.reports.photos.show', [$otherReport, $photos[0]]))
+            ->assertNotFound();
+    }
+
+    public function test_resident_photo_upload_is_rejected_when_combined_size_exceeds_five_megabytes(): void
+    {
+        Storage::fake('local');
+
+        $this->from(route('reports.create'))
+            ->post(route('reports.store'), [
+                'description' => 'A drainage problem needs to be fixed.',
+                'landmark' => 'Near the community hall',
+                'photos' => [
+                    UploadedFile::fake()->image('drainage-one.jpg')->size(3000),
+                    UploadedFile::fake()->image('drainage-two.jpg')->size(3000),
+                ],
+            ])
+            ->assertRedirect(route('reports.create'))
+            ->assertSessionHasErrors([
+                'photos' => 'The combined size of all photos must not exceed 5 MB.',
+            ]);
+
+        $this->assertDatabaseCount('reports', 0);
+        $this->assertDatabaseCount('report_photos', 0);
+        Storage::disk('local')->assertDirectoryEmpty('reports');
+    }
+
+    public function test_report_submission_rejects_svg_photos(): void
+    {
+        Storage::fake('local');
+        Storage::fake('public');
+
+        $this->post(route('reports.store'), [
+            'description' => 'A drainage problem needs to be fixed.',
+            'lat' => 6.9214,
+            'lng' => 122.079,
+            'photos' => [UploadedFile::fake()->createWithContent(
+                'report.svg',
+                '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'
+            )],
+        ])
+            ->assertSessionHasErrors('photos.0');
+
+        $this->assertDatabaseCount('reports', 0);
+    }
+
+    public function test_staff_status_changes_require_a_note(): void
+    {
+        $staff = User::factory()->staff()->create();
+        $report = Report::factory()->create();
+
+        $this->actingAs($staff)
+            ->patch(route('admin.reports.status', $report), [
+                'status' => 'under_review',
+                'note' => '',
+            ])
+            ->assertSessionHasErrors([
+                'note' => 'A note is required for every status change.',
+            ]);
+
+        $this->assertDatabaseHas('reports', [
+            'id' => $report->id,
+            'status' => 'submitted',
+        ]);
+        $this->assertDatabaseMissing('status_logs', [
+            'report_id' => $report->id,
+            'to_status' => 'under_review',
+        ]);
+    }
+
+    public function test_staff_status_changes_record_the_staff_member_and_note(): void
+    {
+        $staff = User::factory()->staff()->create();
+        $report = Report::factory()->create();
+        $note = 'Reviewed and assigned for inspection.';
+
+        $this->actingAs($staff)
+            ->patch(route('admin.reports.status', $report), [
+                'status' => 'under_review',
+                'note' => $note,
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success', 'Report status updated successfully.');
+
+        $this->assertDatabaseHas('reports', [
+            'id' => $report->id,
+            'status' => 'under_review',
+        ]);
+        $this->assertDatabaseHas('status_logs', [
+            'report_id' => $report->id,
+            'user_id' => $staff->id,
+            'from_status' => 'submitted',
+            'to_status' => 'under_review',
+            'note' => $note,
+        ]);
+    }
+
+    public function test_report_photos_are_only_available_to_staff_through_the_private_route(): void
+    {
+        Storage::fake('local');
+
+        $report = Report::factory()->create([
+            'photo_path' => 'reports/private.jpg',
+        ]);
+        Storage::disk('local')->put($report->photo_path, 'private photo contents');
+
+        $this->get(route('admin.reports.photo', $report))
+            ->assertRedirect(route('login'));
+
+        $staff = User::factory()->staff()->create();
+
+        $this->actingAs($staff)
+            ->get(route('admin.reports.show', $report))
+            ->assertOk()
+            ->assertSee(route('admin.reports.photo', $report), false);
+
+        $this->get(route('admin.reports.photo', $report))
+            ->assertOk()
+            ->assertStreamedContent('private photo contents');
+
+        $reportWithoutPhoto = Report::factory()->create(['photo_path' => null]);
+
+        $this->get(route('admin.reports.photo', $reportWithoutPhoto))
+            ->assertNotFound();
+    }
+}

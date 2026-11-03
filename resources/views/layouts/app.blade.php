@@ -27,6 +27,7 @@
       <nav class="site-nav" aria-label="Main navigation">
         <a href="{{ route('reports.create') }}"><i class="fa-solid fa-pen-to-square" aria-hidden="true"></i> Report</a>
         <a href="{{ route('track.index') }}"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Track</a>
+        <a href="{{ route('map.index') }}"><i class="fa-solid fa-map" aria-hidden="true"></i> Public map</a>
         @auth
           <a href="{{ route('admin.reports.index') }}"><i class="fa-solid fa-gauge-high" aria-hidden="true"></i> Staff
             Dashboard</a>

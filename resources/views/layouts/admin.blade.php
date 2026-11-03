@@ -99,6 +99,9 @@
         @if(session('success'))
           <div role="status" class="flash-success">{{ session('success') }}</div>
         @endif
+        @if(session('error'))
+          <div role="alert" class="form-errors">{{ session('error') }}</div>
+        @endif
         @yield('content')
       </main>
     </div>

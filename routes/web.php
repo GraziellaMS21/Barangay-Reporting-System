@@ -52,8 +52,10 @@ Route::prefix('admin')
         Route::get('/reports/{report}/photo', [AdminReportController::class, 'photo'])->name('reports.photo');
         Route::get('/reports/{report}/photos/{photo}', [AdminReportController::class, 'showPhoto'])
             ->name('reports.photos.show');
-        Route::patch('/reports/{report}/ai-result', [AdminReportController::class, 'confirmAiResult'])
-            ->name('reports.ai-result');
+        Route::patch('/reports/{report}/review', [AdminReportController::class, 'saveReview'])
+            ->name('reports.review');
+        Route::post('/reports/{report}/retry-ai', [AdminReportController::class, 'retryAiAnalysis'])
+            ->name('reports.retry-ai');
         Route::get('/reports/{report}', [AdminReportController::class, 'show'])->name('reports.show');
         Route::patch('/reports/{report}/status', [AdminReportController::class, 'updateStatus'])->name('reports.status');
         Route::get('/map', [AdminMapController::class, 'index'])->name('map');

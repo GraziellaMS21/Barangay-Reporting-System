@@ -166,6 +166,58 @@ document.querySelectorAll('dialog[data-open-on-load]').forEach((dialog) => {
   }
 });
 
+document.querySelectorAll('[data-review-form]').forEach((form) => {
+  const tabs = Array.from(form.querySelectorAll('[data-review-tab]'));
+  const panels = Array.from(form.querySelectorAll('[data-review-panel]'));
+
+  const selectDescriptionTab = (name) => {
+    tabs.forEach((tab) => {
+      const selected = tab.dataset.reviewTab === name;
+      tab.setAttribute('aria-selected', String(selected));
+      tab.tabIndex = selected ? 0 : -1;
+    });
+
+    panels.forEach((panel) => {
+      panel.hidden = panel.dataset.reviewPanel !== name;
+    });
+  };
+
+  tabs.forEach((tab) => {
+    tab.addEventListener('click', () => selectDescriptionTab(tab.dataset.reviewTab));
+  });
+
+  form.querySelectorAll('[data-copy-description]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const panel = form.querySelector(`[data-review-panel="${button.dataset.copyDescription}"]`);
+      const source = panel?.querySelector('[data-review-source]');
+      const description = form.querySelector('[name="staff_description"]');
+
+      if (source && description instanceof HTMLTextAreaElement) {
+        description.value = source.textContent.trim();
+        description.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    });
+  });
+
+  const clearPrefilledBadge = (field) => {
+    form.querySelector(`[data-prefilled-for="${field}"]`)?.remove();
+  };
+
+  ['category_id', 'urgency', 'staff_description'].forEach((field) => {
+    form.querySelector(`[name="${field}"]`)?.addEventListener(
+      field === 'staff_description' ? 'input' : 'change',
+      () => clearPrefilledBadge(field),
+    );
+  });
+
+  ['photo_mismatch', 'is_emergency'].forEach((field) => {
+    form.querySelector(`input[type="checkbox"][name="${field}"]`)?.addEventListener(
+      'change',
+      () => clearPrefilledBadge(field),
+    );
+  });
+});
+
 const siteMenuToggle = document.querySelector('.site-menu-toggle');
 const siteNavigation = document.getElementById('site-navigation');
 

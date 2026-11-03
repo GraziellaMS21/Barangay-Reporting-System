@@ -19,7 +19,7 @@
     <label for="audit-action">Action
       <select id="audit-action" name="action">
         <option value="">All actions</option>
-        @foreach(['created' => 'Created', 'updated' => 'Updated', 'deleted' => 'Deleted', 'ai_override' => 'AI override'] as $action => $label)
+        @foreach(['created' => 'Created', 'updated' => 'Updated', 'deleted' => 'Deleted', 'ai_override' => 'AI override', 'staff_review' => 'Staff review'] as $action => $label)
           <option value="{{ $action }}" @selected(($filters['action'] ?? '') === $action)>{{ $label }}</option>
         @endforeach
       </select>

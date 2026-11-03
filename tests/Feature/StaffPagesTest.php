@@ -125,7 +125,7 @@ class StaffPagesTest extends TestCase
         $this->get(route('admin.map'))
             ->assertRedirect(route('login'));
 
-        $this->actingAs(User::factory()->staff()->create())
+        $response = $this->actingAs(User::factory()->staff()->create())
             ->get(route('admin.map'))
             ->assertOk()
             ->assertSee('name="category-filter"', false)
@@ -135,6 +135,7 @@ class StaffPagesTest extends TestCase
             ->assertSee('name="date-to"', false)
             ->assertSee('Show all reports')
             ->assertSee('Clear hotspot')
+            ->assertSee('staff-map-insights', false)
             ->assertSee('data-hotspot-cell="6.918,122.081"', false)
             ->assertSee('<strong>2</strong> reports', false)
             ->assertSee($report->tracking_code)
@@ -153,5 +154,16 @@ class StaffPagesTest extends TestCase
             })
             ->assertDontSee('Private Demo Resident')
             ->assertDontSee('09170000001');
+
+        $page = $response->getContent();
+        $mapCardPosition = strpos($page, 'class="card staff-map-card"');
+        $filtersEndPosition = strpos($page, '</aside>', strpos($page, 'class="card staff-map-controls"'));
+        $hotspotsCardPosition = strpos($page, 'class="card staff-map-insights"');
+
+        $this->assertIsInt($mapCardPosition);
+        $this->assertIsInt($filtersEndPosition);
+        $this->assertIsInt($hotspotsCardPosition);
+        $this->assertGreaterThan($filtersEndPosition, $mapCardPosition);
+        $this->assertGreaterThan($mapCardPosition, $hotspotsCardPosition);
     }
 }

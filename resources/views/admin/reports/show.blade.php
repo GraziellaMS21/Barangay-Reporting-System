@@ -3,6 +3,36 @@
 @section('page-heading', 'Review report')
 
 @section('content')
+@php
+  $aiResult = $report->aiResult;
+  $hasAiSuggestion = $report->ai_status === 'done' && $aiResult !== null && $aiResult->error === null;
+  $hasSavedReview = $report->reviewed_at !== null;
+  $suggestedCategory = $hasAiSuggestion
+    ? $categories->firstWhere('slug', $aiResult->suggested_category)
+    : null;
+  $confidence = $hasAiSuggestion ? (float) $aiResult->confidence : null;
+  $confidenceLabel = $confidence === null
+    ? null
+    : ($confidence >= 0.8 ? 'High' : ($confidence >= 0.5 ? 'Medium' : 'Low'));
+  $categoryDefault = $hasSavedReview
+    ? $report->category_id
+    : ($hasAiSuggestion ? $suggestedCategory?->id : null);
+  $urgencyDefault = $hasSavedReview
+    ? $report->urgency
+    : ($hasAiSuggestion ? $aiResult->suggested_urgency : null);
+  $descriptionDefault = $hasSavedReview
+    ? $report->staff_description
+    : ($hasAiSuggestion ? ($aiResult->summary ?? $report->description) : $report->description);
+  $photoMismatchDefault = $hasSavedReview
+    ? $report->photo_mismatch
+    : ($hasAiSuggestion && $aiResult->photo_mismatch);
+  $emergencyDefault = $hasSavedReview
+    ? $report->is_emergency
+    : ($hasAiSuggestion && $aiResult->emergency_flag);
+  $categorySelected = old('category_id', $categoryDefault);
+  $urgencySelected = old('urgency', $urgencyDefault);
+@endphp
+
 <a href="{{ route('admin.reports.index') }}" class="back-link">
   <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Back to report queue
 </a>
@@ -16,9 +46,9 @@
   <p>Submitted {{ $report->created_at->format('M d, Y \a\t h:i A') }}</p>
 </div>
 
-<div class="detail-grid">
-  <div class="detail-column">
-    <section class="card">
+<div class="review-layout">
+  <div class="review-primary">
+    <section class="card review-card">
       <h2 class="card-title"><i class="fa-solid fa-comment-dots" aria-hidden="true"></i> Resident report</h2>
       <x-status-badge :status="$report->status" />
       <p class="whitespace-pre-line resident-report-text">{{ $report->description }}</p>
@@ -41,9 +71,193 @@
           <span><i class="fa-regular fa-image" aria-hidden="true"></i><br>No photo attached</span>
         </div>
       @endif
-    </section>
 
-    <section class="card">
+      <div class="review-details-divider"></div>
+      <div class="review-details-heading">
+        <div>
+          <h2 class="card-title"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i> Report details</h2>
+          <p>Review the information and save the final staff decision.</p>
+        </div>
+        @if($hasAiSuggestion)
+          <span class="review-confidence review-confidence-{{ strtolower($confidenceLabel) }}"
+            title="{{ number_format($confidence * 100, 1) }}% confidence">
+            {{ $confidenceLabel }} confidence
+          </span>
+        @endif
+      </div>
+
+      @if($hasAiSuggestion && $aiResult->emergency_flag)
+        <div class="review-banner review-banner-emergency" role="status">
+          <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+          <span>Possible emergency. Staff must confirm.</span>
+        </div>
+      @endif
+      @if($hasAiSuggestion && $aiResult->photo_mismatch)
+        <div class="review-banner review-banner-mismatch" role="status">
+          <i class="fa-solid fa-image" aria-hidden="true"></i>
+          <span>AI flagged a possible mismatch between the photo and report text.</span>
+        </div>
+      @endif
+
+      @if($report->ai_status === 'failed')
+        <div class="review-ai-notice" role="status">
+          <span>AI unavailable. Please review and fill in the details manually.</span>
+          <form method="POST" action="{{ route('admin.reports.retry-ai', $report) }}">
+            @csrf
+            <button type="submit" class="btn btn-outline review-secondary-button">
+              <i class="fa-solid fa-rotate" aria-hidden="true"></i> Retry AI analysis
+            </button>
+          </form>
+        </div>
+      @elseif($report->ai_status === 'pending')
+        <p class="review-ai-notice" role="status">AI analysis in progress. You can fill in the review manually.</p>
+      @endif
+
+      @if($hasAiSuggestion)
+        <p class="review-ai-label">
+          <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+          AI suggestion — staff review required
+        </p>
+      @endif
+
+      <form method="POST" action="{{ route('admin.reports.review', $report) }}" class="review-form" data-review-form>
+        @csrf
+        @method('PATCH')
+
+        <div class="review-field-grid">
+          <div class="review-field">
+            <label for="category_id">
+              Category
+              @if($hasAiSuggestion && $suggestedCategory && !$hasSavedReview && !session()->hasOldInput('category_id'))
+                <span class="review-prefilled" data-prefilled-for="category_id">AI-prefilled</span>
+              @endif
+            </label>
+            <select id="category_id" name="category_id" required aria-describedby="category-error">
+              <option value="" @selected($categorySelected === null || $categorySelected === '')>Select a category</option>
+              @foreach($categories as $category)
+                <option value="{{ $category->id }}" @selected((string) $categorySelected === (string) $category->id)>
+                  {{ $category->name }}
+                </option>
+              @endforeach
+            </select>
+            @error('category_id') <span id="category-error" class="field-error">{{ $message }}</span> @enderror
+          </div>
+
+          <div class="review-field">
+            <label for="urgency">
+              Urgency
+              @if($hasAiSuggestion && !$hasSavedReview && !session()->hasOldInput('urgency'))
+                <span class="review-prefilled" data-prefilled-for="urgency">AI-prefilled</span>
+              @endif
+            </label>
+            <select id="urgency" name="urgency" required aria-describedby="urgency-error">
+              <option value="" @selected($urgencySelected === null || $urgencySelected === '')>Select urgency</option>
+              @foreach(['Low', 'Medium', 'High', 'Critical'] as $urgency)
+                <option value="{{ $urgency }}" @selected($urgencySelected === $urgency)>
+                  {{ $urgency }}
+                </option>
+              @endforeach
+            </select>
+            @error('urgency') <span id="urgency-error" class="field-error">{{ $message }}</span> @enderror
+          </div>
+        </div>
+
+        <div class="review-field">
+          <label for="staff_description">
+            Reviewed description
+            @if($hasAiSuggestion && !$hasSavedReview && !session()->hasOldInput('staff_description'))
+              <span class="review-prefilled" data-prefilled-for="staff_description">AI-prefilled</span>
+            @endif
+          </label>
+          @if($hasAiSuggestion)
+            <div class="review-description-tabs" role="tablist" aria-label="Description versions">
+              <button type="button" role="tab" id="review-tab-ai" aria-controls="review-panel-ai"
+                aria-selected="true" data-review-tab="ai">AI suggested</button>
+              <button type="button" role="tab" id="review-tab-original" aria-controls="review-panel-original"
+                aria-selected="false" data-review-tab="original" tabindex="-1">Original</button>
+            </div>
+            <div id="review-panel-ai" role="tabpanel" aria-labelledby="review-tab-ai" data-review-panel="ai">
+              <p class="review-source-label">AI suggested description</p>
+              <p class="review-source-text" data-review-source>{{ $aiResult->summary ?: 'No AI suggested description was saved.' }}</p>
+              <button type="button" class="btn btn-outline review-secondary-button" data-copy-description="ai">
+                Use AI version
+              </button>
+            </div>
+            <div id="review-panel-original" role="tabpanel" aria-labelledby="review-tab-original"
+              data-review-panel="original" hidden>
+              <p class="review-source-text" data-review-source>{{ $report->description }}</p>
+              <button type="button" class="btn btn-outline review-secondary-button" data-copy-description="original">
+                Use original
+              </button>
+            </div>
+          @else
+            <div class="review-description-tabs" role="tablist" aria-label="Description versions">
+              <button type="button" role="tab" id="review-tab-original" aria-controls="review-panel-original"
+                aria-selected="true" data-review-tab="original">Original</button>
+            </div>
+            <div id="review-panel-original" role="tabpanel" aria-labelledby="review-tab-original"
+              data-review-panel="original">
+              <p class="review-source-text" data-review-source>{{ $report->description }}</p>
+              <button type="button" class="btn btn-outline review-secondary-button" data-copy-description="original">
+                Use original
+              </button>
+            </div>
+          @endif
+          <textarea id="staff_description" name="staff_description" rows="4" maxlength="2000" required
+            aria-describedby="staff-description-error">{{ old('staff_description', $descriptionDefault) }}</textarea>
+          @error('staff_description') <span id="staff-description-error" class="field-error">{{ $message }}</span> @enderror
+        </div>
+
+        <div class="review-checkboxes">
+          <label class="review-checkbox">
+            <input type="hidden" name="photo_mismatch" value="0">
+            <input type="checkbox" name="photo_mismatch" value="1"
+              @checked((bool) old('photo_mismatch', $photoMismatchDefault))>
+            <span>
+              <strong>
+                Photo doesn't match the report text
+                @if($hasAiSuggestion && !$hasSavedReview && !session()->hasOldInput('photo_mismatch'))
+                  <span class="review-prefilled" data-prefilled-for="photo_mismatch">AI-prefilled</span>
+                @endif
+              </strong>
+              <small>Flag this when the attached photo appears unrelated to the reported issue.</small>
+            </span>
+          </label>
+          @error('photo_mismatch') <span class="field-error">{{ $message }}</span> @enderror
+
+          <label class="review-checkbox">
+            <input type="hidden" name="is_emergency" value="0">
+            <input type="checkbox" name="is_emergency" value="1"
+              @checked((bool) old('is_emergency', $emergencyDefault))>
+            <span>
+              <strong>
+                Possible emergency or crime
+                @if($hasAiSuggestion && !$hasSavedReview && !session()->hasOldInput('is_emergency'))
+                  <span class="review-prefilled" data-prefilled-for="is_emergency">AI-prefilled</span>
+                @endif
+              </strong>
+              <small>Confirming this flag alerts the configured barangay contacts and hides the report from the public map.</small>
+            </span>
+          </label>
+          @error('is_emergency') <span class="field-error">{{ $message }}</span> @enderror
+        </div>
+
+        <div class="review-field">
+          <label for="review_note">Confirmation note <span class="field-hint">(optional)</span></label>
+          <textarea id="review_note" name="review_note" rows="3" maxlength="1000"
+            aria-describedby="review-note-error">{{ old('review_note', $hasSavedReview ? $report->review_note : '') }}</textarea>
+          @error('review_note') <span id="review-note-error" class="field-error">{{ $message }}</span> @enderror
+        </div>
+
+        <button type="submit" class="btn btn-gold review-save-button">
+          <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Save review details
+        </button>
+      </form>
+    </section>
+  </div>
+
+  <aside class="review-sidebar">
+    <section class="card review-card">
       <h2 class="card-title"><i class="fa-solid fa-user" aria-hidden="true"></i> Reporter</h2>
       <dl class="detail-meta location-meta">
         <div>
@@ -73,9 +287,9 @@
       </dl>
     </section>
 
-    <section class="card">
+    <section class="card review-card">
       <h2 class="card-title"><i class="fa-solid fa-map-location-dot" aria-hidden="true"></i> Location details</h2>
-      @if($recommendedOffice)
+      @if($recommendedOffice && !$report->is_emergency)
         <p class="field-hint"><strong>Recommended office:</strong> {{ $recommendedOffice->name }}</p>
       @endif
       <dl class="detail-meta location-meta">
@@ -104,95 +318,8 @@
         <p class="field-hint">No map coordinates were provided with this report.</p>
       @endif
     </section>
-  </div>
 
-  <div class="detail-column">
-    <section class="card ai-card">
-      <h2 class="card-title"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> AI suggestion</h2>
-      @if($report->aiResult?->error)
-        <p role="status" class="ai-placeholder">{{ $report->aiResult->error }}</p>
-      @elseif($report->aiResult)
-        <p class="field-hint">
-          @if($report->aiResult->confirmed_at)
-            Staff-confirmed by {{ $report->aiResult->confirmedBy?->name ?? 'another staff member' }}
-            on {{ $report->aiResult->confirmed_at->format('M d, Y h:i A') }}.
-            <br>Note: {{ $report->aiResult->confirmation_note }}
-          @else
-            AI suggestion, staff review required. These suggestions do not become report values until you confirm them.
-          @endif
-        </p>
-        <form method="POST" action="{{ route('admin.reports.ai-result', $report) }}" class="status-form">
-          @csrf
-          @method('PATCH')
-          <label for="suggested_category">Category
-            <select id="suggested_category" name="suggested_category" required>
-              <option value="unclassified" @selected(old('suggested_category', $report->aiResult->suggested_category) === 'unclassified')>
-                Unclassified
-              </option>
-              @foreach($categories as $category)
-                <option value="{{ $category->slug }}"
-                  @selected(old('suggested_category', $report->aiResult->suggested_category) === $category->slug)>
-                  {{ $category->name }}
-                </option>
-              @endforeach
-            </select>
-          </label>
-          <label for="suggested_urgency">Urgency
-            <select id="suggested_urgency" name="suggested_urgency" required>
-              @foreach(['Low', 'Medium', 'High', 'Critical'] as $urgency)
-                <option value="{{ $urgency }}"
-                  @selected(old('suggested_urgency', $report->aiResult->suggested_urgency) === $urgency)>
-                  {{ $urgency }}
-                </option>
-              @endforeach
-            </select>
-          </label>
-          <label for="summary">Summary
-            <textarea id="summary" name="summary" rows="3" maxlength="500" required>{{ old('summary', $report->aiResult->summary) }}</textarea>
-          </label>
-          <label for="photo_description">Photo description
-            <textarea id="photo_description" name="photo_description" rows="2" maxlength="1000">{{ old('photo_description', $report->aiResult->photo_description) }}</textarea>
-          </label>
-          <label for="location_details">Location mentioned in report
-            <input id="location_details" name="location_details" type="text" maxlength="255"
-              value="{{ old('location_details', $report->aiResult->location_details) }}">
-          </label>
-          <label for="key_facts_text">Key facts <span class="field-hint">(one per line, up to 8)</span>
-            <textarea id="key_facts_text" name="key_facts_text" rows="4" maxlength="2000">{{ old('key_facts_text', implode("\n", $report->aiResult->key_facts ?? [])) }}</textarea>
-          </label>
-          <label for="confidence">AI confidence
-            <input id="confidence" name="confidence" type="number" min="0" max="1" step="0.01"
-              value="{{ old('confidence', number_format($report->aiResult->confidence, 2)) }}" required>
-          </label>
-          <label for="confirmation_note">Confirmation note
-            <textarea id="confirmation_note" name="confirmation_note" rows="2" maxlength="500" required>{{ old('confirmation_note', $report->aiResult->confirmation_note) }}</textarea>
-          </label>
-          <label class="remember">
-            <input type="hidden" name="photo_mismatch" value="0">
-            <input type="checkbox" name="photo_mismatch" value="1"
-              @checked(old('photo_mismatch', $report->aiResult->photo_mismatch))>
-            Photo conflicts with the report text
-          </label>
-          <label class="remember">
-            <input type="hidden" name="emergency_flag" value="0">
-            <input type="checkbox" name="emergency_flag" value="1"
-              @checked(old('emergency_flag', $report->aiResult->emergency_flag))>
-            AI flagged this as an emergency or crime
-          </label>
-          <p class="field-hint">
-            <i class="fa-solid fa-user-check" aria-hidden="true"></i>
-            AI suggestions never change a report until a staff member confirms them.
-          </p>
-          <button type="submit" class="btn btn-gold">
-            <i class="fa-solid fa-check" aria-hidden="true"></i> Confirm and save staff decision
-          </button>
-        </form>
-      @else
-        <p class="ai-placeholder">AI suggestions are pending. Review the resident’s description and location manually.</p>
-      @endif
-    </section>
-
-    <section class="card">
+    <section class="card review-card">
       <h2 class="card-title"><i class="fa-solid fa-pen" aria-hidden="true"></i> Update status</h2>
       <form method="POST" action="{{ route('admin.reports.status', $report) }}" class="status-form">
         @csrf
@@ -200,24 +327,28 @@
         <label for="status">New status
           <select id="status" name="status" required>
             @foreach($manualStatuses as $status)
-              <option value="{{ $status }}" @selected(old('status', $report->status) === $status)>
+              <option value="{{ $status }}" @selected(old('status', in_array($report->status, $manualStatuses, true) ? $report->status : 'under_review') === $status)>
                 {{ \App\Models\Report::STATUSES[$status] }}
               </option>
             @endforeach
           </select>
+          @error('status') <span class="field-error">{{ $message }}</span> @enderror
         </label>
-        <label for="office_id">Office
-          <select id="office_id" name="office_id">
-            <option value="">Auto recommended office</option>
-            @foreach($offices as $office)
-              <option value="{{ $office->id }}" @selected(old('office_id', $report->office_id) == $office->id)>
-                {{ $office->name }}
-              </option>
-            @endforeach
-          </select>
-        </label>
+        @if(!$report->is_emergency)
+          <label for="office_id">Office
+            <select id="office_id" name="office_id">
+              <option value="">Auto recommended office</option>
+              @foreach($offices as $office)
+                <option value="{{ $office->id }}" @selected(old('office_id', $report->office_id) == $office->id)>
+                  {{ $office->name }}
+                </option>
+              @endforeach
+            </select>
+          </label>
+        @endif
         <label for="note">Note <span class="field-hint">(required)</span>
           <textarea id="note" name="note" rows="3" maxlength="500" required>{{ old('note') }}</textarea>
+          @error('note') <span class="field-error">{{ $message }}</span> @enderror
         </label>
         <button type="submit" class="btn btn-gold">
           <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Save status
@@ -225,7 +356,7 @@
       </form>
     </section>
 
-    <section class="card">
+    <section class="card review-card">
       <h2 class="card-title"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Status history</h2>
       <ol class="timeline">
         @forelse($report->statusLogs as $log)
@@ -242,6 +373,6 @@
         @endforelse
       </ol>
     </section>
-  </div>
+  </aside>
 </div>
 @endsection

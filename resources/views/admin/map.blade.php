@@ -71,30 +71,6 @@
       <button type="button" class="btn btn-outline btn-small" data-map-clear-hotspot disabled>Clear hotspot</button>
     </div>
 
-    <section aria-labelledby="map-hotspots-heading">
-      <h3 id="map-hotspots-heading" class="map-panel-heading">Busiest hotspots</h3>
-      @if($hotspots->isNotEmpty())
-        <ul class="map-hotspot-list">
-          @foreach($hotspots as $cell => $total)
-            <li>
-              <button type="button" data-hotspot-cell="{{ $cell }}" aria-pressed="false">{{ $cell }}</button>
-              <span><strong>{{ $total }}</strong> {{ \Illuminate\Support\Str::plural('report', $total) }}</span>
-            </li>
-          @endforeach
-        </ul>
-      @else
-        <p class="map-empty-state">No report locations are available yet.</p>
-      @endif
-    </section>
-
-    <section aria-labelledby="map-weekly-trend-heading">
-      <h3 id="map-weekly-trend-heading" class="map-panel-heading">Reports per week</h3>
-      <ul class="map-weekly-trend">
-        @foreach($weeklyTrend as $week)
-          <li><span>{{ $week['week'] }}</span><strong>{{ $week['total'] }}</strong></li>
-        @endforeach
-      </ul>
-    </section>
   </aside>
 
   <section class="card staff-map-card" aria-labelledby="staff-map-heading">
@@ -102,6 +78,36 @@
     <div id="staff-map" class="map-frame staff-map-canvas"
       data-staff-report-map="{{ json_encode($mapReports, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_HEX_TAG) }}"
       aria-label="Map of report locations"></div>
+  </section>
+
+  <section class="card staff-map-insights" aria-labelledby="staff-map-insights-heading">
+    <h2 id="staff-map-insights-heading" class="card-title">Map insights</h2>
+    <div class="staff-map-insights-grid">
+      <section aria-labelledby="map-hotspots-heading">
+        <h3 id="map-hotspots-heading" class="map-panel-heading">Busiest hotspots</h3>
+        @if($hotspots->isNotEmpty())
+          <ul class="map-hotspot-list">
+            @foreach($hotspots as $cell => $total)
+              <li>
+                <button type="button" data-hotspot-cell="{{ $cell }}" aria-pressed="false">{{ $cell }}</button>
+                <span><strong>{{ $total }}</strong> {{ \Illuminate\Support\Str::plural('report', $total) }}</span>
+              </li>
+            @endforeach
+          </ul>
+        @else
+          <p class="map-empty-state">No report locations are available yet.</p>
+        @endif
+      </section>
+
+      <section aria-labelledby="map-weekly-trend-heading">
+        <h3 id="map-weekly-trend-heading" class="map-panel-heading">Reports per week</h3>
+        <ul class="map-weekly-trend">
+          @foreach($weeklyTrend as $week)
+            <li><span>{{ $week['week'] }}</span><strong>{{ $week['total'] }}</strong></li>
+          @endforeach
+        </ul>
+      </section>
+    </div>
   </section>
 </div>
 @endsection

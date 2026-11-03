@@ -7,6 +7,7 @@ use App\Models\AuditLog;
 use App\Models\Category;
 use App\Models\EmergencyContact;
 use App\Models\Office;
+use App\Models\Report;
 use App\Models\ReportAiResult;
 use App\Models\RoutingRule;
 use App\Models\SensitivePlace;
@@ -24,6 +25,7 @@ class AuditLogController extends Controller
         Category::class => 'Category',
         EmergencyContact::class => 'Emergency contact',
         Office::class => 'Office',
+        Report::class => 'Report',
         ReportAiResult::class => 'Report AI result',
         RoutingRule::class => 'Routing rule',
         SensitivePlace::class => 'Sensitive place',
@@ -82,7 +84,7 @@ class AuditLogController extends Controller
     private function validatedFilters(Request $request): array
     {
         $filters = $request->validate([
-            'action' => ['nullable', Rule::in(['created', 'updated', 'deleted', 'ai_override'])],
+            'action' => ['nullable', Rule::in(['created', 'updated', 'deleted', 'ai_override', 'staff_review'])],
             'model' => ['nullable', Rule::in(array_keys(self::AUDIT_MODELS))],
             'user_id' => ['nullable', 'integer', 'exists:users,id'],
             'from' => ['nullable', 'date_format:Y-m-d'],

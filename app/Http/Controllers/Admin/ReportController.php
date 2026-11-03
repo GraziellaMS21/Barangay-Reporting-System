@@ -3,21 +3,25 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\AuditLog;
 use App\Models\Category;
 use App\Models\Office;
 use App\Models\Purok;
 use App\Models\Report;
 use App\Models\ReportPhoto;
+use App\Models\User;
+use App\Services\GeminiService;
 use App\Services\PriorityService;
+use App\Services\ReportReviewService;
 use App\Services\RoutingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 class ReportController extends Controller
 {
@@ -131,8 +135,10 @@ class ReportController extends Controller
 
     public function show(Report $report, RoutingService $routingService): View
     {
-        $report->load(['purok', 'statusLogs.user', 'aiResult.confirmedBy', 'category', 'photos']);
-        $manualStatuses = Report::MANUAL_STATUSES;
+        $report->load(['purok', 'statusLogs.user', 'aiResult', 'category', 'photos']);
+        $manualStatuses = $report->is_emergency
+            ? ['under_review', 'out_of_scope']
+            : Report::MANUAL_STATUSES;
         $categories = Category::query()
             ->where('is_active', true)
             ->orderBy('name')
@@ -157,103 +163,75 @@ class ReportController extends Controller
         return Storage::disk('local')->response($photo->photo_path);
     }
 
-    public function confirmAiResult(Request $request, Report $report): RedirectResponse
-    {
-        $aiResult = $report->aiResult()->whereNull('error')->firstOrFail();
-        $activeCategorySlugs = Category::query()
+    public function saveReview(
+        Request $request,
+        Report $report,
+        ReportReviewService $reportReviewService
+    ): RedirectResponse {
+        $activeCategoryIds = Category::query()
             ->where('is_active', true)
-            ->pluck('slug')
+            ->pluck('id')
             ->all();
         $validated = $request->validate([
-            'suggested_category' => ['required', Rule::in([...$activeCategorySlugs, 'unclassified'])],
-            'suggested_urgency' => ['required', Rule::in(['Low', 'Medium', 'High', 'Critical'])],
-            'summary' => ['required', 'string', 'max:500'],
-            'photo_description' => ['nullable', 'string', 'max:1000'],
+            'category_id' => ['required', 'integer', Rule::in($activeCategoryIds)],
+            'urgency' => ['required', Rule::in(['Low', 'Medium', 'High', 'Critical'])],
+            'staff_description' => ['required', 'string', 'max:2000'],
             'photo_mismatch' => ['required', 'boolean'],
-            'emergency_flag' => ['required', 'boolean'],
-            'location_details' => ['nullable', 'string', 'max:255'],
-            'key_facts_text' => ['nullable', 'string', 'max:2000'],
-            'confidence' => ['required', 'numeric', 'between:0,1'],
-            'confirmation_note' => ['required', 'string', 'max:500'],
+            'is_emergency' => ['required', 'boolean'],
+            'review_note' => ['nullable', 'string', 'max:1000'],
+        ], [
+            'category_id.required' => 'Select a category before saving the review.',
+            'category_id.in' => 'The selected category is no longer available. Choose an active category.',
+            'urgency.in' => 'Choose a valid urgency level.',
+            'staff_description.required' => 'Enter a reviewed description before saving.',
+            'staff_description.max' => 'The reviewed description cannot exceed 2,000 characters.',
+            'review_note.max' => 'The confirmation note cannot exceed 1,000 characters.',
         ]);
-        $keyFacts = collect(preg_split('/\R/u', $validated['key_facts_text'] ?? ''))
-            ->map(fn (string $fact): string => trim($fact))
-            ->filter()
-            ->values();
 
-        if ($keyFacts->count() > 8 || $keyFacts->contains(fn (string $fact): bool => mb_strlen($fact) > 250)) {
-            return back()
-                ->withErrors(['key_facts_text' => 'Enter up to 8 key facts, with no more than 250 characters per fact.'])
-                ->withInput();
+        $reviewer = $request->user();
+        abort_unless($reviewer instanceof User, 403);
+
+        $reportReviewService->save($report, [
+            'category_id' => (int) $validated['category_id'],
+            'urgency' => $validated['urgency'],
+            'staff_description' => $validated['staff_description'],
+            'photo_mismatch' => $request->boolean('photo_mismatch'),
+            'is_emergency' => $request->boolean('is_emergency'),
+            'review_note' => $validated['review_note'] ?? null,
+        ], $reviewer);
+
+        return back()->with('success', 'Review details saved.');
+    }
+
+    public function retryAiAnalysis(
+        Report $report,
+        GeminiService $geminiService
+    ): RedirectResponse {
+        abort_unless($report->ai_status === 'failed', 409);
+
+        try {
+            $geminiService->analyze($report);
+        } catch (Throwable $exception) {
+            Log::error('Retrying report AI analysis failed unexpectedly.', [
+                'report_id' => $report->id,
+                'exception' => $exception::class,
+            ]);
+
+            return back()->with('error', 'AI analysis could not be retried. You can continue manual review.');
         }
 
-        $categoryId = $validated['suggested_category'] === 'unclassified'
-            ? null
-            : Category::query()
-                ->where('slug', $validated['suggested_category'])
-                ->where('is_active', true)
-                ->value('id');
-
-        DB::transaction(function () use ($aiResult, $categoryId, $keyFacts, $request, $report, $validated): void {
-            $auditedAiFields = [
-                'suggested_category',
-                'suggested_urgency',
-                'summary',
-                'photo_description',
-                'photo_mismatch',
-                'emergency_flag',
-                'location_details',
-                'key_facts',
-                'confidence',
-                'confirmed_by',
-                'confirmed_at',
-                'confirmation_note',
-            ];
-            $oldValues = $aiResult->only($auditedAiFields) + [
-                'report' => $report->only(['category_id', 'urgency', 'summary', 'is_emergency']),
-            ];
-
-            $aiResult->update([
-                'suggested_category' => $validated['suggested_category'],
-                'suggested_urgency' => $validated['suggested_urgency'],
-                'summary' => $validated['summary'],
-                'photo_description' => $validated['photo_description'] ?? null,
-                'photo_mismatch' => $request->boolean('photo_mismatch'),
-                'emergency_flag' => $request->boolean('emergency_flag'),
-                'location_details' => $validated['location_details'] ?? null,
-                'key_facts' => $keyFacts->all(),
-                'confidence' => $validated['confidence'],
-                'confirmed_by' => $request->user()->id,
-                'confirmed_at' => now(),
-                'confirmation_note' => $validated['confirmation_note'],
-            ]);
-
-            $report->update([
-                'category_id' => $categoryId,
-                'urgency' => $validated['suggested_urgency'],
-                'summary' => $validated['summary'],
-                'is_emergency' => $request->boolean('emergency_flag'),
-            ]);
-
-            AuditLog::query()->create([
-                'user_id' => $request->user()->id,
-                'action' => 'ai_override',
-                'model' => $aiResult::class,
-                'model_id' => $aiResult->id,
-                'old_values' => $oldValues,
-                'new_values' => $aiResult->only($auditedAiFields) + [
-                    'report' => $report->only(['category_id', 'urgency', 'summary', 'is_emergency']),
-                ],
-            ]);
-        });
-
-        return back()->with('success', 'Staff-reviewed AI suggestions saved to the report.');
+        return back()->with('success', $report->fresh()->ai_status === 'done'
+            ? 'AI analysis completed.'
+            : 'AI remains unavailable. You can continue manual review.');
     }
 
     public function updateStatus(Request $request, Report $report, RoutingService $routingService, PriorityService $priorityService): RedirectResponse
     {
+        $allowedStatuses = $report->is_emergency
+            ? ['under_review', 'out_of_scope']
+            : Report::MANUAL_STATUSES;
         $validated = $request->validate([
-            'status' => ['required', Rule::in(Report::MANUAL_STATUSES)],
+            'status' => ['required', Rule::in($allowedStatuses)],
             'note' => ['required', 'string', 'max:500'],
             'office_id' => ['nullable', 'exists:offices,id'],
         ], [
@@ -266,18 +244,24 @@ class ReportController extends Controller
             $note = $validated['note'] ?? null;
             $officeId = $validated['office_id'] ?? null;
 
-            if ($officeId) {
-                $report->office_id = $officeId;
-            } elseif ($report->category) {
-                $recommendedOffice = $routingService->recommendedOffice($report->category);
-                $report->office_id = $recommendedOffice?->id ?? $report->office_id;
+            if ($report->is_emergency) {
+                $report->office_id = null;
+                $report->priority_score = 0;
+            } else {
+                if ($officeId) {
+                    $report->office_id = $officeId;
+                } elseif ($report->category) {
+                    $recommendedOffice = $routingService->recommendedOffice($report->category);
+                    $report->office_id = $recommendedOffice?->id ?? $report->office_id;
+                }
+
+                $report->priority_score = $priorityService->calculate($report);
             }
 
-            $report->priority_score = $priorityService->calculate($report);
             $report->status = $toStatus;
             $report->save();
 
-            if ($toStatus === 'routed' && $report->category && $report->office_id) {
+            if (! $report->is_emergency && $toStatus === 'routed' && $report->category && $report->office_id) {
                 $routingService->createReferral($report, Office::find($report->office_id));
             }
 

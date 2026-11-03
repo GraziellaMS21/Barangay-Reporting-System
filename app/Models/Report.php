@@ -67,6 +67,11 @@ class Report extends Model
     protected $fillable = [
         'tracking_code',
         'description',
+        'staff_description',
+        'photo_mismatch',
+        'reviewed_by',
+        'reviewed_at',
+        'review_note',
         'photo_path',
         'lat',
         'lng',
@@ -91,9 +96,11 @@ class Report extends Model
     {
         return [
             'is_emergency' => 'boolean',
+            'photo_mismatch' => 'boolean',
             'lat' => 'float',
             'lng' => 'float',
             'resolved_at' => 'datetime',
+            'reviewed_at' => 'datetime',
         ];
     }
 
@@ -125,6 +132,11 @@ class Report extends Model
     public function aiResult(): HasOne
     {
         return $this->hasOne(ReportAiResult::class);
+    }
+
+    public function reviewer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reviewed_by');
     }
 
     public function statusLogs(): HasMany

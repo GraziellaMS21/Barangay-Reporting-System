@@ -45,7 +45,7 @@
 
 <section class="card">
   <h2 class="card-title"><i class="fa-solid fa-building" aria-hidden="true"></i> Offices and routing rules</h2>
-  <table class="data-table">
+  <table class="data-table data-table-cards">
     <thead>
       <tr>
         <th>Category</th>
@@ -56,9 +56,9 @@
     <tbody>
       @foreach($routingRules as $rule)
         <tr>
-          <td>{{ $rule->category->name }}</td>
-          <td>{{ $rule->office->name }}</td>
-          <td>{{ $rule->within_authority ? 'Yes' : 'No' }}</td>
+          <td data-label="Category">{{ $rule->category->name }}</td>
+          <td data-label="Office">{{ $rule->office->name }}</td>
+          <td data-label="Within authority">{{ $rule->within_authority ? 'Yes' : 'No' }}</td>
         </tr>
       @endforeach
     </tbody>

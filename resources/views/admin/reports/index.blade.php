@@ -71,7 +71,7 @@
 </form>
 
 <div class="table-wrap">
-  <table class="data-table">
+  <table class="data-table data-table-cards">
     <thead>
       <tr>
         <th scope="col">Tracking code</th>
@@ -85,14 +85,14 @@
     <tbody>
       @forelse($reports as $report)
         <tr>
-          <td class="whitespace-nowrap font-mono">
+          <td class="whitespace-nowrap font-mono" data-label="Tracking code">
             <a href="{{ route('admin.reports.show', $report) }}">{{ $report->tracking_code }}</a>
           </td>
-          <td class="description-cell">{{ \Illuminate\Support\Str::limit($report->description, 110) }}</td>
-          <td class="whitespace-nowrap">{{ $report->purok?->name ?? '—' }}</td>
-          <td><x-status-badge :status="$report->status" /></td>
-          <td class="whitespace-nowrap">{{ $report->created_at->format('M d, Y') }}</td>
-          <td>
+          <td class="description-cell" data-label="Report summary">{{ \Illuminate\Support\Str::limit($report->description, 110) }}</td>
+          <td class="whitespace-nowrap" data-label="Purok">{{ $report->purok?->name ?? '—' }}</td>
+          <td data-label="Status"><x-status-badge :status="$report->status" /></td>
+          <td class="whitespace-nowrap" data-label="Submitted">{{ $report->created_at->format('M d, Y') }}</td>
+          <td data-label="Action">
             <a href="{{ route('admin.reports.show', $report) }}" class="btn btn-gold btn-small">
               <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Review
             </a>
@@ -100,7 +100,7 @@
         </tr>
       @empty
         <tr>
-          <td colspan="6" class="table-empty">
+          <td colspan="6" class="table-empty" data-label="">
             <i class="fa-regular fa-folder-open" aria-hidden="true"></i>
             <p>No reports match your filters.</p>
           </td>

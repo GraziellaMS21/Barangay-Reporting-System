@@ -15,6 +15,79 @@ L.Icon.Default.mergeOptions({
 
 window.L = L;
 
+const dashboardTabs = document.querySelector('[data-dashboard-tabs]');
+
+if (dashboardTabs) {
+  const tabButtons = Array.from(dashboardTabs.querySelectorAll('[data-dashboard-tab]'));
+  const setActiveDashboardTab = (tabName, updateHash = false) => {
+    const activeButton = tabButtons.find((button) => button.dataset.dashboardTab === tabName);
+
+    if (!activeButton) {
+      return;
+    }
+
+    tabButtons.forEach((button) => {
+      const isActive = button === activeButton;
+      button.setAttribute('aria-selected', String(isActive));
+      button.tabIndex = isActive ? 0 : -1;
+
+      const panel = document.getElementById(button.getAttribute('aria-controls'));
+      if (panel) {
+        panel.hidden = !isActive;
+      }
+    });
+
+    if (updateHash && window.location.hash !== `#${tabName}`) {
+      window.history.pushState(null, '', `#${tabName}`);
+    }
+  };
+
+  dashboardTabs.addEventListener('click', (event) => {
+    const tabButton = event.target.closest('[data-dashboard-tab]');
+
+    if (tabButton) {
+      setActiveDashboardTab(tabButton.dataset.dashboardTab, true);
+    }
+  });
+
+  dashboardTabs.addEventListener('keydown', (event) => {
+    const currentIndex = tabButtons.indexOf(document.activeElement);
+
+    if (currentIndex === -1) {
+      return;
+    }
+
+    let nextIndex = currentIndex;
+    if (event.key === 'ArrowRight') {
+      nextIndex = (currentIndex + 1) % tabButtons.length;
+    } else if (event.key === 'ArrowLeft') {
+      nextIndex = (currentIndex - 1 + tabButtons.length) % tabButtons.length;
+    } else if (event.key === 'Home') {
+      nextIndex = 0;
+    } else if (event.key === 'End') {
+      nextIndex = tabButtons.length - 1;
+    } else {
+      return;
+    }
+
+    event.preventDefault();
+    tabButtons[nextIndex].focus();
+    setActiveDashboardTab(tabButtons[nextIndex].dataset.dashboardTab, true);
+  });
+
+  window.addEventListener('hashchange', () => {
+    setActiveDashboardTab(window.location.hash.slice(1));
+  });
+
+  const initialTab = window.location.hash.slice(1);
+  const validInitialTab = tabButtons.some((button) => button.dataset.dashboardTab === initialTab);
+  setActiveDashboardTab(validInitialTab ? initialTab : 'overview');
+
+  if (!validInitialTab && window.location.hash !== '#overview') {
+    window.history.replaceState(null, '', '#overview');
+  }
+}
+
 const siteMenuToggle = document.querySelector('.site-menu-toggle');
 const siteNavigation = document.getElementById('site-navigation');
 

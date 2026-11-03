@@ -10,7 +10,7 @@
 </div>
 
 <section class="card">
-  <table class="data-table">
+  <table class="data-table data-table-cards">
     <thead>
       <tr>
         <th>Tracking code</th>
@@ -22,14 +22,14 @@
     <tbody>
       @forelse($referrals as $referral)
         <tr>
-          <td><a href="{{ route('admin.reports.show', $referral->report) }}">{{ $referral->report->tracking_code }}</a></td>
-          <td>{{ $referral->office->name }}</td>
-          <td>{{ $referral->referral_text }}</td>
-          <td>{{ $referral->status }}</td>
+          <td data-label="Tracking code"><a href="{{ route('admin.reports.show', $referral->report) }}">{{ $referral->report->tracking_code }}</a></td>
+          <td data-label="Office">{{ $referral->office->name }}</td>
+          <td data-label="Referral">{{ $referral->referral_text }}</td>
+          <td data-label="Status">{{ $referral->status }}</td>
         </tr>
       @empty
         <tr>
-          <td colspan="4">No referrals have been created yet.</td>
+          <td colspan="4" class="table-empty" data-label="">No referrals have been created yet.</td>
         </tr>
       @endforelse
     </tbody>

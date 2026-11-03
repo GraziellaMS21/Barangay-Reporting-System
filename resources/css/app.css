@@ -33,6 +33,7 @@ html {
 body {
     min-height: 100vh;
     margin: 0;
+    overflow-x: clip;
     color: var(--tx);
     background:
         linear-gradient(rgba(11, 31, 75, 0.85), rgba(36, 86, 214, 0.8)),
@@ -1035,7 +1036,7 @@ h3 {
 
 .status-filters {
     display: flex;
-    overflow-x: auto;
+    flex-wrap: wrap;
     gap: 0.45rem;
     margin-bottom: 1rem;
     border-radius: 14px;
@@ -1045,7 +1046,8 @@ h3 {
 
 .status-filter {
     display: inline-flex;
-    flex: none;
+    min-width: 0;
+    flex: 1 1 155px;
     align-items: center;
     gap: 0.5rem;
     border: 1px solid rgb(255 255 255 / 42%);
@@ -1056,6 +1058,7 @@ h3 {
     font-size: 0.8rem;
     font-weight: 700;
     text-decoration: none;
+    overflow-wrap: anywhere;
 }
 
 .status-filter span {
@@ -1178,6 +1181,90 @@ h3 {
     grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr);
     align-items: start;
     gap: 1rem;
+}
+
+.dashboard-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.45rem;
+    margin-bottom: 1rem;
+    border-radius: 16px;
+    padding: 0.4rem;
+    background: #e3ebff;
+}
+
+.dashboard-tabs button {
+    min-width: 0;
+    min-height: 44px;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    padding: 0.55rem 0.7rem;
+    color: var(--ink);
+    background: transparent;
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 800;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+}
+
+.dashboard-tabs button[aria-selected="true"] {
+    border-color: var(--blue);
+    color: #fff;
+    background: var(--blue);
+}
+
+.dashboard-tabs button:focus-visible {
+    outline-color: var(--gold);
+}
+
+.dashboard-panel {
+    display: grid;
+    min-width: 0;
+    gap: 1rem;
+}
+
+.dashboard-panel[hidden] {
+    display: none;
+}
+
+.attention-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: 1rem;
+}
+
+.emergency-dashboard-alert {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    border: 1px solid #e8a39f;
+    border-radius: 16px;
+    padding: 1rem;
+    color: #7a201b;
+    background: #fff0ef;
+    overflow-wrap: anywhere;
+}
+
+.emergency-dashboard-alert > i {
+    flex: none;
+    font-size: 1.2rem;
+}
+
+.emergency-dashboard-alert > span {
+    min-width: 0;
+    flex: 1;
+}
+
+.emergency-dashboard-alert a {
+    color: #7a201b;
+    font-weight: 800;
+}
+
+.dashboard-insights .empty-state {
+    margin: 0;
+    color: var(--mut);
 }
 
 .detail-column {
@@ -1373,6 +1460,10 @@ h3 {
         grid-template-columns: 1fr;
     }
 
+    .attention-grid {
+        grid-template-columns: 1fr;
+    }
+
     .filter-form {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -1492,6 +1583,85 @@ h3 {
 
     .staff-user-name {
         display: none;
+    }
+
+    .status-filters {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        overflow: visible;
+    }
+
+    .status-filter {
+        justify-content: space-between;
+        border-radius: 12px;
+        padding-inline: 0.55rem;
+        font-size: 0.74rem;
+    }
+
+    .table-wrap {
+        overflow: visible;
+        background: transparent;
+        box-shadow: none;
+    }
+
+    .data-table-cards,
+    .data-table-cards tbody,
+    .data-table-cards tr,
+    .data-table-cards td {
+        display: block;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .data-table-cards thead {
+        display: none;
+    }
+
+    .data-table-cards tbody {
+        display: grid;
+        gap: 0.75rem;
+    }
+
+    .data-table-cards tr {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 0.4rem 0.85rem;
+        background: #fff;
+        box-shadow: var(--shadow);
+    }
+
+    .data-table-cards td {
+        display: grid;
+        grid-template-columns: minmax(6.5rem, 0.7fr) minmax(0, 1.3fr);
+        align-items: start;
+        gap: 0.5rem;
+        border-top: 1px solid var(--line);
+        padding: 0.65rem 0.1rem;
+        overflow-wrap: anywhere;
+    }
+
+    .data-table-cards td:first-child {
+        border-top: 0;
+    }
+
+    .data-table-cards td::before {
+        color: var(--mut);
+        font-size: 0.78rem;
+        font-weight: 800;
+        content: attr(data-label);
+    }
+
+    .data-table-cards td[data-label=""] {
+        display: block;
+    }
+
+    .data-table-cards td[data-label=""]::before {
+        display: none;
+    }
+
+    .data-table-cards .description-cell {
+        min-width: 0;
+        max-width: none;
     }
 }
 

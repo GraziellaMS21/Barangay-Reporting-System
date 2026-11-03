@@ -932,8 +932,10 @@ h3 {
 }
 
 .staff-sidebar {
+    display: flex;
     position: sticky;
     top: 0;
+    flex-direction: column;
     height: 100vh;
     overflow: auto;
     border-right: 1px solid rgb(255 255 255 / 10%);
@@ -967,6 +969,15 @@ h3 {
 .staff-nav {
     display: grid;
     gap: 0.2rem;
+}
+
+.staff-nav-heading {
+    margin: 0.65rem 0.2rem 0.1rem;
+    color: #b8c6ea;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
 }
 
 .staff-nav a {
@@ -1033,6 +1044,46 @@ h3 {
     background: rgb(255 255 255 / 12%);
 }
 
+.staff-sidebar-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-top: auto;
+    border-top: 1px solid rgb(255 255 255 / 15%);
+    padding: 1rem 0.35rem 0.1rem;
+    color: #fff;
+    overflow-wrap: anywhere;
+}
+
+.staff-sidebar-footer strong {
+    min-width: 0;
+    flex: 1;
+}
+
+.role-badge {
+    display: inline-flex;
+    min-height: 1.4rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    padding: 0.15rem 0.55rem;
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.role-badge.role-admin {
+    color: var(--ink);
+    background: var(--gold);
+}
+
+.role-badge.role-staff {
+    color: #e6ecff;
+    background: #52627f;
+}
+
 .staff-main {
     min-width: 0;
 }
@@ -1080,12 +1131,19 @@ h3 {
 
 .staff-user-name {
     display: grid;
+    min-width: 0;
     line-height: 1.3;
 }
 
-.staff-user-name small {
-    color: #dbe5ff;
-    text-transform: capitalize;
+.staff-user-name strong {
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.staff-user-name .role-badge {
+    justify-self: start;
 }
 
 .staff-content {
@@ -1693,8 +1751,15 @@ h3 {
         padding: 1rem;
     }
 
-    .staff-user-name {
-        display: none;
+    .staff-user-name strong {
+        max-width: 90px;
+        font-size: 0.75rem;
+    }
+
+    .staff-user-name .role-badge {
+        min-height: 1.2rem;
+        padding-inline: 0.4rem;
+        font-size: 0.62rem;
     }
 
     .status-filters {

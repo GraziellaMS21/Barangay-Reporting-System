@@ -63,6 +63,35 @@ class StaffPagesTest extends TestCase
             ->assertDontSee('fonts.googleapis.com');
     }
 
+    public function test_admin_and_staff_have_distinct_navigation_and_settings_access(): void
+    {
+        $staff = User::factory()->staff()->create(['name' => 'Demo Staff']);
+        $admin = User::factory()->admin()->create(['name' => 'Demo Admin']);
+
+        $this->actingAs($staff)
+            ->get(route('admin.dashboard'))
+            ->assertOk()
+            ->assertSee('Staff Dashboard')
+            ->assertSee('Demo Staff')
+            ->assertSee('Staff')
+            ->assertDontSee('Administration')
+            ->assertDontSee('Emergency Contacts');
+
+        $this->get(route('admin.settings.index'))->assertForbidden();
+        $this->post(route('admin.settings.priority'), ['priority' => []])->assertForbidden();
+
+        $this->actingAs($admin)
+            ->get(route('admin.dashboard'))
+            ->assertOk()
+            ->assertSee('Admin Dashboard')
+            ->assertSee('Demo Admin')
+            ->assertSee('Administration')
+            ->assertSee('Emergency Contacts')
+            ->assertSee('role-admin', false);
+
+        $this->get(route('admin.settings.index'))->assertOk();
+    }
+
     public function test_staff_can_open_report_dashboard_and_details(): void
     {
         $staff = User::factory()->staff()->create();

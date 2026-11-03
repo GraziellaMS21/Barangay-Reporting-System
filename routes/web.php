@@ -53,14 +53,14 @@ Route::prefix('admin')
         Route::patch('/reports/{report}/status', [AdminReportController::class, 'updateStatus'])->name('reports.status');
         Route::get('/map', [AdminMapController::class, 'index'])->name('map');
         Route::get('/referrals', [ReferralController::class, 'index'])->name('referrals.index');
-        Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
-        Route::post('/settings/priority-weights', [SettingsController::class, 'updatePriority'])->name('settings.priority');
     });
 
 Route::prefix('admin')
     ->name('admin.')
     ->middleware(['auth', 'role:admin'])
     ->group(function () {
+        Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
+        Route::post('/settings/priority-weights', [SettingsController::class, 'updatePriority'])->name('settings.priority');
         Route::get('/settings/emergency-contacts', [EmergencyContactController::class, 'index'])
             ->name('settings.emergency-contacts.index');
         Route::post('/settings/emergency-contacts', [EmergencyContactController::class, 'store'])

@@ -11,16 +11,17 @@
 <body style="--hall-background: url('{{ asset('storage/Calarian_Barangay_Hall.jpg') }}')">
   <div class="staff-shell">
     <aside id="staff-sidebar" class="staff-sidebar" aria-label="Staff navigation">
-      <a href="{{ route('admin.reports.index') }}" class="site-brand staff-sidebar-brand">
+      <a href="{{ route('admin.dashboard') }}" class="site-brand staff-sidebar-brand">
         <span class="brand-seal" aria-hidden="true"><img src="{{ asset('storage/calarian-seal.png') }}" alt=""></span>
         <span>
           <strong>Calarian Reports</strong>
-          <small>Staff dashboard</small>
+          <small>{{ auth()->user()->isAdmin() ? 'Admin dashboard' : 'Staff dashboard' }}</small>
         </span>
       </a>
       <nav class="staff-nav" aria-label="Staff navigation">
         <a href="{{ route('admin.dashboard') }}" @class(['active' => request()->routeIs('admin.dashboard')])>
-          <i class="fa-solid fa-gauge-high" aria-hidden="true"></i> Dashboard
+          <i class="fa-solid fa-gauge-high" aria-hidden="true"></i>
+          {{ auth()->user()->isAdmin() ? 'Admin Dashboard' : 'Staff Dashboard' }}
         </a>
         <a href="{{ route('admin.reports.index') }}" @class(['active' => request()->routeIs('admin.reports.index')])>
           <i class="fa-solid fa-inbox" aria-hidden="true"></i> Report queue
@@ -31,9 +32,16 @@
         <a href="{{ route('admin.referrals.index') }}" @class(['active' => request()->routeIs('admin.referrals.index')])>
           <i class="fa-solid fa-clipboard-list" aria-hidden="true"></i> Referrals
         </a>
-        <a href="{{ route('admin.settings.index') }}" @class(['active' => request()->routeIs('admin.settings.index')])>
-          <i class="fa-solid fa-gear" aria-hidden="true"></i> Settings
-        </a>
+        @if(auth()->user()->isAdmin())
+          <div class="staff-nav-heading">Administration</div>
+          <a href="{{ route('admin.settings.index') }}" @class(['active' => request()->routeIs('admin.settings.index')])>
+            <i class="fa-solid fa-gear" aria-hidden="true"></i> Settings
+          </a>
+          <a href="{{ route('admin.settings.emergency-contacts.index') }}"
+            @class(['active' => request()->routeIs('admin.settings.emergency-contacts.*')])>
+            <i class="fa-solid fa-phone" aria-hidden="true"></i> Emergency Contacts
+          </a>
+        @endif
         <a href="{{ route('reports.create') }}">
           <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Resident site
         </a>
@@ -44,6 +52,12 @@
           </button>
         </form>
       </nav>
+      <footer class="staff-sidebar-footer">
+        <strong>{{ auth()->user()->name }}</strong>
+        <span class="role-badge {{ auth()->user()->isAdmin() ? 'role-admin' : 'role-staff' }}">
+          {{ auth()->user()->isAdmin() ? 'Admin' : 'Staff' }}
+        </span>
+      </footer>
     </aside>
 
     <div class="staff-main">
@@ -60,7 +74,9 @@
           <span class="staff-avatar" aria-hidden="true">{{ str(auth()->user()->name)->substr(0, 1)->upper() }}</span>
           <span class="staff-user-name">
             <strong>{{ auth()->user()->name }}</strong>
-            <small>{{ auth()->user()->role }}</small>
+            <span class="role-badge {{ auth()->user()->isAdmin() ? 'role-admin' : 'role-staff' }}">
+              {{ auth()->user()->isAdmin() ? 'Admin' : 'Staff' }}
+            </span>
           </span>
         </div>
       </header>

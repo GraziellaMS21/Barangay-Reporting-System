@@ -29,8 +29,10 @@
         <a href="{{ route('track.index') }}"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Track</a>
         <a href="{{ route('map.index') }}"><i class="fa-solid fa-map" aria-hidden="true"></i> Public map</a>
         @auth
-          <a href="{{ route('admin.reports.index') }}"><i class="fa-solid fa-gauge-high" aria-hidden="true"></i> Staff
-            Dashboard</a>
+          <a href="{{ route('admin.dashboard') }}">
+            <i class="fa-solid fa-gauge-high" aria-hidden="true"></i>
+            {{ auth()->user()->isAdmin() ? 'Admin Dashboard' : 'Staff Dashboard' }}
+          </a>
           <form method="POST" action="{{ route('logout') }}">
             @csrf
             <button type="submit"><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i> Log out</button>

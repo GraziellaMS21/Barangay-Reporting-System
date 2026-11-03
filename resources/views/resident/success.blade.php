@@ -27,5 +27,12 @@
     </a>
   </div>
   <p class="field-hint success-disclaimer">If this is an emergency, call 911 or the local police. This system is not monitored in real time.</p>
+  @if($contacts->isNotEmpty())
+    <div class="contact-chips" aria-label="Emergency contacts">
+      @foreach($contacts as $contact)
+        <span><b>{{ $contact->name }}:</b> {{ $contact->number }}</span>
+      @endforeach
+    </div>
+  @endif
 </section>
 @endsection

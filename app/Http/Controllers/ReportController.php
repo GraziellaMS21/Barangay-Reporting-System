@@ -19,7 +19,7 @@ class ReportController extends Controller
     {
         return view('resident.create', [
             'puroks' => Purok::orderBy('name')->get(),
-            'contacts' => EmergencyContact::all(),
+            'contacts' => EmergencyContact::query()->active()->ordered()->get(),
         ]);
     }
 
@@ -122,7 +122,8 @@ class ReportController extends Controller
             ->select(['id', 'tracking_code', 'status', 'created_at'])
             ->where('tracking_code', $trackingCode)
             ->firstOrFail();
+        $contacts = EmergencyContact::query()->active()->ordered()->get();
 
-        return view('resident.success', compact('report'));
+        return view('resident.success', compact('report', 'contacts'));
     }
 }

@@ -471,6 +471,118 @@ h3 {
     color: var(--ink);
 }
 
+.contact-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+}
+
+.contact-form-grid > label {
+    display: grid;
+    min-width: 0;
+    gap: 0.25rem;
+    color: var(--ink);
+    font-size: 0.86rem;
+    font-weight: 800;
+}
+
+.contact-form-grid input:not([type="hidden"]):not([type="checkbox"]),
+.contact-form-grid select {
+    width: 100%;
+    min-height: 44px;
+    border: 1.5px solid var(--line);
+    border-radius: 12px;
+    padding: 0.6rem 0.8rem;
+    color: var(--tx);
+    background: #fff;
+    font: inherit;
+}
+
+.contact-form-grid .contact-active-control {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    color: var(--tx);
+}
+
+.contact-active-control input[type="checkbox"] {
+    width: 1.1rem;
+    height: 1.1rem;
+    flex: none;
+    accent-color: var(--blue);
+}
+
+.contact-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+}
+
+.contact-actions form {
+    margin: 0;
+}
+
+.emergency-contact-list {
+    display: grid;
+    gap: 0.85rem;
+}
+
+.emergency-contact-card {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.9rem;
+}
+
+.emergency-contact-card h2 {
+    margin: 0;
+    font-size: 1rem;
+    overflow-wrap: anywhere;
+}
+
+.emergency-contact-card p {
+    margin: 0.25rem 0;
+    overflow-wrap: anywhere;
+}
+
+.contact-state {
+    display: inline-block;
+    border-radius: 999px;
+    padding: 0.15rem 0.55rem;
+    font-size: 0.75rem;
+    font-weight: 800;
+}
+
+.contact-state.is-active {
+    color: #155734;
+    background: #e4f6eb;
+}
+
+.contact-state.is-inactive {
+    color: var(--mut);
+    background: #edf0f6;
+}
+
+.field-error {
+    color: var(--red);
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.btn-danger {
+    border: 1px solid var(--red);
+    color: #fff;
+    background: var(--red);
+}
+
+.btn-danger:hover {
+    border-color: #b51f17;
+    background: #b51f17;
+}
+
 .form-card {
     padding: 1.8rem;
 }
@@ -1677,7 +1789,8 @@ h3 {
 
     .form-grid,
     .filter-form,
-    .detail-meta {
+    .detail-meta,
+    .contact-form-grid {
         grid-template-columns: 1fr;
     }
 

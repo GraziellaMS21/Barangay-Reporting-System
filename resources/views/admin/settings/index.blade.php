@@ -7,6 +7,11 @@
 <div class="page-heading">
   <h2>Administration settings</h2>
   <p>Maintain categories, offices, routing rules, emergency contacts, and weights.</p>
+  @if(auth()->user()->isAdmin())
+    <a class="btn btn-outline btn-small" href="{{ route('admin.settings.emergency-contacts.index') }}">
+      <i class="fa-solid fa-phone" aria-hidden="true"></i> Manage emergency contacts
+    </a>
+  @endif
 </div>
 
 <div class="detail-grid">

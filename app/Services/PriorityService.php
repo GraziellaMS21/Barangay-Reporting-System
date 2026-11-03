@@ -8,6 +8,14 @@ use App\Models\Setting;
 
 class PriorityService
 {
+    public const DEFAULT_WEIGHTS = [
+        'urgency' => 20,
+        'category' => 10,
+        'sensitive_place' => 25,
+        'supporting_reports' => 8,
+        'age_days' => 2,
+    ];
+
     public function calculate(Report $report): int
     {
         if ($report->is_emergency) {
@@ -35,13 +43,13 @@ class PriorityService
 
     public function weights(): array
     {
-        return [
-            'urgency' => (int) Setting::value('priority.urgency', 20),
-            'category' => (int) Setting::value('priority.category', 10),
-            'sensitive_place' => (int) Setting::value('priority.sensitive_place', 25),
-            'supporting_reports' => (int) Setting::value('priority.supporting_reports', 8),
-            'age_days' => (int) Setting::value('priority.age_days', 2),
-        ];
+        $weights = [];
+
+        foreach (self::DEFAULT_WEIGHTS as $key => $default) {
+            $weights[$key] = (int) Setting::value('priority.'.$key, $default);
+        }
+
+        return $weights;
     }
 
     protected function urgencyPoints(?string $urgency): int

@@ -66,7 +66,7 @@ Seeded demo users: `admin@barangay.test` and `staff@barangay.test` (password `pa
 
 | Table                   | Key columns                                                                                                                                                                                                                                                                                                                              |
 | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `users`                 | name, email, password, role (`admin`, `staff`)                                                                                                                                                                                                                                                                                           |
+| `users`                 | name, email, password, role (`admin`, `staff`), is_active                                                                                                                                                                                                                                                                               |
 | `puroks`                | name                                                                                                                                                                                                                                                                                                                                     |
 | `emergency_contacts`    | name, number, type (emergency, police, fire, health, disaster, barangay)                                                                                                                                                                                                                                                                 |
 | `categories`            | name, slug, risk_weight, default_office_id, is_active                                                                                                                                                                                                                                                                                    |
@@ -300,8 +300,8 @@ Weights are stored in `settings` and editable by the admin. The queue sorts by s
 | 1     | Resident reporting and tracking                | [ ]    |
 | 2     | Staff login, queue, status changes             | [ ]    |
 | 3     | Gemini AI extraction                           | [ ]    |
-| 4     | Categories, routing, referrals                 | [ ]    |
-| 5     | Emergency handling, priority score, duplicates | [ ]    |
-| 6     | Map, dashboard, insights                       | [ ]    |
-| 7     | Admin settings, access, audit                  | [ ]    |
+| 4     | Categories, routing, referrals                 | [x]    |
+| 5     | Emergency handling, priority score, duplicates | [x]    |
+| 6     | Map, dashboard, insights                       | [x]    |
+| 7     | Admin settings, access, audit                  | [x]    |
 | Email | Resident and official notifications            | [ ]    |

@@ -21,6 +21,11 @@ class Office extends Model
         return $this->hasMany(RoutingRule::class);
     }
 
+    public function categories(): HasMany
+    {
+        return $this->hasMany(Category::class, 'default_office_id');
+    }
+
     public function reports(): HasMany
     {
         return $this->hasMany(Report::class);

@@ -211,6 +211,35 @@ document.addEventListener('submit', (event) => {
   }
 });
 
+document.addEventListener('click', (event) => {
+  const openButton = event.target.closest('[data-help-open]');
+
+  if (openButton) {
+    const dialog = document.getElementById(openButton.dataset.helpOpen);
+
+    if (dialog instanceof HTMLDialogElement) {
+      dialog.showModal();
+    }
+
+    return;
+  }
+
+  const closeButton = event.target.closest('[data-help-close]');
+  const dialog = closeButton?.closest('dialog');
+
+  if (dialog instanceof HTMLDialogElement) {
+    dialog.close();
+  }
+});
+
+document.querySelectorAll('dialog.settings-help-dialog').forEach((dialog) => {
+  dialog.addEventListener('click', (event) => {
+    if (event.target === dialog) {
+      dialog.close();
+    }
+  });
+});
+
 const siteMenuToggle = document.querySelector('.site-menu-toggle');
 const siteNavigation = document.getElementById('site-navigation');
 

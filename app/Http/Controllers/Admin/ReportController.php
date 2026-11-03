@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\Category;
 use App\Models\Office;
 use App\Models\Purok;
@@ -145,6 +146,24 @@ class ReportController extends Controller
                 ->value('id');
 
         DB::transaction(function () use ($aiResult, $categoryId, $keyFacts, $request, $report, $validated): void {
+            $auditedAiFields = [
+                'suggested_category',
+                'suggested_urgency',
+                'summary',
+                'photo_description',
+                'photo_mismatch',
+                'emergency_flag',
+                'location_details',
+                'key_facts',
+                'confidence',
+                'confirmed_by',
+                'confirmed_at',
+                'confirmation_note',
+            ];
+            $oldValues = $aiResult->only($auditedAiFields) + [
+                'report' => $report->only(['category_id', 'urgency', 'summary', 'is_emergency']),
+            ];
+
             $aiResult->update([
                 'suggested_category' => $validated['suggested_category'],
                 'suggested_urgency' => $validated['suggested_urgency'],
@@ -165,6 +184,17 @@ class ReportController extends Controller
                 'urgency' => $validated['suggested_urgency'],
                 'summary' => $validated['summary'],
                 'is_emergency' => $request->boolean('emergency_flag'),
+            ]);
+
+            AuditLog::query()->create([
+                'user_id' => $request->user()->id,
+                'action' => 'ai_override',
+                'model' => $aiResult::class,
+                'model_id' => $aiResult->id,
+                'old_values' => $oldValues,
+                'new_values' => $aiResult->only($auditedAiFields) + [
+                    'report' => $report->only(['category_id', 'urgency', 'summary', 'is_emergency']),
+                ],
             ]);
         });
 

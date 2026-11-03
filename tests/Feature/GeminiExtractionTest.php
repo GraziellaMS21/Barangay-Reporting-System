@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditLog;
 use App\Models\Category;
 use App\Models\Purok;
 use App\Models\Report;
@@ -298,6 +299,11 @@ class GeminiExtractionTest extends TestCase
             'confirmation_note' => 'Reviewed the description and corrected the urgency.',
         ]);
         $this->assertSame(['Standing water', 'Debris blocks the channel'], $aiResult->fresh()->key_facts);
+        $overrideAudit = AuditLog::query()->where('action', 'ai_override')->firstOrFail();
+        $this->assertSame($staff->id, $overrideAudit->user_id);
+        $this->assertSame('Medium', $overrideAudit->old_values['suggested_urgency']);
+        $this->assertSame('High', $overrideAudit->new_values['suggested_urgency']);
+        $this->assertSame($category->id, $overrideAudit->new_values['report']['category_id']);
     }
 
     public function test_report_suggestions_cannot_be_confirmed_by_a_guest(): void

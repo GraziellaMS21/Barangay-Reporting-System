@@ -34,12 +34,26 @@
         </a>
         @if(auth()->user()->isAdmin())
           <div class="staff-nav-heading">Administration</div>
-          <a href="{{ route('admin.settings.index') }}" @class(['active' => request()->routeIs('admin.settings.index')])>
+          <a href="{{ route('admin.settings.index') }}"
+            @class(['active' => request()->routeIs(
+              'admin.settings.index',
+              'admin.settings.priority*',
+              'admin.settings.emergency-alert-emails.*',
+              'admin.settings.categories.*',
+              'admin.settings.offices.*',
+              'admin.settings.routing-rules.*',
+              'admin.settings.sensitive-places.*',
+              'admin.settings.users.*'
+            )])>
             <i class="fa-solid fa-gear" aria-hidden="true"></i> Settings
           </a>
           <a href="{{ route('admin.settings.emergency-contacts.index') }}"
             @class(['active' => request()->routeIs('admin.settings.emergency-contacts.*')])>
             <i class="fa-solid fa-phone" aria-hidden="true"></i> Emergency Contacts
+          </a>
+          <a href="{{ route('admin.audit-log.index') }}"
+            @class(['active' => request()->routeIs('admin.audit-log.*')])>
+            <i class="fa-solid fa-clipboard-check" aria-hidden="true"></i> Audit log
           </a>
         @endif
         <a href="{{ route('reports.create') }}">

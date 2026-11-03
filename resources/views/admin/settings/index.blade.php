@@ -1,72 +1,50 @@
 @extends('layouts.admin')
 
-@section('title', 'Settings')
-@section('page-heading', 'Settings')
+@section('title', 'Administration')
+@section('page-heading', 'Administration')
 
 @section('content')
 <div class="page-heading">
   <h2>Administration settings</h2>
-  <p>Maintain categories, offices, routing rules, emergency contacts, and weights.</p>
-  @if(auth()->user()->isAdmin())
-    <a class="btn btn-outline btn-small" href="{{ route('admin.settings.emergency-contacts.index') }}">
-      <i class="fa-solid fa-phone" aria-hidden="true"></i> Manage emergency contacts
-    </a>
-  @endif
+  <p>Manage staff access, report categories, routing, priority, and resident-facing emergency information.</p>
 </div>
 
 <div class="detail-grid">
-  <section class="card">
+  <a class="card settings-link" href="{{ route('admin.settings.users.index') }}">
+    <h2 class="card-title"><i class="fa-solid fa-users" aria-hidden="true"></i> Users</h2>
+    <p>Create, update, and deactivate staff and administrator accounts.</p>
+  </a>
+  <a class="card settings-link" href="{{ route('admin.settings.categories.index') }}">
+    <h2 class="card-title"><i class="fa-solid fa-tags" aria-hidden="true"></i> Categories</h2>
+    <p>Set category risk weights and their default offices.</p>
+  </a>
+  <a class="card settings-link" href="{{ route('admin.settings.offices.index') }}">
+    <h2 class="card-title"><i class="fa-solid fa-building" aria-hidden="true"></i> Offices</h2>
+    <p>Maintain barangay and external office details.</p>
+  </a>
+  <a class="card settings-link" href="{{ route('admin.settings.routing-rules.index') }}">
+    <h2 class="card-title"><i class="fa-solid fa-route" aria-hidden="true"></i> Routing rules</h2>
+    <p>Assign a responsible office and jurisdiction note to each category.</p>
+  </a>
+  <a class="card settings-link" href="{{ route('admin.settings.priority-weights.index') }}">
     <h2 class="card-title"><i class="fa-solid fa-scale-balanced" aria-hidden="true"></i> Priority weights</h2>
-    <form method="POST" action="{{ route('admin.settings.priority') }}" class="status-form">
-      @csrf
-      <label for="priority_urgency">Urgency weight
-        <input id="priority_urgency" name="priority[urgency]" type="number" min="0" value="{{ App\Models\Setting::value('priority.urgency', 20) }}">
-      </label>
-      <label for="priority_category">Category weight
-        <input id="priority_category" name="priority[category]" type="number" min="0" value="{{ App\Models\Setting::value('priority.category', 10) }}">
-      </label>
-      <label for="priority_sensitive">Sensitive place weight
-        <input id="priority_sensitive" name="priority[sensitive_place]" type="number" min="0" value="{{ App\Models\Setting::value('priority.sensitive_place', 25) }}">
-      </label>
-      <label for="priority_support">Supporting reports weight
-        <input id="priority_support" name="priority[supporting_reports]" type="number" min="0" value="{{ App\Models\Setting::value('priority.supporting_reports', 8) }}">
-      </label>
-      <label for="priority_age">Age in days weight
-        <input id="priority_age" name="priority[age_days]" type="number" min="0" value="{{ App\Models\Setting::value('priority.age_days', 2) }}">
-      </label>
-      <button type="submit" class="btn btn-gold">Save weights</button>
-    </form>
-  </section>
-
-  <section class="card">
-    <h2 class="card-title"><i class="fa-solid fa-folder-tree" aria-hidden="true"></i> Categories</h2>
-    <ul class="stacked-list">
-      @foreach($categories as $category)
-        <li><span>{{ $category->name }}</span><strong>{{ $category->risk_weight }}</strong></li>
-      @endforeach
-    </ul>
-  </section>
+    <p>Adjust scoring weights and restore the defaults.</p>
+  </a>
+  <a class="card settings-link" href="{{ route('admin.settings.emergency-contacts.index') }}">
+    <h2 class="card-title"><i class="fa-solid fa-phone" aria-hidden="true"></i> Emergency contacts</h2>
+    <p>Manage the active public hotline directory.</p>
+  </a>
+  <a class="card settings-link" href="{{ route('admin.settings.emergency-alert-emails.index') }}">
+    <h2 class="card-title"><i class="fa-solid fa-envelope" aria-hidden="true"></i> Emergency alert emails</h2>
+    <p>Maintain the administrator and tanod recipient list for emergency alerts.</p>
+  </a>
+  <a class="card settings-link" href="{{ route('admin.settings.sensitive-places.index') }}">
+    <h2 class="card-title"><i class="fa-solid fa-location-dot" aria-hidden="true"></i> Sensitive places</h2>
+    <p>Maintain locations used by the priority score.</p>
+  </a>
+  <a class="card settings-link" href="{{ route('admin.audit-log.index') }}">
+    <h2 class="card-title"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i> Audit log</h2>
+    <p>Review setting changes, staff overrides, and report status history.</p>
+  </a>
 </div>
-
-<section class="card">
-  <h2 class="card-title"><i class="fa-solid fa-building" aria-hidden="true"></i> Offices and routing rules</h2>
-  <table class="data-table data-table-cards">
-    <thead>
-      <tr>
-        <th>Category</th>
-        <th>Office</th>
-        <th>Within authority</th>
-      </tr>
-    </thead>
-    <tbody>
-      @foreach($routingRules as $rule)
-        <tr>
-          <td data-label="Category">{{ $rule->category->name }}</td>
-          <td data-label="Office">{{ $rule->office->name }}</td>
-          <td data-label="Within authority">{{ $rule->within_authority ? 'Yes' : 'No' }}</td>
-        </tr>
-      @endforeach
-    </tbody>
-  </table>
-</section>
 @endsection

@@ -23,7 +23,7 @@ class AuthController extends Controller
 
         $remember = $request->boolean('remember');
 
-        if (Auth::attempt($credentials, $remember)) {
+        if (Auth::attempt([...$credentials, 'is_active' => true], $remember)) {
             $request->session()->regenerate();
 
             return redirect()->route('admin.dashboard');

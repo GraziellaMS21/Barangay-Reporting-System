@@ -487,7 +487,8 @@ h3 {
 }
 
 .contact-form-grid input:not([type="hidden"]):not([type="checkbox"]),
-.contact-form-grid select {
+.contact-form-grid select,
+.contact-form-grid textarea {
     width: 100%;
     min-height: 44px;
     border: 1.5px solid var(--line);
@@ -496,6 +497,38 @@ h3 {
     color: var(--tx);
     background: #fff;
     font: inherit;
+}
+
+.contact-form-grid textarea {
+    resize: vertical;
+}
+
+.audit-values {
+    max-width: 32rem;
+    margin: 0;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+    font: 0.78rem/1.5 monospace;
+}
+
+.settings-help-dialog {
+    width: min(38rem, calc(100vw - 2rem));
+    max-height: calc(100vh - 2rem);
+    border: 0;
+    border-radius: 18px;
+    padding: 0;
+    color: var(--tx);
+    box-shadow: 0 24px 70px rgb(9 26 61 / 30%);
+}
+
+.settings-help-dialog::backdrop {
+    background: rgb(9 26 61 / 58%);
+}
+
+.settings-help-content {
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+    padding: 1.4rem;
 }
 
 .contact-form-grid .contact-active-control {

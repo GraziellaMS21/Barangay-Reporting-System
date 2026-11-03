@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Setting;
+use App\Services\PriorityService;
 use Illuminate\Database\Seeder;
 
 class SettingSeeder extends Seeder
@@ -12,16 +13,8 @@ class SettingSeeder extends Seeder
      */
     public function run(): void
     {
-        $defaults = [
-            'priority.urgency' => 20,
-            'priority.category' => 10,
-            'priority.sensitive_place' => 25,
-            'priority.supporting_reports' => 8,
-            'priority.age_days' => 2,
-        ];
-
-        foreach ($defaults as $key => $value) {
-            Setting::updateOrCreate(['key' => $key], ['value' => $value]);
+        foreach (PriorityService::DEFAULT_WEIGHTS as $key => $value) {
+            Setting::updateOrCreate(['key' => 'priority.'.$key], ['value' => $value]);
         }
     }
 }

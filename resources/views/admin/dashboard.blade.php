@@ -90,27 +90,28 @@
 
 <section id="dashboard-panel-analytics" class="dashboard-panel" role="tabpanel"
   aria-labelledby="dashboard-tab-analytics" tabindex="0" data-dashboard-panel="analytics" hidden>
-  <div class="detail-grid">
-    <section class="card">
-      <h2 class="card-title"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i> Reports by category</h2>
-      <ul class="stacked-list">
-        @forelse($categoryBreakdown as $item)
-          <li><span>{{ $item['label'] }}</span><strong>{{ $item['total'] }}</strong></li>
-        @empty
-          <li>No reports yet.</li>
-        @endforelse
-      </ul>
-    </section>
-    <section class="card">
-      <h2 class="card-title"><i class="fa-solid fa-chart-column" aria-hidden="true"></i> Reports by purok</h2>
-      <ul class="stacked-list">
-        @forelse($purokBreakdown as $purok => $total)
-          <li><span>{{ $purok }}</span><strong>{{ $total }}</strong></li>
-        @empty
-          <li>No reports yet.</li>
-        @endforelse
-      </ul>
-    </section>
+  <div class="chart-grid">
+    @foreach([
+      'category' => ['Reports by category', 'doughnut'],
+      'status' => ['Reports by status', 'horizontal-bar'],
+      'weekly' => ['Reports per week · last 8 weeks', 'line'],
+      'purok' => ['Reports by purok · top 8', 'horizontal-bar'],
+      'urgency' => ['Urgency breakdown', 'bar'],
+    ] as $key => [$title, $type])
+      @php($chart = $chartData[$key])
+      <section class="card chart-card">
+        <h2 class="card-title">{{ $title }}</h2>
+        @if(array_sum($chart['counts']) > 0)
+          <div class="chart-canvas-wrap"
+            data-report-chart="{{ json_encode($chart, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_HEX_TAG) }}"
+            data-chart-type="{{ $type }}">
+            <canvas role="img" aria-label="{{ $title }}"></canvas>
+          </div>
+        @else
+          <p class="chart-empty-state">No reports yet.</p>
+        @endif
+      </section>
+    @endforeach
   </div>
 </section>
 

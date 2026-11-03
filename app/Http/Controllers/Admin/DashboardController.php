@@ -3,17 +3,19 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Category;
 use App\Models\DuplicateSuggestion;
 use App\Models\Referral;
 use App\Models\Report;
+use App\Services\DashboardAnalyticsService;
 use App\Services\DashboardInsightsService;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    public function index(DashboardInsightsService $dashboardInsightsService): View
-    {
+    public function index(
+        DashboardAnalyticsService $dashboardAnalyticsService,
+        DashboardInsightsService $dashboardInsightsService
+    ): View {
         $counts = [
             'awaiting_review' => Report::query()->where('status', 'submitted')->count(),
             'high_or_critical' => Report::query()->whereIn('status', ['under_review', 'in_progress', 'routed'])->whereIn('urgency', ['High', 'Critical'])->count(),
@@ -22,19 +24,7 @@ class DashboardController extends Controller
             'emergency' => Report::query()->where('status', 'emergency_flagged')->count(),
         ];
 
-        $categoryBreakdown = Category::query()->orderBy('name')->withCount('reports')->get()->map(function ($category) {
-            return [
-                'label' => $category->name,
-                'total' => $category->reports_count,
-            ];
-        });
-
-        $purokBreakdown = Report::query()
-            ->leftJoin('puroks', 'reports.purok_id', '=', 'puroks.id')
-            ->selectRaw("COALESCE(puroks.name, 'Unassigned') as label, COUNT(reports.id) as total")
-            ->groupBy('puroks.name')
-            ->orderBy('label')
-            ->pluck('total', 'label');
+        $chartData = $dashboardAnalyticsService->chartData();
         $recentReports = Report::query()->with('category')->latest()->limit(5)->get();
         $resolvedReports = Report::query()
             ->where('status', 'resolved')
@@ -74,14 +64,19 @@ class DashboardController extends Controller
             'reports_in_progress' => $counts['in_progress'],
             'reports_resolved' => $counts['resolved'],
             'reports_emergency_flagged' => $counts['emergency'],
-            'reports_by_category' => $categoryBreakdown->pluck('total', 'label')->all(),
-            'reports_by_purok' => $purokBreakdown->all(),
+            'reports_by_category' => array_combine(
+                $chartData['category']['labels'],
+                $chartData['category']['counts']
+            ) ?: [],
+            'reports_by_purok' => array_combine(
+                $chartData['purok']['labels'],
+                $chartData['purok']['counts']
+            ) ?: [],
         ]);
 
         return view('admin.dashboard', compact(
             'counts',
-            'categoryBreakdown',
-            'purokBreakdown',
+            'chartData',
             'recentReports',
             'averageResolutionHours',
             'topPriorityReports',

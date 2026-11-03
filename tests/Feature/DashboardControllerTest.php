@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Models\Category;
 use App\Models\DuplicateSuggestion;
 use App\Models\Office;
+use App\Models\Purok;
 use App\Models\Referral;
 use App\Models\Report;
 use App\Models\User;
@@ -120,5 +122,65 @@ class DashboardControllerTest extends TestCase
             ->get(route('admin.dashboard'))
             ->assertOk()
             ->assertSee('Insights are temporarily unavailable.');
+    }
+
+    public function test_dashboard_charts_show_empty_states_when_there_are_no_reports(): void
+    {
+        $staff = User::factory()->staff()->create();
+
+        $this->actingAs($staff)
+            ->get(route('admin.dashboard'))
+            ->assertOk()
+            ->assertSee('Reports by category')
+            ->assertSee('Reports by status')
+            ->assertSee('Reports per week')
+            ->assertSee('Reports by purok')
+            ->assertSee('Urgency breakdown')
+            ->assertSee('No reports yet.');
+    }
+
+    public function test_dashboard_chart_data_excludes_emergency_reports_from_category_and_urgency(): void
+    {
+        $staff = User::factory()->staff()->create();
+        $category = Category::create([
+            'name' => 'Drainage',
+            'slug' => 'drainage',
+            'risk_weight' => 1,
+            'is_active' => true,
+        ]);
+        $purok = Purok::factory()->create(['name' => 'Purok 4']);
+        Report::factory()->create([
+            'category_id' => $category->id,
+            'purok_id' => $purok->id,
+            'status' => 'submitted',
+            'urgency' => 'High',
+        ]);
+        Report::factory()->create([
+            'category_id' => $category->id,
+            'purok_id' => $purok->id,
+            'status' => 'emergency_flagged',
+            'urgency' => 'Critical',
+            'is_emergency' => true,
+        ]);
+
+        $this->actingAs($staff)
+            ->get(route('admin.dashboard'))
+            ->assertOk()
+            ->assertViewHas('chartData', function (array $chartData): bool {
+                $this->assertSame(['Drainage'], $chartData['category']['labels']);
+                $this->assertSame([1], $chartData['category']['counts']);
+                $this->assertSame(1, $chartData['status']['counts'][array_search(
+                    'Emergency Flagged',
+                    $chartData['status']['labels'],
+                    true
+                )]);
+                $this->assertSame(['Low', 'Medium', 'High', 'Critical'], $chartData['urgency']['labels']);
+                $this->assertSame([0, 0, 1, 0], $chartData['urgency']['counts']);
+                $this->assertSame(['Purok 4'], $chartData['purok']['labels']);
+                $this->assertSame([2], $chartData['purok']['counts']);
+                $this->assertSame(2, array_sum($chartData['weekly']['counts']));
+
+                return true;
+            });
     }
 }

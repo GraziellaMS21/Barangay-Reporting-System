@@ -53,7 +53,7 @@ class StaffPagesTest extends TestCase
         $this->post(route('login'), [
             'email' => $staff->email,
             'password' => 'password',
-        ])->assertRedirect(route('admin.reports.index'));
+        ])->assertRedirect(route('admin.dashboard'));
 
         $this->get(route('admin.reports.index'))
             ->assertOk()

@@ -38,11 +38,10 @@ Route::prefix('admin')
     ->name('admin.')
     ->middleware(['auth', 'role:admin,staff'])
     ->group(function () {
-        Route::get('/', function () {
+        Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+        Route::get('/dashboard', function () {
             return redirect()->route('admin.dashboard');
-        });
-
-        Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+        })->name('dashboard.legacy');
         Route::get('/reports', [AdminReportController::class, 'index'])->name('reports.index');
         Route::get('/reports/{report}/photo', [AdminReportController::class, 'photo'])->name('reports.photo');
         Route::get('/reports/{report}/photos/{photo}', [AdminReportController::class, 'showPhoto'])

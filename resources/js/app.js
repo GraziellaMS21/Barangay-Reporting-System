@@ -4,6 +4,20 @@ import 'leaflet/dist/leaflet.css';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+import {
+  ArcElement,
+  BarController,
+  BarElement,
+  CategoryScale,
+  Chart,
+  DoughnutController,
+  Legend,
+  LineController,
+  LineElement,
+  LinearScale,
+  PointElement,
+  Tooltip,
+} from 'chart.js';
 
 delete L.Icon.Default.prototype._getIconUrl;
 
@@ -14,6 +28,97 @@ L.Icon.Default.mergeOptions({
 });
 
 window.L = L;
+
+Chart.register(
+  ArcElement,
+  BarController,
+  BarElement,
+  CategoryScale,
+  DoughnutController,
+  Legend,
+  LineController,
+  LineElement,
+  LinearScale,
+  PointElement,
+  Tooltip,
+);
+
+const dashboardChartInstances = [];
+let dashboardChartsInitialized = false;
+const chartPalette = ['#2456d6', '#ffc21a', '#25855a', '#e0352b', '#7756c8', '#e07b2b', '#35a3a3', '#68748a'];
+
+const initializeDashboardCharts = () => {
+  document.querySelectorAll('[data-report-chart]').forEach((container) => {
+    const canvas = container.querySelector('canvas');
+    const chartData = JSON.parse(container.dataset.reportChart);
+    const isDoughnut = container.dataset.chartType === 'doughnut';
+    const isHorizontal = container.dataset.chartType === 'horizontal-bar';
+    const isLine = container.dataset.chartType === 'line';
+    const datasetColors = container.dataset.chartType === 'bar'
+      ? ['#25855a', '#ffc21a', '#e07b2b', '#e0352b']
+      : chartData.counts.map((_, index) => chartPalette[index % chartPalette.length]);
+
+    dashboardChartInstances.push(new Chart(canvas, {
+      type: isHorizontal ? 'bar' : container.dataset.chartType,
+      data: {
+        labels: chartData.labels,
+        datasets: [{
+          label: 'Reports',
+          data: chartData.counts,
+          backgroundColor: isLine ? 'rgb(36 86 214 / 16%)' : datasetColors,
+          borderColor: isLine ? '#2456d6' : (isDoughnut ? '#fff' : datasetColors),
+          borderWidth: isDoughnut ? 2 : 1,
+          tension: 0.3,
+          fill: false,
+          pointRadius: isLine ? 3 : 0,
+          pointBackgroundColor: '#2456d6',
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        indexAxis: isHorizontal ? 'y' : 'x',
+        cutout: isDoughnut ? '62%' : undefined,
+        plugins: {
+          legend: {
+            display: isDoughnut,
+            position: 'bottom',
+            labels: {
+              padding: 14,
+              generateLabels: (chart) => chart.data.labels.map((label, index) => ({
+                text: `${label} (${chart.data.datasets[0].data[index]})`,
+                fillStyle: chart.data.datasets[0].backgroundColor[index],
+                strokeStyle: chart.data.datasets[0].backgroundColor[index],
+                lineWidth: 0,
+                hidden: false,
+                index,
+              })),
+            },
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => `${context.label ?? context.dataset.label}: ${context.raw}`,
+            },
+          },
+        },
+        scales: isDoughnut ? {} : {
+          x: {
+            beginAtZero: isHorizontal,
+            grid: { display: isHorizontal, color: '#e3e8f4' },
+            ticks: { precision: 0, maxRotation: 0 },
+          },
+          y: {
+            beginAtZero: !isHorizontal,
+            grid: { display: !isHorizontal, color: '#e3e8f4' },
+            ticks: { precision: 0, autoSkip: !isHorizontal, maxTicksLimit: 8 },
+          },
+        },
+      },
+    }));
+  });
+
+  dashboardChartsInitialized = true;
+};
 
 const dashboardTabs = document.querySelector('[data-dashboard-tabs]');
 
@@ -39,6 +144,16 @@ if (dashboardTabs) {
 
     if (updateHash && window.location.hash !== `#${tabName}`) {
       window.history.pushState(null, '', `#${tabName}`);
+    }
+
+    if (tabName === 'analytics') {
+      if (!dashboardChartsInitialized) {
+        initializeDashboardCharts();
+      }
+
+      window.requestAnimationFrame(() => {
+        dashboardChartInstances.forEach((chart) => chart.resize());
+      });
     }
   };
 

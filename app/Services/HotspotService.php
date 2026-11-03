@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Report;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
 
 class HotspotService
@@ -18,7 +19,7 @@ class HotspotService
 
             $latKey = round((float) $report->lat, 3);
             $lngKey = round((float) $report->lng, 3);
-            $key = sprintf('%s,%s', $latKey, $lngKey);
+            $key = sprintf('%.3f,%.3f', $latKey, $lngKey);
 
             $cells[$key] = ($cells[$key] ?? 0) + 1;
         }
@@ -28,16 +29,27 @@ class HotspotService
 
     public function weeklyTrend(): array
     {
-        return Report::query()
-            ->selectRaw('DATE(created_at) as day, COUNT(*) as total')
-            ->groupByRaw('DATE(created_at)')
-            ->orderBy('day')
-            ->limit(8)
-            ->get()
-            ->map(fn ($row) => [
-                'day' => $row->day,
-                'total' => (int) $row->total,
-            ])
+        $now = CarbonImmutable::now();
+        $firstWeek = $now->startOfWeek()->subWeeks(7);
+        $weekStarts = collect(range(0, 7))
+            ->map(fn (int $offset): CarbonImmutable => $firstWeek->addWeeks($offset));
+
+        return $weekStarts
+            ->map(function (CarbonImmutable $weekStart, int $index) use ($weekStarts, $now): array {
+                $query = Report::query()->where('created_at', '>=', $weekStart);
+                $nextWeekStart = $weekStarts->get($index + 1);
+
+                if ($nextWeekStart instanceof CarbonImmutable) {
+                    $query->where('created_at', '<', $nextWeekStart);
+                } else {
+                    $query->where('created_at', '<=', $now);
+                }
+
+                return [
+                    'week' => $weekStart->format('M j'),
+                    'total' => $query->count(),
+                ];
+            })
             ->all();
     }
 }

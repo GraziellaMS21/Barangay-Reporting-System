@@ -742,6 +742,180 @@ h3 {
     border-radius: inherit;
 }
 
+.staff-map-layout {
+    display: grid;
+    grid-template-columns: minmax(16rem, 0.85fr) minmax(0, 2fr);
+    align-items: start;
+    gap: 1rem;
+}
+
+.staff-map-controls {
+    display: grid;
+    align-content: start;
+    gap: 1rem;
+    min-width: 0;
+}
+
+.staff-map-controls .card-title,
+.staff-map-card .card-title {
+    margin-bottom: 0;
+}
+
+.staff-map-filters {
+    display: grid;
+    gap: 0.7rem;
+}
+
+.staff-map-filters label {
+    display: grid;
+    gap: 0.3rem;
+    color: var(--ink);
+    font-size: 0.84rem;
+    font-weight: 800;
+}
+
+.staff-map-filters input,
+.staff-map-filters select {
+    width: 100%;
+    min-height: 44px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 0.55rem 0.7rem;
+    color: var(--ink);
+    background: #fff;
+    font: inherit;
+    font-size: 0.88rem;
+}
+
+.staff-map-filters input:focus,
+.staff-map-filters select:focus {
+    border-color: var(--blue);
+    outline: 3px solid rgb(36 86 214 / 13%);
+}
+
+.map-results-count,
+.map-empty-state {
+    margin: 0;
+    color: var(--mut);
+    font-size: 0.86rem;
+}
+
+.map-urgency-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem 0.8rem;
+}
+
+.map-urgency-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--mut);
+    font-size: 0.76rem;
+}
+
+.map-urgency-dot {
+    width: 0.6rem;
+    height: 0.6rem;
+    border: 1px solid #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px rgb(11 31 75 / 22%);
+}
+
+.urgency-low {
+    background: #25855a;
+}
+
+.urgency-medium {
+    background: #c58a00;
+}
+
+.urgency-high {
+    background: #e07b2b;
+}
+
+.urgency-critical {
+    background: #e0352b;
+}
+
+.staff-map-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+}
+
+.staff-map-actions .btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.map-panel-heading {
+    margin: 0 0 0.55rem;
+    color: var(--ink);
+    font-size: 0.95rem;
+}
+
+.map-hotspot-list,
+.map-weekly-trend {
+    display: grid;
+    gap: 0.45rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.map-hotspot-list li,
+.map-weekly-trend li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.map-hotspot-list li > span,
+.map-weekly-trend li > span {
+    color: var(--mut);
+    font-size: 0.78rem;
+    white-space: nowrap;
+}
+
+.map-hotspot-list button {
+    min-width: 0;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 0.4rem 0.55rem;
+    color: var(--ink);
+    background: #fff;
+    font: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+    overflow-wrap: anywhere;
+}
+
+.map-hotspot-list button:hover,
+.map-hotspot-list button[aria-pressed="true"] {
+    border-color: var(--blue);
+    color: var(--blue);
+    background: #eef3ff;
+}
+
+.map-weekly-trend li {
+    border-bottom: 1px solid var(--line);
+    padding: 0.3rem 0;
+}
+
+.map-weekly-trend li strong {
+    color: var(--ink);
+    font-size: 0.85rem;
+}
+
+.staff-map-canvas {
+    min-height: 560px;
+}
+
 .map-controls {
     display: flex;
     justify-content: flex-end;
@@ -1663,6 +1837,22 @@ h3 {
         grid-template-columns: 1fr;
     }
 
+    .staff-map-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .staff-map-controls {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .staff-map-controls > .card-title,
+    .staff-map-filters,
+    .map-results-count,
+    .map-urgency-legend,
+    .staff-map-actions {
+        grid-column: 1 / -1;
+    }
+
     .chart-grid {
         grid-template-columns: 1fr;
     }
@@ -1797,6 +1987,14 @@ h3 {
         min-height: 1.2rem;
         padding-inline: 0.4rem;
         font-size: 0.62rem;
+    }
+
+    .staff-map-controls {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .staff-map-canvas {
+        min-height: 420px;
     }
 
     .chart-canvas-wrap {

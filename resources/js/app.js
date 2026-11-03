@@ -488,3 +488,162 @@ if (detailMapElement) {
     L.marker([latitude, longitude]).addTo(map);
   }
 }
+
+const staffMapElement = document.querySelector('[data-staff-report-map]');
+
+if (staffMapElement) {
+  const reports = JSON.parse(staffMapElement.dataset.staffReportMap);
+  const defaultCenter = [6.918, 122.081];
+  const map = L.map(staffMapElement).setView(defaultCenter, 13);
+  const markerLayer = L.layerGroup().addTo(map);
+  const filterControls = {
+    category: document.querySelector('[data-map-filter="category"]'),
+    purok: document.querySelector('[data-map-filter="purok"]'),
+    status: document.querySelector('[data-map-filter="status"]'),
+    dateFrom: document.querySelector('[data-map-filter="date-from"]'),
+    dateTo: document.querySelector('[data-map-filter="date-to"]'),
+  };
+  const resultsCount = document.querySelector('[data-map-results]');
+  const clearHotspotButton = document.querySelector('[data-map-clear-hotspot]');
+  const hotspotButtons = Array.from(document.querySelectorAll('[data-hotspot-cell]'));
+  let selectedHotspotCell = null;
+  let hotspotOverlay = null;
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors',
+  }).addTo(map);
+
+  const escapePopupText = (value) => String(value).replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;',
+  })[character]);
+
+  const markerColor = (urgency) => ({
+    low: '#25855a',
+    medium: '#c58a00',
+    high: '#e07b2b',
+    critical: '#e0352b',
+  })[String(urgency).toLowerCase()] ?? '#2456d6';
+
+  const filteredReports = () => reports.filter((report) => {
+    const categoryMatches = !filterControls.category.value
+      || filterControls.category.value === report.categoryId;
+    const purokMatches = !filterControls.purok.value
+      || filterControls.purok.value === report.purokId;
+    const statusMatches = !filterControls.status.value
+      || filterControls.status.value === report.status;
+    const fromDateMatches = !filterControls.dateFrom.value
+      || report.createdAt >= filterControls.dateFrom.value;
+    const toDateMatches = !filterControls.dateTo.value
+      || report.createdAt <= filterControls.dateTo.value;
+    const hotspotMatches = !selectedHotspotCell || report.cellKey === selectedHotspotCell;
+
+    return categoryMatches
+      && purokMatches
+      && statusMatches
+      && fromDateMatches
+      && toDateMatches
+      && hotspotMatches;
+  });
+
+  const renderMapReports = () => {
+    const visibleReports = filteredReports();
+    const markerLocations = [];
+    markerLayer.clearLayers();
+
+    visibleReports.forEach((report) => {
+      const location = [report.lat, report.lng];
+      const color = markerColor(report.urgency);
+      const marker = L.circleMarker(location, {
+        radius: 8,
+        color,
+        weight: 2,
+        fillColor: color,
+        fillOpacity: 0.85,
+      });
+      const popup = [
+        `<strong>${escapePopupText(report.trackingCode)}</strong>`,
+        escapePopupText(report.category),
+        `Status: ${escapePopupText(report.statusLabel)}`,
+        `Urgency: ${escapePopupText(report.urgency)}`,
+        `Purok: ${escapePopupText(report.purok)}`,
+        `<a href="${escapePopupText(report.url)}">Open report</a>`,
+      ].join('<br>');
+
+      marker.bindPopup(popup);
+      markerLayer.addLayer(marker);
+      markerLocations.push(location);
+    });
+
+    resultsCount.textContent = `${visibleReports.length} location${visibleReports.length === 1 ? '' : 's'} shown`;
+
+    if (selectedHotspotCell) {
+      const [latitude, longitude] = selectedHotspotCell.split(',').map(Number);
+      map.fitBounds([
+        [latitude - 0.0005, longitude - 0.0005],
+        [latitude + 0.0005, longitude + 0.0005],
+      ], { padding: [24, 24], maxZoom: 16 });
+    } else if (markerLocations.length > 0) {
+      map.fitBounds(L.latLngBounds(markerLocations), { padding: [24, 24], maxZoom: 15 });
+    } else {
+      map.setView(defaultCenter, 13);
+    }
+  };
+
+  const clearHotspotSelection = () => {
+    selectedHotspotCell = null;
+    hotspotOverlay?.remove();
+    hotspotOverlay = null;
+    hotspotButtons.forEach((button) => button.setAttribute('aria-pressed', 'false'));
+    clearHotspotButton.disabled = true;
+  };
+
+  const selectHotspot = (cellKey, selectedButton) => {
+    selectedHotspotCell = cellKey;
+    hotspotOverlay?.remove();
+    const [latitude, longitude] = cellKey.split(',').map(Number);
+    hotspotOverlay = L.rectangle([
+      [latitude - 0.0005, longitude - 0.0005],
+      [latitude + 0.0005, longitude + 0.0005],
+    ], {
+      color: '#2456d6',
+      weight: 3,
+      fillColor: '#ffc21a',
+      fillOpacity: 0.3,
+      interactive: false,
+    }).addTo(map);
+    hotspotOverlay.bringToBack();
+    hotspotButtons.forEach((button) => {
+      button.setAttribute('aria-pressed', String(button === selectedButton));
+    });
+    clearHotspotButton.disabled = false;
+    renderMapReports();
+  };
+
+  Object.values(filterControls).forEach((control) => {
+    control.addEventListener('change', renderMapReports);
+  });
+
+  hotspotButtons.forEach((button) => {
+    button.addEventListener('click', () => selectHotspot(button.dataset.hotspotCell, button));
+  });
+
+  clearHotspotButton.addEventListener('click', () => {
+    clearHotspotSelection();
+    renderMapReports();
+  });
+
+  document.querySelector('[data-map-show-all]').addEventListener('click', () => {
+    Object.values(filterControls).forEach((control) => {
+      control.value = '';
+    });
+    clearHotspotSelection();
+    renderMapReports();
+  });
+
+  renderMapReports();
+}

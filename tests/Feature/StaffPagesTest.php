@@ -108,4 +108,50 @@ class StaffPagesTest extends TestCase
             ->assertSee($report->tracking_code)
             ->assertSee('Update status');
     }
+
+    public function test_staff_map_requires_staff_authentication_and_renders_hotspot_controls(): void
+    {
+        $report = Report::factory()->create([
+            'lat' => 6.918123,
+            'lng' => 122.081456,
+            'reporter_name' => 'Private Demo Resident',
+            'reporter_contact' => '09170000001',
+        ]);
+        Report::factory()->create([
+            'lat' => 6.918321,
+            'lng' => 122.081234,
+        ]);
+
+        $this->get(route('admin.map'))
+            ->assertRedirect(route('login'));
+
+        $this->actingAs(User::factory()->staff()->create())
+            ->get(route('admin.map'))
+            ->assertOk()
+            ->assertSee('name="category-filter"', false)
+            ->assertSee('name="purok-filter"', false)
+            ->assertSee('name="status-filter"', false)
+            ->assertSee('name="date-from"', false)
+            ->assertSee('name="date-to"', false)
+            ->assertSee('Show all reports')
+            ->assertSee('Clear hotspot')
+            ->assertSee('data-hotspot-cell="6.918,122.081"', false)
+            ->assertSee('<strong>2</strong> reports', false)
+            ->assertSee($report->tracking_code)
+            ->assertViewHas('mapReports', function ($mapReports) use ($report): bool {
+                $mappedReport = $mapReports->firstWhere('trackingCode', $report->tracking_code);
+
+                $this->assertSame(route('admin.reports.show', $report), $mappedReport['url'] ?? null);
+
+                return true;
+            })
+            ->assertViewHas('weeklyTrend', function (array $weeklyTrend): bool {
+                $this->assertCount(8, $weeklyTrend);
+                $this->assertSame(2, array_sum(array_column($weeklyTrend, 'total')));
+
+                return true;
+            })
+            ->assertDontSee('Private Demo Resident')
+            ->assertDontSee('09170000001');
+    }
 }

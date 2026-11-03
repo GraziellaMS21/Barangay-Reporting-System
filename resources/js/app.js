@@ -44,7 +44,6 @@ Chart.register(
 );
 
 const dashboardChartInstances = [];
-let dashboardChartsInitialized = false;
 const chartPalette = ['#2456d6', '#ffc21a', '#25855a', '#e0352b', '#7756c8', '#e07b2b', '#35a3a3', '#68748a'];
 
 const initializeDashboardCharts = () => {
@@ -117,90 +116,10 @@ const initializeDashboardCharts = () => {
     }));
   });
 
-  dashboardChartsInitialized = true;
 };
 
-const dashboardTabs = document.querySelector('[data-dashboard-tabs]');
-
-if (dashboardTabs) {
-  const tabButtons = Array.from(dashboardTabs.querySelectorAll('[data-dashboard-tab]'));
-  const setActiveDashboardTab = (tabName, updateHash = false) => {
-    const activeButton = tabButtons.find((button) => button.dataset.dashboardTab === tabName);
-
-    if (!activeButton) {
-      return;
-    }
-
-    tabButtons.forEach((button) => {
-      const isActive = button === activeButton;
-      button.setAttribute('aria-selected', String(isActive));
-      button.tabIndex = isActive ? 0 : -1;
-
-      const panel = document.getElementById(button.getAttribute('aria-controls'));
-      if (panel) {
-        panel.hidden = !isActive;
-      }
-    });
-
-    if (updateHash && window.location.hash !== `#${tabName}`) {
-      window.history.pushState(null, '', `#${tabName}`);
-    }
-
-    if (tabName === 'analytics') {
-      if (!dashboardChartsInitialized) {
-        initializeDashboardCharts();
-      }
-
-      window.requestAnimationFrame(() => {
-        dashboardChartInstances.forEach((chart) => chart.resize());
-      });
-    }
-  };
-
-  dashboardTabs.addEventListener('click', (event) => {
-    const tabButton = event.target.closest('[data-dashboard-tab]');
-
-    if (tabButton) {
-      setActiveDashboardTab(tabButton.dataset.dashboardTab, true);
-    }
-  });
-
-  dashboardTabs.addEventListener('keydown', (event) => {
-    const currentIndex = tabButtons.indexOf(document.activeElement);
-
-    if (currentIndex === -1) {
-      return;
-    }
-
-    let nextIndex = currentIndex;
-    if (event.key === 'ArrowRight') {
-      nextIndex = (currentIndex + 1) % tabButtons.length;
-    } else if (event.key === 'ArrowLeft') {
-      nextIndex = (currentIndex - 1 + tabButtons.length) % tabButtons.length;
-    } else if (event.key === 'Home') {
-      nextIndex = 0;
-    } else if (event.key === 'End') {
-      nextIndex = tabButtons.length - 1;
-    } else {
-      return;
-    }
-
-    event.preventDefault();
-    tabButtons[nextIndex].focus();
-    setActiveDashboardTab(tabButtons[nextIndex].dataset.dashboardTab, true);
-  });
-
-  window.addEventListener('hashchange', () => {
-    setActiveDashboardTab(window.location.hash.slice(1));
-  });
-
-  const initialTab = window.location.hash.slice(1);
-  const validInitialTab = tabButtons.some((button) => button.dataset.dashboardTab === initialTab);
-  setActiveDashboardTab(validInitialTab ? initialTab : 'overview');
-
-  if (!validInitialTab && window.location.hash !== '#overview') {
-    window.history.replaceState(null, '', '#overview');
-  }
+if (document.querySelector('[data-report-chart]')) {
+  initializeDashboardCharts();
 }
 
 document.addEventListener('submit', (event) => {
@@ -212,10 +131,11 @@ document.addEventListener('submit', (event) => {
 });
 
 document.addEventListener('click', (event) => {
-  const openButton = event.target.closest('[data-help-open]');
+  const openButton = event.target.closest('[data-help-open], [data-dialog-open]');
 
   if (openButton) {
-    const dialog = document.getElementById(openButton.dataset.helpOpen);
+    const dialogId = openButton.dataset.helpOpen ?? openButton.dataset.dialogOpen;
+    const dialog = document.getElementById(dialogId);
 
     if (dialog instanceof HTMLDialogElement) {
       dialog.showModal();
@@ -224,7 +144,7 @@ document.addEventListener('click', (event) => {
     return;
   }
 
-  const closeButton = event.target.closest('[data-help-close]');
+  const closeButton = event.target.closest('[data-help-close], [data-dialog-close]');
   const dialog = closeButton?.closest('dialog');
 
   if (dialog instanceof HTMLDialogElement) {
@@ -232,12 +152,18 @@ document.addEventListener('click', (event) => {
   }
 });
 
-document.querySelectorAll('dialog.settings-help-dialog').forEach((dialog) => {
+document.querySelectorAll('dialog.settings-help-dialog, dialog[data-contact-dialog]').forEach((dialog) => {
   dialog.addEventListener('click', (event) => {
     if (event.target === dialog) {
       dialog.close();
     }
   });
+});
+
+document.querySelectorAll('dialog[data-open-on-load]').forEach((dialog) => {
+  if (dialog instanceof HTMLDialogElement) {
+    dialog.showModal();
+  }
 });
 
 const siteMenuToggle = document.querySelector('.site-menu-toggle');

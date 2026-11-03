@@ -21,7 +21,11 @@ class DashboardController extends Controller
             'high_or_critical' => Report::query()->whereIn('status', ['under_review', 'in_progress', 'routed'])->whereIn('urgency', ['High', 'Critical'])->count(),
             'in_progress' => Report::query()->where('status', 'in_progress')->count(),
             'resolved' => Report::query()->where('status', 'resolved')->count(),
-            'emergency' => Report::query()->where('status', 'emergency_flagged')->count(),
+            'emergency' => Report::query()
+                ->where(fn ($query) => $query
+                    ->where('is_emergency', true)
+                    ->orWhere('status', 'emergency_flagged'))
+                ->count(),
         ];
 
         $chartData = $dashboardAnalyticsService->chartData();

@@ -26,6 +26,29 @@ class Report extends Model
         'emergency_flagged' => 'Emergency Flagged',
     ];
 
+    public const STATUS_GROUPS = [
+        'all' => [
+            'label' => 'All',
+            'statuses' => null,
+        ],
+        'new' => [
+            'label' => 'New',
+            'statuses' => ['submitted', 'under_review'],
+        ],
+        'active' => [
+            'label' => 'Active',
+            'statuses' => ['routed', 'in_progress'],
+        ],
+        'resolved' => [
+            'label' => 'Resolved',
+            'statuses' => ['resolved'],
+        ],
+        'closed-other' => [
+            'label' => 'Others',
+            'statuses' => ['referred', 'merged', 'out_of_scope'],
+        ],
+    ];
+
     public const MANUAL_STATUSES = [
         'under_review',
         'routed',

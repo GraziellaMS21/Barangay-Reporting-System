@@ -32,6 +32,9 @@
         <a href="{{ route('admin.referrals.index') }}" @class(['active' => request()->routeIs('admin.referrals.index')])>
           <i class="fa-solid fa-clipboard-list" aria-hidden="true"></i> Referrals
         </a>
+        <a href="{{ route('reports.create') }}">
+          <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Resident site
+        </a>
         @if(auth()->user()->isAdmin())
           <div class="staff-nav-heading">Administration</div>
           <a href="{{ route('admin.settings.index') }}"
@@ -56,9 +59,6 @@
             <i class="fa-solid fa-clipboard-check" aria-hidden="true"></i> Audit log
           </a>
         @endif
-        <a href="{{ route('reports.create') }}">
-          <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Resident site
-        </a>
         <form method="POST" action="{{ route('logout') }}">
           @csrf
           <button type="submit">

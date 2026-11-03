@@ -23,61 +23,110 @@ class ReportController extends Controller
 {
     public function index(Request $request): View
     {
+        $validated = $request->validate([
+            'stage' => ['nullable', Rule::in(array_keys(Report::STATUS_GROUPS))],
+            'status' => ['nullable', Rule::in(['all', ...array_keys(Report::STATUSES)])],
+            'emergency' => ['nullable', Rule::in(['0', '1'])],
+            'purok_id' => ['nullable', 'integer', Rule::exists('puroks', 'id')],
+            'q' => ['nullable', 'string', 'max:255'],
+        ]);
+        $statusFilter = $validated['status'] ?? null;
+        $emergencyOnly = ($validated['emergency'] ?? null) === '1';
+        $currentStage = $validated['stage'] ?? 'all';
+
+        if ($statusFilter === 'emergency_flagged') {
+            $emergencyOnly = true;
+            $statusFilter = null;
+            $currentStage = 'all';
+        } elseif ($statusFilter !== null && $statusFilter !== 'all') {
+            $currentStage = $this->stageForStatus($statusFilter) ?? $currentStage;
+        }
+
         $query = Report::query()
-            ->select(['id', 'tracking_code', 'description', 'purok_id', 'status', 'created_at'])
+            ->select(['id', 'tracking_code', 'description', 'purok_id', 'status', 'is_emergency', 'created_at'])
             ->with('purok:id,name');
 
-        // Filter: Status
-        if ($request->filled('status') && array_key_exists($request->input('status'), Report::STATUSES)) {
-            $query->where('status', $request->input('status'));
+        if ($currentStage !== 'all') {
+            $query->whereIn('status', Report::STATUS_GROUPS[$currentStage]['statuses']);
         }
 
-        // Filter: Purok
-        if ($request->filled('purok_id')) {
-            $query->where('purok_id', $request->input('purok_id'));
+        if ($statusFilter !== null && $statusFilter !== 'all') {
+            $query->where('status', $statusFilter);
         }
 
-        // Filter: Search tracking code or description
-        if ($request->filled('q')) {
-            $term = addcslashes($request->input('q'), '%_\\');
+        if ($emergencyOnly) {
+            $query->where(fn ($emergencyQuery) => $emergencyQuery
+                ->where('is_emergency', true)
+                ->orWhere('status', 'emergency_flagged'));
+        }
+
+        if (isset($validated['purok_id'])) {
+            $query->where('purok_id', $validated['purok_id']);
+        }
+
+        if (isset($validated['q'])) {
+            $term = addcslashes($validated['q'], '%_\\');
             $query->where(function ($sub) use ($term) {
                 $sub->where('tracking_code', 'like', "%{$term}%")
                     ->orWhere('description', 'like', "%{$term}%");
             });
         }
 
-        // Order: open reports first, then closed (resolved, out_of_scope, merged, referred), each newest first.
-        // Note: Phase 5 replaces this ordering with priority score and emergency-first ordering.
         $closedStatusesList = "'".implode("','", Report::CLOSED_STATUSES)."'";
-        $query->orderByRaw("CASE WHEN status IN ({$closedStatusesList}) THEN 1 ELSE 0 END ASC")
+        $query->orderByDesc('is_emergency')
+            ->orderByRaw('CASE WHEN status = ? THEN 0 ELSE 1 END', ['emergency_flagged'])
+            ->orderByRaw("CASE WHEN status IN ({$closedStatusesList}) THEN 1 ELSE 0 END ASC")
             ->latest('created_at')
             ->latest('id');
 
         $reports = $query->paginate(15)->withQueryString();
 
-        // Stat counts
         $statusCounts = Report::query()
             ->selectRaw('status, count(*) as count')
             ->groupBy('status')
             ->pluck('count', 'status');
-
-        $totalReports = Report::count();
-        $statTotals = [
-            'total' => $totalReports,
-            'new' => $statusCounts->get('submitted', 0),
-            'under_review' => $statusCounts->get('under_review', 0),
-            'in_progress' => $statusCounts->get('in_progress', 0),
-            'resolved' => $statusCounts->get('resolved', 0),
-        ];
+        $stageCounts = collect(Report::STATUS_GROUPS)
+            ->mapWithKeys(fn (array $group, string $stage): array => [
+                $stage => $group['statuses'] === null
+                    ? $statusCounts->sum()
+                    : array_sum(array_map(
+                        fn (string $status): int => (int) $statusCounts->get($status, 0),
+                        $group['statuses']
+                    )),
+            ]);
+        $emergencyCount = Report::query()
+            ->where(fn ($emergencyQuery) => $emergencyQuery
+                ->where('is_emergency', true)
+                ->orWhere('status', 'emergency_flagged'))
+            ->count();
+        $statusGroups = Report::STATUS_GROUPS;
+        $statusLabels = Report::STATUSES;
 
         $puroks = Purok::orderBy('name')->get();
 
         return view('admin.reports.index', compact(
             'reports',
             'statusCounts',
-            'statTotals',
-            'puroks'
+            'statusGroups',
+            'statusLabels',
+            'stageCounts',
+            'emergencyCount',
+            'puroks',
+            'currentStage',
+            'statusFilter',
+            'emergencyOnly'
         ));
+    }
+
+    private function stageForStatus(string $status): ?string
+    {
+        foreach (Report::STATUS_GROUPS as $stage => $group) {
+            if ($group['statuses'] !== null && in_array($status, $group['statuses'], true)) {
+                return $stage;
+            }
+        }
+
+        return null;
     }
 
     public function show(Report $report, RoutingService $routingService): View

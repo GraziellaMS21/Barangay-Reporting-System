@@ -18,7 +18,7 @@ class DashboardControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_dashboard_shows_tabs_metrics_and_items_needing_attention(): void
+    public function test_dashboard_shows_metrics_charts_and_pending_items_in_tables(): void
     {
         $staff = User::factory()->staff()->create();
         $priorityReport = Report::factory()->create([
@@ -52,12 +52,19 @@ class DashboardControllerTest extends TestCase
             'status' => 'pending',
         ]);
 
-        $this->actingAs($staff)
+        $response = $this->actingAs($staff)
             ->get(route('admin.dashboard'))
             ->assertOk()
-            ->assertSee('Overview')
-            ->assertSee('Analytics')
-            ->assertSee('Needs Attention')
+            ->assertDontSee('data-dashboard-tabs', false)
+            ->assertSeeInOrder([
+                'Operational metrics',
+                'Reports by category',
+                '5 most recent reports',
+                'Top 5 priority reports',
+                'Still unreviewed',
+                'Pending duplicate suggestions',
+                'Pending referrals',
+            ])
             ->assertSee('Top 5 priority reports')
             ->assertSee($priorityReport->tracking_code)
             ->assertSee('Still unreviewed')
@@ -68,6 +75,8 @@ class DashboardControllerTest extends TestCase
             ->assertSee($office->name)
             ->assertSee('6.0 h')
             ->assertSee('emergency report');
+
+        $this->assertSame(5, substr_count($response->getContent(), '<table'));
     }
 
     public function test_dashboard_sends_only_aggregate_counts_to_gemini(): void

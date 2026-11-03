@@ -8,49 +8,91 @@
   <p>Review incoming reports, narrow the queue, and open a report to manage its status.</p>
 </div>
 
-<section class="stat-grid" aria-label="Report totals">
-  @foreach([
-      'total' => ['All reports', 'fa-inbox', ''],
-      'new' => ['Awaiting review', 'fa-eye', ''],
-      'under_review' => ['Under review', 'fa-magnifying-glass', ''],
-      'in_progress' => ['In progress', 'fa-gears', ''],
-      'resolved' => ['Resolved', 'fa-circle-check', ''],
-  ] as $key => [$label, $icon])
-    <article class="card stat-card">
-      <span class="stat-icon" aria-hidden="true"><i class="fa-solid {{ $icon }}"></i></span>
-      <div>
-        <strong>{{ $statTotals[$key] }}</strong>
-        <span>{{ $label }}</span>
-      </div>
-    </article>
-  @endforeach
-</section>
+@php
+  $preservedFilters = request()->only(['q', 'purok_id', 'emergency']);
+  $emergencyFilterParams = array_merge($preservedFilters, ['stage' => $currentStage]);
+  $clearFilterParams = ['stage' => $currentStage];
 
-<nav class="status-filters" aria-label="Filter reports by status">
-  <a href="{{ route('admin.reports.index', request()->except(['status', 'page'])) }}"
-    @class(['status-filter', 'active' => !request('status')])>
-    All <span>{{ $statTotals['total'] }}</span>
+  if ($statusFilter !== null && $statusFilter !== 'all') {
+      $emergencyFilterParams['status'] = $statusFilter;
+      $clearFilterParams['status'] = $statusFilter;
+  }
+
+  if ($emergencyOnly) {
+      $clearFilterParams['emergency'] = '1';
+      unset($emergencyFilterParams['emergency']);
+  } else {
+      $emergencyFilterParams['emergency'] = '1';
+  }
+@endphp
+
+<div class="lifecycle-filter-toolbar">
+  <nav class="status-filters" aria-label="Filter reports by lifecycle stage">
+    @foreach($statusGroups as $stage => $group)
+      <a href="{{ route('admin.reports.index', array_merge($preservedFilters, ['stage' => $stage])) }}"
+        @class(['status-filter', 'active' => $currentStage === $stage])>
+        {{ $group['label'] }}
+        @if($stageCounts->get($stage, 0) > 0)
+          <span>{{ $stageCounts->get($stage) }}</span>
+        @endif
+      </a>
+    @endforeach
+  </nav>
+
+  <form method="GET" action="{{ route('admin.reports.index') }}" class="status-stage-mobile">
+    @foreach(request()->only(['q', 'purok_id', 'emergency']) as $name => $value)
+      <input type="hidden" name="{{ $name }}" value="{{ $value }}">
+    @endforeach
+    <label class="sr-only" for="mobile-stage">Lifecycle stage</label>
+    <select id="mobile-stage" name="stage">
+      @foreach($statusGroups as $stage => $group)
+        <option value="{{ $stage }}" @selected($currentStage === $stage)>{{ $group['label'] }}</option>
+      @endforeach
+    </select>
+    <button type="submit" class="btn btn-navy btn-small">Apply</button>
+  </form>
+
+  <a href="{{ route('admin.reports.index', $emergencyFilterParams) }}"
+    class="status-filter emergency-toggle {{ $emergencyOnly ? 'active' : '' }}"
+    aria-pressed="{{ $emergencyOnly ? 'true' : 'false' }}">
+    <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+    Emergency <span>{{ $emergencyCount }}</span>
   </a>
-  @foreach(\App\Models\Report::STATUSES as $status => $label)
-    <a href="{{ route('admin.reports.index', array_merge(request()->except('page'), ['status' => $status])) }}"
-      @class(['status-filter', 'active' => request('status') === $status])>
-      {{ $label }} <span>{{ $statusCounts->get($status, 0) }}</span>
+</div>
+
+@if(in_array($currentStage, ['active', 'closed-other'], true))
+  <nav class="status-subfilters" aria-label="Filter by exact status">
+    <span>Show:</span>
+    <a href="{{ route('admin.reports.index', array_merge($preservedFilters, ['stage' => $currentStage])) }}"
+      @class(['status-subfilter', 'active' => $statusFilter === null || $statusFilter === 'all'])>
+      All
     </a>
-  @endforeach
-</nav>
+    @foreach($statusGroups[$currentStage]['statuses'] as $status)
+      <a href="{{ route('admin.reports.index', array_merge($preservedFilters, [
+          'stage' => $currentStage,
+          'status' => $status,
+      ])) }}"
+        @class(['status-subfilter', 'active' => $statusFilter === $status])>
+        {{ $statusLabels[$status] }}
+        @if($statusCounts->get($status, 0) > 0)
+          <span>{{ $statusCounts->get($status) }}</span>
+        @endif
+      </a>
+    @endforeach
+  </nav>
+@endif
 
 <form method="GET" action="{{ route('admin.reports.index') }}" class="card filter-form">
+  <input type="hidden" name="stage" value="{{ $currentStage }}">
+  @if($statusFilter !== null && $statusFilter !== 'all')
+    <input type="hidden" name="status" value="{{ $statusFilter }}">
+  @endif
+  @if($emergencyOnly)
+    <input type="hidden" name="emergency" value="1">
+  @endif
   <label for="q">Search reports
     <input id="q" type="search" name="q" value="{{ request('q') }}"
       placeholder="Tracking code or description">
-  </label>
-  <label for="status">Status
-    <select id="status" name="status">
-      <option value="">All statuses</option>
-      @foreach(\App\Models\Report::STATUSES as $value => $label)
-        <option value="{{ $value }}" @selected(request('status') === $value)>{{ $label }}</option>
-      @endforeach
-    </select>
   </label>
   <label for="purok_id">Purok
     <select id="purok_id" name="purok_id">
@@ -66,7 +108,7 @@
     <button type="submit" class="btn btn-navy btn-small">
       <i class="fa-solid fa-filter" aria-hidden="true"></i> Filter
     </button>
-    <a href="{{ route('admin.reports.index') }}" class="filter-clear">Clear</a>
+    <a href="{{ route('admin.reports.index', $clearFilterParams) }}" class="filter-clear">Clear</a>
   </div>
 </form>
 
@@ -90,7 +132,17 @@
           </td>
           <td class="description-cell" data-label="Report summary">{{ \Illuminate\Support\Str::limit($report->description, 110) }}</td>
           <td class="whitespace-nowrap" data-label="Purok">{{ $report->purok?->name ?? '—' }}</td>
-          <td data-label="Status"><x-status-badge :status="$report->status" /></td>
+          <td data-label="Status">
+            <span class="report-status-cell">
+              <x-status-badge :status="$report->status" />
+              @if($report->is_emergency && $report->status !== 'emergency_flagged')
+                <span class="status-badge b-red emergency-row-chip">
+                  <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+                  <span>Emergency</span>
+                </span>
+              @endif
+            </span>
+          </td>
           <td class="whitespace-nowrap" data-label="Submitted">{{ $report->created_at->format('M d, Y') }}</td>
           <td data-label="Action">
             <a href="{{ route('admin.reports.show', $report) }}" class="btn btn-gold btn-small">

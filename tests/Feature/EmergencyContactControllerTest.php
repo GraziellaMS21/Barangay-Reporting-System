@@ -76,6 +76,51 @@ class EmergencyContactControllerTest extends TestCase
         $this->assertSame($admin->id, $deletedAudit->user_id);
     }
 
+    public function test_admin_contact_page_uses_a_table_and_add_contact_modal(): void
+    {
+        $admin = User::factory()->admin()->create();
+        EmergencyContact::create([
+            'name' => 'Barangay Hotline',
+            'number' => '911',
+            'type' => 'emergency',
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.settings.emergency-contacts.index'))
+            ->assertOk()
+            ->assertSee('<table class="data-table data-table-cards">', false)
+            ->assertSee('Barangay Hotline')
+            ->assertSee('data-dialog-open="add-contact-dialog"', false)
+            ->assertSee('id="add-contact-dialog"', false)
+            ->assertSee('name="_token"', false)
+            ->assertDontSee('class="emergency-contact-list"', false);
+    }
+
+    public function test_contact_form_validation_reopens_the_modal_with_old_input(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $indexUrl = route('admin.settings.emergency-contacts.index');
+
+        $this->actingAs($admin)
+            ->from($indexUrl)
+            ->followingRedirects()
+            ->post(route('admin.settings.emergency-contacts.store'), [
+                'name' => 'Invalid contact',
+                'number' => '911',
+                'type' => 'unsupported',
+                'is_active' => '1',
+                'sort_order' => '1',
+            ])
+            ->assertOk()
+            ->assertSee('data-open-on-load', false)
+            ->assertSee('value="Invalid contact"', false)
+            ->assertSee('Choose a valid emergency contact type.');
+
+        $this->assertDatabaseCount('emergency_contacts', 0);
+    }
+
     public function test_resident_form_and_success_page_show_only_active_contacts_in_sort_order(): void
     {
         EmergencyContact::create([

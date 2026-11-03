@@ -5,7 +5,7 @@
         'submitted' => [
             'label' => 'Submitted',
             'icon' => 'fa-paper-plane',
-            'class' => 'b-blue',
+            'class' => 'b-gold',
         ],
         'under_review' => [
             'label' => 'Under Review',
@@ -15,12 +15,12 @@
         'routed' => [
             'label' => 'Routed',
             'icon' => 'fa-route',
-            'class' => 'b-indigo',
+            'class' => 'b-blue',
         ],
         'in_progress' => [
             'label' => 'In Progress',
             'icon' => 'fa-gears',
-            'class' => 'b-orange',
+            'class' => 'b-blue',
         ],
         'resolved' => [
             'label' => 'Resolved',
@@ -35,12 +35,12 @@
         'merged' => [
             'label' => 'Merged',
             'icon' => 'fa-code-merge',
-            'class' => 'b-purple',
+            'class' => 'b-gray',
         ],
         'referred' => [
             'label' => 'Referred',
             'icon' => 'fa-share',
-            'class' => 'b-teal',
+            'class' => 'b-gray',
         ],
         'emergency_flagged' => [
             'label' => 'Emergency Flagged',

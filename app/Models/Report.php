@@ -101,6 +101,15 @@ class Report extends Model
             'lng' => 'float',
             'resolved_at' => 'datetime',
             'reviewed_at' => 'datetime',
+            'answers' => 'array',
+            'is_ongoing' => 'boolean',
+            'is_recurring' => 'boolean',
+            'people_at_risk' => 'boolean',
+            'is_anonymous' => 'boolean',
+            'consent_at' => 'datetime',
+            'due_at' => 'datetime',
+            'escalated_at' => 'datetime',
+            'resolution_confirmed_at' => 'datetime',
         ];
     }
 
@@ -157,6 +166,31 @@ class Report extends Model
     public function notificationLogs(): HasMany
     {
         return $this->hasMany(NotificationLog::class);
+    }
+
+    public function assignee(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_to');
+    }
+
+    public function internalNotes(): HasMany
+    {
+        return $this->hasMany(InternalNote::class);
+    }
+
+    public function infoRequests(): HasMany
+    {
+        return $this->hasMany(InfoRequest::class);
+    }
+
+    public function resolutionProofs(): HasMany
+    {
+        return $this->hasMany(ResolutionProof::class);
+    }
+
+    public function feedback(): HasOne
+    {
+        return $this->hasOne(Feedback::class);
     }
 
     public function photos(): HasMany

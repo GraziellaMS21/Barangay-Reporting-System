@@ -23,6 +23,12 @@ class DatabaseSeeder extends Seeder
             SettingSeeder::class,
             UserSeeder::class,
             DemoReportSeeder::class,
+            CategoryQuestionSeeder::class,
+            ResponseTemplateSeeder::class,
+            ResidentSeeder::class,
+            StaffSeeder::class,
+            EngineSeeder::class,
+            AdminSeeder::class,
         ]);
     }
 }

@@ -8,13 +8,15 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Category extends Model
 {
-    protected $fillable = ['name', 'slug', 'risk_weight', 'default_office_id', 'is_active'];
+    protected $fillable = ['name', 'slug', 'risk_weight', 'default_office_id', 'is_active', 'question_schema', 'sla_hours'];
 
     protected function casts(): array
     {
         return [
             'risk_weight' => 'integer',
             'is_active' => 'boolean',
+            'question_schema' => 'array',
+            'sla_hours' => 'integer',
         ];
     }
 

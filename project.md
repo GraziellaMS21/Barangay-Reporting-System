@@ -17,6 +17,7 @@ Team: Group 3 (SynohDev), Western Mindanao State University, Software Engineerin
 4. **Privacy first (Data Privacy Act, RA 10173).** Reporter names, contact numbers, and email are optional and staff-only; they are never sent to Gemini. Public pages never show descriptions, emails, photos, or exact coordinates of emergency reports. Send only what is needed to the AI. Use fake data for demos.
 5. **Duplicates are suggested, never merged automatically.**
 6. **Every status change and staff override is recorded** with who, when, and a note.
+7. **The resident confirms resolution.** Staff propose a resolution; the resident can confirm or reopen it.
 
 ## 2. Tech stack
 
@@ -69,10 +70,10 @@ Seeded demo users: `admin@barangay.test` and `staff@barangay.test` (password `pa
 | `users`                 | name, email, password, role (`admin`, `staff`), is_active                                                                                                                                                                                                                                                                               |
 | `puroks`                | name                                                                                                                                                                                                                                                                                                                                     |
 | `emergency_contacts`    | name, number, type (emergency, police, fire, health, disaster, barangay)                                                                                                                                                                                                                                                                 |
-| `categories`            | name, slug, risk_weight, default_office_id, is_active                                                                                                                                                                                                                                                                                    |
+| `categories`            | name, slug, risk_weight, default_office_id, is_active, question_schema (json nullable), sla_hours (unsigned int nullable)                                                                                                                                                                                                                   |
 | `offices`               | name, type (barangay committee, city, municipal, utility), is_internal, contact                                                                                                                                                                                                                                                          |
 | `routing_rules`         | category_id, office_id, within_authority (bool), jurisdiction_note                                                                                                                                                                                                                                                                       |
-| `reports`               | tracking_code (unique), description, photo_path, lat, lng, purok_id, landmark, reporter_email, reporter_name (nullable, staff-only), reporter_contact (nullable, staff-only), status, category_id, urgency, priority_score, summary, office_id, is_emergency, merged_into_id, ai_status (pending, done, failed), resolved_at, timestamps |
+| `reports`               | tracking_code (unique), description, photo_path, lat, lng, purok_id, landmark, reporter_email, reporter_name (nullable, staff-only), reporter_contact (nullable, staff-only), status, category_id, urgency, priority_score, summary, office_id, is_emergency, merged_into_id, ai_status (pending, done, failed), resolved_at, report_type, answers (json), is_ongoing, is_recurring, people_at_risk, is_anonymous, preferred_contact, consent_at, assigned_to (fk users nullable), due_at, escalated_at, resolution_confirmed_at, reopened_count, timestamps |
 | `report_ai_results`     | report_id, suggested_category, suggested_urgency, summary, photo_description, photo_mismatch, emergency_flag, key_facts (json), confidence, raw_response (json), model, error                                                                                                                                                            |
 | `status_logs`           | report_id, user_id (nullable), from_status, to_status, note                                                                                                                                                                                                                                                                              |
 | `duplicate_suggestions` | report_id, candidate_id, score, decision (pending, merged, rejected), decided_by                                                                                                                                                                                                                                                         |
@@ -81,8 +82,13 @@ Seeded demo users: `admin@barangay.test` and `staff@barangay.test` (password `pa
 | `settings`              | key, value (priority weights, alert emails, thresholds)                                                                                                                                                                                                                                                                                  |
 | `audit_logs`            | user_id, action, model, model_id, old_values (json), new_values (json)                                                                                                                                                                                                                                                                   |
 | `notification_logs`     | report_id, type, recipient, status (sent, failed), error                                                                                                                                                                                                                                                                                 |
+| `internal_notes`        | report_id (cascade), user_id, body                                                                                                                                                                                                                                                                                                       |
+| `info_requests`         | report_id (cascade), requested_by, question, response (nullable), responded_at (nullable)                                                                                                                                                                                                                                            |
+| `response_templates`     | name, status (nullable), category_id (nullable), body, is_active (default true)                                                                                                                                                                                                                                                          |
+| `resolution_proofs`     | report_id (cascade), user_id, photo_path (nullable), note                                                                                                                                                                                                                                                                                 |
+| `feedback`              | report_id (cascade, unique), rating (tinyint), comment (nullable)                                                                                                                                                                                                                                                                        |
 
-**Statuses:** `submitted`, `under_review`, `routed`, `in_progress`, `resolved`, `referred`, `merged`, `out_of_scope`, `emergency_flagged`.
+**Statuses:** `submitted`, `under_review`, `routed`, `in_progress`, `resolved`, `referred`, `merged`, `out_of_scope`, `emergency_flagged`, `needs_info`, `awaiting_confirmation`, `reopened`.
 
 **Rule:** the AI suggestion lives in `report_ai_results`. The final values live on `reports` and are copied only after staff confirm or edit.
 
@@ -95,8 +101,12 @@ app/Http/Controllers          ReportController, TrackController, PublicMapContro
 app/Http/Controllers/Admin    ReportController, DashboardController, MapController, ReferralController, Settings/*
 app/Http/Middleware           EnsureRole
 app/Mail                      ReportReceived, ReportStatusChanged, EmergencyAlert
+app/Events                    ReportSubmitted, ReportStatusChanged, InfoRequested, ResolutionProposed, ResolutionConfirmed
+app/Listeners/Engine          ProcessNewReport
+app/Listeners/Notifications   SendReportReceived, SendStatusChanged, SendInfoRequested, SendResolutionProposed, SendEmergencyAlert
+app/Support                   ReportStatus
 database/seeders              Purok, EmergencyContact, User, Category, Office, RoutingRule, SensitivePlace, DemoReport
-resources/views               layouts/, resident/, auth/, admin/, emails/, components/
+resources/views               layouts/, resident/, auth/, admin/, emails/, components/, components/engine/
 ```
 
 Conventions: thin controllers, business logic in `app/Services`, validation in the controller or Form Requests, every form has `@csrf`, never expose API keys to the browser, use `DB::transaction` for multi-table writes, wrap external calls (Gemini, mail) in try/catch.
@@ -235,6 +245,108 @@ Weights are stored in `settings` and editable by the admin. The queue sorts by s
 
 **Done when:** the admin changes a routing rule or weight and the next report follows it, staff cannot open settings pages, and the audit log shows the change.
 
+Phases 8 to 12 are the improvement round. They revise the form, the staff workflow, the rules engine, and the admin tools based on a review of similar systems (My Naga App, FixMyStreet). Where they overlap with Phases 1 to 7, the newer phase takes precedence.
+
+### Phase 8: Foundation for the improvements (do first, merge before Phases 9 to 12)
+
+**Purpose:** prepare all shared structure in one place so the later phases can be built in parallel without editing the same files.
+
+**Features**
+- One set of new migrations (see Section 5): extra `reports` columns, `categories.question_schema` and `sla_hours`, and new tables `internal_notes`, `info_requests`, `response_templates`, `resolution_proofs`, `feedback`.
+- New statuses: `needs_info`, `awaiting_confirmation`, `reopened` (constants class `App\Support\ReportStatus`).
+- Updated `Report` model (fillable, casts, relationships) and new models for the new tables. After this phase nobody edits `Report.php` except for fixes.
+- Routes split into `routes/resident.php`, `routes/staff.php`, `routes/engine.php`, `routes/admin.php`, all required from `routes/web.php`, which keeps only shared auth routes.
+- Domain events with fixed payloads (see contracts below) and empty listener stubs.
+- Empty shared Blade components for the review page: `x-engine.ai-panel`, `x-engine.routing-panel`, `x-engine.duplicate-panel`.
+- Seeders: default category question schemas and SLA hours, sample response templates, and one empty seeder class per later phase.
+
+**Contracts (fixed by this phase)**
+| Contract | Definition |
+| --- | --- |
+| `ReportSubmitted(Report $report)` | Dispatched by Phase 9 after a report is saved. Consumed by Phases 11 and 12. |
+| `ReportStatusChanged(Report, ?from, to, ?note, ?userId)` | Dispatched by Phase 10 on every status change; it is the only place `status_logs` rows are written. Consumed by Phase 12. |
+| `InfoRequested(Report, InfoRequest)` | Dispatched by Phase 10. Consumed by Phase 12. |
+| `ResolutionProposed(Report, ResolutionProof)` | Dispatched by Phase 10. Consumed by Phase 12. |
+| `ResolutionConfirmed(Report, bool $confirmed, ?Feedback)` | Dispatched by Phase 9 when the resident confirms or reopens. |
+| `reports.answers` | JSON object keyed by the question `key` from `categories.question_schema`. Written by Phase 9, read by Phase 11. |
+| `categories.question_schema` | JSON array of `{key, label, type (text, textarea, select, boolean, number), options?, required}`. Edited in Phase 12, rendered in Phase 9. |
+| `GET /api/nearby-reports?lat&lng&category` | Built in Phase 11, called by Phase 9. Returns public-safe fields only. |
+| Blade components `x-engine.*` | Built in Phase 11, included in the review page by Phase 10. Each takes `$report`. |
+| `settings` keys and `routing_rules` | Edited in Phase 12, read-only in Phases 9 to 11. |
+
+**Ownership rule:** each of Phases 9 to 12 owns its own controllers, views, routes file, and seeder. A phase does not edit files owned by another phase. Schema or shared-file changes go through a small separate pull request.
+
+**Done when:** `php artisan migrate:fresh --seed` runs cleanly, the route list matches the one from before this phase (plus one placeholder API route), and submit, track, staff login, and status change still work.
+
+### Phase 9: Resident reporting upgrade
+
+**Features**
+- Report type step first: emergency or non-emergency. Emergency goes straight to the 911 and contacts screen before any form fields.
+- Category picker first, then category-specific questions rendered from `categories.question_schema` and saved to `reports.answers`. The AI verifies the category; it does not replace the resident's choice.
+- Extra fields: "happening now?", "anyone at risk?", "recurring or one-time?" (saved to `is_ongoing`, `people_at_risk`, `is_recurring`).
+- Anonymous option and preferred contact method (email, phone, none).
+- Data privacy notice with consent checkbox (`consent_at`), required before submit.
+- Photo guidance (show the problem plus a nearby landmark, avoid faces and plates) and client-side image compression for weak mobile data.
+- Confirmation screen summarizing the report before submit.
+- Nearby-reports check on the map ("Is this the same problem?") using `GET /api/nearby-reports`; the resident can still submit a new report.
+- Form labels available in English and Filipino (language toggle).
+- Tracking page additions: answer a staff "needs more info" request; confirm that a resolved case is fixed or reopen it; rate the outcome 1 to 5 with an optional comment.
+- Dispatches `ReportSubmitted` after saving and `ResolutionConfirmed` on confirm or reopen. It does not call Gemini, mail, or routing directly.
+
+**Pages:** `/` (form, multi-step), `/report/success/{code}`, `/track`, `/track/{code}`
+
+**Done when:** a resident completes the multi-step form with category-specific answers and consent, sees the confirmation screen, gets a code, replies to an info request, and confirms or reopens a resolved report from the tracking page; the form works on a 375px phone.
+
+### Phase 10: Staff case management upgrade
+
+**Features**
+- Queue: assignee filter, "my cases" view, overdue badge based on `due_at`, emergency reports pinned on top.
+- Assignment: set `assigned_to`.
+- "Needs more info" flow: staff write a question (`info_requests`), the status becomes `needs_info`, and the resident answers on the tracking page.
+- Internal notes visible to staff only, separate from the note shown to the resident.
+- Response templates: choose a template to fill the status note, editable before saving (templates are managed in Phase 12).
+- Resolution flow: staff add a resolution note and optional photo (`resolution_proofs`); status becomes `awaiting_confirmation`; the resident confirms or reopens. If the resident does not respond within the `auto_close_days` setting, staff may close the case manually.
+- Reopened cases return to the queue with `reopened_count` incremented and are flagged.
+- Escalation action: staff can escalate an overdue case (sets `escalated_at`, logged).
+- Mobile-friendly list for staff doing on-site inspection.
+- Review page includes the `x-engine.*` components from Phase 11.
+- A single status service writes `status_logs` and dispatches `ReportStatusChanged`; every change records who, when, and a note.
+
+**Pages:** `/admin` (queue), `/admin/reports/{id}`, `/admin/my-cases`
+
+**Done when:** staff assign a case, request more info, add an internal note, propose a resolution with proof, and the resident's confirmation or reopening is reflected in the queue and history.
+
+### Phase 11: Rules and AI engine upgrade
+
+**Features**
+- Fix and harden `GeminiService`: 20 to 30 second timeout, retries on 429/500/503, fallback model, text read from all response parts, errors logged without the key, report always saved even if AI fails.
+- Prompt update: use `answers`, `is_ongoing`, `people_at_risk`, `is_recurring`; flag when the resident's chosen category conflicts with the text; treat report text as data, never as instructions.
+- A listener on `ReportSubmitted` runs the pipeline in order: AI extraction, emergency check, duplicate suggestions, routing, priority score, due date from `categories.sla_hours`. A failure in one step does not stop the others.
+- Priority score adds the signals `is_ongoing`, `people_at_risk`, and `is_recurring`; weights come from `settings`.
+- Duplicate detection: server-side suggestions per Phase 5, plus the public-safe `GET /api/nearby-reports` endpoint.
+- Routing and jurisdiction per Phase 4; referrals page with tracking and a printable referral letter.
+- Blade components for the review page: `x-engine.ai-panel` (labeled "AI suggestion, staff review required"), `x-engine.routing-panel`, `x-engine.duplicate-panel`.
+
+**Pages:** `/admin/referrals`, `/api/nearby-reports`
+
+**Done when:** a submitted report receives an AI suggestion, priority score, due date, recommended office, and duplicate suggestions without manual steps; a simulated API failure still saves the report with `ai_status = failed`; the review components render in the review page.
+
+### Phase 12: Admin, insights, and notifications upgrade
+
+**Features**
+- Notification listeners (extends Section 8): `ReportSubmitted` to `ReportReceived`; `ReportStatusChanged` to `ReportStatusChanged` mail; `InfoRequested` and `ResolutionProposed` to resident emails; emergency to `EmergencyAlert` for officials. All sent through `NotificationService` with try/catch and `notification_logs`.
+- Dashboard: KPIs, overdue count, average resolution time, average rating, reopened rate, emergency banner.
+- Staff map and public map per Phase 6.
+- Public stats board (anonymized): reports resolved this month, average resolution time, reports by purok. No descriptions, photos, emails, or exact coordinates.
+- Dashboard insights (aggregated counts only) per Phase 6.
+- Settings pages: categories including a question builder for `question_schema` and `sla_hours`, offices, routing rules, response templates, priority weights, emergency contacts, sensitive places, users, and escalation and auto-close settings (`escalation_days`, `auto_close_days`).
+- Audit log for status changes, overrides, and setting changes.
+- CSV export by status, category, purok, and date range.
+
+**Pages:** `/admin` (dashboard), `/admin/map`, `/map`, `/stats`, `/admin/settings/*`, `/admin/audit-log`, `/admin/export`
+
+**Done when:** each event sends the right email without breaking the request on failure; the admin edits a category question, an SLA, or a template and the change appears in Phases 9 and 10; the public stats page shows no personal data; and the audit log records the changes.
+
 ---
 
 ## 8. Email notifications
@@ -304,4 +416,9 @@ Weights are stored in `settings` and editable by the admin. The queue sorts by s
 | 5     | Emergency handling, priority score, duplicates | [x]    |
 | 6     | Map, dashboard, insights                       | [x]    |
 | 7     | Admin settings, access, audit                  | [x]    |
+| 8     | Foundation for the improvements                | [ ]    |
+| 9     | Resident reporting upgrade                     | [ ]    |
+| 10    | Staff case management upgrade                 | [ ]    |
+| 11    | Rules and AI engine upgrade                   | [ ]    |
+| 12    | Admin, insights, notifications upgrade        | [ ]    |
 | Email | Resident and official notifications            | [ ]    |

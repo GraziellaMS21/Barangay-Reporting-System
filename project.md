@@ -278,7 +278,7 @@ Phases 8 to 12 are the improvement round. They revise the form, the staff workfl
 
 **Done when:** `php artisan migrate:fresh --seed` runs cleanly, the route list matches the one from before this phase (plus one placeholder API route), and submit, track, staff login, and status change still work.
 
-### Phase 9: Resident reporting upgrade
+### Phase 9: Resident reporting improvement
 
 **Features**
 - Report type step first: emergency or non-emergency. Emergency goes straight to the 911 and contacts screen before any form fields.
@@ -297,7 +297,7 @@ Phases 8 to 12 are the improvement round. They revise the form, the staff workfl
 
 **Done when:** a resident completes the multi-step form with category-specific answers and consent, sees the confirmation screen, gets a code, replies to an info request, and confirms or reopens a resolved report from the tracking page; the form works on a 375px phone.
 
-### Phase 10: Staff case management upgrade
+### Phase 10: Staff case management improvement
 
 **Features**
 - Queue: assignee filter, "my cases" view, overdue badge based on `due_at`, emergency reports pinned on top.
@@ -316,7 +316,7 @@ Phases 8 to 12 are the improvement round. They revise the form, the staff workfl
 
 **Done when:** staff assign a case, request more info, add an internal note, propose a resolution with proof, and the resident's confirmation or reopening is reflected in the queue and history.
 
-### Phase 11: Rules and AI engine upgrade
+### Phase 11: Rules and AI engine improvement
 
 **Features**
 - Fix and harden `GeminiService`: 20 to 30 second timeout, retries on 429/500/503, fallback model, text read from all response parts, errors logged without the key, report always saved even if AI fails.
@@ -331,7 +331,7 @@ Phases 8 to 12 are the improvement round. They revise the form, the staff workfl
 
 **Done when:** a submitted report receives an AI suggestion, priority score, due date, recommended office, and duplicate suggestions without manual steps; a simulated API failure still saves the report with `ai_status = failed`; the review components render in the review page.
 
-### Phase 12: Admin, insights, and notifications upgrade
+### Phase 12: Admin, insights, and notifications improvement
 
 **Features**
 - Notification listeners (extends Section 8): `ReportSubmitted` to `ReportReceived`; `ReportStatusChanged` to `ReportStatusChanged` mail; `InfoRequested` and `ResolutionProposed` to resident emails; emergency to `EmergencyAlert` for officials. All sent through `NotificationService` with try/catch and `notification_logs`.
@@ -417,8 +417,8 @@ Phases 8 to 12 are the improvement round. They revise the form, the staff workfl
 | 6     | Map, dashboard, insights                       | [x]    |
 | 7     | Admin settings, access, audit                  | [x]    |
 | 8     | Foundation for the improvements                | [x]    |
-| 9     | Resident reporting upgrade                     | [ ]    |
-| 10    | Staff case management upgrade                 | [ ]    |
-| 11    | Rules and AI engine upgrade                   | [ ]    |
-| 12    | Admin, insights, notifications upgrade        | [ ]    |
+| 9     | Resident reporting improvement                     | [ ]    |
+| 10    | Staff case management improvement                 | [ ]    |
+| 11    | Rules and AI engine improvement                   | [ ]    |
+| 12    | Admin, insights, notifications improvement        | [ ]    |
 | Email | Resident and official notifications            | [ ]    |

@@ -24,6 +24,9 @@ class Report extends Model
         'merged' => 'Merged',
         'out_of_scope' => 'Out of Scope',
         'emergency_flagged' => 'Emergency Flagged',
+        'needs_info' => 'Needs Info',
+        'awaiting_confirmation' => 'Awaiting Confirmation',
+        'reopened' => 'Reopened',
     ];
 
     public const STATUS_GROUPS = [
@@ -37,7 +40,7 @@ class Report extends Model
         ],
         'active' => [
             'label' => 'Active',
-            'statuses' => ['routed', 'in_progress'],
+            'statuses' => ['routed', 'in_progress', 'needs_info', 'awaiting_confirmation', 'reopened'],
         ],
         'resolved' => [
             'label' => 'Resolved',
@@ -90,6 +93,19 @@ class Report extends Model
         'priority_score',
         'merged_into_id',
         'resolved_at',
+        'report_type',
+        'answers',
+        'is_ongoing',
+        'is_recurring',
+        'people_at_risk',
+        'is_anonymous',
+        'preferred_contact',
+        'consent_at',
+        'assigned_to',
+        'due_at',
+        'escalated_at',
+        'resolution_confirmed_at',
+        'reopened_count',
     ];
 
     protected function casts(): array

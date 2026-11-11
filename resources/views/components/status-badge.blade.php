@@ -47,6 +47,21 @@
             'icon' => 'fa-triangle-exclamation',
             'class' => 'b-red',
         ],
+        'needs_info' => [
+            'label' => 'Needs Info',
+            'icon' => 'fa-circle-question',
+            'class' => 'b-gold',
+        ],
+        'awaiting_confirmation' => [
+            'label' => 'Awaiting Confirmation',
+            'icon' => 'fa-clock',
+            'class' => 'b-blue',
+        ],
+        'reopened' => [
+            'label' => 'Reopened',
+            'icon' => 'fa-rotate-left',
+            'class' => 'b-red',
+        ],
         default => [
             'label' => ucfirst(str_replace('_', ' ', $status ?? 'unknown')),
             'icon' => 'fa-circle-question',

@@ -2,11 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\ReportSubmitted;
+use App\Models\Category;
 use App\Models\EmergencyContact;
 use App\Models\Purok;
 use App\Models\Report;
 use App\Models\StatusLog;
-use App\Services\GeminiService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -20,24 +21,42 @@ class ReportController extends Controller
         return view('resident.create', [
             'puroks' => Purok::orderBy('name')->get(),
             'contacts' => EmergencyContact::query()->active()->ordered()->get(),
+            'categories' => Category::query()->where('is_active', true)->orderBy('name')->get(),
         ]);
     }
 
-    public function store(Request $request, GeminiService $geminiService): RedirectResponse
+    public function store(Request $request): RedirectResponse
     {
-        $contactRequired = config('reports.require_contact', false);
+        $contactConfigRequired = config('reports.require_contact', false);
+        $isAnonymous = $request->boolean('is_anonymous');
+        $preferredContact = $request->input('preferred_contact');
+        $isContactRequired = $contactConfigRequired && ! $isAnonymous;
+
+        if ($preferredContact === 'phone' && ! $isAnonymous) {
+            $isContactRequired = true;
+        }
+
         $data = $request->validate([
-            'description' => 'required|string|min:10|max:2000',
+            'report_type' => ['nullable', 'string', 'in:emergency,non_emergency'],
+            'category_id' => ['nullable', 'exists:categories,id'],
+            'answers' => ['nullable', 'array'],
+            'is_ongoing' => ['nullable', 'boolean'],
+            'people_at_risk' => ['nullable', 'boolean'],
+            'is_recurring' => ['nullable', 'boolean'],
+            'is_anonymous' => ['nullable', 'boolean'],
+            'preferred_contact' => ['nullable', 'string', 'in:phone,email,none'],
+            'consent' => ['nullable'],
+            'description' => ['required', 'string', 'min:10', 'max:2000'],
             'photos' => ['nullable', 'array'],
             'photos.*' => ['image', 'mimes:jpg,jpeg,png', 'max:5120'],
             'lat' => ['nullable', 'required_with:lng', 'numeric', 'between:-90,90'],
             'lng' => ['nullable', 'required_with:lat', 'numeric', 'between:-180,180'],
-            'purok_id' => 'nullable|exists:puroks,id',
-            'landmark' => 'nullable|string|max:255',
-            'reporter_email' => 'nullable|email|max:255',
+            'purok_id' => ['nullable', 'exists:puroks,id'],
+            'landmark' => ['nullable', 'string', 'max:255'],
+            'reporter_email' => ['nullable', 'email', 'max:255'],
             'reporter_name' => ['nullable', 'string', 'max:100'],
             'reporter_contact' => [
-                $contactRequired ? 'required' : 'nullable',
+                $isContactRequired ? 'required' : 'nullable',
                 'string',
                 'max:20',
                 'regex:/^(?:0[ -]*9|\\+[ -]*6[ -]*3[ -]*9)(?:[ -]*\\d){9}$/',
@@ -49,11 +68,29 @@ class ReportController extends Controller
             'reporter_contact.string' => 'Please enter a valid contact number.',
             'reporter_contact.max' => 'Contact number cannot be longer than 20 characters.',
             'reporter_contact.regex' => 'Enter a Philippine mobile number, such as 09171234567 or +639171234567. Spaces and dashes are okay.',
+            'reporter_email.required' => 'Please provide an email address for status updates.',
             'photos.array' => 'Please select valid photo files.',
             'photos.*.image' => 'Each selected file must be a valid image.',
             'photos.*.mimes' => 'Each photo must be a JPG or PNG image.',
             'photos.*.max' => 'The combined size of all photos must not exceed 5 MB.',
         ]);
+
+        if ($preferredContact === 'email' && ! $isAnonymous && empty($data['reporter_email'])) {
+            return back()->withInput()->withErrors([
+                'reporter_email' => 'Please enter your email address since email was chosen as your preferred contact.',
+            ]);
+        }
+
+        if (! $request->filled('lat') && ! $request->filled('purok_id') && ! $request->filled('landmark')) {
+            return back()->withInput()
+                ->withErrors(['location' => 'Please set a pin on the map, choose a purok, or enter a landmark.']);
+        }
+
+        // Validate privacy consent if submitted through the web form that provides the consent field
+        if ($request->has('has_consent_field') && ! $request->boolean('consent')) {
+            return back()->withInput()
+                ->withErrors(['consent' => 'You must agree to the Data Privacy Notice before submitting.']);
+        }
 
         $data['reporter_contact'] = isset($data['reporter_contact'])
             ? str_replace([' ', '-'], '', $data['reporter_contact'])
@@ -72,29 +109,38 @@ class ReportController extends Controller
                 ->withErrors(['photos' => 'The combined size of all photos must not exceed 5 MB.']);
         }
 
-        if (! $request->filled('lat') && ! $request->filled('purok_id') && ! $request->filled('landmark')) {
-            return back()->withInput()
-                ->withErrors(['location' => 'Please set a pin on the map, choose a purok, or enter a landmark.']);
-        }
-
         $photoPaths = array_map(
             static fn (UploadedFile $photo): string => $photo->store('reports', 'local'),
             $photos
         );
 
-        $report = DB::transaction(function () use ($data, $photoPaths) {
+        $reportType = $data['report_type'] ?? 'non_emergency';
+        $isEmergency = $reportType === 'emergency';
+        $consentAt = ($request->boolean('consent') || ! $request->has('has_consent_field')) ? now() : null;
+
+        $report = DB::transaction(function () use ($data, $photoPaths, $reportType, $isEmergency, $isAnonymous, $consentAt) {
             $report = Report::create([
                 'tracking_code' => Report::generateTrackingCode(),
+                'report_type' => $reportType,
+                'category_id' => $data['category_id'] ?? null,
+                'answers' => $data['answers'] ?? null,
+                'is_ongoing' => (bool) ($data['is_ongoing'] ?? false),
+                'is_recurring' => (bool) ($data['is_recurring'] ?? false),
+                'people_at_risk' => (bool) ($data['people_at_risk'] ?? false),
+                'is_anonymous' => $isAnonymous,
+                'preferred_contact' => $isAnonymous ? 'none' : ($data['preferred_contact'] ?? null),
+                'consent_at' => $consentAt,
                 'description' => $data['description'],
                 'photo_path' => $photoPaths[0] ?? null,
                 'lat' => $data['lat'] ?? null,
                 'lng' => $data['lng'] ?? null,
                 'purok_id' => $data['purok_id'] ?? null,
                 'landmark' => $data['landmark'] ?? null,
-                'reporter_email' => $data['reporter_email'] ?? null,
-                'reporter_name' => $data['reporter_name'] ?? null,
-                'reporter_contact' => $data['reporter_contact'],
-                'status' => 'submitted',
+                'reporter_email' => $isAnonymous ? null : ($data['reporter_email'] ?? null),
+                'reporter_name' => $isAnonymous ? null : ($data['reporter_name'] ?? null),
+                'reporter_contact' => $isAnonymous ? null : $data['reporter_contact'],
+                'is_emergency' => $isEmergency,
+                'status' => $isEmergency ? 'emergency_flagged' : 'submitted',
             ]);
 
             foreach ($photoPaths as $photoPath) {
@@ -104,14 +150,15 @@ class ReportController extends Controller
             StatusLog::create([
                 'report_id' => $report->id,
                 'from_status' => null,
-                'to_status' => 'submitted',
-                'note' => 'Report received.',
+                'to_status' => $report->status,
+                'note' => $isEmergency ? 'Emergency report received.' : 'Report received.',
             ]);
 
             return $report;
         });
 
-        $geminiService->analyze($report);
+        // Contract: Dispatches ReportSubmitted; does not call Gemini, mail, or routing directly
+        ReportSubmitted::dispatch($report);
 
         return redirect()->route('reports.success', $report->tracking_code);
     }

@@ -31,26 +31,76 @@
     : ($hasAiSuggestion && $aiResult->emergency_flag);
   $categorySelected = old('category_id', $categoryDefault);
   $urgencySelected = old('urgency', $urgencyDefault);
+  $isOverdue = $report->due_at && $report->due_at->isPast() && !in_array($report->status, \App\Models\Report::CLOSED_STATUSES, true);
 @endphp
 
 <a href="{{ route('admin.reports.index') }}" class="back-link">
   <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Back to report queue
 </a>
 
+@if(session('success'))
+  <div role="status" class="flash-success">{{ session('success') }}</div>
+@endif
+
 @if($errors->any())
   <div role="alert" class="form-errors">{{ $errors->first() }}</div>
 @endif
 
-<div class="page-heading">
-  <h2 class="tracking-code">{{ $report->tracking_code }}</h2>
-  <p>Submitted {{ $report->created_at->format('M d, Y \a\t h:i A') }}</p>
+<div class="page-heading flex items-center justify-between flex-wrap gap-4">
+  <div>
+    <div class="flex items-center gap-3 flex-wrap">
+      <h2 class="tracking-code">{{ $report->tracking_code }}</h2>
+      <x-status-badge :status="$report->status" />
+      @if($report->is_emergency)
+        <span class="status-badge b-red">
+          <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Emergency
+        </span>
+      @endif
+      @if($isOverdue)
+        <span class="status-badge b-red" title="Due on {{ $report->due_at->format('M d, Y h:i A') }}">
+          <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Overdue
+        </span>
+      @endif
+      @if($report->reopened_count > 0)
+        <span class="status-badge b-gold">
+          <i class="fa-solid fa-arrow-rotate-left" aria-hidden="true"></i> Reopened ({{ $report->reopened_count }})
+        </span>
+      @endif
+      @if($report->escalated_at)
+        <span class="status-badge b-red">
+          <i class="fa-solid fa-fire" aria-hidden="true"></i> Escalated ({{ $report->escalated_at->format('M d, Y') }})
+        </span>
+      @endif
+    </div>
+    <p>Submitted {{ $report->created_at->format('M d, Y \a\t h:i A') }}
+      @if($report->due_at)
+        · <span class="{{ $isOverdue ? 'text-red-600 font-semibold' : '' }}">SLA Due: {{ $report->due_at->format('M d, Y h:i A') }}</span>
+      @endif
+    </p>
+  </div>
+
+  @if($isOverdue && !$report->escalated_at)
+    <form method="POST" action="{{ route('admin.reports.escalate', $report) }}" class="inline-block" onsubmit="return confirm('Escalate this overdue case?');">
+      @csrf
+      <button type="submit" class="btn btn-red btn-small">
+        <i class="fa-solid fa-fire" aria-hidden="true"></i> Escalate Case
+      </button>
+    </form>
+  @endif
+</div>
+
+{{-- Phase 11 Engine Panels --}}
+<div class="engine-panels-wrap mb-4">
+  <x-engine.ai-panel :report="$report" />
+  <x-engine.routing-panel :report="$report" />
+  <x-engine.duplicate-panel :report="$report" />
 </div>
 
 <div class="review-layout">
   <div class="review-primary">
+    {{-- Resident Report Card --}}
     <section class="card review-card">
       <h2 class="card-title"><i class="fa-solid fa-comment-dots" aria-hidden="true"></i> Resident report</h2>
-      <x-status-badge :status="$report->status" />
       <p class="whitespace-pre-line resident-report-text">{{ $report->description }}</p>
 
       @if($report->photos->isNotEmpty())
@@ -254,15 +304,176 @@
         </button>
       </form>
     </section>
+
+    {{-- "Needs More Info" Request Section --}}
+    <section class="card review-card mt-6">
+      <h2 class="card-title"><i class="fa-solid fa-clipboard-question" aria-hidden="true"></i> Needs More Info from Resident</h2>
+      <p>Ask clarifying questions if the report lacks location details or essential info. This automatically updates status to <strong>Needs Info</strong>.</p>
+
+      <form method="POST" action="{{ route('admin.reports.info-requests.store', $report) }}" class="mt-4">
+        @csrf
+        <label for="question">Question for resident
+          <textarea id="question" name="question" rows="3" maxlength="2000" required
+            placeholder="e.g. Could you specify which house number or corner this issue is located near?">{{ old('question') }}</textarea>
+          @error('question') <span class="field-error">{{ $message }}</span> @enderror
+        </label>
+        <button type="submit" class="btn btn-navy mt-2">
+          <i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Send request to resident
+        </button>
+      </form>
+
+      @if($report->infoRequests->isNotEmpty())
+        <div class="mt-6">
+          <h3 class="font-semibold text-sm uppercase tracking-wide text-gray-600 mb-2">Previous Info Requests</h3>
+          <div class="space-y-4">
+            @foreach($report->infoRequests as $infoReq)
+              <div class="border rounded p-3 bg-gray-50">
+                <div class="flex justify-between text-xs text-gray-500 mb-1">
+                  <span><strong>Asked by:</strong> {{ $infoReq->requester?->name ?? 'Staff' }}</span>
+                  <span>{{ $infoReq->created_at->format('M d, Y h:i A') }}</span>
+                </div>
+                <p class="text-sm font-medium text-gray-800">{{ $infoReq->question }}</p>
+                <div class="mt-2 pt-2 border-t border-gray-200">
+                  @if($infoReq->responded_at)
+                    <div class="text-xs text-green-700 font-semibold mb-1">
+                      <i class="fa-solid fa-check" aria-hidden="true"></i> Resident responded on {{ $infoReq->responded_at->format('M d, Y h:i A') }}:
+                    </div>
+                    <p class="text-sm text-gray-700 bg-white p-2 rounded border">{{ $infoReq->response }}</p>
+                  @else
+                    <span class="text-xs text-amber-700"><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i> Awaiting resident response on tracking page.</span>
+                  @endif
+                </div>
+              </div>
+            @endforeach
+          </div>
+        </div>
+      @endif
+    </section>
+
+    {{-- Resolution Flow & Proof Section --}}
+    <section class="card review-card mt-6">
+      <h2 class="card-title"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Case Resolution & Proof</h2>
+      <p>Submit completion notes and optional inspection photo. This moves the case to <strong>Awaiting Confirmation</strong> so the resident can confirm or reopen.</p>
+
+      @if($report->status === \App\Support\ReportStatus::AWAITING_CONFIRMATION)
+        <div class="p-3 my-3 bg-blue-50 border border-blue-200 rounded text-blue-900 text-sm">
+          <strong>Awaiting resident confirmation.</strong> If the resident does not respond within {{ $autoCloseDays }} days, staff may close this case manually.
+          <form method="POST" action="{{ route('admin.reports.close', $report) }}" class="mt-2 inline-block" onsubmit="return confirm('Close and mark as resolved?');">
+            @csrf
+            <button type="submit" class="btn btn-small btn-navy">
+              <i class="fa-solid fa-check-double" aria-hidden="true"></i> Close case manually now
+            </button>
+          </form>
+        </div>
+      @endif
+
+      <form method="POST" action="{{ route('admin.reports.resolve', $report) }}" enctype="multipart/form-data" class="mt-4">
+        @csrf
+        <label for="resolution_note">Resolution Note <span class="field-hint">(required)</span>
+          <textarea id="resolution_note" name="note" rows="3" maxlength="2000" required
+            placeholder="Describe what action was taken to fix or resolve this problem...">{{ old('note') }}</textarea>
+          @error('note') <span class="field-error">{{ $message }}</span> @enderror
+        </label>
+
+        <label for="resolution_photo">Proof Photo <span class="field-hint">(optional)</span>
+          <input type="file" id="resolution_photo" name="photo" accept="image/*">
+          @error('photo') <span class="field-error">{{ $message }}</span> @enderror
+        </label>
+
+        <button type="submit" class="btn btn-gold mt-2">
+          <i class="fa-solid fa-award" aria-hidden="true"></i> Propose Resolution
+        </button>
+      </form>
+
+      @if($report->resolutionProofs->isNotEmpty())
+        <div class="mt-6">
+          <h3 class="font-semibold text-sm uppercase tracking-wide text-gray-600 mb-2">Submitted Resolution Proofs</h3>
+          <div class="space-y-4">
+            @foreach($report->resolutionProofs as $proof)
+              <div class="border rounded p-3 bg-gray-50 flex flex-col md:flex-row gap-4">
+                @if($proof->photo_path)
+                  <a href="{{ route('admin.reports.proofs.show', [$report, $proof]) }}" target="_blank" rel="noopener noreferrer">
+                    <img src="{{ route('admin.reports.proofs.show', [$report, $proof]) }}"
+                      alt="Resolution proof photo" class="w-32 h-24 object-cover rounded border">
+                  </a>
+                @endif
+                <div class="flex-1">
+                  <div class="flex justify-between text-xs text-gray-500 mb-1">
+                    <span><strong>Submitted by:</strong> {{ $proof->user?->name ?? 'Staff' }}</span>
+                    <span>{{ $proof->created_at->format('M d, Y h:i A') }}</span>
+                  </div>
+                  <p class="text-sm text-gray-800">{{ $proof->note }}</p>
+                </div>
+              </div>
+            @endforeach
+          </div>
+        </div>
+      @endif
+    </section>
+
+    {{-- Internal Notes Section (Staff Only) --}}
+    <section class="card review-card mt-6">
+      <h2 class="card-title"><i class="fa-solid fa-lock" aria-hidden="true"></i> Staff Internal Notes</h2>
+      <p class="text-xs text-gray-500 mb-3">Internal notes are visible to barangay staff and admins only. They will never be seen by the resident.</p>
+
+      <form method="POST" action="{{ route('admin.reports.internal-notes.store', $report) }}">
+        @csrf
+        <label for="internal_note_body">Add internal note
+          <textarea id="internal_note_body" name="body" rows="3" maxlength="3000" required
+            placeholder="Add internal observations, coordination notes with local teams, etc.">{{ old('body') }}</textarea>
+          @error('body') <span class="field-error">{{ $message }}</span> @enderror
+        </label>
+        <button type="submit" class="btn btn-navy btn-small mt-2">
+          <i class="fa-solid fa-plus" aria-hidden="true"></i> Add internal note
+        </button>
+      </form>
+
+      @if($report->internalNotes->isNotEmpty())
+        <div class="mt-4 space-y-3">
+          @foreach($report->internalNotes as $note)
+            <div class="border-l-4 border-amber-500 bg-amber-50/50 p-3 rounded-r text-sm">
+              <div class="flex justify-between text-xs text-gray-500 mb-1">
+                <strong>{{ $note->user?->name ?? 'Staff' }}</strong>
+                <span>{{ $note->created_at->format('M d, Y h:i A') }}</span>
+              </div>
+              <p class="text-gray-800 whitespace-pre-line">{{ $note->body }}</p>
+            </div>
+          @endforeach
+        </div>
+      @endif
+    </section>
   </div>
 
   <aside class="review-sidebar">
+    {{-- Case Assignment Card --}}
+    <section class="card review-card">
+      <h2 class="card-title"><i class="fa-solid fa-user-check" aria-hidden="true"></i> Case Assignment</h2>
+      <form method="POST" action="{{ route('admin.reports.assign', $report) }}">
+        @csrf
+        @method('PATCH')
+        <label for="assigned_to_select">Assigned Staff
+          <select id="assigned_to_select" name="assigned_to">
+            <option value="">-- Unassigned --</option>
+            @foreach($staffUsers as $user)
+              <option value="{{ $user->id }}" @selected((string) old('assigned_to', $report->assigned_to) === (string) $user->id)>
+                {{ $user->name }} ({{ ucfirst($user->role) }})
+              </option>
+            @endforeach
+          </select>
+        </label>
+        <button type="submit" class="btn btn-navy btn-small mt-2">
+          <i class="fa-solid fa-user-pen" aria-hidden="true"></i> Update assignment
+        </button>
+      </form>
+    </section>
+
+    {{-- Reporter Card --}}
     <section class="card review-card">
       <h2 class="card-title"><i class="fa-solid fa-user" aria-hidden="true"></i> Reporter</h2>
       <dl class="detail-meta location-meta">
         <div>
           <dt>Name</dt>
-          <dd>{{ $report->reporter_name ?: 'Not provided' }}</dd>
+          <dd>{{ $report->is_anonymous ? 'Anonymous resident' : ($report->reporter_name ?: 'Not provided') }}</dd>
         </div>
         <div>
           <dt>Contact number</dt>
@@ -284,9 +495,16 @@
             @endif
           </dd>
         </div>
+        @if($report->preferred_contact)
+          <div>
+            <dt>Preferred contact</dt>
+            <dd>{{ ucfirst($report->preferred_contact) }}</dd>
+          </div>
+        @endif
       </dl>
     </section>
 
+    {{-- Location Card --}}
     <section class="card review-card">
       <h2 class="card-title"><i class="fa-solid fa-map-location-dot" aria-hidden="true"></i> Location details</h2>
       @if($recommendedOffice && !$report->is_emergency)
@@ -319,6 +537,7 @@
       @endif
     </section>
 
+    {{-- Update Status Card with Response Templates --}}
     <section class="card review-card">
       <h2 class="card-title"><i class="fa-solid fa-pen" aria-hidden="true"></i> Update status</h2>
       <form method="POST" action="{{ route('admin.reports.status', $report) }}" class="status-form">
@@ -328,12 +547,13 @@
           <select id="status" name="status" required>
             @foreach($manualStatuses as $status)
               <option value="{{ $status }}" @selected(old('status', in_array($report->status, $manualStatuses, true) ? $report->status : 'under_review') === $status)>
-                {{ \App\Models\Report::STATUSES[$status] }}
+                {{ \App\Models\Report::STATUSES[$status] ?? ucfirst(str_replace('_', ' ', $status)) }}
               </option>
             @endforeach
           </select>
           @error('status') <span class="field-error">{{ $message }}</span> @enderror
         </label>
+
         @if(!$report->is_emergency)
           <label for="office_id">Office
             <select id="office_id" name="office_id">
@@ -346,8 +566,21 @@
             </select>
           </label>
         @endif
-        <label for="note">Note <span class="field-hint">(required)</span>
-          <textarea id="note" name="note" rows="3" maxlength="500" required>{{ old('note') }}</textarea>
+
+        {{-- Response template selector --}}
+        @if($responseTemplates->isNotEmpty())
+          <label for="template_select">Response template <span class="field-hint">(optional)</span>
+            <select id="template_select" class="template-selector" onchange="if(this.value){ document.getElementById('note').value = this.value; }">
+              <option value="">-- Choose a response template --</option>
+              @foreach($responseTemplates as $tmpl)
+                <option value="{{ $tmpl->body }}">{{ $tmpl->name }}</option>
+              @endforeach
+            </select>
+          </label>
+        @endif
+
+        <label for="note">Status Note <span class="field-hint">(required)</span>
+          <textarea id="note" name="note" rows="3" maxlength="500" required placeholder="Note displayed in status history and tracking page...">{{ old('note') }}</textarea>
           @error('note') <span class="field-error">{{ $message }}</span> @enderror
         </label>
         <button type="submit" class="btn btn-gold">
@@ -356,6 +589,7 @@
       </form>
     </section>
 
+    {{-- Status History Card --}}
     <section class="card review-card">
       <h2 class="card-title"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Status history</h2>
       <ol class="timeline">

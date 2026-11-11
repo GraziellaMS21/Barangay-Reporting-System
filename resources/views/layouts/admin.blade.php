@@ -26,6 +26,9 @@
         <a href="{{ route('admin.reports.index') }}" @class(['active' => request()->routeIs('admin.reports.index')])>
           <i class="fa-solid fa-inbox" aria-hidden="true"></i> Report queue
         </a>
+        <a href="{{ route('admin.reports.my-cases') }}" @class(['active' => request()->routeIs('admin.reports.my-cases')])>
+          <i class="fa-solid fa-user-check" aria-hidden="true"></i> My cases
+        </a>
         <a href="{{ route('admin.map') }}" @class(['active' => request()->routeIs('admin.map')])>
           <i class="fa-solid fa-map-location-dot" aria-hidden="true"></i> Staff map
         </a>

@@ -418,7 +418,7 @@ Phases 8 to 12 are the improvement round. They revise the form, the staff workfl
 | 7     | Admin settings, access, audit                  | [x]    |
 | 8     | Foundation for the improvements                | [x]    |
 | 9     | Resident reporting improvement                     | [ ]    |
-| 10    | Staff case management improvement                 | [ ]    |
+| 10    | Staff case management improvement                 | [x]    |
 | 11    | Rules and AI engine improvement                   | [ ]    |
 | 12    | Admin, insights, notifications improvement        | [ ]    |
 | Email | Resident and official notifications            | [ ]    |

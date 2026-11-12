@@ -56,6 +56,8 @@ class Report extends Model
         'under_review',
         'routed',
         'in_progress',
+        'needs_info',
+        'awaiting_confirmation',
         'resolved',
         'out_of_scope',
     ];

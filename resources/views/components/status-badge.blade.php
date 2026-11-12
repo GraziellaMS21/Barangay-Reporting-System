@@ -49,7 +49,7 @@
         ],
         'needs_info' => [
             'label' => 'Needs Info',
-            'icon' => 'fa-circle-question',
+            'icon' => 'fa-clipboard-question',
             'class' => 'b-gold',
         ],
         'awaiting_confirmation' => [
@@ -59,7 +59,7 @@
         ],
         'reopened' => [
             'label' => 'Reopened',
-            'icon' => 'fa-rotate-left',
+            'icon' => 'fa-arrow-rotate-left',
             'class' => 'b-red',
         ],
         default => [

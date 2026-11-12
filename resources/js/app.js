@@ -4,7 +4,20 @@ import 'leaflet/dist/leaflet.css';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
-import Chart from 'chart.js/auto';
+import {
+  ArcElement,
+  BarController,
+  BarElement,
+  CategoryScale,
+  Chart,
+  DoughnutController,
+  Legend,
+  LineController,
+  LineElement,
+  LinearScale,
+  PointElement,
+  Tooltip,
+} from 'chart.js';
 
 delete L.Icon.Default.prototype._getIconUrl;
 
@@ -15,7 +28,20 @@ L.Icon.Default.mergeOptions({
 });
 
 window.L = L;
-window.Chart = Chart;
+
+Chart.register(
+  ArcElement,
+  BarController,
+  BarElement,
+  CategoryScale,
+  DoughnutController,
+  Legend,
+  LineController,
+  LineElement,
+  LinearScale,
+  PointElement,
+  Tooltip,
+);
 
 const dashboardChartInstances = [];
 const chartPalette = ['#2456d6', '#ffc21a', '#25855a', '#e0352b', '#7756c8', '#e07b2b', '#35a3a3', '#68748a'];

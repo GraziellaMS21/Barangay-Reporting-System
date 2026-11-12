@@ -35,6 +35,13 @@
         <a href="{{ route('reports.create') }}">
           <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Resident site
         </a>
+        {{-- Phase 12: Insights & Notifications (visible to all admin/staff) --}}
+        <a href="{{ route('admin.insights.index') }}" @class(['active' => request()->routeIs('admin.insights.*')])>
+          <i class="fa-solid fa-chart-pie" aria-hidden="true"></i> Insights
+        </a>
+        <a href="{{ route('admin.notifications.index') }}" @class(['active' => request()->routeIs('admin.notifications.*')])>
+          <i class="fa-solid fa-bell" aria-hidden="true"></i> Notifications
+        </a>
         @if(auth()->user()->isAdmin())
           <div class="staff-nav-heading">Administration</div>
           <a href="{{ route('admin.settings.index') }}"

@@ -27,18 +27,11 @@ class ReportController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $contactConfigRequired = config('reports.require_contact', false);
         $isAnonymous = $request->boolean('is_anonymous');
-        $preferredContact = $request->input('preferred_contact');
-        $isContactRequired = $contactConfigRequired && ! $isAnonymous;
-
-        if ($preferredContact === 'phone' && ! $isAnonymous) {
-            $isContactRequired = true;
-        }
 
         $data = $request->validate([
             'report_type' => ['nullable', 'string', 'in:emergency,non_emergency'],
-            'category_id' => ['nullable', 'exists:categories,id'],
+            'category_id' => ['required', 'exists:categories,id'],
             'answers' => ['nullable', 'array'],
             'is_ongoing' => ['nullable', 'boolean'],
             'people_at_risk' => ['nullable', 'boolean'],
@@ -56,7 +49,7 @@ class ReportController extends Controller
             'reporter_email' => ['nullable', 'email', 'max:255'],
             'reporter_name' => ['nullable', 'string', 'max:100'],
             'reporter_contact' => [
-                $isContactRequired ? 'required' : 'nullable',
+                'nullable',
                 'string',
                 'max:20',
                 'regex:/^(?:0[ -]*9|\\+[ -]*6[ -]*3[ -]*9)(?:[ -]*\\d){9}$/',
@@ -74,12 +67,6 @@ class ReportController extends Controller
             'photos.*.mimes' => 'Each photo must be a JPG or PNG image.',
             'photos.*.max' => 'The combined size of all photos must not exceed 5 MB.',
         ]);
-
-        if ($preferredContact === 'email' && ! $isAnonymous && empty($data['reporter_email'])) {
-            return back()->withInput()->withErrors([
-                'reporter_email' => 'Please enter your email address since email was chosen as your preferred contact.',
-            ]);
-        }
 
         if (! $request->filled('lat') && ! $request->filled('purok_id') && ! $request->filled('landmark')) {
             return back()->withInput()
@@ -128,7 +115,9 @@ class ReportController extends Controller
                 'is_recurring' => (bool) ($data['is_recurring'] ?? false),
                 'people_at_risk' => (bool) ($data['people_at_risk'] ?? false),
                 'is_anonymous' => $isAnonymous,
-                'preferred_contact' => $isAnonymous ? 'none' : ($data['preferred_contact'] ?? null),
+                'preferred_contact' => $isAnonymous ? 'none' : (
+                    ! empty($data['reporter_email']) ? 'email' : (! empty($data['reporter_contact']) ? 'phone' : 'none')
+                ),
                 'consent_at' => $consentAt,
                 'description' => $data['description'],
                 'photo_path' => $photoPaths[0] ?? null,

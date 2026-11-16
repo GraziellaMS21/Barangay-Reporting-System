@@ -280,22 +280,26 @@ Phases 8 to 12 are the improvement round. They revise the form, the staff workfl
 
 ### Phase 9: Resident reporting improvement
 
+Design goal: keep the proposal's core path (describe, photo, location, tracking code, no account) and make everything else optional or hidden until needed. See `DECISIONS.md` for the reasons.
+
 **Features**
-- Report type step first: emergency or non-emergency. Emergency goes straight to the 911 and contacts screen before any form fields.
-- Category picker first, then category-specific questions rendered from `categories.question_schema` and saved to `reports.answers`. The AI verifies the category; it does not replace the resident's choice.
-- Extra fields: "happening now?", "anyone at risk?", "recurring or one-time?" (saved to `is_ongoing`, `people_at_risk`, `is_recurring`).
-- Anonymous option and preferred contact method (email, phone, none).
-- Data privacy notice with consent checkbox (`consent_at`), required before submit.
-- Photo guidance (show the problem plus a nearby landmark, avoid faces and plates) and client-side image compression for weak mobile data.
-- Confirmation screen summarizing the report before submit.
-- Nearby-reports check on the map ("Is this the same problem?") using `GET /api/nearby-reports`; the resident can still submit a new report.
-- Form labels available in English and Filipino (language toggle).
-- Tracking page additions: answer a staff "needs more info" request; confirm that a resolved case is fixed or reopen it; rate the outcome 1 to 5 with an optional comment.
+- **4-step form:** (1) Problem, (2) Location, (3) Photo and updates, (4) Review and send. Phones show "Step X of 4" with a progress bar instead of seven labels.
+- **Emergency shortcut (replaces the old "report type" step):** a slim red strip ("Emergency? Call 911") stays visible on every step. Tapping it replaces the form with the emergency screen: one large tap-to-call 911 button, only the contacts that have a number (no "N/A" cards, no duplicate 911), the "not monitored in real time" notice, one language toggle, and "Return to report". No form fields appear before it. The same panel appears inline if the resident answers Yes to "Is anyone in danger right now?".
+- **Step 1, Problem:** category picker with none preselected and "Other" last; category-specific questions rendered from `categories.question_schema` and saved to `reports.answers`; description (min 10 characters; English, Filipino, Bisaya, or Chavacano). The AI verifies the category and never replaces the resident's choice.
+  - One visible safety question: "Is anyone in danger right now?" (Yes / No / Not sure, unset by default, saved to `people_at_risk`).
+  - Collapsed "More details (optional)": "happening now?" and "recurring or one-time?" (saved to `is_ongoing`, `is_recurring`), unset by default.
+- **Step 2, Location:** map centered and bounded on Barangay Calarian; draggable pin, tap-to-place, "Use my current location" button on the map, purok, and landmark. At least one method is required (label it "Choose at least one"). After a pin is placed, a nearby-reports card asks "Is this the same problem?" using `GET /api/nearby-reports`; the resident can still submit a new report.
+- **Step 3, Photo and updates (everything optional):** photos with guidance (show the problem plus a landmark, avoid faces and plates), client-side compression for weak mobile data, and a visible Skip. "Want updates?" with optional email and optional mobile number. An anonymous toggle hides and discards the contact fields. `preferred_contact` is derived: `email` if an email is given, `phone` if only a mobile number is given, otherwise `none`. The mobile number is never required. SMS is out of scope, so the wording says staff may call, not "SMS".
+- **Step 4, Review and send:** summary of the report, data privacy notice, and a required consent checkbox (`consent_at`).
+- **Required to submit:** category, description, one location method, consent. Everything else is optional.
+- **Language toggle:** form labels in English and Filipino, one toggle per page.
+- **Compact header:** on the report page the hero shrinks to a slim header so the form starts above the fold on a 375px phone.
+- **Tracking page additions:** answer a staff "needs more info" request; confirm that a resolved case is fixed or reopen it; rate the outcome 1 to 5 with an optional comment.
 - Dispatches `ReportSubmitted` after saving and `ResolutionConfirmed` on confirm or reopen. It does not call Gemini, mail, or routing directly.
 
-**Pages:** `/` (form, multi-step), `/report/success/{code}`, `/track`, `/track/{code}`
+**Pages:** `/` (form, 4 steps), `/report/success/{code}`, `/track`, `/track/{code}`
 
-**Done when:** a resident completes the multi-step form with category-specific answers and consent, sees the confirmation screen, gets a code, replies to an info request, and confirms or reopens a resolved report from the tracking page; the form works on a 375px phone.
+**Done when:** a resident completes the 4-step form with category-specific answers and consent, sees the review screen, gets a code, replies to an info request, and confirms or reopens a resolved report from the tracking page; the emergency shortcut replaces the form with the contacts screen from any step; a report can be submitted anonymously with no contact details; the form works on a 375px phone.
 
 ### Phase 10: Staff case management improvement
 
@@ -408,17 +412,17 @@ Phases 8 to 12 are the improvement round. They revise the form, the staff workfl
 
 | Phase | Scope                                          | Status |
 | ----- | ---------------------------------------------- | ------ |
-| 0     | Setup                                          | [ ]    |
-| 1     | Resident reporting and tracking                | [ ]    |
-| 2     | Staff login, queue, status changes             | [ ]    |
-| 3     | Gemini AI extraction                           | [ ]    |
+| 0     | Setup                                          | [x]    |
+| 1     | Resident reporting and tracking                | [x]    |
+| 2     | Staff login, queue, status changes             | [x]    |
+| 3     | Gemini AI extraction                           | [x]    |
 | 4     | Categories, routing, referrals                 | [x]    |
 | 5     | Emergency handling, priority score, duplicates | [x]    |
 | 6     | Map, dashboard, insights                       | [x]    |
 | 7     | Admin settings, access, audit                  | [x]    |
 | 8     | Foundation for the improvements                | [x]    |
 | 9     | Resident reporting improvement                     | [ ]    |
-| 10    | Staff case management improvement                 | [x]    |
+| 10    | Staff case management improvement                 | []    |
 | 11    | Rules and AI engine improvement                   | [ ]    |
 | 12    | Admin, insights, notifications improvement        | [ ]    |
 | Email | Resident and official notifications            | [ ]    |

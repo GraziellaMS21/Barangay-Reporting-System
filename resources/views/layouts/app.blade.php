@@ -10,11 +10,11 @@
   @stack('head')
 </head>
 
-<body style="--hall-background: url('{{ asset('storage/Calarian_Barangay_Hall.jpg') }}')">
+<x-hall-background>
   <header class="site-header">
     <div class="site-header-inner">
       <a href="{{ route('reports.create') }}" class="site-brand">
-        <span class="brand-seal" aria-hidden="true"><img src="{{ asset('storage/calarian-seal.png') }}" alt=""></span>
+        <x-brand-seal />
         <span class="brand-copy">
           Barangay Calarian Reports
           <small>Zamboanga City</small>
@@ -54,13 +54,8 @@
     @yield('content')
   </main>
 
-  <footer class="site-footer">
-    <a class="btn btn-ghost btn-small" href="{{ route('login') }}">
-      <i class="fa-solid fa-user-shield" aria-hidden="true"></i> Staff Login
-    </a>
-    <p>Barangay Calarian, Zamboanga City. Sama-sama tayo, mas maunlad na Calarian.</p>
-  </footer>
+  <x-site-footer />
   @stack('scripts')
-</body>
+</x-hall-background>
 
 </html>

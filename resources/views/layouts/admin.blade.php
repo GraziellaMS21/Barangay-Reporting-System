@@ -8,11 +8,11 @@
   @vite(['resources/css/app.css', 'resources/js/app.js'])
   @stack('head')
 </head>
-<body style="--hall-background: url('{{ asset('storage/Calarian_Barangay_Hall.jpg') }}')">
+<x-hall-background>
   <div class="staff-shell">
     <aside id="staff-sidebar" class="staff-sidebar" aria-label="Staff navigation">
       <a href="{{ route('admin.dashboard') }}" class="site-brand staff-sidebar-brand">
-        <span class="brand-seal" aria-hidden="true"><img src="{{ asset('storage/calarian-seal.png') }}" alt=""></span>
+        <x-brand-seal />
         <span>
           <strong>Calarian Reports</strong>
           <small>{{ auth()->user()->isAdmin() ? 'Admin dashboard' : 'Staff dashboard' }}</small>
@@ -111,5 +111,5 @@
   </div>
   <button type="button" class="staff-drawer-overlay" aria-label="Close staff navigation" tabindex="-1"></button>
   @stack('scripts')
-</body>
+</x-hall-background>
 </html>

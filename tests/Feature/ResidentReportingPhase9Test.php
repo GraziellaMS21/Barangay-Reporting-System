@@ -82,7 +82,7 @@ class ResidentReportingPhase9Test extends TestCase
             'people_at_risk' => true,
             'is_recurring' => false,
             'is_anonymous' => false,
-            'preferred_contact' => 'phone',
+            'preferred_contact' => 'email',
             'reporter_name' => 'Maria Makiling',
             'reporter_contact' => '09171234567',
             'status' => 'submitted',
@@ -104,6 +104,7 @@ class ResidentReportingPhase9Test extends TestCase
 
         $this->post(route('reports.store'), [
             'report_type' => 'non_emergency',
+            'category_id' => Category::first()->id,
             'description' => 'Streetlight near basketball court has not turned on for three days.',
             'is_anonymous' => '1',
             'preferred_contact' => 'none',
@@ -127,6 +128,7 @@ class ResidentReportingPhase9Test extends TestCase
         $purok = Purok::firstOrFail();
 
         $response = $this->post(route('reports.store'), [
+            'category_id' => Category::first()->id,
             'description' => 'A large crack formed in the street after heavy rainfall.',
             'purok_id' => $purok->id,
             'has_consent_field' => '1',

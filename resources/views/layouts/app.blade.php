@@ -10,7 +10,7 @@
   @stack('head')
 </head>
 
-<x-hall-background>
+<x-hall-background class="public-site-background">
   <header class="site-header">
     <div class="site-header-inner">
       <a href="{{ route('reports.create') }}" class="site-brand">

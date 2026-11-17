@@ -283,7 +283,7 @@ Phases 8 to 12 are the improvement round. They revise the form, the staff workfl
 Design goal: keep the proposal's core path (describe, photo, location, tracking code, no account) and make everything else optional or hidden until needed. See `DECISIONS.md` for the reasons.
 
 **Features**
-- **4-step form:** (1) Problem, (2) Location, (3) Photo and updates, (4) Review and send. Phones show "Step X of 4" with a progress bar instead of seven labels.
+- **Single-card form:** one compact card with sections separated by thin dividers (no stepper, no review step). Phones stack sections in one column.
 - **Emergency shortcut (replaces the old "report type" step):** a slim red strip ("Emergency? Call 911") stays visible on every step. Tapping it replaces the form with the emergency screen: one large tap-to-call 911 button, only the contacts that have a number (no "N/A" cards, no duplicate 911), the "not monitored in real time" notice, one language toggle, and "Return to report". No form fields appear before it. The same panel appears inline if the resident answers Yes to "Is anyone in danger right now?".
 - **Step 1, Problem:** category picker with none preselected and "Other" last; category-specific questions rendered from `categories.question_schema` and saved to `reports.answers`; description (min 10 characters; English, Filipino, Bisaya, or Chavacano). The AI verifies the category and never replaces the resident's choice.
   - One visible safety question: "Is anyone in danger right now?" (Yes / No / Not sure, unset by default, saved to `people_at_risk`).
@@ -297,7 +297,7 @@ Design goal: keep the proposal's core path (describe, photo, location, tracking 
 - **Tracking page additions:** answer a staff "needs more info" request; confirm that a resolved case is fixed or reopen it; rate the outcome 1 to 5 with an optional comment.
 - Dispatches `ReportSubmitted` after saving and `ResolutionConfirmed` on confirm or reopen. It does not call Gemini, mail, or routing directly.
 
-**Pages:** `/` (form, 4 steps), `/report/success/{code}`, `/track`, `/track/{code}`
+**Pages:** `/` (form, single card), `/report/success/{code}`, `/track`, `/track/{code}`
 
 **Done when:** a resident completes the 4-step form with category-specific answers and consent, sees the review screen, gets a code, replies to an info request, and confirms or reopens a resolved report from the tracking page; the emergency shortcut replaces the form with the contacts screen from any step; a report can be submitted anonymously with no contact details; the form works on a 375px phone.
 

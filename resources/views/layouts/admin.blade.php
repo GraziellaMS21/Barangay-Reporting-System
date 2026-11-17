@@ -100,7 +100,7 @@
 
       <main class="staff-content">
         @if(session('success'))
-          <div role="status" class="flash-success">{{ session('success') }}</div>
+          <div role="status" class="flash-success" data-toast>{{ session('success') }}</div>
         @endif
         @if(session('error'))
           <div role="alert" class="form-errors">{{ session('error') }}</div>
@@ -110,6 +110,7 @@
     </div>
   </div>
   <button type="button" class="staff-drawer-overlay" aria-label="Close staff navigation" tabindex="-1"></button>
+  <script>document.querySelectorAll('[data-toast]').forEach(el=>{setTimeout(()=>{el.style.opacity='0';el.style.transition='opacity .3s';setTimeout(()=>el.remove(),300);},3000);});</script>
   @stack('scripts')
 </x-hall-background>
 </html>

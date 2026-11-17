@@ -299,7 +299,7 @@ Design goal: keep the proposal's core path (describe, photo, location, tracking 
 
 **Pages:** `/` (form, single card), `/report/success/{code}`, `/track`, `/track/{code}`
 
-**Done when:** a resident completes the 4-step form with category-specific answers and consent, sees the review screen, gets a code, replies to an info request, and confirms or reopens a resolved report from the tracking page; the emergency shortcut replaces the form with the contacts screen from any step; a report can be submitted anonymously with no contact details; the form works on a 375px phone.
+**Done when:** a resident completes the single-card form with category-specific answers and consent, gets a code, replies to an info request, and confirms or reopens a resolved report from the tracking page; the emergency shortcut replaces the form with the contacts screen from any step; a report can be submitted anonymously with no contact details; the form works on a 375px phone.
 
 ### Phase 10: Staff case management improvement
 
@@ -313,7 +313,7 @@ Design goal: keep the proposal's core path (describe, photo, location, tracking 
 - Reopened cases return to the queue with `reopened_count` incremented and are flagged.
 - Escalation action: staff can escalate an overdue case (sets `escalated_at`, logged).
 - Mobile-friendly list for staff doing on-site inspection.
-- Review page includes the `x-engine.*` components from Phase 11.
+- Review page: progress strip, two-column layout, single action card by status, shared form pattern, merged cards into Activity/Internal notes/Reporter tabs.
 - A single status service writes `status_logs` and dispatches `ReportStatusChanged`; every change records who, when, and a note.
 
 **Pages:** `/admin` (queue), `/admin/reports/{id}`, `/admin/my-cases`
@@ -422,7 +422,7 @@ Design goal: keep the proposal's core path (describe, photo, location, tracking 
 | 7     | Admin settings, access, audit                  | [x]    |
 | 8     | Foundation for the improvements                | [x]    |
 | 9     | Resident reporting improvement                     | [ ]    |
-| 10    | Staff case management improvement                 | []    |
+| 10    | Staff case management improvement                 | [ ]    |
 | 11    | Rules and AI engine improvement                   | [ ]    |
 | 12    | Admin, insights, notifications improvement        | [ ]    |
 | Email | Resident and official notifications            | [ ]    |

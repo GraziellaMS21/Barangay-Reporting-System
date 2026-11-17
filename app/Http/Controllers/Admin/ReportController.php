@@ -40,6 +40,7 @@ class ReportController extends Controller
             'emergency' => ['nullable', Rule::in(['0', '1'])],
             'purok_id' => ['nullable', 'integer', Rule::exists('puroks', 'id')],
             'assigned_to' => ['nullable', 'string'],
+            'overdue' => ['nullable', Rule::in(['0', '1'])],
             'q' => ['nullable', 'string', 'max:255'],
         ]);
 
@@ -70,8 +71,11 @@ class ReportController extends Controller
                 'escalated_at',
                 'reopened_count',
                 'priority_score',
+                'summary',
+                'ai_status',
+                'is_emergency',
             ])
-            ->with(['purok:id,name', 'assignee:id,name']);
+            ->with(['purok:id,name', 'assignee:id,name', 'aiResult', 'duplicateSuggestions']);
 
         if ($currentStage !== 'all') {
             $query->whereIn('status', Report::STATUS_GROUPS[$currentStage]['statuses']);
@@ -85,6 +89,10 @@ class ReportController extends Controller
             $query->where(fn ($emergencyQuery) => $emergencyQuery
                 ->where('is_emergency', true)
                 ->orWhere('status', 'emergency_flagged'));
+        }
+
+        if (($validated['overdue'] ?? null) === '1') {
+            $query->whereNotNull('due_at')->where('due_at', '<', now())->whereNotIn('status', Report::CLOSED_STATUSES);
         }
 
         if (isset($validated['purok_id'])) {
@@ -112,6 +120,7 @@ class ReportController extends Controller
         $query->orderByDesc('is_emergency')
             ->orderByRaw('CASE WHEN status = ? THEN 0 ELSE 1 END', ['emergency_flagged'])
             ->orderByRaw("CASE WHEN due_at IS NOT NULL AND due_at < ? AND status NOT IN ({$closedStatusesList}) THEN 0 ELSE 1 END", [$now])
+            ->orderByDesc('priority_score')
             ->orderByRaw("CASE WHEN status IN ({$closedStatusesList}) THEN 1 ELSE 0 END ASC")
             ->latest('created_at')
             ->latest('id');
@@ -146,7 +155,7 @@ class ReportController extends Controller
             ->whereIn('role', ['admin', 'staff'])
             ->where('is_active', true)
             ->orderBy('name')
-            ->get(['id', 'name']);
+            ->get(['id', 'name', 'role']);
 
         $isMyCases = $request->routeIs('admin.reports.my-cases');
 
@@ -215,7 +224,7 @@ class ReportController extends Controller
             ->whereIn('role', ['admin', 'staff'])
             ->where('is_active', true)
             ->orderBy('name')
-            ->get(['id', 'name']);
+            ->get(['id', 'name', 'role']);
 
         $responseTemplates = ResponseTemplate::query()
             ->where('is_active', true)
@@ -295,7 +304,28 @@ class ReportController extends Controller
             'review_note' => $validated['review_note'] ?? null,
         ], $reviewer);
 
-        return back()->with('success', 'Review details saved.');
+        $report->refresh();
+        if (in_array($report->status, ['submitted', 'under_review', 'reopened'], true)) {
+            try {
+                $statusService = app(\App\Services\ReportStatusService::class);
+                // set office/assignee from form
+                if ($request->filled('office_id')) {
+                    $report->office_id = (int) $request->input('office_id');
+                } elseif ($report->category) {
+                    $ro = app(\App\Services\RoutingService::class)->recommendedOffice($report->category);
+                    $report->office_id = $ro?->id ?? $report->office_id;
+                }
+                if ($request->filled('assigned_to')) {
+                    $report->assigned_to = (int) $request->input('assigned_to');
+                }
+                $report->save();
+                $statusService->transition($report, 'routed', $validated['review_note'] ?: 'Confirmed and routed by staff.', $reviewer);
+            } catch (\Throwable $e) {
+                // ignore transition failure
+            }
+        }
+
+        return back()->with('success', 'Confirmed and routed.');
     }
 
     public function retryAiAnalysis(
@@ -477,6 +507,50 @@ class ReportController extends Controller
         );
 
         return back()->with('success', 'Case marked as resolved.');
+    }
+
+    public function bulkConfirm(
+        Request $request,
+        RoutingService $routingService,
+        PriorityService $priorityService,
+        ReportStatusService $statusService
+    ): RedirectResponse {
+        $validated = $request->validate([
+            'report_ids' => ['required', 'array'],
+            'report_ids.*' => ['integer', 'exists:reports,id'],
+        ]);
+
+        $threshold = (float) \App\Models\Setting::value('ai_confidence_threshold', 0.8);
+        $confirmed = 0;
+
+        foreach ($validated['report_ids'] as $id) {
+            $report = Report::query()->with(['category', 'aiResult', 'duplicateSuggestions'])->find($id);
+            if (!$report) {
+                continue;
+            }
+            $ai = $report->aiResult;
+            $ready = $report->ai_status === 'done' && $ai && $ai->error === null
+                && (float) $ai->confidence >= $threshold
+                && $report->category_id && $report->urgency
+                && $report->getRecommendedOffice() && !$report->is_emergency
+                && $report->duplicateSuggestions->where('decision', 'pending')->isEmpty();
+            if (!$ready) {
+                continue;
+            }
+
+            DB::transaction(function () use ($report, $routingService, $priorityService, $statusService, $request) {
+                if (!$report->office_id && $report->category) {
+                    $recommendedOffice = $routingService->recommendedOffice($report->category);
+                    $report->office_id = $recommendedOffice?->id;
+                }
+                $report->priority_score = $priorityService->calculate($report);
+                $report->save();
+                $statusService->transition($report, 'routed', 'Confirmed and routed via bulk review.', $request->user());
+            });
+            $confirmed++;
+        }
+
+        return back()->with('success', "Confirmed and routed {$confirmed} report(s).");
     }
 
     public function escalate(

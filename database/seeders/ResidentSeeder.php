@@ -137,6 +137,7 @@ class ResidentSeeder extends Seeder
                 'is_anonymous' => true,
                 'preferred_contact' => 'none',
                 'consent_at' => now()->subDays(5),
+                'created_at' => now()->subDays(2),
                 'purok_id' => $purok?->id,
                 'landmark' => 'Canal behind daycare',
                 'status' => 'resolved',

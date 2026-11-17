@@ -49,12 +49,13 @@
 
   <main class="page-wrap @yield('page-wrap-class')">
     @if(session('success'))
-      <div role="status" class="flash-success">{{ session('success') }}</div>
+      <div role="status" class="flash-success" data-toast>{{ session('success') }}</div>
     @endif
     @yield('content')
   </main>
 
   <x-site-footer />
+  <script>document.querySelectorAll('[data-toast]').forEach(el=>{setTimeout(()=>{el.style.opacity='0';el.style.transition='opacity .3s';setTimeout(()=>el.remove(),300);},3000);});</script>
   @stack('scripts')
 </x-hall-background>
 

@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin,staff'])->group(function () {
     Route::get('/reports', [AdminReportController::class, 'index'])->name('reports.index');
+    Route::post('/reports/bulk-confirm', [AdminReportController::class, 'bulkConfirm'])->name('reports.bulk-confirm');
     Route::get('/my-cases', [AdminReportController::class, 'myCases'])->name('reports.my-cases');
     Route::get('/reports/{report}/photo', [AdminReportController::class, 'photo'])->name('reports.photo');
     Route::get('/reports/{report}/photos/{photo}', [AdminReportController::class, 'showPhoto'])->name('reports.photos.show');

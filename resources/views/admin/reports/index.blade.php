@@ -131,74 +131,67 @@
   </div>
 </form>
 
+<form id="bulk-confirm-form" method="POST" action="{{ route('admin.reports.bulk-confirm') }}" onsubmit="return confirm('Confirm and route selected reports?');" style="display:none; position:sticky; bottom:0; background:#fff; padding:0.5rem; border-top:1px solid #e3e8f4;">
+  @csrf
+  <button type="submit" class="btn btn-gold btn-small">Confirm <span id="bulk-count">0</span> selected</button>
+</form>
+<script>
+function updateBulkBar(){
+  const checked = document.querySelectorAll('.report-checkbox:checked').length;
+  const bar = document.getElementById('bulk-confirm-form');
+  bar.style.display = checked > 0 ? 'block' : 'none';
+  document.getElementById('bulk-count').textContent = checked;
+}
+</script>
 <div class="table-wrap">
   <table class="data-table data-table-cards">
     <thead>
       <tr>
-        <th scope="col">Tracking code</th>
-        <th scope="col">Report summary</th>
-        <th scope="col">Purok</th>
-        <th scope="col">Assignee</th>
+        <th scope="col" style="width:2.5rem;"><input type="checkbox" aria-label="Select all" onclick="document.querySelectorAll('.report-checkbox').forEach(c=>c.checked=this.checked);updateBulkBar();"></th>
+        <th scope="col">Report</th>
         <th scope="col">Status</th>
-        <th scope="col">Submitted</th>
-        <th scope="col"><span class="sr-only">Actions</span></th>
+        <th scope="col">Assignee</th>
+        <th scope="col">Age</th>
       </tr>
     </thead>
     <tbody>
       @forelse($reports as $report)
-        <tr>
-          <td class="whitespace-nowrap font-mono" data-label="Tracking code">
-            <a href="{{ route('admin.reports.show', $report) }}">{{ $report->tracking_code }}</a>
-          </td>
-          <td class="description-cell" data-label="Report summary">
-            {{ \Illuminate\Support\Str::limit($report->description, 110) }}
-          </td>
-          <td class="whitespace-nowrap" data-label="Purok">{{ $report->purok?->name ?? '—' }}</td>
-          <td class="whitespace-nowrap" data-label="Assignee">
-            @if($report->assignee)
-              <span class="assignee-badge">
-                <i class="fa-solid fa-user-check" aria-hidden="true"></i>
-                {{ $report->assignee->name }}
-              </span>
-            @else
-              <span class="text-muted"><i class="fa-regular fa-user" aria-hidden="true"></i> Unassigned</span>
+        @php
+          $ai = $report->aiResult;
+          $threshold = (float) (\App\Models\Setting::value('ai_confidence_threshold', 0.8));
+          $ready = $report->ai_status === 'done' && $ai && $ai->error === null
+            && (float) $ai->confidence >= $threshold
+            && $report->category_id && $report->urgency
+            && $report->getRecommendedOffice() && !$report->is_emergency
+            && $report->duplicateSuggestions->where('decision','pending')->isEmpty();
+        @endphp
+        <tr style="cursor:pointer" onclick="window.location='{{ route('admin.reports.show', $report) }}'">
+          <td data-label="Select" onclick="event.stopPropagation()"><input type="checkbox" name="report_ids[]" value="{{ $report->id }}" class="report-checkbox" form="bulk-confirm-form" onchange="updateBulkBar()"></td>
+          <td data-label="Report">
+            <div class="font-mono font-bold">{{ $report->tracking_code }}</div>
+            <div class="text-xs text-muted">{{ $report->purok?->name ?? '' }} @if($report->category) · {{ $report->category->name }} @endif</div>
+            <div class="text-sm clamp-2">{{ \Illuminate\Support\Str::limit($report->summary ?: $report->description, 140) }}</div>
+            @if($ready)
+              <span class="status-badge b-green">Ready to confirm</span>
+            @endif
+            @if($report->priority_score !== null && $report->priority_score > 0)
+              <span class="status-badge b-gray">Priority {{ $report->priority_score }}</span>
             @endif
           </td>
           <td data-label="Status">
-            <div class="report-status-cell">
-              <x-status-badge :status="$report->status" />
-              @if($report->is_emergency && $report->status !== 'emergency_flagged')
-                <span class="status-badge b-red emergency-row-chip">
-                  <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
-                  <span>Emergency</span>
-                </span>
-              @endif
-              @if($report->due_at && $report->due_at->isPast() && !in_array($report->status, \App\Models\Report::CLOSED_STATUSES, true))
-                <span class="status-badge b-red overdue-chip" title="Due on {{ $report->due_at->format('M d, Y h:i A') }}">
-                  <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i>
-                  <span>Overdue</span>
-                </span>
-              @endif
-              @if($report->reopened_count > 0)
-                <span class="status-badge b-gold reopened-chip" title="Reopened {{ $report->reopened_count }} time(s)">
-                  <i class="fa-solid fa-arrow-rotate-left" aria-hidden="true"></i>
-                  <span>Reopened ({{ $report->reopened_count }})</span>
-                </span>
-              @endif
-              @if($report->escalated_at)
-                <span class="status-badge b-red escalated-chip" title="Escalated on {{ $report->escalated_at->format('M d, Y h:i A') }}">
-                  <i class="fa-solid fa-fire" aria-hidden="true"></i>
-                  <span>Escalated</span>
-                </span>
-              @endif
-            </div>
+            <x-status-badge :status="$report->status" />
+            @if($report->due_at && $report->due_at->isPast() && !in_array($report->status, \App\Models\Report::CLOSED_STATUSES, true))
+              <i class="fa-solid fa-clock text-red-600" title="Overdue"></i>
+            @endif
+            @if($report->escalated_at)
+              <i class="fa-solid fa-fire text-red-600" title="Escalated"></i>
+            @endif
+            @if($report->reopened_count > 0)
+              <i class="fa-solid fa-arrow-rotate-left text-amber-600" title="Reopened"></i>
+            @endif
           </td>
-          <td class="whitespace-nowrap" data-label="Submitted">{{ $report->created_at->format('M d, Y') }}</td>
-          <td data-label="Action">
-            <a href="{{ route('admin.reports.show', $report) }}" class="btn btn-gold btn-small">
-              <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Review
-            </a>
-          </td>
+          <td data-label="Assignee">{{ $report->assignee ? \Illuminate\Support\Str::limit($report->assignee->name, 12, '') : '' }}</td>
+          <td data-label="Age" title="{{ $report->created_at->format('M d, Y h:i A') }}">{{ $report->created_at->diffForHumans(null, true) }}</td>
         </tr>
       @empty
         <tr>

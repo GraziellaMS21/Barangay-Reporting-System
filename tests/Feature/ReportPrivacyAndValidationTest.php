@@ -2,9 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Models\Category;
 use App\Models\Report;
 use App\Models\ReportPhoto;
 use App\Models\User;
+use Database\Seeders\CategorySeeder;
 use Database\Seeders\DemoReportSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -60,7 +62,10 @@ class ReportPrivacyAndValidationTest extends TestCase
 
     public function test_report_submission_requires_a_location_method(): void
     {
+        $this->seed(CategorySeeder::class);
+
         $this->post(route('reports.store'), [
+            'category_id' => Category::query()->where('slug', 'drainage')->value('id'),
             'description' => 'A drainage problem needs to be fixed.',
         ])
             ->assertSessionHasErrors([
@@ -75,8 +80,11 @@ class ReportPrivacyAndValidationTest extends TestCase
         string $contactNumber,
         string $normalizedNumber
     ): void {
+        $this->seed(CategorySeeder::class);
+
         $this->from(route('reports.create'))
             ->post(route('reports.store'), [
+                'category_id' => Category::query()->where('slug', 'drainage')->value('id'),
                 'description' => 'A drainage problem needs to be fixed.',
                 'landmark' => 'Near the community hall',
                 'reporter_name' => 'Juan Dela Cruz',
@@ -92,7 +100,10 @@ class ReportPrivacyAndValidationTest extends TestCase
 
     public function test_report_submission_allows_omitting_optional_reporter_details(): void
     {
+        $this->seed(CategorySeeder::class);
+
         $response = $this->post(route('reports.store'), [
+            'category_id' => Category::query()->where('slug', 'drainage')->value('id'),
             'description' => 'A drainage problem needs to be fixed.',
             'landmark' => 'Near the community hall',
         ]);
@@ -129,9 +140,11 @@ class ReportPrivacyAndValidationTest extends TestCase
 
     public function test_contact_can_be_made_required_with_one_configuration_value(): void
     {
+        $this->seed(CategorySeeder::class);
         config(['reports.require_contact' => true]);
 
         $this->post(route('reports.store'), [
+            'category_id' => Category::query()->where('slug', 'drainage')->value('id'),
             'description' => 'A drainage problem needs to be fixed.',
             'landmark' => 'Near the community hall',
         ])
@@ -156,7 +169,6 @@ class ReportPrivacyAndValidationTest extends TestCase
             ->get(route('admin.reports.show', $report))
             ->assertOk()
             ->assertSee($reporterName)
-            ->assertSee('tel:'.$reporterContact, false)
             ->assertSee($reporterContact);
 
         $this->get(route('admin.reports.index'))
@@ -190,7 +202,7 @@ class ReportPrivacyAndValidationTest extends TestCase
             ));
     }
 
-    public function test_staff_review_shows_not_provided_for_missing_reporter_details(): void
+    public function test_staff_review_omits_missing_reporter_details(): void
     {
         $staff = User::factory()->staff()->create();
         $report = Report::factory()->create([
@@ -201,8 +213,10 @@ class ReportPrivacyAndValidationTest extends TestCase
         $this->actingAs($staff)
             ->get(route('admin.reports.show', $report))
             ->assertOk()
-            ->assertSeeText('Name Not provided')
-            ->assertSeeText('Contact number Not provided');
+            ->assertSeeText('Reporter')
+            ->assertSeeText('Email:')
+            ->assertDontSeeText('Name:')
+            ->assertDontSeeText('Phone:');
     }
 
     public function test_staff_review_escapes_reporter_name_output(): void
@@ -237,10 +251,12 @@ class ReportPrivacyAndValidationTest extends TestCase
 
     public function test_uploaded_report_photos_are_stored_on_the_private_disk(): void
     {
+        $this->seed(CategorySeeder::class);
         Storage::fake('local');
         Storage::fake('public');
 
         $response = $this->post(route('reports.store'), [
+            'category_id' => Category::query()->where('slug', 'drainage')->value('id'),
             'description' => 'A drainage problem needs to be fixed.',
             'lat' => 6.9214,
             'lng' => 122.079,
@@ -260,10 +276,12 @@ class ReportPrivacyAndValidationTest extends TestCase
 
     public function test_resident_can_submit_multiple_photos_and_staff_can_review_them(): void
     {
+        $this->seed(CategorySeeder::class);
         Storage::fake('local');
         $staff = User::factory()->staff()->create();
 
         $response = $this->post(route('reports.store'), [
+            'category_id' => Category::query()->where('slug', 'drainage')->value('id'),
             'description' => 'A drainage problem needs to be fixed.',
             'landmark' => 'Near the community hall',
             'photos' => [
@@ -299,10 +317,12 @@ class ReportPrivacyAndValidationTest extends TestCase
 
     public function test_resident_photo_upload_is_rejected_when_combined_size_exceeds_five_megabytes(): void
     {
+        $this->seed(CategorySeeder::class);
         Storage::fake('local');
 
         $this->from(route('reports.create'))
             ->post(route('reports.store'), [
+                'category_id' => Category::query()->where('slug', 'drainage')->value('id'),
                 'description' => 'A drainage problem needs to be fixed.',
                 'landmark' => 'Near the community hall',
                 'photos' => [
@@ -339,7 +359,31 @@ class ReportPrivacyAndValidationTest extends TestCase
         $this->assertDatabaseCount('reports', 0);
     }
 
-    public function test_staff_status_changes_require_a_note(): void
+    public function test_staff_status_changes_require_a_note_for_override_actions(): void
+    {
+        $staff = User::factory()->staff()->create();
+        $report = Report::factory()->create();
+
+        $this->actingAs($staff)
+            ->patch(route('admin.reports.status', $report), [
+                'status' => 'out_of_scope',
+                'note' => '',
+            ])
+            ->assertSessionHasErrors([
+                'note' => 'A note is required for this status change.',
+            ]);
+
+        $this->assertDatabaseHas('reports', [
+            'id' => $report->id,
+            'status' => 'submitted',
+        ]);
+        $this->assertDatabaseMissing('status_logs', [
+            'report_id' => $report->id,
+            'to_status' => 'out_of_scope',
+        ]);
+    }
+
+    public function test_staff_status_changes_allow_an_optional_note_for_review_transitions(): void
     {
         $staff = User::factory()->staff()->create();
         $report = Report::factory()->create();
@@ -349,17 +393,19 @@ class ReportPrivacyAndValidationTest extends TestCase
                 'status' => 'under_review',
                 'note' => '',
             ])
-            ->assertSessionHasErrors([
-                'note' => 'A note is required for every status change.',
-            ]);
+            ->assertRedirect()
+            ->assertSessionHas('success', 'Report status updated successfully.');
 
         $this->assertDatabaseHas('reports', [
             'id' => $report->id,
-            'status' => 'submitted',
+            'status' => 'under_review',
         ]);
-        $this->assertDatabaseMissing('status_logs', [
+        $this->assertDatabaseHas('status_logs', [
             'report_id' => $report->id,
+            'user_id' => $staff->id,
+            'from_status' => 'submitted',
             'to_status' => 'under_review',
+            'note' => null,
         ]);
     }
 

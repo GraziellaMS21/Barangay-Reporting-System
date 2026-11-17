@@ -106,7 +106,8 @@ class StaffPagesTest extends TestCase
         $this->get(route('admin.reports.show', $report))
             ->assertOk()
             ->assertSee($report->tracking_code)
-            ->assertSee('Update status');
+            ->assertSee('Review AI suggestions')
+            ->assertSee('Confirm and route');
     }
 
     public function test_staff_map_requires_staff_authentication_and_renders_hotspot_controls(): void

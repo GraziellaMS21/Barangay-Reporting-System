@@ -12,6 +12,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class ReportController extends Controller
@@ -31,7 +32,7 @@ class ReportController extends Controller
 
         $data = $request->validate([
             'report_type' => ['nullable', 'string', 'in:emergency,non_emergency'],
-            'category_id' => ['required', 'exists:categories,id'],
+            'category_id' => ['nullable', 'exists:categories,id'],
             'answers' => ['nullable', 'array'],
             'is_ongoing' => ['nullable', 'boolean'],
             'people_at_risk' => ['nullable', 'boolean'],
@@ -49,6 +50,7 @@ class ReportController extends Controller
             'reporter_email' => ['nullable', 'email', 'max:255'],
             'reporter_name' => ['nullable', 'string', 'max:100'],
             'reporter_contact' => [
+                Rule::requiredIf((bool) config('reports.require_contact')),
                 'nullable',
                 'string',
                 'max:20',
@@ -67,6 +69,23 @@ class ReportController extends Controller
             'photos.*.mimes' => 'Each photo must be a JPG or PNG image.',
             'photos.*.max' => 'The combined size of all photos must not exceed 5 MB.',
         ]);
+
+        // Normalize category answers against the selected category's question schema:
+        // drop answers that do not belong to the schema (e.g. left over from a changed
+        // category). Answers are only stored when a category is selected. Required
+        // schema fields are enforced client-side via the "required" attribute.
+        $selectedCategory = isset($data['category_id'])
+            ? Category::query()->find($data['category_id'])
+            : null;
+
+        $schemaKeys = collect($selectedCategory?->question_schema ?? [])->pluck('key')->all();
+
+        $answers = collect($data['answers'] ?? [])
+            ->only($schemaKeys)
+            ->filter(static fn ($value): bool => $value !== null && trim((string) $value) !== '')
+            ->all();
+
+        $data['answers'] = $answers === [] ? null : $answers;
 
         if (! $request->filled('lat') && ! $request->filled('purok_id') && ! $request->filled('landmark')) {
             return back()->withInput()

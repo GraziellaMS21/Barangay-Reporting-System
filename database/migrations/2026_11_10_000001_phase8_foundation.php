@@ -90,10 +90,10 @@ return new class extends Migration
         });
 
         Schema::table('reports', function (Blueprint $table) {
-            $table->dropIndex(['assigned_to']);
-            $table->dropIndex(['due_at']);
+            // Drop the foreign key (and column) before the index MySQL reuses for the constraint.
             $table->dropConstrainedForeignId('assigned_to');
-            $table->dropColumn(['report_type','answers','is_ongoing','is_recurring','people_at_risk','is_anonymous','preferred_contact','consent_at','due_at','escalated_at','resolution_confirmed_at','reopened_count']);
+            $table->dropIndex(['due_at']);
+            $table->dropColumn(['report_type', 'answers', 'is_ongoing', 'is_recurring', 'people_at_risk', 'is_anonymous', 'preferred_contact', 'consent_at', 'due_at', 'escalated_at', 'resolution_confirmed_at', 'reopened_count']);
         });
     }
 };

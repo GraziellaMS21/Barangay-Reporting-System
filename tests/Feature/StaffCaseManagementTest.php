@@ -22,8 +22,11 @@ class StaffCaseManagementTest extends TestCase
     use RefreshDatabase;
 
     private User $staff;
+
     private User $admin;
+
     private Category $category;
+
     private Purok $purok;
 
     protected function setUp(): void
@@ -115,8 +118,8 @@ class StaffCaseManagementTest extends TestCase
             ->get(route('admin.reports.index'))
             ->assertOk()
             ->assertSee($overdueReport->tracking_code)
-            ->assertSee('Overdue')
-            ->assertSee('Reopened (2)');
+            ->assertSee('title="Overdue"', false)
+            ->assertSee('title="Reopened"', false);
     }
 
     public function test_staff_can_assign_report(): void
@@ -281,9 +284,11 @@ class StaffCaseManagementTest extends TestCase
         $this->actingAs($this->staff)
             ->get(route('admin.reports.show', $report))
             ->assertOk()
-            ->assertSee('AI suggestion placeholder')
-            ->assertSee('Routing placeholder')
-            ->assertSee('Duplicate placeholder');
+            ->assertSee('Review AI suggestions')
+            ->assertSee('Route and assign')
+            ->assertSee('data-routing-map', false)
+            ->assertSee('Mark duplicate of')
+            ->assertSee('Refer to office');
     }
 
     public function test_report_status_service_is_the_single_place_status_logs_are_written(): void

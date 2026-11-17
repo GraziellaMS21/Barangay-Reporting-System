@@ -87,8 +87,8 @@
     <input type="hidden" name="is_ongoing" id="is_ongoing" value="{{ old('is_ongoing', 0) ? 1 : 0 }}">
     <input type="hidden" name="is_recurring" id="is_recurring" value="{{ old('is_recurring', 0) ? 1 : 0 }}">
 
-    <!-- What's the problem? -->
-    <h2 style="font-size:1.1rem;margin-bottom:.5rem;" data-i18n="whats_problem">What's the problem?</h2>
+    <!-- Choose a category (optional) -->
+    <h2 style="font-size:1.1rem;margin-bottom:.5rem;" data-i18n="choose_category">Choose a category (optional)</h2>
 
     <div style="display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:.75rem;">
       @foreach($categories as $category)
@@ -113,7 +113,7 @@
     </div>
 
     <div class="field">
-      <label for="description"><i class="fa-solid fa-align-left"></i> <span data-i18n="lbl_description">What is the problem?</span> *</label>
+      <label for="description"><i class="fa-solid fa-align-left"></i> <span id="description-label" data-i18n="lbl_description">What is the problem?</span> *</label>
       <textarea id="description" name="description" rows="4" required minlength="10" maxlength="2000">{{ old('description') }}</textarea>
       <p class="field-hint" data-i18n="hint_description">You may write in English, Filipino, Bisaya, or Chavacano (minimum 10 characters).</p>
       @error('description')<p class="field-error">{{ $message }}</p>@enderror
@@ -264,8 +264,11 @@ const i18n = {
     emg_not_monitored: "THIS ONLINE SYSTEM IS NOT MONITORED IN REAL-TIME.",
     emg_call_prompt: "Please contact emergency services immediately using the numbers below:",
     emg_back_btn: "Return to report", emg_inline: "Emergency contacts",
-    whats_problem: "What's the problem?", where_is_it: "Where is it?", photo_updates: "Photo and updates",
-    lbl_description: "What is the problem?", hint_description: "You may write in English, Filipino, Bisaya, or Chavacano (minimum 10 characters).",
+    where_is_it: "Where is it?", photo_updates: "Photo and updates",
+    choose_category: "Choose a category (optional)",
+    lbl_description: "What is the problem?", lbl_explain_more: "Explain more",
+    placeholder_explain_more: "Add any other details that can help the staff.",
+    hint_description: "You may write in English, Filipino, Bisaya, or Chavacano (minimum 10 characters).",
     danger_checkbox: "Someone is in danger right now",
     more_details: "More details (optional)", q_ongoing: "Is this happening right now?", q_recurring: "Recurring or one-time?", btn_yes: "Yes", btn_no: "No", btn_recurring: "Recurring", btn_onetime: "One-time",
     loc_help: "Choose at least one: pin, purok, or landmark.", btn_use_location: "Use my current location",
@@ -287,8 +290,11 @@ const i18n = {
     emg_not_monitored: "ANG ONLINE SYSTEM NA ITO AY HINDI MINUMONITOR NANG REAL-TIME.",
     emg_call_prompt: "Makipag-ugnayan kaagad sa mga numero sa ibaba:",
     emg_back_btn: "Bumalik sa ulat", emg_inline: "Mga emergency contact",
-    whats_problem: "Ano ang problema?", where_is_it: "Saan ito?", photo_updates: "Larawan at updates",
-    lbl_description: "Ano ang problema?", hint_description: "Maaari kang sumulat sa Tagalog/Filipino, English, Bisaya, o Chavacano (hindi bababa sa 10 titik).",
+    where_is_it: "Saan ito?", photo_updates: "Larawan at updates",
+    choose_category: "Pumili ng kategorya (opsyonal)",
+    lbl_description: "Ano ang problema?", lbl_explain_more: "Ipaliwanag pa",
+    placeholder_explain_more: "Magdagdag ng iba pang detalye na makakatulong sa kawani.",
+    hint_description: "Maaari kang sumulat sa Tagalog/Filipino, English, Bisaya, o Chavacano (hindi bababa sa 10 titik).",
     danger_checkbox: "May nasa panganib ba ngayon?",
     more_details: "Karagdagang detalye (opsyonal)", q_ongoing: "Kasalukuyan ba itong nangyayari?", q_recurring: "Paulit-ulit o minsan lang?", btn_yes: "Oo", btn_no: "Hindi", btn_recurring: "Paulit-ulit", btn_onetime: "Minsan lang",
     loc_help: "Pumili ng kahit isa: pin, purok, o landmark.", btn_use_location: "Gamitin ang aking kasalukuyang lokasyon",
@@ -312,7 +318,8 @@ function setLanguage(lang) {
   });
   try { localStorage.setItem('calarian_lang', lang); } catch(e){}
   const selectedCat = document.getElementById('category_id_input').value;
-  if (selectedCat) selectCategory(parseInt(selectedCat, 10));
+  if (selectedCat) renderQuestions(parseInt(selectedCat, 10));
+  updateDescriptionLabel();
 }
 
 function toggleDanger(checked) {
@@ -374,7 +381,44 @@ function qPlaceholder(q) {
   return '';
 }
 function selectCategory(catId) {
-  document.getElementById('category_id_input').value = catId;
+  const input = document.getElementById('category_id_input');
+  // Clicking the selected chip again deselects it (FR-01: no category is required)
+  if (input.value && parseInt(input.value, 10) === catId) {
+    deselectCategory();
+    return;
+  }
+  input.value = catId;
+  renderQuestions(catId);
+  triggerNearbyReportsCheck();
+}
+
+function deselectCategory() {
+  const input = document.getElementById('category_id_input');
+  input.value = '';
+  document.querySelectorAll('.cat-chip').forEach(card => card.classList.remove('selected'));
+  // Remove the extra fields so no stale answers are submitted
+  const container = document.getElementById('dynamic-questions-container');
+  document.getElementById('dynamic-questions-fields').innerHTML = '';
+  container.style.display = 'none';
+  updateDescriptionLabel();
+  triggerNearbyReportsCheck();
+}
+
+function updateDescriptionLabel() {
+  const hasCategory = !!document.getElementById('category_id_input').value;
+  const labelSpan = document.getElementById('description-label');
+  const textarea = document.getElementById('description');
+  const dict = i18n[currentLang] || i18n.en;
+  if (hasCategory) {
+    labelSpan.textContent = dict.lbl_explain_more;
+    textarea.placeholder = dict.placeholder_explain_more;
+  } else {
+    labelSpan.textContent = dict.lbl_description;
+    textarea.placeholder = '';
+  }
+}
+
+function renderQuestions(catId) {
   document.querySelectorAll('.cat-chip').forEach(card => {
     card.classList.toggle('selected', parseInt(card.getAttribute('data-cat-id'),10) === catId);
   });
@@ -421,7 +465,7 @@ function selectCategory(catId) {
   } else {
     container.style.display = 'none';
   }
-  triggerNearbyReportsCheck();
+  updateDescriptionLabel();
 }
 
 // map
@@ -457,6 +501,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
   try { const saved=localStorage.getItem('calarian_lang'); if(saved && (saved==='en'||saved==='fil')) setLanguage(saved); } catch(e){}
+  // Restore state when the form is re-shown after a validation error (old category re-selected)
+  const restoredCat = document.getElementById('category_id_input').value;
+  if (restoredCat) renderQuestions(parseInt(restoredCat, 10));
+  else updateDescriptionLabel();
   const firstError = document.querySelector('.field-error');
   if (firstError) firstError.scrollIntoView({block:'center'});
   if (document.getElementById('people_at_risk_cb').checked) toggleDanger(true);

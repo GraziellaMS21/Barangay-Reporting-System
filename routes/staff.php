@@ -13,7 +13,15 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin,staff'])
     Route::get('/reports/{report}/photo', [AdminReportController::class, 'photo'])->name('reports.photo');
     Route::get('/reports/{report}/photos/{photo}', [AdminReportController::class, 'showPhoto'])->name('reports.photos.show');
     Route::get('/reports/{report}/proofs/{proof}', [AdminReportController::class, 'showProofPhoto'])->name('reports.proofs.show');
+    Route::get('/reports/{report}/review-ai', [AdminReportController::class, 'reviewAiStatus'])->name('reports.review-ai');
     Route::patch('/reports/{report}/review', [AdminReportController::class, 'saveReview'])->name('reports.review');
+    Route::patch('/reports/{report}/emergency', [AdminReportController::class, 'resolveEmergencyFlag'])->name('reports.emergency');
+    Route::patch('/reports/{report}/photo-mismatch', [AdminReportController::class, 'resolvePhotoMismatch'])->name('reports.photo-mismatch');
+    Route::patch('/reports/{report}/refer', [AdminReportController::class, 'referReport'])->name('reports.refer');
+    Route::patch('/reports/{report}/duplicate', [AdminReportController::class, 'markDuplicate'])->name('reports.duplicate');
+    Route::patch('/reports/{report}/accept-review', [AdminReportController::class, 'acceptReview'])->name('reports.accept-review');
+    Route::patch('/reports/{report}/route', [AdminReportController::class, 'routeReport'])->name('reports.route');
+    Route::patch('/reports/{report}/accept-and-route', [AdminReportController::class, 'acceptAndRoute'])->name('reports.accept-and-route');
     Route::post('/reports/{report}/retry-ai', [AdminReportController::class, 'retryAiAnalysis'])->name('reports.retry-ai');
     Route::get('/reports/{report}', [AdminReportController::class, 'show'])->name('reports.show');
     Route::patch('/reports/{report}/status', [AdminReportController::class, 'updateStatus'])->name('reports.status');

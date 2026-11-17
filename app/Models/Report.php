@@ -90,6 +90,9 @@ class Report extends Model
         'category_id',
         'office_id',
         'urgency',
+        'resident_category_id',
+        'resident_purok_id',
+        'resident_landmark',
         'summary',
         'is_emergency',
         'priority_score',
@@ -144,6 +147,16 @@ class Report extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);
+    }
+
+    public function residentCategory(): BelongsTo
+    {
+        return $this->belongsTo(Category::class, 'resident_category_id');
+    }
+
+    public function residentPurok(): BelongsTo
+    {
+        return $this->belongsTo(Purok::class, 'resident_purok_id');
     }
 
     public function office(): BelongsTo

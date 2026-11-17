@@ -60,5 +60,60 @@ class DemoReportSeeder extends Seeder
                 ]
             );
         }
+
+        $this->seedAiResults($categoryIds);
+    }
+
+    /**
+     * Seed demo AI results covering the four review-page states:
+     * ready (high confidence), low confidence, pending, and failed.
+     */
+    private function seedAiResults($categoryIds): void
+    {
+        $demo = Report::query()->whereIn('tracking_code', ['BRG-DEMO01', 'BRG-DEMO02', 'BRG-DEMO03', 'BRG-DEMO04'])->get()->keyBy('tracking_code');
+
+        $ready = $demo->get('BRG-DEMO01');
+        if ($ready && ! $ready->aiResult()->exists()) {
+            $ready->aiResult()->create([
+                'suggested_category' => 'drainage',
+                'suggested_urgency' => 'medium',
+                'summary' => 'A clogged drainage canal near the community hall accumulates standing water during heavy rainfall, posing a flood and dengue risk to nearby households.',
+                'photo_mismatch' => false,
+                'emergency_flag' => false,
+                'key_facts' => ['Clogged drainage', 'Standing water', 'Near community hall'],
+                'confidence' => 0.92,
+                'model' => 'demo-seeder',
+            ]);
+            $ready->forceFill(['ai_status' => 'done'])->save();
+        }
+
+        $lowConfidence = $demo->get('BRG-DEMO02');
+        if ($lowConfidence && ! $lowConfidence->aiResult()->exists()) {
+            $lowConfidence->aiResult()->create([
+                'suggested_category' => 'garbage',
+                'suggested_urgency' => 'low',
+                'summary' => 'Uncollected garbage has accumulated beside the covered court and may attract pests if not collected soon.',
+                'photo_mismatch' => true,
+                'emergency_flag' => false,
+                'key_facts' => ['Uncollected garbage', 'Beside covered court'],
+                'confidence' => 0.45,
+                'model' => 'demo-seeder',
+            ]);
+            $lowConfidence->forceFill(['ai_status' => 'done'])->save();
+        }
+
+        $pending = $demo->get('BRG-DEMO03');
+        if ($pending) {
+            $pending->forceFill(['ai_status' => 'pending'])->save();
+        }
+
+        $failed = $demo->get('BRG-DEMO04');
+        if ($failed) {
+            $failed->aiResult()->firstOrCreate([], [
+                'error' => 'AI provider request failed (demo data).',
+                'model' => 'demo-seeder',
+            ]);
+            $failed->forceFill(['ai_status' => 'failed'])->save();
+        }
     }
 }

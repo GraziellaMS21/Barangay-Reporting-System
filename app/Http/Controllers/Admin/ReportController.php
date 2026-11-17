@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Events\InfoRequested;
 use App\Events\ResolutionProposed;
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\Category;
 use App\Models\Office;
 use App\Models\Purok;
@@ -20,6 +21,7 @@ use App\Services\ReportReviewService;
 use App\Services\ReportStatusService;
 use App\Services\RoutingService;
 use App\Support\ReportStatus;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -198,6 +200,8 @@ class ReportController extends Controller
     {
         $report->load([
             'purok',
+            'residentPurok',
+            'residentCategory',
             'statusLogs.user',
             'aiResult',
             'category',
@@ -206,6 +210,7 @@ class ReportController extends Controller
             'internalNotes.user',
             'infoRequests.requester',
             'resolutionProofs.user',
+            'duplicateSuggestions.candidate',
         ]);
 
         $manualStatuses = $report->is_emergency
@@ -213,12 +218,14 @@ class ReportController extends Controller
             : Report::MANUAL_STATUSES;
 
         $categories = Category::query()
+            ->with('defaultOffice')
             ->where('is_active', true)
             ->orderBy('name')
-            ->get(['id', 'name', 'slug']);
+            ->get(['id', 'name', 'slug', 'default_office_id', 'question_schema']);
 
         $offices = Office::query()->orderBy('name')->get();
-        $recommendedOffice = $report->category ? $routingService->recommendedOffice($report->category) : null;
+        $puroks = Purok::query()->orderBy('name')->get(['id', 'name']);
+        $routingDecisions = $routingService->decisionsForCategories($categories);
 
         $staffUsers = User::query()
             ->whereIn('role', ['admin', 'staff'])
@@ -232,16 +239,83 @@ class ReportController extends Controller
             ->get();
 
         $autoCloseDays = (int) Setting::value('auto_close_days', 5);
+        $aiConfidenceThreshold = (float) Setting::value('ai_confidence_threshold', 0.8);
+        $aiConfidenceLowThreshold = (float) Setting::value('ai_confidence_low_threshold', 0.6);
+        $duplicateCandidates = Report::query()
+            ->where('id', '!=', $report->id)
+            ->where('status', '!=', 'merged')
+            ->latest('created_at')
+            ->limit(50)
+            ->get(['id', 'tracking_code', 'description', 'created_at']);
+
+        $activityEntries = collect();
+        foreach ($report->statusLogs as $statusLog) {
+            if ($statusLog->to_status === 'needs_info' || $statusLog->from_status === 'needs_info') {
+                continue;
+            }
+
+            $activityEntries->push([
+                'at' => $statusLog->created_at,
+                'title' => Report::STATUSES[$statusLog->to_status] ?? $statusLog->to_status,
+                'body' => $statusLog->note,
+                'user' => $statusLog->user?->name,
+            ]);
+        }
+
+        foreach ($report->infoRequests as $infoRequest) {
+            $requester = $infoRequest->requester?->name ?? 'Staff';
+            $body = 'Needs info: requested by '.$requester.': '.$infoRequest->question.'.';
+            if ($infoRequest->response !== null && $infoRequest->response !== '') {
+                $body .= ' Resident replied: '.$infoRequest->response;
+            }
+
+            $activityEntries->push([
+                'at' => $infoRequest->responded_at ?? $infoRequest->created_at,
+                'title' => 'Information request',
+                'body' => $body,
+                'user' => $requester,
+            ]);
+        }
+
+        foreach ($report->internalNotes as $internalNote) {
+            $activityEntries->push([
+                'at' => $internalNote->created_at,
+                'title' => 'Internal note',
+                'body' => $internalNote->body,
+                'user' => $internalNote->user?->name,
+            ]);
+        }
+        $activityEntries = $activityEntries->sortByDesc('at')->values();
+        $photoMismatchReviewed = AuditLog::query()
+            ->where('model', Report::class)
+            ->where('model_id', $report->id)
+            ->where('action', 'photo_mismatch_review')
+            ->exists()
+            || ($report->photo_mismatch && (bool) $report->aiResult?->photo_mismatch);
+        $emergencyFlagReviewed = AuditLog::query()
+            ->where('model', Report::class)
+            ->where('model_id', $report->id)
+            ->where('action', 'emergency_flag_review')
+            ->exists();
+        $currentUserId = auth()->id();
 
         return view('admin.reports.show', compact(
             'report',
             'manualStatuses',
             'categories',
             'offices',
-            'recommendedOffice',
+            'puroks',
+            'routingDecisions',
             'staffUsers',
             'responseTemplates',
-            'autoCloseDays'
+            'autoCloseDays',
+            'aiConfidenceThreshold',
+            'aiConfidenceLowThreshold',
+            'duplicateCandidates',
+            'activityEntries',
+            'photoMismatchReviewed',
+            'emergencyFlagReviewed',
+            'currentUserId'
         ));
     }
 
@@ -269,7 +343,8 @@ class ReportController extends Controller
     public function saveReview(
         Request $request,
         Report $report,
-        ReportReviewService $reportReviewService
+        ReportReviewService $reportReviewService,
+        RoutingService $routingService
     ): RedirectResponse {
         $activeCategoryIds = Category::query()
             ->where('is_active', true)
@@ -277,11 +352,18 @@ class ReportController extends Controller
             ->all();
 
         $validated = $request->validate([
+            'intent' => ['sometimes', Rule::in(['save', 'route'])],
             'category_id' => ['required', 'integer', Rule::in($activeCategoryIds)],
             'urgency' => ['required', Rule::in(['Low', 'Medium', 'High', 'Critical'])],
             'staff_description' => ['required', 'string', 'max:2000'],
-            'photo_mismatch' => ['required', 'boolean'],
-            'is_emergency' => ['required', 'boolean'],
+            'purok_id' => ['nullable', 'integer', Rule::exists('puroks', 'id')],
+            'landmark' => ['nullable', 'string', 'max:255'],
+            'office_id' => ['nullable', 'integer', Rule::exists('offices', 'id')],
+            'assigned_to' => [
+                'nullable',
+                'integer',
+                Rule::exists('users', 'id')->where(fn ($query) => $query->whereIn('role', ['admin', 'staff'])),
+            ],
             'review_note' => ['nullable', 'string', 'max:1000'],
         ], [
             'category_id.required' => 'Select a category before saving the review.',
@@ -294,38 +376,196 @@ class ReportController extends Controller
 
         $reviewer = $request->user();
         abort_unless($reviewer instanceof User, 403);
-
-        $reportReviewService->save($report, [
-            'category_id' => (int) $validated['category_id'],
-            'urgency' => $validated['urgency'],
-            'staff_description' => $validated['staff_description'],
-            'photo_mismatch' => $request->boolean('photo_mismatch'),
-            'is_emergency' => $request->boolean('is_emergency'),
-            'review_note' => $validated['review_note'] ?? null,
-        ], $reviewer);
-
-        $report->refresh();
-        if (in_array($report->status, ['submitted', 'under_review', 'reopened'], true)) {
-            try {
-                $statusService = app(\App\Services\ReportStatusService::class);
-                // set office/assignee from form
-                if ($request->filled('office_id')) {
-                    $report->office_id = (int) $request->input('office_id');
-                } elseif ($report->category) {
-                    $ro = app(\App\Services\RoutingService::class)->recommendedOffice($report->category);
-                    $report->office_id = $ro?->id ?? $report->office_id;
-                }
-                if ($request->filled('assigned_to')) {
-                    $report->assigned_to = (int) $request->input('assigned_to');
-                }
-                $report->save();
-                $statusService->transition($report, 'routed', $validated['review_note'] ?: 'Confirmed and routed by staff.', $reviewer);
-            } catch (\Throwable $e) {
-                // ignore transition failure
+        $intent = $validated['intent'] ?? 'save';
+        $category = Category::query()->findOrFail((int) $validated['category_id']);
+        $officeId = $request->has('office_id')
+            ? ($validated['office_id'] ?? null)
+            : $report->office_id;
+        $assignedTo = $request->has('assigned_to')
+            ? ($validated['assigned_to'] ?? null)
+            : $report->assigned_to;
+        $reviewNote = $request->has('review_note')
+            ? ($validated['review_note'] ?? null)
+            : $report->review_note;
+        if ($intent === 'route' && $officeId === null) {
+            $officeId = $routingService->decisionForCategory($category)['office']?->id;
+            if ($officeId === null) {
+                return back()->withInput()->withErrors([
+                    'office_id' => 'Choose an office before confirming and routing this report.',
+                ]);
             }
         }
 
-        return back()->with('success', 'Confirmed and routed.');
+        try {
+            $reportReviewService->save($report, [
+                'category_id' => (int) $validated['category_id'],
+                'urgency' => $validated['urgency'],
+                'staff_description' => $validated['staff_description'],
+                'purok_id' => isset($validated['purok_id']) ? (int) $validated['purok_id'] : null,
+                'landmark' => $validated['landmark'] ?? null,
+                'office_id' => $officeId === null ? null : (int) $officeId,
+                'assigned_to' => $assignedTo === null ? null : (int) $assignedTo,
+                'review_note' => $reviewNote,
+            ], $reviewer, $intent);
+        } catch (\InvalidArgumentException $exception) {
+            return back()->withInput()->withErrors(['review' => $exception->getMessage()]);
+        }
+
+        $report->refresh();
+        $message = match ($report->status) {
+            'referred' => 'Review saved and report referred to the selected office.',
+            'routed' => 'Review saved and report routed.',
+            default => 'Review saved without routing.',
+        };
+
+        return back()->with('success', $message);
+    }
+
+    public function reviewAiStatus(Report $report): JsonResponse
+    {
+        $report->load('aiResult');
+        $aiResult = $report->aiResult;
+
+        if (in_array($report->ai_status, ['pending', 'processing'], true)) {
+            return response()->json(['status' => 'pending']);
+        }
+
+        if ($report->ai_status !== 'done' || $aiResult === null || $aiResult->error !== null) {
+            return response()->json(['status' => 'unavailable']);
+        }
+
+        $category = Category::query()
+            ->where('is_active', true)
+            ->where('slug', $aiResult->suggested_category)
+            ->first(['id', 'name']);
+
+        return response()->json([
+            'status' => 'ready',
+            'confidence' => $aiResult->confidence,
+            'values' => [
+                'category' => ['value' => $category?->id, 'label' => $category?->name],
+                'urgency' => ['value' => $aiResult->suggested_urgency, 'label' => $aiResult->suggested_urgency],
+                'description' => ['value' => $aiResult->summary, 'label' => $aiResult->summary],
+                'purok' => ['value' => null, 'label' => null],
+                'landmark' => ['value' => null, 'label' => null],
+            ],
+        ]);
+    }
+
+    public function resolveEmergencyFlag(
+        Request $request,
+        Report $report,
+        ReportReviewService $reportReviewService
+    ): RedirectResponse {
+        abort_if(in_array($report->status, Report::CLOSED_STATUSES, true), 409);
+
+        $validated = $request->validate([
+            'confirm' => ['required', 'boolean'],
+        ]);
+
+        $reviewer = $request->user();
+        abort_unless($reviewer instanceof User, 403);
+
+        try {
+            $reportReviewService->resolveEmergency($report, (bool) $validated['confirm'], $reviewer);
+        } catch (\InvalidArgumentException $exception) {
+            return back()->withInput()->withErrors(['emergency' => $exception->getMessage()]);
+        }
+
+        return back()->with('success', $validated['confirm']
+            ? 'Emergency concern confirmed.'
+            : 'Emergency concern cleared; report returned to review.');
+    }
+
+    public function resolvePhotoMismatch(Request $request, Report $report): RedirectResponse
+    {
+        $validated = $request->validate([
+            'confirm' => ['required', 'boolean'],
+        ]);
+
+        DB::transaction(function () use ($report, $validated, $request): void {
+            $lockedReport = Report::query()->whereKey($report->id)->lockForUpdate()->firstOrFail();
+            $aiMismatch = (bool) $lockedReport->aiResult?->photo_mismatch;
+            $confirmedMismatch = (bool) $validated['confirm'];
+            $lockedReport->photo_mismatch = $confirmedMismatch;
+            $lockedReport->save();
+
+            if ($confirmedMismatch !== $aiMismatch) {
+                AuditLog::query()->create([
+                    'user_id' => $request->user()->id,
+                    'action' => 'photo_mismatch_review',
+                    'model' => Report::class,
+                    'model_id' => $lockedReport->id,
+                    'old_values' => ['photo_mismatch' => $aiMismatch],
+                    'new_values' => ['photo_mismatch' => $confirmedMismatch],
+                ]);
+            }
+        });
+
+        return back()->with('success', $validated['confirm']
+            ? 'Photo mismatch confirmed.'
+            : 'Photo mismatch cleared.');
+    }
+
+    public function referReport(
+        Request $request,
+        Report $report,
+        RoutingService $routingService,
+        ReportStatusService $statusService
+    ): RedirectResponse {
+        abort_if($report->is_emergency || $report->status === 'emergency_flagged', 409);
+
+        $validated = $request->validate([
+            'office_id' => ['required', 'integer', Rule::exists('offices', 'id')],
+            'note' => ['required', 'string', 'max:500'],
+        ]);
+
+        DB::transaction(function () use ($report, $validated, $request, $routingService, $statusService): void {
+            $lockedReport = Report::query()->whereKey($report->id)->lockForUpdate()->firstOrFail();
+            $office = Office::query()->findOrFail($validated['office_id']);
+            if ($lockedReport->status === 'needs_info') {
+                $statusService->transition($lockedReport, 'under_review', 'Review resumed before referral.', $request->user());
+            }
+
+            $lockedReport->office_id = $office->id;
+            $lockedReport->save();
+            $routingService->createReferral($lockedReport, $office);
+            $statusService->transition($lockedReport, 'referred', $validated['note'], $request->user());
+        });
+
+        return back()->with('success', 'Report referred to the selected office.');
+    }
+
+    public function markDuplicate(Request $request, Report $report, ReportStatusService $statusService): RedirectResponse
+    {
+        abort_if($report->is_emergency || $report->status === 'emergency_flagged', 409);
+
+        $validated = $request->validate([
+            'candidate_id' => [
+                'required',
+                'integer',
+                Rule::exists('reports', 'id')->where(fn ($query) => $query->where('id', '!=', $report->id)),
+            ],
+            'note' => ['required', 'string', 'max:500'],
+        ]);
+        $reviewer = $request->user();
+        abort_unless($reviewer instanceof User, 403);
+
+        DB::transaction(function () use ($report, $validated, $reviewer, $statusService): void {
+            $lockedReport = Report::query()->whereKey($report->id)->lockForUpdate()->firstOrFail();
+            $candidate = Report::query()->whereKey($validated['candidate_id'])->firstOrFail();
+            abort_if($candidate->status === 'merged', 422, 'The selected report has already been merged.');
+
+            DB::table('duplicate_suggestions')->updateOrInsert(
+                ['report_id' => $lockedReport->id, 'candidate_id' => $candidate->id],
+                ['decision' => 'merged', 'decided_by' => $reviewer->id, 'updated_at' => now(), 'created_at' => now()]
+            );
+            $lockedReport->merged_into_id = $candidate->id;
+            $lockedReport->save();
+            $statusService->transition($lockedReport, 'merged', $validated['note'], $reviewer);
+        });
+
+        return back()->with('success', 'Report marked as a duplicate.');
     }
 
     public function retryAiAnalysis(
@@ -363,15 +603,20 @@ class ReportController extends Controller
 
         $validated = $request->validate([
             'status' => ['required', Rule::in($allowedStatuses)],
-            'note' => ['required', 'string', 'max:500'],
+            'note' => [
+                Rule::requiredIf(in_array($request->input('status'), ['out_of_scope', 'referred', 'merged'], true)),
+                'nullable',
+                'string',
+                'max:500',
+            ],
             'office_id' => ['nullable', 'exists:offices,id'],
         ], [
-            'note.required' => 'A note is required for every status change.',
+            'note.required' => 'A note is required for this status change.',
         ]);
 
         DB::transaction(function () use ($report, $validated, $request, $routingService, $priorityService, $statusService) {
             $toStatus = $validated['status'];
-            $note = $validated['note'];
+            $note = $validated['note'] ?? null;
             $officeId = $validated['office_id'] ?? null;
 
             if ($report->is_emergency) {
@@ -520,26 +765,26 @@ class ReportController extends Controller
             'report_ids.*' => ['integer', 'exists:reports,id'],
         ]);
 
-        $threshold = (float) \App\Models\Setting::value('ai_confidence_threshold', 0.8);
+        $threshold = (float) Setting::value('ai_confidence_threshold', 0.8);
         $confirmed = 0;
 
         foreach ($validated['report_ids'] as $id) {
             $report = Report::query()->with(['category', 'aiResult', 'duplicateSuggestions'])->find($id);
-            if (!$report) {
+            if (! $report) {
                 continue;
             }
             $ai = $report->aiResult;
             $ready = $report->ai_status === 'done' && $ai && $ai->error === null
                 && (float) $ai->confidence >= $threshold
                 && $report->category_id && $report->urgency
-                && $report->getRecommendedOffice() && !$report->is_emergency
+                && $report->getRecommendedOffice() && ! $report->is_emergency
                 && $report->duplicateSuggestions->where('decision', 'pending')->isEmpty();
-            if (!$ready) {
+            if (! $ready) {
                 continue;
             }
 
             DB::transaction(function () use ($report, $routingService, $priorityService, $statusService, $request) {
-                if (!$report->office_id && $report->category) {
+                if (! $report->office_id && $report->category) {
                     $recommendedOffice = $routingService->recommendedOffice($report->category);
                     $report->office_id = $recommendedOffice?->id;
                 }
@@ -551,6 +796,124 @@ class ReportController extends Controller
         }
 
         return back()->with('success', "Confirmed and routed {$confirmed} report(s).");
+    }
+
+    public function acceptReview(
+        Request $request,
+        Report $report,
+        ReportReviewService $reportReviewService,
+        ReportStatusService $statusService
+    ): RedirectResponse {
+        $activeCategoryIds = Category::query()->where('is_active', true)->pluck('id')->all();
+
+        $validated = $request->validate([
+            'category_id' => ['required', 'integer', Rule::in($activeCategoryIds)],
+            'urgency' => ['required', Rule::in(['Low', 'Medium', 'High', 'Critical'])],
+            'staff_description' => ['required', 'string', 'max:2000'],
+            'purok_id' => ['nullable', 'integer', Rule::exists('puroks', 'id')],
+            'landmark' => ['nullable', 'string', 'max:255'],
+        ], [
+            'category_id.required' => 'Select a category before saving the review.',
+            'urgency.required' => 'Select an urgency before saving the review.',
+            'staff_description.required' => 'Enter a reviewed description before saving.',
+        ]);
+
+        $reviewer = $request->user();
+        abort_unless($reviewer instanceof User, 403);
+
+        $aiResult = $report->aiResult;
+        $photoMismatch = $aiResult?->photo_mismatch ?? (bool) $report->photo_mismatch;
+        $isEmergency = $aiResult?->emergency_flag ?? (bool) $report->is_emergency;
+
+        $reportReviewService->save($report, [
+            'category_id' => (int) $validated['category_id'],
+            'urgency' => $validated['urgency'],
+            'staff_description' => $validated['staff_description'],
+            'photo_mismatch' => $photoMismatch,
+            'is_emergency' => $isEmergency,
+            'review_note' => null,
+            'purok_id' => $validated['purok_id'] ?? $report->purok_id,
+            'landmark' => $validated['landmark'] ?? $report->landmark,
+        ], $reviewer);
+
+        $report->refresh();
+        if (in_array($report->status, ['submitted', 'reopened'], true)) {
+            try {
+                $statusService->transition($report, 'under_review', 'Review accepted by '.$reviewer->name, $reviewer);
+            } catch (Throwable $e) {
+                // ignore if not allowed
+            }
+        }
+
+        return back()->with('success', 'Review accepted.');
+    }
+
+    public function routeReport(
+        Request $request,
+        Report $report,
+        ReportStatusService $statusService
+    ): RedirectResponse {
+        $reviewer = $request->user();
+        abort_unless($reviewer instanceof User, 403);
+
+        if (! $report->category_id || ! $report->urgency) {
+            return back()->withErrors(['category_id' => 'Category and urgency are required before routing.'])->withInput();
+        }
+
+        $validated = $request->validate([
+            'office_id' => ['nullable', 'exists:offices,id'],
+            'assigned_to' => ['nullable', Rule::exists('users', 'id')->where(fn ($q) => $q->whereIn('role', ['admin', 'staff']))],
+            'review_note' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $recommended = $report->category ? app(RoutingService::class)->recommendedOffice($report->category) : null;
+        $oldOfficeId = $report->office_id;
+
+        $report->office_id = $validated['office_id'] ?: ($recommended?->id ?? $report->office_id);
+        $report->assigned_to = array_key_exists('assigned_to', $validated) && $validated['assigned_to'] !== null
+            ? (int) $validated['assigned_to']
+            : $report->assigned_to;
+        if ($report->assigned_to === null && $recommended) {
+            // default assignee: current user fallback
+            $report->assigned_to = $reviewer->id;
+        }
+        $report->review_note = $validated['review_note'] ?? $report->review_note;
+        $report->save();
+
+        if ($oldOfficeId !== $report->office_id) {
+            AuditLog::query()->create([
+                'user_id' => $reviewer->id,
+                'action' => 'office_override',
+                'model' => Report::class,
+                'model_id' => $report->id,
+                'old_values' => ['office_id' => $oldOfficeId],
+                'new_values' => ['office_id' => $report->office_id],
+            ]);
+        }
+
+        try {
+            $statusService->transition($report, 'routed', $validated['review_note'] ?: 'Confirmed and routed by staff.', $reviewer);
+        } catch (Throwable $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Confirmed and routed.');
+    }
+
+    public function acceptAndRoute(
+        Request $request,
+        Report $report,
+        ReportReviewService $reportReviewService,
+        ReportStatusService $statusService,
+        RoutingService $routingService
+    ): RedirectResponse {
+        // perform accept then route in one request
+        $request->merge([]);
+        $this->acceptReview($request, $report, $reportReviewService, $statusService);
+        $report->refresh();
+        $this->routeReport($request, $report, $statusService);
+
+        return back()->with('success', 'Accepted and routed.');
     }
 
     public function escalate(

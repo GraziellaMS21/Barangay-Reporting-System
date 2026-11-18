@@ -49,13 +49,14 @@ class DashboardController extends Controller
             ->limit(5)
             ->get(['id', 'tracking_code', 'priority_score', 'urgency', 'status']);
         $needsAttentionReports = Report::query()
+            ->with(['category:id,name', 'purok:id,name'])
             ->whereNotIn('status', Report::CLOSED_STATUSES)
             ->orderByDesc('is_emergency')
             ->orderByRaw('CASE WHEN due_at IS NOT NULL AND due_at < ? THEN 0 ELSE 1 END', [now()->toDateTimeString()])
             ->orderByDesc('priority_score')
             ->orderBy('created_at')
             ->limit(5)
-            ->get(['id', 'tracking_code', 'priority_score', 'urgency', 'status', 'due_at', 'created_at', 'is_emergency']);
+            ->get(['id', 'tracking_code', 'description', 'category_id', 'purok_id', 'priority_score', 'urgency', 'status', 'reopened_count', 'due_at', 'created_at', 'is_emergency']);
         $pendingDuplicateCount = DuplicateSuggestion::query()->where('decision', 'pending')->count();
         $pendingReferralCount = Referral::query()->needsAttention()->count();
         $pendingDuplicateSuggestions = DuplicateSuggestion::query()

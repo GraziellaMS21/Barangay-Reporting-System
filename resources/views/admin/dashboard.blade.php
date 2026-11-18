@@ -80,6 +80,46 @@
     <p class="empty-state">Insights are temporarily unavailable. Review the dashboard totals and report trends above.</p>
   @endif
 </section>
+
+<section class="card" aria-labelledby="referrals-attention-heading" style="grid-column: 1 / -1;">
+  <h2 id="referrals-attention-heading" class="card-title">Referrals needing attention</h2>
+  <div class="table-wrap">
+    <table class="data-table data-table-cards">
+      <thead><tr><th>REF no.</th><th>Agency</th><th>Status</th><th>Follow-up</th><th></th></tr></thead>
+      <tbody>
+        @forelse($pendingReferrals as $referral)
+          @php($referralOverdue = $referral->isOverdue())
+          <tr style="cursor:pointer" onclick="window.location='{{ route('admin.reports.show', $referral->report_id) }}'">
+            <td data-label="REF no.">
+              <div class="font-mono font-bold">{{ $referral->reference_no ?? 'Not assigned' }}</div>
+              <div class="text-xs text-muted">{{ $referral->report?->tracking_code }}</div>
+            </td>
+            <td data-label="Agency">{{ $referral->office?->name }}</td>
+            <td data-label="Status">
+              @if($referral->status === 'prepared')
+                <span class="status-badge b-gold">Not sent</span>
+              @elseif($referralOverdue)
+                <span class="status-badge b-red">Follow-up overdue</span>
+              @else
+                <span class="status-badge b-blue">{{ \App\Models\Referral::STATUSES[$referral->status] ?? $referral->status }}</span>
+              @endif
+            </td>
+            <td data-label="Follow-up">
+              @if($referral->follow_up_at)
+                {{ $referral->follow_up_at->format('M d, Y') }}
+              @else
+                <span class="text-muted">Not scheduled</span>
+              @endif
+            </td>
+            <td data-label=""><a href="{{ route('admin.reports.show', $referral->report_id) }}"><i class="fa-solid fa-chevron-right"></i></a></td>
+          </tr>
+        @empty
+          <tr><td class="table-empty" colspan="5">No referrals need attention.</td></tr>
+        @endforelse
+      </tbody>
+    </table>
+  </div>
+</section>
 </div>
 
 <section class="chart-grid" aria-label="Report analytics">
@@ -118,7 +158,7 @@
 </details>
 
 <p class="field-hint">
-  <a href="{{ route('admin.referrals.index') }}">Pending referrals: {{ $pendingReferralCount }}</a> ·
+  <a href="{{ route('admin.referrals.index') }}">Referrals needing attention: {{ $pendingReferralCount }}</a> ·
   <a href="{{ route('admin.reports.index') }}">Pending duplicates: {{ $pendingDuplicateCount }}</a>
 </p>
 @endsection

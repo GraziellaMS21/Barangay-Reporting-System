@@ -57,7 +57,7 @@ class DashboardController extends Controller
             ->limit(5)
             ->get(['id', 'tracking_code', 'priority_score', 'urgency', 'status', 'due_at', 'created_at', 'is_emergency']);
         $pendingDuplicateCount = DuplicateSuggestion::query()->where('decision', 'pending')->count();
-        $pendingReferralCount = Referral::query()->where('status', 'pending')->count();
+        $pendingReferralCount = Referral::query()->needsAttention()->count();
         $pendingDuplicateSuggestions = DuplicateSuggestion::query()
             ->where('decision', 'pending')
             ->with(['report:id,tracking_code', 'candidate:id,tracking_code'])
@@ -65,9 +65,10 @@ class DashboardController extends Controller
             ->limit(5)
             ->get();
         $pendingReferrals = Referral::query()
-            ->where('status', 'pending')
+            ->needsAttention()
             ->with(['report:id,tracking_code', 'office:id,name'])
-            ->latest()
+            ->orderByRaw('CASE WHEN follow_up_at IS NOT NULL AND follow_up_at < ? THEN 0 ELSE 1 END', [now()->toDateTimeString()])
+            ->latest('id')
             ->limit(5)
             ->get();
         $dashboardInsights = $dashboardInsightsService->generate([
@@ -93,6 +94,7 @@ class DashboardController extends Controller
             'averageResolutionHours',
             'pendingDuplicateCount',
             'pendingReferralCount',
+            'pendingReferrals',
             'dashboardInsights'
         ));
     }

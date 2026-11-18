@@ -7,12 +7,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Office extends Model
 {
-    protected $fillable = ['name', 'type', 'is_internal', 'contact'];
+    protected $fillable = ['name', 'type', 'is_internal', 'is_external', 'contact', 'contact_person', 'contact_email', 'contact_phone', 'address'];
 
     protected function casts(): array
     {
         return [
             'is_internal' => 'boolean',
+            'is_external' => 'boolean',
         ];
     }
 

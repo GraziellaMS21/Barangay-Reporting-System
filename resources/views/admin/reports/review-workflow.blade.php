@@ -57,12 +57,10 @@
       ? ($report->office_id ?? $routingDecision['office_id'] ?? '')
       : ($routingDecision['office_id'] ?? $report->office_id ?? ''));
   $assignedDefault = old('assigned_to', $report->assigned_to ?? $currentUserId);
-  $defaultMessage = old(
-      'review_note',
-      $responseTemplates->firstWhere('category_id', $selectedCategoryId)?->body
-          ?? $responseTemplates->first()?->body
-          ?? ''
-  );
+  // The Message to the resident starts empty; guidance lives in the placeholder
+  // so response templates never push stub text like "Template: needs more info"
+  // into an outgoing message.
+  $defaultMessage = old('review_note', '');
   $isOverdue = $report->due_at !== null
       && $report->due_at->isPast()
       && ! in_array($report->status, \App\Models\Report::CLOSED_STATUSES, true);
@@ -210,7 +208,7 @@
           @endif
         </p>
       </div>
-      <a class="review-text-link" href="#review-other-actions">Review duplicate options</a>
+      <button type="button" class="review-text-link" data-open-dialog="duplicate-modal">Review duplicate options</button>
     </section>
   @endif
 
@@ -425,7 +423,49 @@
               <span class="review-badge review-badge-red" data-low-confidence hidden>Check carefully</span>
             @endif
           </div>
+          <div class="review-header-actions">
+            @if(in_array($report->status, ['submitted', 'under_review', 'reopened', 'routed', 'in_progress', 'needs_info'], true))
+              <button type="button" class="review-button review-button-outline"
+                      data-chat-open data-report-id="{{ $report->id }}"
+                      data-chat-tracking="{{ $report->tracking_code }}"
+                      data-chat-category="{{ $report->category?->name ?? 'Category not assigned' }}"
+                      data-chat-status="{{ \App\Models\Report::STATUSES[$report->status] ?? $report->status }}"
+                      data-chat-summary="{{ $report->description }}{{ $report->purok ? ' — '.$report->purok->name : '' }}">
+                <i class="fa-solid fa-comment-dots" aria-hidden="true"></i> Ask Reporter for More Info
+              </button>
+            @endif
+            @if(in_array($report->status, ['submitted', 'under_review', 'reopened'], true))
+              <button type="button" class="review-button review-button-outline" data-open-dialog="duplicate-modal">
+                <i class="fa-solid fa-copy" aria-hidden="true"></i> Mark duplicate
+              </button>
+              <button type="button" class="review-button review-button-outline" data-open-dialog="out-of-scope-modal">
+                <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i> Out of scope
+              </button>
+            @endif
+          </div>
         </div>
+
+        @if($report->infoRequests->isNotEmpty() && isset($infoThreadSummary))
+          <div class="review-info-summary" data-chat-summary-strip data-report-id="{{ $report->id }}">
+            <p class="review-info-summary-text">
+              <i class="fa-solid fa-comments" aria-hidden="true"></i>
+              <span data-chat-message-count>{{ $infoThreadSummary['count'] }} message{{ $infoThreadSummary['count'] === 1 ? '' : 's' }} sent</span>
+              <span class="review-info-summary-dot" aria-hidden="true">·</span>
+              <span data-chat-awaiting @if(! $infoThreadSummary['awaiting_reply']) hidden @endif>Awaiting resident reply</span>
+              @if($infoThreadSummary['unread'] > 0)
+                <span class="review-info-summary-unread" title="{{ $infoThreadSummary['unread'] }} unread resident repl{{ $infoThreadSummary['unread'] === 1 ? 'y' : 'ies' }}">{{ $infoThreadSummary['unread'] }} unread</span>
+              @endif
+            </p>
+            <button type="button" class="review-button review-button-outline review-button-small"
+                    data-chat-open data-report-id="{{ $report->id }}"
+                    data-chat-tracking="{{ $report->tracking_code }}"
+                    data-chat-category="{{ $report->category?->name ?? 'Category not assigned' }}"
+                    data-chat-status="{{ \App\Models\Report::STATUSES[$report->status] ?? $report->status }}"
+                    data-chat-summary="{{ $report->description }}{{ $report->purok ? ' — '.$report->purok->name : '' }}">
+              <i class="fa-solid fa-comment-dots" aria-hidden="true"></i> Open conversation
+            </button>
+          </div>
+        @endif
         <p class="review-ai-description" data-ai-state-message aria-live="polite">
           @if($aiReady)
             AI suggestions are ready. Verify each field before confirming.
@@ -494,6 +534,7 @@
                       <button type="button" class="review-text-link" data-use-ai @disabled($emergencyActionOnly) @if(! $aiCategoryId || ! $aiCategoryPresent || $aiCategoryId === $residentCategoryId) hidden @endif>Use AI</button>
                       <button type="button" class="review-text-link" data-use-resident @disabled($emergencyActionOnly) @if($residentCategoryId === null || $residentCategoryId === $aiCategoryId) hidden @endif>Use resident's</button>
                       <button type="button" class="review-text-link" data-accept-row @disabled($emergencyActionOnly) @if(! $aiCategoryId || ! $aiCategoryPresent) hidden @endif>Accept</button>
+                      <button type="button" class="review-text-link" data-undo-row hidden>Undo</button>
                     </div>
                   </div>
                   @if($residentCategory && $aiCategoryPresent && (string) $residentCategoryId !== (string) $aiCategoryId)
@@ -536,6 +577,7 @@
                       <button type="button" class="review-text-link" data-use-ai @disabled($emergencyActionOnly) @if(! $aiUrgencyPresent) hidden @endif>Use AI</button>
                       <button type="button" class="review-text-link" data-use-resident @disabled($emergencyActionOnly) hidden>Use resident's</button>
                       <button type="button" class="review-text-link" data-accept-row @disabled($emergencyActionOnly) @if(! $aiUrgencyPresent) hidden @endif>Accept</button>
+                      <button type="button" class="review-text-link" data-undo-row hidden>Undo</button>
                     </div>
                   </div>
                 </td>
@@ -591,6 +633,7 @@
                       <button type="button" class="review-text-link" data-accept-row @disabled($emergencyActionOnly) @if(! $aiDescriptionPresent) hidden @endif>Accept</button>
                       <button type="button" class="review-text-link" data-use-original @disabled($emergencyActionOnly)>Use original</button>
                       <button type="button" class="review-text-link" data-append-ai @disabled($emergencyActionOnly) @if(! $aiDescriptionPresent) hidden @endif>Append AI summary</button>
+                      <button type="button" class="review-text-link" data-undo-row hidden>Undo</button>
                     </div>
                   </div>
                 </td>
@@ -683,12 +726,6 @@
 
         @if(! $emergencyActionOnly)
           <div class="review-actions-row">
-            @if(in_array($report->status, ['submitted', 'under_review', 'reopened', 'routed', 'in_progress'], true))
-              <button type="button" class="review-button review-button-outline" data-open-info-request>
-                <i class="fa-solid fa-comment-dots" aria-hidden="true"></i> Ask Reporter for More Info
-              </button>
-            @endif
-
             @if($aiReady)
               <button type="button" class="review-button review-button-blue" data-accept-all>
                 <i class="fa-solid fa-check-double" aria-hidden="true"></i> Accept all AI suggestions
@@ -718,47 +755,29 @@
         </span>
       </div>
       <div class="review-card-content">
-        <div class="review-form-grid">
-          <div class="review-form-field">
-            <label for="office_id">Office</label>
-            <select id="office_id" name="office_id" data-office-select>
-              <option value="">Select an office</option>
-              @foreach($offices as $office)
-                <option value="{{ $office->id }}" @selected((string) $officeDefault === (string) $office->id)>{{ $office->name }}</option>
-              @endforeach
-            </select>
-            <p class="review-field-hint" data-routing-reason>
-              @if($routingDecision)
-                Rule: {{ $categories->firstWhere('id', $selectedCategoryId)?->name }} → {{ $routingDecision['office_name'] ?? 'No office' }}. {{ $routingDecision['reason'] }}
-                @if(! $routingDecision['within_authority'] && $routingDecision['office_name'])
-                  Refer to {{ $routingDecision['office_name'] }} using the referral flow.
-                @endif
-              @else
-                Select a category to see the routing recommendation.
-              @endif
-            </p>
-            <script type="application/json" data-routing-map>@json($routingDecisions)</script>
+        @php
+          $ruleWithin = (bool) ($jurisdiction['within_authority'] ?? true);
+          $initialMode = $ruleWithin ? 'within' : 'beyond';
+          $defaultAgency = $externalOffices->firstWhere('id', $jurisdiction['office']?->id) ?? $externalOffices->first();
+          $defaultLetter = old('referral_letter', $letterTemplates[$defaultAgency?->id]['letter'] ?? '');
+          $defaultResidentMessage = old('resident_message', $letterTemplates[$defaultAgency?->id]['resident_message'] ?? '');
+          $defaultAgencyId = $defaultAgency?->id;
+        @endphp
+
+        <div class="review-mode-banner {{ $ruleWithin ? 'review-mode-banner-within' : 'review-mode-banner-beyond' }}"
+             data-mode-banner data-rule-mode="{{ $initialMode }}">
+          <div>
+            <span class="review-mode-badge" data-mode-badge>{{ $ruleWithin ? 'Within barangay authority' : 'Beyond barangay authority' }}</span>
+            <p class="review-mode-note" data-mode-note>{{ $jurisdiction['jurisdiction_note'] ?? 'Assigned to the category default office.' }}</p>
           </div>
-          <div class="review-form-field">
-            <label for="assigned_to">Assigned to</label>
-            <select id="assigned_to" name="assigned_to">
-              <option value="">Unassigned</option>
-              @foreach($staffUsers as $staffUser)
-                <option value="{{ $staffUser->id }}" @selected((string) $assignedDefault === (string) $staffUser->id)>{{ $staffUser->name }}</option>
-              @endforeach
-            </select>
-            <p class="review-field-hint">Defaults to the selected office's assignee, or you when none is configured.</p>
-          </div>
-          <div class="review-form-field review-form-field-wide">
-            <label for="review_note">Message to the resident <span class="review-optional">(optional)</span></label>
-            <p class="review-field-hint">
-              This message is sent to the reporter when you click <strong>Confirm and route</strong> below.
-              Use it to tell them what happens next — for example, which office will respond and when.
-              The text below is pre-filled from the standard response for the selected category; edit it freely.
-            </p>
-            <textarea id="review_note" name="review_note" rows="3" maxlength="1000" placeholder="Example: The CENRO drainage team will inspect your report within 3 working days.">{{ $defaultMessage }}</textarea>
-          </div>
+          <button type="button" class="review-text-link" data-mode-toggle data-other-mode="{{ $ruleWithin ? 'beyond' : 'within' }}">
+            {{ $ruleWithin ? "This isn't barangay authority" : 'Handle within the barangay instead' }}
+          </button>
         </div>
+        <input type="hidden" name="authority_mode" value="{{ $initialMode }}" data-authority-mode-input>
+        <script type="application/json" data-routing-map>@json($routingDecisions)</script>
+        <script type="application/json" data-letter-templates>@json($letterTemplates)</script>
+
         <p class="review-priority-line">
           Priority:
           <span class="review-badge review-badge-blue" title="Priority score: {{ $report->priority_score ?? 0 }}">{{ $priorityLabel }}</span>
@@ -767,72 +786,109 @@
           @endif
         </p>
 
-        <details class="review-other-actions" id="review-other-actions">
-          <summary><i class="fa-solid fa-ellipsis" aria-hidden="true"></i> Other actions (refer, duplicate, out of scope)</summary>
-          <div class="review-other-actions-list">
-            @if(in_array($report->status, ['submitted', 'under_review', 'reopened', 'needs_info', 'routed', 'in_progress'], true))
-              <form method="POST" action="{{ route('admin.reports.refer', $report) }}">
-                @csrf
-                @method('PATCH')
-                <label for="refer-office">Refer to office</label>
-                <select id="refer-office" name="office_id" required>
-                  <option value="">Select an office</option>
-                  @foreach($offices as $office)
-                    <option value="{{ $office->id }}" @selected((string) $officeDefault === (string) $office->id)>{{ $office->name }}</option>
-                  @endforeach
-                </select>
-                <label for="refer-note">Reason for referral</label>
-                <textarea id="refer-note" name="note" rows="2" required maxlength="500"></textarea>
-                <button type="submit" class="review-button review-button-outline">Refer report</button>
-              </form>
-            @endif
+        {{-- Mode A: within barangay authority --}}
+        <div class="review-mode-block" data-mode-block="within">
+          <div class="review-form-grid">
+            <div class="review-form-field">
+              <label for="office_id">Office</label>
+              <select id="office_id" name="office_id" data-office-select>
+                <option value="">Select an office</option>
+                @foreach($offices->where('is_external', false) as $office)
+                  <option value="{{ $office->id }}" @selected((string) $officeDefault === (string) $office->id)>{{ $office->name }}</option>
+                @endforeach
+              </select>
+              <p class="review-field-hint" data-routing-reason>
+                @if($routingDecision)
+                  Rule: {{ $categories->firstWhere('id', $selectedCategoryId)?->name }} → {{ $routingDecision['office_name'] ?? 'No office' }}.
+                @else
+                  Select a category to see the routing recommendation.
+                @endif
+              </p>
+            </div>
+            <div class="review-form-field">
+              <label for="assigned_to">Assigned to</label>
+              <select id="assigned_to" name="assigned_to">
+                <option value="">Unassigned</option>
+                @foreach($staffUsers as $staffUser)
+                  <option value="{{ $staffUser->id }}" @selected((string) $assignedDefault === (string) $staffUser->id)>{{ $staffUser->name }}</option>
+                @endforeach
+              </select>
+              <p class="review-field-hint">Defaults to the selected office's assignee, or you when none is configured.</p>
+            </div>
+            <div class="review-form-field review-form-field-wide">
+              <label for="review_note">Message to the resident <span class="review-optional">(optional)</span></label>
+              <p class="review-field-hint">
+                This message is sent to the reporter when you click <strong>Confirm and route</strong> below.
+                Use it to tell them what happens next — for example, which office will respond and when.
+                Leave it blank if there is nothing new to tell them.
+              </p>
+              <textarea id="review_note" name="review_note" rows="3" maxlength="1000" placeholder="Example: The CENRO drainage team will inspect your report within 3 working days.">{{ $defaultMessage }}</textarea>
+            </div>
+          </div>
 
-            @if(in_array($report->status, ['submitted', 'under_review', 'reopened'], true))
-              <form method="POST" action="{{ route('admin.reports.duplicate', $report) }}">
-                @csrf
-                @method('PATCH')
-                <label for="duplicate-candidate">Mark duplicate of</label>
-                <select id="duplicate-candidate" name="candidate_id" required>
-                  <option value="">Select a report</option>
-                  @foreach($duplicateCandidates as $candidate)
-                    <option value="{{ $candidate->id }}">{{ $candidate->tracking_code }} — {{ \Illuminate\Support\Str::limit($candidate->description, 70) }}</option>
-                  @endforeach
-                </select>
-                <label for="duplicate-note">Merge note</label>
-                <textarea id="duplicate-note" name="note" rows="2" required maxlength="500"></textarea>
-                <button type="submit" class="review-button review-button-outline" @disabled($duplicateCandidates->isEmpty())>Mark duplicate</button>
-                @if($duplicateCandidates->isEmpty())<small>No other reports are available to merge.</small>@endif
-              </form>
-            @endif
-
-            @if(in_array($report->status, ['submitted', 'under_review', 'reopened'], true))
-              <form method="POST" action="{{ route('admin.reports.status', $report) }}">
-                @csrf
-                @method('PATCH')
-                <input type="hidden" name="status" value="out_of_scope">
-                <label for="out-of-scope-note">Out-of-scope reason</label>
-                <textarea id="out-of-scope-note" name="note" rows="2" required maxlength="500"></textarea>
-                <button type="submit" class="review-button review-button-outline">Mark out of scope</button>
-              </form>
-            @endif
-
-            @if($isOverdue && ! $report->escalated_at)
-              <form method="POST" action="{{ route('admin.reports.escalate', $report) }}">
-                @csrf
-                <button type="submit" class="review-button review-button-outline">Escalate overdue report</button>
-              </form>
+          <div class="review-actions-row">
+            <span class="review-gate-hint" data-gate-reason aria-live="polite"></span>
+            @if($isRouteable)
+              <button type="submit" name="intent" value="route" class="review-button review-button-primary" data-route-submit>
+                Confirm and route
+              </button>
             @endif
           </div>
-        </details>
-
-        <div class="review-actions-row">
-          <span class="review-gate-hint" data-gate-reason aria-live="polite"></span>
-          @if($isRouteable)
-            <button type="submit" name="intent" value="route" class="review-button review-button-primary" data-route-submit>
-              Confirm and route
-            </button>
-          @endif
         </div>
+
+        {{-- Mode B: beyond barangay authority (refer to an external agency) --}}
+        <div class="review-mode-block" data-mode-block="beyond" @if($initialMode === 'within') hidden @endif>
+          <div class="review-form-field">
+            <label for="agency_id">Agency</label>
+            <select id="agency_id" name="office_id" data-agency-select @disabled($initialMode === 'within')>
+              <option value="">Select an agency</option>
+              @foreach($externalOffices as $externalOffice)
+                <option value="{{ $externalOffice->id }}" @selected((string) $defaultAgencyId === (string) $externalOffice->id)>{{ $externalOffice->name }}</option>
+              @endforeach
+            </select>
+            <p class="review-field-hint" data-agency-info>
+              @if($defaultAgency)
+                Contact: {{ $defaultAgency->contact_person ?? 'Not provided' }}
+                @if($defaultAgency->contact_email)
+                  · {{ $defaultAgency->contact_email }}
+                @endif
+                @if($defaultAgency->contact_phone)
+                  · {{ $defaultAgency->contact_phone }}
+                @endif
+                @if($defaultAgency->address)
+                  · {{ $defaultAgency->address }}
+                @endif
+              @else
+                No external agencies are configured yet. An administrator can add them under offices.
+              @endif
+            </p>
+          </div>
+          <div class="review-form-field review-form-field-wide">
+            <label for="referral_letter">Referral letter</label>
+            <p class="review-field-hint">Editable letter sent to the agency. It includes the tracking code, location and report details.</p>
+            <textarea id="referral_letter" name="referral_letter" rows="16" maxlength="20000"
+                      data-referral-letter @disabled($initialMode === 'within')>{{ $defaultLetter }}</textarea>
+          </div>
+          <div class="review-form-field review-form-field-wide">
+            <label for="resident_message">Message to the resident</label>
+            <p class="review-field-hint">Shown to the resident on the tracking page when the referral is prepared.</p>
+            <textarea id="resident_message" name="resident_message" rows="3" maxlength="1000"
+                      data-resident-message @disabled($initialMode === 'within')>{{ $defaultResidentMessage }}</textarea>
+          </div>
+
+          <div class="review-actions-row">
+            <button type="submit" name="intent" value="referral" class="review-button review-button-primary" data-referral-submit>
+              Prepare referral
+            </button>
+          </div>
+        </div>
+
+        @if($isOverdue && ! $report->escalated_at)
+          <form method="POST" action="{{ route('admin.reports.escalate', $report) }}" class="review-escalate-form">
+            @csrf
+            <button type="submit" class="review-button review-button-outline">Escalate overdue report</button>
+          </form>
+        @endif
       </div>
     </section>
   @elseif($emergencyActionOnly)
@@ -853,25 +909,63 @@
   @if(! $emergencyActionOnly)
     </form>
 
-    @if(in_array($report->status, ['submitted', 'under_review', 'reopened', 'routed', 'in_progress'], true))
-      <dialog id="info-request-modal" class="review-modal">
-        <form id="more-info-request-form" method="POST" action="{{ route('admin.reports.info-requests.store', $report) }}">
+    @if(in_array($report->status, ['submitted', 'under_review', 'reopened'], true))
+      <dialog id="duplicate-modal" class="review-modal">
+        <form method="POST" action="{{ route('admin.reports.duplicate', $report) }}">
           @csrf
+          @method('PATCH')
           <header class="review-modal-header">
-            <strong><i class="fa-solid fa-comment-dots" aria-hidden="true"></i> Ask the reporter for more info</strong>
+            <strong><i class="fa-solid fa-copy" aria-hidden="true"></i> Mark duplicate</strong>
             <button type="button" class="review-modal-close" data-close-modal aria-label="Close">&times;</button>
           </header>
           <div class="review-modal-body">
             <p class="review-field-hint">
-              The report moves to the <strong>Needs info</strong> state and the reporter is notified.
-              Their reply appears on this page, and you can resume reviewing afterwards.
+              Merge this report into the one it duplicates. The report is hidden from the queue and its reporter
+              is pointed to the kept report.
             </p>
-            <label for="more-question">Your question</label>
-            <textarea id="more-question" name="question" rows="4" required maxlength="2000" placeholder="Example: What time did you first notice this issue?"></textarea>
+            <label for="duplicate-candidate">Duplicate of</label>
+            <select id="duplicate-candidate" name="candidate_id" required>
+              <option value="">Select a report</option>
+              @foreach($duplicateCandidates as $candidate)
+                <option value="{{ $candidate->id }}"
+                        @selected($pendingDuplicate && (string) $pendingDuplicate->candidate_id === (string) $candidate->id)>
+                  {{ $candidate->tracking_code }} — {{ \Illuminate\Support\Str::limit($candidate->description, 70) }}
+                </option>
+              @endforeach
+            </select>
+            @if($pendingDuplicate && $pendingDuplicate->candidate)
+              <p class="review-field-hint">Possible match: {{ $pendingDuplicate->candidate->tracking_code }} ({{ number_format((float) $pendingDuplicate->score, 2) }} match score).</p>
+            @endif
+            <label for="duplicate-note">Merge note</label>
+            <textarea id="duplicate-note" name="note" rows="2" required maxlength="500" placeholder="Why these are the same report."></textarea>
           </div>
           <footer class="review-modal-footer">
             <button type="button" class="review-button review-button-outline" data-close-modal>Cancel</button>
-            <button type="submit" class="review-button review-button-primary">Send request</button>
+            <button type="submit" class="review-button review-button-primary" @disabled($duplicateCandidates->isEmpty())>Mark duplicate</button>
+          </footer>
+        </form>
+      </dialog>
+
+      <dialog id="out-of-scope-modal" class="review-modal">
+        <form method="POST" action="{{ route('admin.reports.status', $report) }}">
+          @csrf
+          @method('PATCH')
+          <input type="hidden" name="status" value="out_of_scope">
+          <header class="review-modal-header">
+            <strong><i class="fa-solid fa-circle-xmark" aria-hidden="true"></i> Out of scope</strong>
+            <button type="button" class="review-modal-close" data-close-modal aria-label="Close">&times;</button>
+          </header>
+          <div class="review-modal-body">
+            <p class="review-field-hint">
+              Use only when no office can act on this (private dispute, spam, not a public concern).
+              If another government office should handle it, use <strong>Prepare referral</strong> in Route and assign.
+            </p>
+            <label for="out-of-scope-note">Reason shown to the resident</label>
+            <textarea id="out-of-scope-note" name="note" rows="3" required maxlength="500" placeholder="Example: This is a private neighbour dispute that the barangay cannot act on."></textarea>
+          </div>
+          <footer class="review-modal-footer">
+            <button type="button" class="review-button review-button-outline" data-close-modal>Cancel</button>
+            <button type="submit" class="review-button review-button-primary">Mark out of scope</button>
           </footer>
         </form>
       </dialog>
@@ -905,18 +999,42 @@
               @error('note')<span class="review-field-error">{{ $message }}</span>@enderror
             </div>
             <div class="review-form-field">
-              <label for="resolution-photo">Proof photo <span class="review-optional">(optional)</span></label>
-              <input id="resolution-photo" type="file" name="photo" accept="image/jpeg,image/png,image/webp">
+              <label for="proof-photos">Proof photos <span class="review-optional">(optional)</span></label>
+              <p class="review-field-hint">
+                Up to {{ $proofConfig['max_files'] }} images, {{ round($proofConfig['max_size_kb'] / 1024) }} MB each. JPG, PNG or WebP.
+              </p>
+              <input id="proof-photos" type="file" name="proof_photos[]" multiple accept="{{ $proofConfig['accept'] }}"
+                     data-proof-input
+                     data-max-files="{{ $proofConfig['max_files'] }}"
+                     data-max-size-kb="{{ $proofConfig['max_size_kb'] }}">
+              <ul class="review-proof-errors" data-proof-errors hidden></ul>
+              <div class="review-proof-preview" data-proof-preview></div>
             </div>
             <button type="submit" class="review-button review-button-outline">Mark resolved</button>
           </form>
+
+          @if($report->proofPhotos->isNotEmpty())
+            <div class="review-saved-proofs">
+              <h3 class="review-field-label">Saved proof photos</h3>
+              <div class="review-proof-preview">
+                @foreach($report->proofPhotos as $proofPhoto)
+                  <div class="review-proof-item">
+                    <a href="{{ route('admin.reports.proof-photos.show', [$report, $proofPhoto]) }}" target="_blank" rel="noopener">
+                      <img src="{{ route('admin.reports.proof-photos.show', [$report, $proofPhoto]) }}" alt="Saved proof photo">
+                    </a>
+                    <form method="POST" action="{{ route('admin.reports.proof-photos.destroy', [$report, $proofPhoto]) }}"
+                          data-confirm-delete="Delete this proof photo? This cannot be undone.">
+                      @csrf
+                      @method('DELETE')
+                      <button type="submit" class="review-proof-delete" aria-label="Delete proof photo">&times;</button>
+                    </form>
+                  </div>
+                @endforeach
+              </div>
+            </div>
+          @endif
         @elseif($report->status === 'needs_info')
-          <p class="review-next-summary">Waiting for the resident's reply.</p>
-          @foreach($report->infoRequests as $infoRequest)
-            @if($infoRequest->responded_at && $infoRequest->response)
-              <p class="review-resident-reply"><strong>Resident replied:</strong> {{ $infoRequest->response }}</p>
-            @endif
-          @endforeach
+          <p class="review-next-summary">Waiting for the resident's reply. The conversation is in the <strong>chat modal</strong> you can open from Review AI suggestions above.</p>
         @elseif($report->status === 'awaiting_confirmation')
           <p class="review-next-summary">Waiting for the resident to confirm the resolution.</p>
           @if($report->due_at && $report->due_at->copy()->addDays($autoCloseDays)->isPast())
@@ -928,7 +1046,179 @@
         @elseif($report->status === 'resolved')
           <p class="review-next-summary">This report has been resolved.</p>
         @elseif($report->status === 'referred')
-          <p class="review-next-summary">This report was referred to {{ $report->office?->name ?? 'the appropriate office' }}.</p>
+          @php
+            $referral = $report->activeReferral;
+            $referralOffice = $referral?->office;
+            $referralBadgeClass = match ($referral?->status) {
+              'prepared' => 'review-badge-amber',
+              'sent' => 'review-badge-blue',
+              'acknowledged' => 'review-badge-blue',
+              'action_taken' => 'review-badge-green',
+              'closed' => 'review-badge-gray',
+              default => 'review-badge-gray',
+            };
+          @endphp
+          @if($referral)
+            <div class="referral-panel" data-referral-panel data-letter="{{ $referral->referral_text }}">
+              <div class="referral-panel-header">
+                <span class="review-badge review-badge-blue">{{ $referral->reference_no }}</span>
+                <strong>{{ $referralOffice?->name ?? 'Unknown agency' }}</strong>
+                <span class="review-badge {{ $referralBadgeClass }}">{{ \App\Models\Referral::STATUSES[$referral->status] ?? $referral->status }}</span>
+                @if($referral->isOverdue())
+                  <span class="review-badge review-badge-red">Follow-up overdue</span>
+                @endif
+              </div>
+              <p class="review-next-summary">
+                @if($referral->sent_at)
+                  Sent {{ $referral->sent_at->format('M d, Y') }}@if($referral->sent_via) ({{ \App\Models\Referral::SENT_VIA[$referral->sent_via] ?? $referral->sent_via }})@endif.
+                @endif
+                Follow up @if($referral->follow_up_at){{ $referral->follow_up_at->format('M d, Y') }}@else not scheduled @endif.
+              </p>
+
+              <div class="referral-panel-actions">
+                <a class="review-button review-button-outline" href="{{ route('admin.referrals.letter', $referral) }}" target="_blank" rel="noopener">
+                  <i class="fa-solid fa-print" aria-hidden="true"></i> Print / Save as PDF
+                </a>
+                <button type="button" class="review-button review-button-outline" data-copy-letter>
+                  <i class="fa-solid fa-copy" aria-hidden="true"></i> Copy letter text
+                </button>
+                @if($referralOffice?->contact_email)
+                  <a class="review-button review-button-outline"
+                     href="mailto:{{ $referralOffice->contact_email }}?subject={{ rawurlencode('Referral '.$referral->reference_no.' — '.$report->tracking_code) }}&body={{ rawurlencode($referral->referral_text) }}">
+                    <i class="fa-solid fa-envelope" aria-hidden="true"></i> Open email
+                  </a>
+                @endif
+              </div>
+
+              @if($referral->status === 'prepared')
+                <form method="POST" action="{{ route('admin.referrals.mark-sent', $referral) }}" class="referral-panel-form">
+                  @csrf
+                  <div class="referral-panel-form-grid">
+                    <div class="review-form-field">
+                      <label for="referral-sent-at">Sent date</label>
+                      <input id="referral-sent-at" type="date" name="sent_at" value="{{ now()->toDateString() }}">
+                    </div>
+                    <div class="review-form-field">
+                      <label for="referral-sent-via">Sent via</label>
+                      <select id="referral-sent-via" name="sent_via">
+                        <option value="">Not recorded</option>
+                        @foreach(\App\Models\Referral::SENT_VIA as $sentViaKey => $sentViaLabel)
+                          <option value="{{ $sentViaKey }}">{{ $sentViaLabel }}</option>
+                        @endforeach
+                      </select>
+                    </div>
+                  </div>
+                  <button type="submit" class="review-button review-button-primary">Mark as sent</button>
+                  <p class="review-field-hint">Marks the referral as sent and schedules a follow-up in {{ \App\Models\Setting::value('referral_follow_up_days', $referralConfig['follow_up_days']) }} days.</p>
+                </form>
+              @endif
+
+              @if($referral->isOpen())
+                <form method="POST" action="{{ route('admin.referrals.updates.store', $referral) }}" enctype="multipart/form-data" class="referral-panel-form">
+                  @csrf
+                  <h3 class="review-field-label">Log agency update</h3>
+                  <div class="referral-panel-form-grid">
+                    <div class="review-form-field review-form-field-wide">
+                      <label for="referral-update-note">What the agency reported</label>
+                      <textarea id="referral-update-note" name="note" rows="3" required maxlength="2000"></textarea>
+                    </div>
+                    <div class="review-form-field">
+                      <label for="referral-update-channel">Received via</label>
+                      <select id="referral-update-channel" name="channel" required>
+                        @foreach(\App\Models\Referral::CHANNELS as $channelKey => $channelLabel)
+                          <option value="{{ $channelKey }}">{{ $channelLabel }}</option>
+                        @endforeach
+                      </select>
+                    </div>
+                    <div class="review-form-field">
+                      <label for="referral-update-status">Agency status</label>
+                      <select id="referral-update-status" name="status">
+                        <option value="">Keep current</option>
+                        @foreach(\App\Models\Referral::UPDATE_TARGET_STATUSES as $updateStatus)
+                          <option value="{{ $updateStatus }}">{{ \App\Models\Referral::STATUSES[$updateStatus] ?? $updateStatus }}</option>
+                        @endforeach
+                      </select>
+                    </div>
+                    <div class="review-form-field">
+                      <label for="referral-update-date">Update date</label>
+                      <input id="referral-update-date" type="date" name="occurred_at" value="{{ now()->toDateString() }}">
+                    </div>
+                    <div class="review-form-field">
+                      <label for="referral-update-reference">Agency reference no. <span class="review-optional">(optional)</span></label>
+                      <input id="referral-update-reference" type="text" name="agency_reference_no" maxlength="100">
+                    </div>
+                    <div class="review-form-field">
+                      <label for="referral-update-photo">Photo <span class="review-optional">(optional)</span></label>
+                      <input id="referral-update-photo" type="file" name="photo" accept="image/jpeg,image/png,image/webp">
+                    </div>
+                    <div class="review-form-field review-form-field-wide">
+                      <label><input type="checkbox" name="visible_to_resident" value="1" checked> Show this update to the resident</label>
+                    </div>
+                  </div>
+                  <button type="submit" class="review-button review-button-primary">Log update</button>
+                </form>
+
+                <form method="POST" action="{{ route('admin.referrals.close', $referral) }}" class="referral-panel-form">
+                  @csrf
+                  <h3 class="review-field-label">Close referral</h3>
+                  <div class="referral-panel-form-grid">
+                    <div class="review-form-field">
+                      <label for="referral-outcome">Outcome</label>
+                      <select id="referral-outcome" name="outcome" required>
+                        @foreach(\App\Models\Referral::OUTCOMES as $outcomeKey => $outcomeLabel)
+                          <option value="{{ $outcomeKey }}">{{ $outcomeLabel }}</option>
+                        @endforeach
+                      </select>
+                    </div>
+                    <div class="review-form-field review-form-field-wide">
+                      <label for="referral-close-note">Closing note</label>
+                      <textarea id="referral-close-note" name="note" rows="2" required maxlength="2000"></textarea>
+                    </div>
+                  </div>
+                  <button type="submit" class="review-button review-button-outline">Close referral</button>
+                  <p class="review-field-hint">Resolved closes the report. Declined or no response keeps the report open for the next action.</p>
+                </form>
+              @endif
+
+              @if($referral->updates->isNotEmpty())
+                <ol class="review-activity-list referral-update-list">
+                  @foreach($referral->updates as $referralUpdate)
+                    <li>
+                      <div class="review-activity-heading">
+                        <strong>{{ \App\Models\Referral::CHANNELS[$referralUpdate->channel] ?? $referralUpdate->channel }}</strong>
+                        <time datetime="{{ ($referralUpdate->occurred_at ?? $referralUpdate->created_at)?->toIso8601String() }}">{{ ($referralUpdate->occurred_at ?? $referralUpdate->created_at)?->format('M d, Y h:i A') }}</time>
+                      </div>
+                      <p class="review-activity-body">{{ $referralUpdate->note }}</p>
+                      @if($referralUpdate->agency_reference_no)
+                        <p class="review-activity-user">Agency reference: {{ $referralUpdate->agency_reference_no }}</p>
+                      @endif
+                      @if($referralUpdate->photo_path)
+                        <a href="{{ route('admin.referrals.updates.photo', [$referral, $referralUpdate]) }}" target="_blank" rel="noopener">View update photo</a>
+                      @endif
+                    </li>
+                  @endforeach
+                </ol>
+              @endif
+            </div>
+          @else
+            <p class="review-next-summary">This report was referred to {{ $report->office?->name ?? 'the appropriate office' }}, but no open referral is tracked. Choose the next action:</p>
+            <div class="review-actions-row">
+              <form method="POST" action="{{ route('admin.reports.status', $report) }}">
+                @csrf
+                @method('PATCH')
+                <input type="hidden" name="status" value="routed">
+                <input type="hidden" name="note" value="Handled within the barangay after the referral was closed.">
+                <button type="submit" class="review-button review-button-outline">Route internally</button>
+              </form>
+              <form method="POST" action="{{ route('admin.reports.status', $report) }}">
+                @csrf
+                @method('PATCH')
+                <input type="hidden" name="status" value="out_of_scope">
+                <input type="hidden" name="note" value="No agency can act on this report.">
+                <button type="submit" class="review-button review-button-outline">Mark out of scope</button>
+              </form>
+            </div>
+          @endif
         @elseif($report->status === 'merged')
           <p class="review-next-summary">This report was merged as a duplicate.</p>
         @else
@@ -1025,16 +1315,47 @@
     Resident: 'review-badge-gray',
   }[state] || 'review-badge-gray');
 
+  // A row is "resolved" once staff picked a value (AI, resident's, or their own).
+  const RESOLVED_STATES = ['Accepted', 'Resident', 'Edited'];
+  const rowState = (row) => row.querySelector('[data-final-state]')?.textContent.trim() || '';
+  const isRowResolved = (row) => RESOLVED_STATES.includes(rowState(row));
+
+  const setResolvedUi = (row) => {
+    const resolved = isRowResolved(row);
+    const undo = row.querySelector('[data-undo-row]');
+    if (undo) undo.hidden = !resolved;
+    if (!resolved) return false;
+    const comparisonBadge = row.querySelector('[data-comparison-badge]');
+    const useAi = row.querySelector('[data-use-ai]');
+    const accept = row.querySelector('[data-accept-row]');
+    const useResident = row.querySelector('[data-use-resident]');
+    if (comparisonBadge) comparisonBadge.hidden = true;
+    if (useAi) useAi.hidden = true;
+    if (accept) accept.hidden = true;
+    if (useResident) useResident.hidden = true;
+    return true;
+  };
+
+  // Remember the pre-resolution value so "Undo" can restore it.
+  const snapshotUndo = (row) => {
+    if (isRowResolved(row)) return;
+    const control = row.querySelector('[data-final-control]');
+    row.dataset.undoValue = control ? control.value : '';
+    row.dataset.undoState = rowState(row) || 'AI suggested';
+  };
+
   const setFinalState = (row, state) => {
     const badge = row.querySelector('[data-final-state]');
     if (!badge) return;
     badge.textContent = state;
     badge.className = `review-badge ${stateClass(state)}`;
     row.dataset.reviewed = 'true';
+    setResolvedUi(row);
   };
 
   const updateRow = (row) => {
     const aiPresent = row.dataset.aiPresent === 'true';
+    if (setResolvedUi(row)) return;
     const comparisonBadge = row.querySelector('[data-comparison-badge]');
     const aiDisplay = row.querySelector('[data-ai-value-display]');
     const useAi = row.querySelector('[data-use-ai]');
@@ -1178,19 +1499,165 @@
     display.classList.toggle('review-not-provided', empty);
   };
 
-  const infoRequestModal = root.querySelector('#info-request-modal');
-  if (infoRequestModal) {
-    root.querySelector('[data-open-info-request]')?.addEventListener('click', () => {
-      infoRequestModal.showModal();
-      infoRequestModal.querySelector('textarea')?.focus();
+  root.querySelectorAll('[data-open-dialog]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const dialog = document.getElementById(button.dataset.openDialog);
+      if (dialog) {
+        dialog.showModal();
+        dialog.querySelector('textarea, select, input')?.focus();
+      }
     });
-    infoRequestModal.querySelectorAll('[data-close-modal]').forEach((button) => {
-      button.addEventListener('click', () => infoRequestModal.close());
+  });
+  root.querySelectorAll('dialog').forEach((dialog) => {
+    dialog.querySelectorAll('[data-close-modal]').forEach((button) => {
+      button.addEventListener('click', () => dialog.close());
     });
-    infoRequestModal.addEventListener('click', (event) => {
-      if (event.target === infoRequestModal) infoRequestModal.close();
+    dialog.addEventListener('click', (event) => {
+      if (event.target === dialog) dialog.close();
+    });
+  });
+
+  root.querySelectorAll('form[data-confirm-delete]').forEach((form) => {
+    form.addEventListener('submit', (event) => {
+      if (!window.confirm(form.dataset.confirmDelete)) event.preventDefault();
+    });
+  });
+
+  const referralPanel = root.querySelector('[data-referral-panel]');
+  const copyLetterButton = root.querySelector('[data-copy-letter]');
+  copyLetterButton?.addEventListener('click', async () => {
+    const text = referralPanel?.dataset.letter || '';
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(text);
+      copied = true;
+    } catch {
+      const helper = document.createElement('textarea');
+      helper.value = text;
+      document.body.append(helper);
+      helper.select();
+      try {
+        copied = document.execCommand('copy');
+      } catch {
+        copied = false;
+      }
+      helper.remove();
+    }
+    if (!copied) return;
+    copyLetterButton.textContent = 'Copied';
+    window.setTimeout(() => {
+      copyLetterButton.innerHTML = '<i class="fa-solid fa-copy" aria-hidden="true"></i> Copy letter text';
+    }, 1500);
+  });
+
+  const proofInput = root.querySelector('[data-proof-input]');
+  if (proofInput) {
+    const preview = root.querySelector('[data-proof-preview]');
+    const errorList = root.querySelector('[data-proof-errors]');
+    const maxFiles = Number(proofInput.dataset.maxFiles || 5);
+    const maxSizeKb = Number(proofInput.dataset.maxSizeKb || 5120);
+    const acceptTypes = (proofInput.accept || '').split(',').map((type) => type.trim()).filter(Boolean);
+    const acceptExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+    let pendingFiles = [];
+
+    const syncInput = () => {
+      const transfer = new DataTransfer();
+      pendingFiles.forEach((file) => transfer.items.add(file));
+      proofInput.files = transfer.files;
+    };
+
+    const renderPending = () => {
+      if (!preview) return;
+      preview.replaceChildren();
+      pendingFiles.forEach((file, index) => {
+        const item = document.createElement('div');
+        item.className = 'review-proof-item';
+        const image = document.createElement('img');
+        image.alt = file.name;
+        image.src = URL.createObjectURL(file);
+        item.append(image);
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'review-proof-delete';
+        remove.setAttribute('aria-label', `Remove ${file.name}`);
+        remove.textContent = '\u00d7';
+        remove.addEventListener('click', () => {
+          URL.revokeObjectURL(image.src);
+          pendingFiles.splice(index, 1);
+          syncInput();
+          renderPending();
+        });
+        item.append(remove);
+        preview.append(item);
+      });
+    };
+
+    proofInput.addEventListener('change', () => {
+      const errors = [];
+      const accepted = [];
+      [...(proofInput.files || [])].forEach((file) => {
+        const extension = file.name.includes('.')
+          ? file.name.split('.').pop().toLowerCase()
+          : '';
+        const typeOk = (file.type && acceptTypes.includes(file.type)) || acceptExtensions.includes(extension);
+        if (!typeOk) {
+          errors.push(`${file.name} is not a JPG, PNG, or WebP image.`);
+          return;
+        }
+        if (file.size > maxSizeKb * 1024) {
+          errors.push(`${file.name} is larger than ${Math.round(maxSizeKb / 1024)} MB.`);
+          return;
+        }
+        accepted.push(file);
+      });
+
+      const room = Math.max(0, maxFiles - pendingFiles.length);
+      if (accepted.length > room) {
+        errors.push(`Up to ${maxFiles} photos can be uploaded at a time.`);
+      }
+      pendingFiles = pendingFiles.concat(accepted.slice(0, room));
+
+      if (errorList) {
+        errorList.replaceChildren(...errors.map((message) => {
+          const item = document.createElement('li');
+          item.textContent = message;
+          return item;
+        }));
+        errorList.hidden = errors.length === 0;
+      }
+      syncInput();
+      renderPending();
     });
   }
+
+  const modeBanner = root.querySelector('[data-mode-banner]');
+  const modeBadge = root.querySelector('[data-mode-badge]');
+  const modeNote = root.querySelector('[data-mode-note]');
+  const modeToggle = root.querySelector('[data-mode-toggle]');
+  const authorityModeInput = root.querySelector('[data-authority-mode-input]');
+  const blockWithin = root.querySelector('[data-mode-block="within"]');
+  const blockBeyond = root.querySelector('[data-mode-block="beyond"]');
+  const agencySelect = root.querySelector('[data-agency-select]');
+  const agencyInfo = root.querySelector('[data-agency-info]');
+  const letterTextarea = root.querySelector('[data-referral-letter]');
+  const residentMessageTextarea = root.querySelector('[data-resident-message]');
+  const referralSubmit = root.querySelector('[data-referral-submit]');
+  const letterTemplatesElement = root.querySelector('[data-letter-templates]');
+  let letterTemplates = {};
+  try {
+    if (letterTemplatesElement) letterTemplates = JSON.parse(letterTemplatesElement.textContent);
+  } catch {
+    letterTemplates = {};
+  }
+  let currentMode = modeBanner?.dataset.ruleMode === 'beyond' ? 'beyond' : 'within';
+  let modeOverridden = false;
+
+  // Hide "Accept all AI suggestions" once every AI-suggested field is resolved.
+  const updateAcceptAllVisibility = () => {
+    if (!acceptAllButton) return;
+    const aiRows = rows.filter((row) => row.dataset.aiPresent === 'true' && row.dataset.reviewRequired === 'true');
+    acceptAllButton.hidden = aiRows.length === 0 || aiRows.every((row) => isRowResolved(row));
+  };
 
   const updateGate = () => {
     const requiredRows = rows.filter((row) => row.dataset.reviewRequired === 'true');
@@ -1198,20 +1665,35 @@
     const remaining = requiredRows.length - reviewedCount;
     if (countLabel) countLabel.textContent = `${reviewedCount} of ${requiredRows.length} reviewed`;
 
+    updateAcceptAllVisibility();
+
     const category = root.querySelector('[name="category_id"]');
     const urgency = root.querySelector('[name="urgency"]');
-    const office = root.querySelector('[name="office_id"]');
     const missingCategory = !category?.value;
     const missingUrgency = !urgency?.value;
-    const missingOffice = Boolean(routeButton && !office?.value);
     const reasons = [];
     if (remaining > 0) reasons.push(`Review ${remaining} more field${remaining === 1 ? '' : 's'}.`);
     if (missingCategory || missingUrgency) {
       reasons.push(`Select ${missingCategory && missingUrgency ? 'Category and Urgency' : (missingCategory ? 'Category' : 'Urgency')}.`);
     }
-    if (missingOffice) reasons.push('Choose an office.');
+
+    if (currentMode === 'beyond') {
+      if (routeButton) routeButton.disabled = true;
+      const missingAgency = !agencySelect?.value;
+      if (referralSubmit) {
+        referralSubmit.disabled = remaining > 0 || missingCategory || missingUrgency || missingAgency;
+      }
+      if (missingAgency) reasons.push('Choose an agency.');
+    } else {
+      if (referralSubmit) referralSubmit.disabled = true;
+      const missingOffice = Boolean(routeButton && !officeSelect?.value);
+      if (missingOffice) reasons.push('Choose an office.');
+      if (routeButton) {
+        routeButton.disabled = remaining > 0 || missingCategory || missingUrgency || missingOffice;
+      }
+    }
+
     if (gateReason) gateReason.textContent = reasons.join(' ');
-    if (routeButton) routeButton.disabled = remaining > 0 || missingCategory || missingUrgency || missingOffice;
   };
 
   rows.forEach((row) => {
@@ -1221,6 +1703,7 @@
     if (control) {
       const markEdited = () => {
         row.dataset.finalTouched = 'true';
+        snapshotUndo(row);
         setFinalState(row, 'Edited');
         updateGate();
       };
@@ -1230,6 +1713,7 @@
 
     row.querySelector('[data-accept-row]')?.addEventListener('click', () => {
       const control = row.querySelector('[data-final-control]');
+      snapshotUndo(row);
       if (control) {
         control.value = row.dataset.aiValue || '';
         control.dispatchEvent(new Event('change', { bubbles: true }));
@@ -1241,6 +1725,7 @@
     row.querySelector('[data-use-ai]')?.addEventListener('click', () => {
       const control = row.querySelector('[data-final-control]');
       if (!control || !row.dataset.aiValue) return;
+      snapshotUndo(row);
       control.value = row.dataset.aiValue;
       control.dispatchEvent(new Event('change', { bubbles: true }));
       setFinalState(row, 'Accepted');
@@ -1250,6 +1735,7 @@
     row.querySelector('[data-use-resident]')?.addEventListener('click', () => {
       const control = row.querySelector('[data-final-control]');
       if (!control) return;
+      snapshotUndo(row);
       control.value = row.dataset.residentValue || '';
       control.dispatchEvent(new Event('change', { bubbles: true }));
       setFinalState(row, 'Resident');
@@ -1259,10 +1745,27 @@
     row.querySelector('[data-use-original]')?.addEventListener('click', () => {
       const control = row.querySelector('[data-final-control]');
       if (!control) return;
+      snapshotUndo(row);
       control.value = row.dataset.residentValue || '';
       control.dispatchEvent(new Event('input', { bubbles: true }));
       setFinalState(row, 'Resident');
       row.dataset.finalTouched = 'false';
+      updateGate();
+    });
+    row.querySelector('[data-undo-row]')?.addEventListener('click', () => {
+      const control = row.querySelector('[data-final-control]');
+      const state = row.dataset.undoState || 'AI suggested';
+      if (control && row.dataset.undoValue !== undefined) {
+        control.value = row.dataset.undoValue;
+        control.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      const badge = row.querySelector('[data-final-state]');
+      if (badge) {
+        badge.textContent = state;
+        badge.className = `review-badge ${stateClass(state)}`;
+      }
+      row.dataset.reviewed = state === 'AI suggested' ? 'false' : 'true';
+      setResolvedUi(row);
       updateGate();
     });
     row.querySelector('[data-append-ai]')?.addEventListener('click', () => {
@@ -1281,6 +1784,7 @@
   acceptAllButton?.addEventListener('click', () => {
     rows.forEach((row) => {
       if (row.dataset.aiPresent !== 'true' || !row.dataset.aiValue) return;
+      snapshotUndo(row);
       const control = row.querySelector('[data-final-control]');
       if (!control) return;
       control.value = row.dataset.aiValue;
@@ -1300,6 +1804,64 @@
   } catch {
     if (routingReason) routingReason.textContent = 'Routing recommendations could not be loaded.';
   }
+
+  const applyLetterTemplate = (officeId) => {
+    const template = letterTemplates[officeId];
+    if (!template) return;
+    if (letterTextarea && letterTextarea.dataset.touched !== 'true') {
+      letterTextarea.value = template.letter || '';
+    }
+    if (residentMessageTextarea && residentMessageTextarea.dataset.touched !== 'true') {
+      residentMessageTextarea.value = template.resident_message || '';
+    }
+    if (agencyInfo) {
+      const parts = [];
+      if (template.contact_person) parts.push(`Contact: ${template.contact_person}`);
+      if (template.contact_email) parts.push(template.contact_email);
+      if (template.contact_phone) parts.push(template.contact_phone);
+      if (template.address) parts.push(template.address);
+      agencyInfo.textContent = parts.length ? parts.join(' · ') : 'Contact details not provided.';
+    }
+  };
+
+  const setMode = (mode, { fromUser = false } = {}) => {
+    currentMode = mode === 'beyond' ? 'beyond' : 'within';
+    if (fromUser) modeOverridden = true;
+    if (authorityModeInput) authorityModeInput.value = currentMode;
+    const within = currentMode === 'within';
+    if (modeBanner) {
+      modeBanner.classList.toggle('review-mode-banner-within', within);
+      modeBanner.classList.toggle('review-mode-banner-beyond', !within);
+    }
+    if (modeBadge) modeBadge.textContent = within ? 'Within barangay authority' : 'Beyond barangay authority';
+    if (modeToggle) {
+      modeToggle.dataset.otherMode = within ? 'beyond' : 'within';
+      modeToggle.textContent = within ? "This isn't barangay authority" : 'Handle within the barangay instead';
+    }
+    if (blockWithin) blockWithin.hidden = !within;
+    if (blockBeyond) blockBeyond.hidden = within;
+    if (officeSelect) officeSelect.disabled = !within;
+    if (agencySelect) agencySelect.disabled = within;
+    if (letterTextarea) letterTextarea.disabled = within;
+    if (residentMessageTextarea) residentMessageTextarea.disabled = within;
+    if (!within && agencySelect) applyLetterTemplate(agencySelect.value);
+    updateGate();
+  };
+
+  modeToggle?.addEventListener('click', () => {
+    setMode(modeToggle.dataset.otherMode === 'beyond' ? 'beyond' : 'within', { fromUser: true });
+  });
+  agencySelect?.addEventListener('change', () => {
+    agencySelect.dataset.touched = 'true';
+    applyLetterTemplate(agencySelect.value);
+    updateGate();
+  });
+  letterTextarea?.addEventListener('input', () => {
+    letterTextarea.dataset.touched = 'true';
+  });
+  residentMessageTextarea?.addEventListener('input', () => {
+    residentMessageTextarea.dataset.touched = 'true';
+  });
   officeSelect?.addEventListener('change', () => {
     officeTouched = true;
     updateGate();
@@ -1307,14 +1869,19 @@
   root.querySelector('[name="category_id"]')?.addEventListener('change', (event) => {
     const decision = routingMap[event.target.value];
     if (!decision) return;
+    const ruleMode = decision.within_authority ? 'within' : 'beyond';
     if (routingReason) {
-      routingReason.textContent = `Rule: ${decision.office_name || 'No office'} — ${decision.reason}${decision.within_authority ? '' : ` Refer to ${decision.office_name} using the referral flow.`}`;
+      routingReason.textContent = `Rule: ${decision.office_name || 'No office'} — ${decision.reason}`;
     }
+    if (modeNote && !modeOverridden) modeNote.textContent = decision.reason || modeNote.textContent;
     if (officeSelect && !officeTouched && decision.office_id) {
       officeSelect.value = String(decision.office_id);
     }
+    if (!modeOverridden) setMode(ruleMode);
     updateGate();
   });
+
+  setMode(currentMode);
 
   const applyAiResult = (result) => {
     aiState = result.status;
@@ -1394,9 +1961,12 @@
   });
 
   form?.addEventListener('submit', (event) => {
-    if (event.submitter?.value !== 'route') return;
+    if (event.submitter?.value !== 'route' && event.submitter?.value !== 'referral') return;
     updateGate();
-    if (routeButton?.disabled) event.preventDefault();
+    const submitterDisabled = event.submitter.value === 'route'
+      ? routeButton?.disabled
+      : referralSubmit?.disabled;
+    if (submitterDisabled) event.preventDefault();
   });
 
   updateGate();

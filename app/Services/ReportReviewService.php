@@ -16,13 +16,14 @@ class ReportReviewService
         private readonly PriorityService $priorityService,
         private readonly NotificationService $notificationService,
         private readonly RoutingService $routingService,
-        private readonly ReportStatusService $statusService
+        private readonly ReportStatusService $statusService,
+        private readonly ReferralService $referralService
     ) {}
 
     /**
      * Save staff-approved report values and optionally route or refer the report.
      *
-     * @param  array{category_id: int, urgency: string, staff_description: string, purok_id: int|null, landmark: string|null, office_id: int|null, assigned_to: int|null, review_note: string|null}  $data
+     * @param  array{category_id: int, urgency: string, staff_description: string, purok_id: int|null, landmark: string|null, office_id: int|null, assigned_to: int|null, review_note: string|null, authority_mode?: string|null, referral_letter?: string|null, resident_message?: string|null}  $data
      */
     public function save(Report $report, array $data, User $reviewer, string $intent = 'save'): void
     {
@@ -40,6 +41,12 @@ class ReportReviewService
                 ? Office::query()->findOrFail($data['office_id'])
                 : null;
             $oldValues = $this->reviewValues($lockedReport);
+
+            // Jurisdiction mode: the routing rule decides, staff may override.
+            $ruleMode = $routingDecision['within_authority'] ? 'within' : 'beyond';
+            $chosenMode = in_array($data['authority_mode'] ?? null, ['within', 'beyond'], true)
+                ? $data['authority_mode']
+                : $ruleMode;
 
             if ($lockedReport->reviewed_at === null) {
                 $lockedReport->resident_category_id ??= $lockedReport->category_id;
@@ -92,13 +99,15 @@ class ReportReviewService
                     throw new \InvalidArgumentException('Emergency-flagged reports must be handled through the emergency banner.');
                 }
 
-                if (! in_array($lockedReport->status, ['submitted', 'under_review', 'reopened', 'needs_info', 'routed'], true)) {
+                if (! in_array($lockedReport->status, ['submitted', 'under_review', 'reopened', 'needs_info', 'routed', 'referred'], true)) {
                     throw new \InvalidArgumentException('This report is no longer in a review state that can be routed.');
                 }
 
                 if (! $selectedOffice) {
                     throw new \InvalidArgumentException('Choose an office before confirming the report.');
                 }
+
+                $this->logOverrideIfNeeded($lockedReport, $reviewer, $ruleMode, $chosenMode, $intent);
 
                 if (in_array($lockedReport->status, ['submitted', 'reopened', 'needs_info'], true)) {
                     $this->statusService->transition(
@@ -109,11 +118,7 @@ class ReportReviewService
                     );
                 }
 
-                $targetStatus = $routingDecision['within_authority'] ? 'routed' : 'referred';
-                if ($targetStatus === 'referred') {
-                    $this->routingService->createReferral($lockedReport, $selectedOffice);
-                }
-
+                $targetStatus = $chosenMode === 'beyond' ? 'referred' : 'routed';
                 if ($lockedReport->status !== $targetStatus) {
                     $this->statusService->transition(
                         $lockedReport,
@@ -122,6 +127,41 @@ class ReportReviewService
                         $reviewer
                     );
                 }
+
+                if ($targetStatus === 'referred') {
+                    $this->routingService->createReferral($lockedReport, $selectedOffice, $reviewer);
+                }
+            } elseif ($intent === 'referral') {
+                if ($lockedReport->is_emergency || $lockedReport->status === 'emergency_flagged') {
+                    throw new \InvalidArgumentException('Emergency-flagged reports cannot be referred.');
+                }
+
+                if (! $selectedOffice || ! $selectedOffice->is_external) {
+                    throw new \InvalidArgumentException('Choose an external agency before preparing the referral.');
+                }
+
+                $this->logOverrideIfNeeded($lockedReport, $reviewer, $ruleMode, $chosenMode, $intent);
+
+                if ($lockedReport->status === 'needs_info') {
+                    $this->statusService->transition(
+                        $lockedReport,
+                        'under_review',
+                        'Review resumed before referral.',
+                        $reviewer
+                    );
+                }
+
+                $lockedReport->office_id = $selectedOffice->id;
+                $lockedReport->assigned_to = null;
+                $lockedReport->save();
+
+                $this->referralService->prepareReferral(
+                    $lockedReport,
+                    $selectedOffice,
+                    $reviewer,
+                    $data['referral_letter'] ?? null,
+                    $data['resident_message'] ?? null
+                );
             } elseif (in_array($lockedReport->status, ['submitted', 'reopened', 'needs_info'], true)) {
                 $this->statusService->transition(
                     $lockedReport,
@@ -131,6 +171,21 @@ class ReportReviewService
                 );
             }
         });
+    }
+
+    /** Log the jurisdiction override only when the staff choice differs from the rule. */
+    private function logOverrideIfNeeded(
+        Report $report,
+        User $reviewer,
+        string $ruleMode,
+        string $chosenMode,
+        string $intent
+    ): void {
+        if ($chosenMode === $ruleMode) {
+            return;
+        }
+
+        $this->referralService->logJurisdictionOverride($report, $reviewer, $ruleMode, $chosenMode);
     }
 
     public function resolveEmergency(Report $report, bool $isEmergency, User $reviewer): void

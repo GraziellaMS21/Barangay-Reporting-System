@@ -48,6 +48,12 @@ class TrackController extends Controller
                 'infoRequests' => fn ($query) => $query->with('requester:id,name')->latest(),
                 'resolutionProofs' => fn ($query) => $query->with('user:id,name')->latest(),
                 'feedback',
+                // Referral tracking: only the plain-language data the resident may see.
+                'activeReferral.office:id,name',
+                'activeReferral.updates' => fn ($query) => $query
+                    ->where('visible_to_resident', true)
+                    ->whereNotNull('occurred_at')
+                    ->orderByDesc('occurred_at'),
             ])
             ->where('tracking_code', $trackingCode)
             ->first();
@@ -88,7 +94,7 @@ class TrackController extends Controller
             'report_id' => $report->id,
             'from_status' => $report->status,
             'to_status' => $report->status,
-            'note' => 'Resident provided additional info: ' . Str::limit($data['response'], 120),
+            'note' => 'Resident provided additional info: '.Str::limit($data['response'], 120),
         ]);
 
         return redirect()->route('track.show', $report->tracking_code)
@@ -158,7 +164,7 @@ class TrackController extends Controller
             'report_id' => $report->id,
             'from_status' => $previousStatus,
             'to_status' => 'reopened',
-            'note' => 'Resident reopened report: ' . $data['reason'],
+            'note' => 'Resident reopened report: '.$data['reason'],
         ]);
 
         // Contract: Dispatches ResolutionConfirmed

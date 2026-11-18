@@ -11,19 +11,24 @@ use App\Models\Office;
 use App\Models\Purok;
 use App\Models\Report;
 use App\Models\ReportPhoto;
+use App\Models\ReportProofPhoto;
 use App\Models\ResolutionProof;
 use App\Models\ResponseTemplate;
 use App\Models\Setting;
 use App\Models\User;
 use App\Services\GeminiService;
 use App\Services\PriorityService;
+use App\Services\ProofPhotoService;
+use App\Services\ReferralService;
 use App\Services\ReportReviewService;
 use App\Services\ReportStatusService;
 use App\Services\RoutingService;
 use App\Support\ReportStatus;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -36,15 +41,7 @@ class ReportController extends Controller
 {
     public function index(Request $request): View
     {
-        $validated = $request->validate([
-            'stage' => ['nullable', Rule::in(array_keys(Report::STATUS_GROUPS))],
-            'status' => ['nullable', Rule::in(['all', ...array_keys(Report::STATUSES)])],
-            'emergency' => ['nullable', Rule::in(['0', '1'])],
-            'purok_id' => ['nullable', 'integer', Rule::exists('puroks', 'id')],
-            'assigned_to' => ['nullable', 'string'],
-            'overdue' => ['nullable', Rule::in(['0', '1'])],
-            'q' => ['nullable', 'string', 'max:255'],
-        ]);
+        $validated = $this->validateQueueFilters($request);
 
         $statusFilter = $validated['status'] ?? null;
         $emergencyOnly = ($validated['emergency'] ?? null) === '1';
@@ -59,73 +56,8 @@ class ReportController extends Controller
             $currentStage = $this->stageForStatus($statusFilter) ?? $currentStage;
         }
 
-        $query = Report::query()
-            ->select([
-                'id',
-                'tracking_code',
-                'description',
-                'purok_id',
-                'status',
-                'is_emergency',
-                'created_at',
-                'assigned_to',
-                'due_at',
-                'escalated_at',
-                'reopened_count',
-                'priority_score',
-                'summary',
-                'ai_status',
-                'is_emergency',
-            ])
-            ->with(['purok:id,name', 'assignee:id,name', 'aiResult', 'duplicateSuggestions']);
-
-        if ($currentStage !== 'all') {
-            $query->whereIn('status', Report::STATUS_GROUPS[$currentStage]['statuses']);
-        }
-
-        if ($statusFilter !== null && $statusFilter !== 'all') {
-            $query->where('status', $statusFilter);
-        }
-
-        if ($emergencyOnly) {
-            $query->where(fn ($emergencyQuery) => $emergencyQuery
-                ->where('is_emergency', true)
-                ->orWhere('status', 'emergency_flagged'));
-        }
-
-        if (($validated['overdue'] ?? null) === '1') {
-            $query->whereNotNull('due_at')->where('due_at', '<', now())->whereNotIn('status', Report::CLOSED_STATUSES);
-        }
-
-        if (isset($validated['purok_id'])) {
-            $query->where('purok_id', $validated['purok_id']);
-        }
-
-        if ($assignedToFilter !== null && $assignedToFilter !== 'all') {
-            if ($assignedToFilter === 'unassigned') {
-                $query->whereNull('assigned_to');
-            } elseif (is_numeric($assignedToFilter)) {
-                $query->where('assigned_to', (int) $assignedToFilter);
-            }
-        }
-
-        if (isset($validated['q'])) {
-            $term = addcslashes($validated['q'], '%_\\');
-            $query->where(function ($sub) use ($term) {
-                $sub->where('tracking_code', 'like', "%{$term}%")
-                    ->orWhere('description', 'like', "%{$term}%");
-            });
-        }
-
-        $closedStatusesList = "'".implode("','", Report::CLOSED_STATUSES)."'";
-        $now = now()->toDateTimeString();
-        $query->orderByDesc('is_emergency')
-            ->orderByRaw('CASE WHEN status = ? THEN 0 ELSE 1 END', ['emergency_flagged'])
-            ->orderByRaw("CASE WHEN due_at IS NOT NULL AND due_at < ? AND status NOT IN ({$closedStatusesList}) THEN 0 ELSE 1 END", [$now])
-            ->orderByDesc('priority_score')
-            ->orderByRaw("CASE WHEN status IN ({$closedStatusesList}) THEN 1 ELSE 0 END ASC")
-            ->latest('created_at')
-            ->latest('id');
+        $query = $this->queueQuery($validated, $currentStage, $statusFilter, $emergencyOnly, $assignedToFilter);
+        $this->applyQueueOrder($query, $validated);
 
         $reports = $query->paginate(15)->withQueryString();
 
@@ -150,9 +82,12 @@ class ReportController extends Controller
                 ->orWhere('status', 'emergency_flagged'))
             ->count();
 
+        $unreadReplies = $this->unreadReplyCounts($reports->getCollection());
+
         $statusGroups = Report::STATUS_GROUPS;
         $statusLabels = Report::STATUSES;
         $puroks = Purok::orderBy('name')->get();
+        $categories = Category::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']);
         $staffUsers = User::query()
             ->whereIn('role', ['admin', 'staff'])
             ->where('is_active', true)
@@ -168,7 +103,9 @@ class ReportController extends Controller
             'statusLabels',
             'stageCounts',
             'emergencyCount',
+            'unreadReplies',
             'puroks',
+            'categories',
             'staffUsers',
             'currentStage',
             'statusFilter',
@@ -176,6 +113,174 @@ class ReportController extends Controller
             'emergencyOnly',
             'isMyCases'
         ));
+    }
+
+    /** Shared validation for the queue list, export, and bulk actions. */
+    private function validateQueueFilters(Request $request): array
+    {
+        return $request->validate([
+            'stage' => ['nullable', Rule::in(array_keys(Report::STATUS_GROUPS))],
+            'status' => ['nullable', Rule::in(['all', ...array_keys(Report::STATUSES)])],
+            'emergency' => ['nullable', Rule::in(['0', '1'])],
+            'purok_id' => ['nullable', 'integer', Rule::exists('puroks', 'id')],
+            'category_id' => ['nullable', 'integer', Rule::exists('categories', 'id')],
+            'assigned_to' => ['nullable', 'string'],
+            'overdue' => ['nullable', Rule::in(['0', '1'])],
+            'q' => ['nullable', 'string', 'max:255'],
+            // Whitelisted sorting; unknown values silently fall back to the
+            // default order inside applyQueueOrder instead of erroring.
+            'sort' => ['nullable', 'string', 'max:32'],
+            'direction' => ['nullable', 'string', 'max:16'],
+            'pin' => ['nullable', 'string', 'max:1'],
+        ]);
+    }
+
+    /**
+     * The report queue query shared by the table and the CSV export. Callers
+     * apply ordering themselves (applyQueueOrder).
+     */
+    private function queueQuery(
+        array $validated,
+        string $currentStage,
+        ?string $statusFilter,
+        bool $emergencyOnly,
+        ?string $assignedToFilter
+    ): Builder {
+        $query = Report::query()
+            ->select([
+                'id',
+                'tracking_code',
+                'description',
+                'purok_id',
+                'category_id',
+                'status',
+                'urgency',
+                'is_emergency',
+                'is_anonymous',
+                'created_at',
+                'assigned_to',
+                'due_at',
+                'escalated_at',
+                'reopened_count',
+                'priority_score',
+                'summary',
+                'ai_status',
+            ])
+            ->with(['purok:id,name', 'category:id,name', 'assignee:id,name', 'aiResult', 'duplicateSuggestions']);
+
+        if ($currentStage !== 'all') {
+            $query->whereIn('status', Report::STATUS_GROUPS[$currentStage]['statuses']);
+        }
+
+        if ($statusFilter !== null && $statusFilter !== 'all') {
+            $query->where('status', $statusFilter);
+        }
+
+        if ($emergencyOnly) {
+            $query->where(fn ($emergencyQuery) => $emergencyQuery
+                ->where('is_emergency', true)
+                ->orWhere('status', 'emergency_flagged'));
+        }
+
+        if (($validated['overdue'] ?? null) === '1') {
+            $query->whereNotNull('due_at')->where('due_at', '<', now())->whereNotIn('status', Report::CLOSED_STATUSES);
+        }
+
+        if (isset($validated['purok_id'])) {
+            $query->where('purok_id', $validated['purok_id']);
+        }
+
+        if (isset($validated['category_id'])) {
+            $query->where(function ($categoryQuery) use ($validated): void {
+                $categoryQuery->where('category_id', $validated['category_id'])
+                    ->orWhere('resident_category_id', $validated['category_id']);
+            });
+        }
+
+        if ($assignedToFilter !== null && $assignedToFilter !== 'all') {
+            if ($assignedToFilter === 'unassigned') {
+                $query->whereNull('assigned_to');
+            } elseif (is_numeric($assignedToFilter)) {
+                $query->where('assigned_to', (int) $assignedToFilter);
+            }
+        }
+
+        if (isset($validated['q'])) {
+            $term = addcslashes($validated['q'], '%_\\');
+            $query->where(function ($sub) use ($term) {
+                $sub->where('tracking_code', 'like', "%{$term}%")
+                    ->orWhere('description', 'like', "%{$term}%");
+            });
+        }
+
+        return $query;
+    }
+
+    /**
+     * Newest first (created_at desc, id desc tiebreaker) by default. The
+     * "Pin emergencies to top" toggle restores the operations-first ordering.
+     * Column-header sorting is whitelisted to submitted/status/urgency.
+     */
+    private function applyQueueOrder($query, array $validated): void
+    {
+        $direction = ($validated['direction'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
+
+        if (($validated['pin'] ?? null) === '1') {
+            $closedStatusesList = "'".implode("','", Report::CLOSED_STATUSES)."'";
+            $now = now()->toDateTimeString();
+            $query->orderByDesc('is_emergency')
+                ->orderByRaw('CASE WHEN status = ? THEN 0 ELSE 1 END', ['emergency_flagged'])
+                ->orderByRaw("CASE WHEN due_at IS NOT NULL AND due_at < ? AND status NOT IN ({$closedStatusesList}) THEN 0 ELSE 1 END", [$now])
+                ->orderByDesc('priority_score')
+                ->orderByRaw("CASE WHEN status IN ({$closedStatusesList}) THEN 1 ELSE 0 END ASC")
+                ->orderByDesc('created_at')
+                ->orderByDesc('id');
+
+            return;
+        }
+
+        switch ($validated['sort'] ?? null) {
+            case 'status':
+                $query->orderBy('status', $direction)
+                    ->orderByRaw('CASE WHEN is_emergency = 1 OR status = ? THEN 0 ELSE 1 END', ['emergency_flagged'])
+                    ->orderByDesc('created_at')
+                    ->orderByDesc('id');
+
+                return;
+            case 'urgency':
+                // Highest urgency first when descending.
+                $query->orderByRaw('CASE urgency '
+                    ."WHEN 'Critical' THEN 4 WHEN 'High' THEN 3 WHEN 'Medium' THEN 2 WHEN 'Low' THEN 1 ELSE 0 END ".($direction === 'asc' ? 'ASC' : 'DESC'))
+                    ->orderByDesc('priority_score', $direction === 'asc' ? 'asc' : 'desc')
+                    ->orderByDesc('created_at')
+                    ->orderByDesc('id');
+
+                return;
+            case 'submitted':
+                $query->orderBy('created_at', $direction)->orderBy('id', $direction);
+
+                return;
+            default:
+                $query->orderByDesc('created_at')->orderByDesc('id');
+        }
+    }
+
+    /** Unread resident-reply counts per report for the queue badge. */
+    private function unreadReplyCounts(iterable $reports): Collection
+    {
+        return collect($reports)
+            ->mapWithKeys(fn (Report $report): array => [
+                $report->id => $report->infoRequests()
+                    ->whereNotNull('responded_at')
+                    ->get()
+                    ->filter(fn ($request) => $request->response)
+                    ->filter(function ($request) use ($report): bool {
+                        $seenAt = session('info_thread_seen.'.$report->id);
+
+                        return $seenAt === null || $request->responded_at->gt($seenAt);
+                    })
+                    ->count(),
+            ]);
     }
 
     public function myCases(Request $request): View
@@ -196,7 +301,7 @@ class ReportController extends Controller
         return null;
     }
 
-    public function show(Report $report, RoutingService $routingService): View
+    public function show(Report $report, RoutingService $routingService, ReferralService $referralService): View
     {
         $report->load([
             'purok',
@@ -210,6 +315,9 @@ class ReportController extends Controller
             'internalNotes.user',
             'infoRequests.requester',
             'resolutionProofs.user',
+            'proofPhotos',
+            'activeReferral.office',
+            'activeReferral.updates.user',
             'duplicateSuggestions.candidate',
         ]);
 
@@ -224,8 +332,32 @@ class ReportController extends Controller
             ->get(['id', 'name', 'slug', 'default_office_id', 'question_schema']);
 
         $offices = Office::query()->orderBy('name')->get();
+        $externalOffices = Office::query()
+            ->where('is_external', true)
+            ->orderBy('name')
+            ->get();
         $puroks = Purok::query()->orderBy('name')->get(['id', 'name']);
         $routingDecisions = $routingService->decisionsForCategories($categories);
+
+        // Jurisdiction decision for the report's final category (Mode A / Mode B).
+        $jurisdiction = $report->category
+            ? $routingService->decisionForCategory($report->category)
+            : ['office' => null, 'within_authority' => true, 'jurisdiction_note' => 'Category not yet assigned.'];
+
+        // Per-agency letter and resident message templates for the Mode B form.
+        $letterTemplates = [];
+        foreach ($externalOffices as $externalOffice) {
+            $letterTemplates[$externalOffice->id] = [
+                'letter' => $referralService->buildLetter($report, $externalOffice),
+                'resident_message' => 'We referred this to '.$externalOffice->name
+                    .' because '.$jurisdiction['jurisdiction_note']
+                    .' We will keep you updated here.',
+                'contact_person' => $externalOffice->contact_person,
+                'contact_email' => $externalOffice->contact_email,
+                'contact_phone' => $externalOffice->contact_phone,
+                'address' => $externalOffice->address,
+            ];
+        }
 
         $staffUsers = User::query()
             ->whereIn('role', ['admin', 'staff'])
@@ -285,6 +417,16 @@ class ReportController extends Controller
                 'user' => $internalNote->user?->name,
             ]);
         }
+
+        foreach ($report->activeReferral?->updates ?? [] as $referralUpdate) {
+            $activityEntries->push([
+                'at' => $referralUpdate->occurred_at ?? $referralUpdate->created_at,
+                'title' => 'Referral update ('.$referralUpdate->channel.')',
+                'body' => $referralUpdate->note,
+                'user' => $referralUpdate->user?->name,
+            ]);
+        }
+
         $activityEntries = $activityEntries->sortByDesc('at')->values();
         $photoMismatchReviewed = AuditLog::query()
             ->where('model', Report::class)
@@ -298,12 +440,19 @@ class ReportController extends Controller
             ->where('action', 'emergency_flag_review')
             ->exists();
         $currentUserId = auth()->id();
+        $proofConfig = config('reports.proof_photos');
+        $referralConfig = config('reports.referrals');
+        $infoThreadSummary = $this->infoThreadSummary($report);
 
         return view('admin.reports.show', compact(
             'report',
+            'infoThreadSummary',
             'manualStatuses',
             'categories',
             'offices',
+            'externalOffices',
+            'letterTemplates',
+            'jurisdiction',
             'puroks',
             'routingDecisions',
             'staffUsers',
@@ -315,7 +464,9 @@ class ReportController extends Controller
             'activityEntries',
             'photoMismatchReviewed',
             'emergencyFlagReviewed',
-            'currentUserId'
+            'currentUserId',
+            'proofConfig',
+            'referralConfig'
         ));
     }
 
@@ -340,6 +491,65 @@ class ReportController extends Controller
         return Storage::disk('local')->response($proof->photo_path);
     }
 
+    public function showProofPhotoImage(Report $report, ReportProofPhoto $proofPhoto, ProofPhotoService $proofPhotoService): StreamedResponse
+    {
+        abort_unless($proofPhoto->report_id === $report->id, 404);
+
+        return $proofPhotoService->response($proofPhoto);
+    }
+
+    public function storeProofPhotos(
+        Request $request,
+        Report $report,
+        ProofPhotoService $proofPhotoService
+    ): RedirectResponse {
+        $config = config('reports.proof_photos');
+
+        $validated = $request->validate([
+            'proof_photos' => ['required', 'array', 'min:1', 'max:'.$config['max_files']],
+            'proof_photos.*' => [
+                'file',
+                'image',
+                'mimes:'.$config['mimes'],
+                'max:'.$config['max_size_kb'],
+            ],
+        ], [
+            'proof_photos.required' => 'Choose at least one photo to upload.',
+            'proof_photos.max' => 'Upload at most '.$config['max_files'].' photos at a time.',
+            'proof_photos.*.image' => 'Each proof photo must be an image.',
+            'proof_photos.*.mimes' => 'Proof photos must be JPG, PNG, or WebP images.',
+            'proof_photos.*.max' => 'Each proof photo must be smaller than '.round($config['max_size_kb'] / 1024).' MB.',
+        ]);
+
+        $reviewer = $request->user();
+        abort_unless($reviewer instanceof User, 403);
+
+        $result = $proofPhotoService->storeMany($report, $validated['proof_photos'], $reviewer);
+
+        $message = 'Proof photo'.($result['stored'] === 1 ? '' : 's').' uploaded.';
+        if ($result['skipped'] !== []) {
+            $message .= ' Skipped: '.implode(' ', $result['skipped']);
+        }
+
+        return back()->with($result['stored'] > 0 ? 'success' : 'error', $message);
+    }
+
+    public function deleteProofPhoto(
+        Request $request,
+        Report $report,
+        ReportProofPhoto $proofPhoto,
+        ProofPhotoService $proofPhotoService
+    ): RedirectResponse {
+        abort_unless($proofPhoto->report_id === $report->id, 404);
+
+        $reviewer = $request->user();
+        abort_unless($reviewer instanceof User, 403);
+
+        $proofPhotoService->delete($report, $proofPhoto, $reviewer);
+
+        return back()->with('success', 'Proof photo deleted.');
+    }
+
     public function saveReview(
         Request $request,
         Report $report,
@@ -352,13 +562,16 @@ class ReportController extends Controller
             ->all();
 
         $validated = $request->validate([
-            'intent' => ['sometimes', Rule::in(['save', 'route'])],
+            'intent' => ['sometimes', Rule::in(['save', 'route', 'referral'])],
             'category_id' => ['required', 'integer', Rule::in($activeCategoryIds)],
             'urgency' => ['required', Rule::in(['Low', 'Medium', 'High', 'Critical'])],
             'staff_description' => ['required', 'string', 'max:2000'],
             'purok_id' => ['nullable', 'integer', Rule::exists('puroks', 'id')],
             'landmark' => ['nullable', 'string', 'max:255'],
             'office_id' => ['nullable', 'integer', Rule::exists('offices', 'id')],
+            'authority_mode' => ['nullable', Rule::in(['within', 'beyond'])],
+            'referral_letter' => ['nullable', 'string', 'max:20000'],
+            'resident_message' => ['nullable', 'string', 'max:1000'],
             'assigned_to' => [
                 'nullable',
                 'integer',
@@ -395,6 +608,11 @@ class ReportController extends Controller
                 ]);
             }
         }
+        if ($intent === 'referral' && $officeId === null) {
+            return back()->withInput()->withErrors([
+                'office_id' => 'Choose an agency before preparing the referral.',
+            ]);
+        }
 
         try {
             $reportReviewService->save($report, [
@@ -406,15 +624,20 @@ class ReportController extends Controller
                 'office_id' => $officeId === null ? null : (int) $officeId,
                 'assigned_to' => $assignedTo === null ? null : (int) $assignedTo,
                 'review_note' => $reviewNote,
+                'authority_mode' => $validated['authority_mode'] ?? null,
+                'referral_letter' => $validated['referral_letter'] ?? null,
+                'resident_message' => $validated['resident_message'] ?? null,
             ], $reviewer, $intent);
         } catch (\InvalidArgumentException $exception) {
             return back()->withInput()->withErrors(['review' => $exception->getMessage()]);
         }
 
         $report->refresh();
-        $message = match ($report->status) {
+        $message = match ([$report->status, $intent]) {
+            ['referred', 'referral'] => 'Referral prepared. Track it in Route and assign and on the referrals page.',
+            ['referred', 'route'] => 'Review saved and report referred to the selected office.',
             'referred' => 'Review saved and report referred to the selected office.',
-            'routed' => 'Review saved and report routed.',
+            ['routed', 'route'] => 'Review saved and report routed.',
             default => 'Review saved without routing.',
         };
 
@@ -529,7 +752,7 @@ class ReportController extends Controller
 
             $lockedReport->office_id = $office->id;
             $lockedReport->save();
-            $routingService->createReferral($lockedReport, $office);
+            $routingService->createReferral($lockedReport, $office, $request->user());
             $statusService->transition($lockedReport, 'referred', $validated['note'], $request->user());
         });
 
@@ -635,8 +858,9 @@ class ReportController extends Controller
 
             $report->save();
 
-            if (! $report->is_emergency && $toStatus === 'routed' && $report->category && $report->office_id) {
-                $routingService->createReferral($report, Office::find($report->office_id));
+            $office = Office::find($report->office_id);
+            if (! $report->is_emergency && $toStatus === 'routed' && $report->category && $office && $office->is_external) {
+                $routingService->createReferral($report, $office, $request->user());
             }
 
             $statusService->transition($report, $toStatus, $note, $request->user());
@@ -666,7 +890,7 @@ class ReportController extends Controller
         Request $request,
         Report $report,
         ReportStatusService $statusService
-    ): RedirectResponse {
+    ): RedirectResponse|JsonResponse {
         $validated = $request->validate([
             'question' => ['required', 'string', 'max:2000'],
         ]);
@@ -685,7 +909,115 @@ class ReportController extends Controller
 
         event(new InfoRequested($report, $infoRequest));
 
+        // Chat-modal clients send with Accept: application/json and append the
+        // message without reloading; normal form posts keep the redirect flow.
+        if ($request->expectsJson()) {
+            return response()->json([
+                'report_status' => $report->fresh()->status,
+                'summary' => $this->infoThreadSummary($report),
+                'messages' => $this->infoThreadMessages($report),
+            ], 201);
+        }
+
         return back()->with('success', 'Information requested from resident. Status set to Needs Info.');
+    }
+
+    /**
+     * JSON thread for the "Ask Reporter for More Info" chat modal. Also marks
+     * resident replies as seen so the queue badge can show unread counts.
+     */
+    public function infoThread(Request $request, Report $report): JsonResponse
+    {
+        if ($request->boolean('seen')) {
+            $this->markInfoThreadSeen($report);
+        }
+
+        return response()->json([
+            'report' => [
+                'id' => $report->id,
+                'tracking_code' => $report->tracking_code,
+                'category' => $report->category?->name,
+                'status' => $report->status,
+                'status_label' => Report::STATUSES[$report->status] ?? $report->status,
+                'description' => $report->description,
+                'purok' => $report->purok?->name,
+            ],
+            'summary' => $this->infoThreadSummary($report),
+            'messages' => $this->infoThreadMessages($report),
+        ]);
+    }
+
+    /**
+     * @return array{count: int, awaiting_reply: bool, unread: int}
+     */
+    public function infoThreadSummary(Report $report): array
+    {
+        $requests = $report->infoRequests()->orderBy('created_at')->with('requester:id,name')->get();
+        $last = $requests->last();
+        $awaitingReply = $last !== null && $last->responded_at === null;
+
+        return [
+            'count' => $requests->count(),
+            'awaiting_reply' => $awaitingReply,
+            'unread' => $this->unreadInfoReplyCount($report, $requests),
+        ];
+    }
+
+    /**
+     * Staff questions and resident replies, oldest first, shaped for the chat log.
+     *
+     * @return array<int, array{id: int, sender: string, sender_name: string, text: string, at: string}>
+     */
+    private function infoThreadMessages(Report $report): array
+    {
+        $messages = [];
+        $requests = $report->infoRequests()->orderBy('created_at')->orderBy('id')->with('requester:id,name')->get();
+
+        foreach ($requests as $request) {
+            $messages[] = [
+                'id' => 'q'.$request->id,
+                'sender' => 'staff',
+                'sender_name' => $request->requester?->name ?? 'Staff',
+                'text' => (string) $request->question,
+                'at' => optional($request->created_at)->toIso8601String() ?? now()->toIso8601String(),
+            ];
+
+            if ($request->responded_at && $request->response) {
+                $messages[] = [
+                    'id' => 'r'.$request->id,
+                    'sender' => 'resident',
+                    'sender_name' => 'Resident',
+                    'text' => (string) $request->response,
+                    'at' => optional($request->responded_at)->toIso8601String() ?? now()->toIso8601String(),
+                ];
+            }
+        }
+
+        return $messages;
+    }
+
+    /** Resident replies newer than the staff member's last seen marker. */
+    private function unreadInfoReplyCount(Report $report, ?iterable $requests = null): int
+    {
+        $seenAt = session('info_thread_seen.'.$report->id);
+        $requests ??= $report->infoRequests()->whereNotNull('responded_at')->get();
+
+        return collect($requests)
+            ->filter(fn ($request) => $request->responded_at !== null && $request->response)
+            ->filter(fn ($request) => $seenAt === null || $request->responded_at->gt($seenAt))
+            ->count();
+    }
+
+    private function markInfoThreadSeen(Report $report): void
+    {
+        $latestReply = $report->infoRequests()
+            ->whereNotNull('responded_at')
+            ->orderByDesc('responded_at')
+            ->value('responded_at');
+
+        if ($latestReply !== null) {
+            session(['info_thread_seen.'.$report->id => $latestReply]);
+        }
     }
 
     public function storeInternalNote(Request $request, Report $report): RedirectResponse
@@ -705,29 +1037,57 @@ class ReportController extends Controller
     public function proposeResolution(
         Request $request,
         Report $report,
-        ReportStatusService $statusService
+        ReportStatusService $statusService,
+        ProofPhotoService $proofPhotoService
     ): RedirectResponse {
+        $proofConfig = config('reports.proof_photos');
+
         $validated = $request->validate([
             'note' => ['required', 'string', 'max:2000'],
+            // Legacy single-photo input; kept until the new multi-upload is verified.
             'photo' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
+            'proof_photos' => ['nullable', 'array', 'max:'.$proofConfig['max_files']],
+            'proof_photos.*' => [
+                'file',
+                'image',
+                'mimes:'.$proofConfig['mimes'],
+                'max:'.$proofConfig['max_size_kb'],
+            ],
+        ], [
+            'proof_photos.max' => 'Upload at most '.$proofConfig['max_files'].' photos at a time.',
+            'proof_photos.*.image' => 'Each proof photo must be an image.',
+            'proof_photos.*.mimes' => 'Proof photos must be JPG, PNG, or WebP images.',
+            'proof_photos.*.max' => 'Each proof photo must be smaller than '.round($proofConfig['max_size_kb'] / 1024).' MB.',
         ]);
+
+        $reviewer = $request->user();
+        abort_unless($reviewer instanceof User, 403);
 
         $photoPath = null;
         if ($request->hasFile('photo')) {
             $photoPath = $request->file('photo')->store('resolution_proofs', 'local');
         }
 
-        $proof = $report->resolutionProofs()->create([
-            'user_id' => $request->user()->id,
-            'note' => $validated['note'],
-            'photo_path' => $photoPath,
-        ]);
+        $proof = DB::transaction(function () use ($report, $validated, $reviewer, $photoPath, $proofPhotoService): ResolutionProof {
+            $proof = $report->resolutionProofs()->create([
+                'user_id' => $reviewer->id,
+                'note' => $validated['note'],
+                'photo_path' => $photoPath,
+            ]);
+
+            $files = array_values($validated['proof_photos'] ?? []);
+            if ($files !== []) {
+                $proofPhotoService->storeMany($report, $files, $reviewer);
+            }
+
+            return $proof;
+        });
 
         $statusService->transition(
             $report,
             ReportStatus::AWAITING_CONFIRMATION,
             'Resolution proposed with proof: '.str($validated['note'])->limit(120),
-            $request->user()
+            $reviewer
         );
 
         event(new ResolutionProposed($report, $proof));
@@ -796,6 +1156,131 @@ class ReportController extends Controller
         }
 
         return back()->with('success', "Confirmed and routed {$confirmed} report(s).");
+    }
+
+    /**
+     * Bulk quick actions from the queue's selection bar: assign to me or a
+     * status change. Every row runs through the same services (audit logs and
+     * status logs stay intact); disallowed transitions are skipped per row.
+     */
+    public function bulkAction(
+        Request $request,
+        RoutingService $routingService,
+        PriorityService $priorityService,
+        ReportStatusService $statusService
+    ): RedirectResponse {
+        $validated = $request->validate([
+            'action' => ['required', Rule::in(['assign_me', 'status'])],
+            'report_ids' => ['required', 'array', 'min:1'],
+            'report_ids.*' => ['integer', 'exists:reports,id'],
+            'status' => ['nullable', Rule::in(Report::MANUAL_STATUSES)],
+            'note' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $user = $request->user();
+        abort_unless($user instanceof User, 403);
+
+        if ($validated['action'] === 'status' && ($validated['status'] ?? null) === null) {
+            return back()->withErrors(['status' => 'Choose a status for the selected reports.']);
+        }
+
+        $note = $validated['note'] ?? null;
+        $changed = 0;
+        $skipped = 0;
+
+        foreach (Report::query()->whereIn('id', $validated['report_ids'])->get() as $report) {
+            try {
+                if ($validated['action'] === 'assign_me') {
+                    $report->assigned_to = $user->id;
+                    $report->save();
+                } else {
+                    $toStatus = $validated['status'];
+                    $report->office_id = $report->office_id
+                        ?? ($report->category ? $routingService->recommendedOffice($report->category)?->id : null);
+                    $report->priority_score = $priorityService->calculate($report);
+                    $report->save();
+
+                    $office = Office::find($report->office_id);
+                    if ($toStatus === 'routed' && $report->category && $office && $office->is_external) {
+                        $this->createLegacyReferral($report, $office, $user, $routingService);
+                    }
+
+                    $statusService->transition($report, $toStatus, $note, $user);
+                }
+                $changed++;
+            } catch (\InvalidArgumentException) {
+                $skipped++;
+            }
+        }
+
+        $message = $validated['action'] === 'assign_me'
+            ? "Assigned {$changed} report(s) to you."
+            : "Updated status for {$changed} report(s).";
+
+        if ($skipped > 0) {
+            $message .= " {$skipped} skipped (invalid transition).";
+        }
+
+        return back()->with('success', $message);
+    }
+
+    /** Legacy referral creation kept only for the routed-to-external case. */
+    private function createLegacyReferral(Report $report, Office $office, User $user, RoutingService $routingService): void
+    {
+        $routingService->createReferral($report, $office, $user);
+    }
+
+    /** CSV export of the current queue (same filters, no pagination). */
+    public function export(Request $request): StreamedResponse
+    {
+        $validated = $this->validateQueueFilters($request);
+
+        $statusFilter = $validated['status'] ?? null;
+        $emergencyOnly = ($validated['emergency'] ?? null) === '1';
+        $currentStage = $validated['stage'] ?? 'all';
+        $assignedToFilter = $validated['assigned_to'] ?? null;
+
+        if ($statusFilter !== null && $statusFilter !== 'all' && $statusFilter !== 'emergency_flagged') {
+            $currentStage = $this->stageForStatus($statusFilter) ?? $currentStage;
+        }
+
+        $query = $this->queueQuery($validated, $currentStage, $statusFilter, $emergencyOnly, $assignedToFilter);
+        // The CSV export is for staff use, so reporter details are allowed here
+        // (they stay out of the queue table per the privacy policy).
+        $query->addSelect('reporter_name');
+        $this->applyQueueOrder($query, $validated);
+
+        $filename = 'calarian-reports-'.now()->format('Ymd-His').'.csv';
+
+        return response()->streamDownload(function () use ($query): void {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, [
+                'Tracking code', 'Description', 'Category', 'Reporter', 'Purok', 'Status',
+                'Urgency', 'Priority', 'Assignee', 'Submitted', 'Due',
+            ]);
+
+            $query->chunk(500, function ($reports) use ($out): void {
+                foreach ($reports as $report) {
+                    fputcsv($out, [
+                        $report->tracking_code,
+                        $report->summary ?: $report->description,
+                        $report->category?->name ?? '',
+                        $report->is_anonymous ? 'Anonymous' : ($report->reporter_name ?? ''),
+                        $report->purok?->name ?? '',
+                        Report::STATUSES[$report->status] ?? $report->status,
+                        $report->urgency ?? '',
+                        $report->priority_score ?? '',
+                        $report->assignee?->name ?? '',
+                        optional($report->created_at)->format('Y-m-d H:i:s'),
+                        optional($report->due_at)->format('Y-m-d H:i:s'),
+                    ]);
+                }
+            });
+
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
     }
 
     public function acceptReview(

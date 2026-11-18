@@ -287,8 +287,38 @@ class StaffCaseManagementTest extends TestCase
             ->assertSee('Review AI suggestions')
             ->assertSee('Route and assign')
             ->assertSee('data-routing-map', false)
-            ->assertSee('Mark duplicate of')
-            ->assertSee('Refer to office');
+            ->assertSee('Mark duplicate')
+            ->assertSee('Out of scope')
+            ->assertSee('data-mode-banner', false);
+    }
+
+    public function test_more_info_thread_stays_visible_after_requesting_info(): void
+    {
+        $report = Report::factory()->create([
+            'purok_id' => $this->purok->id,
+            'category_id' => $this->category->id,
+        ]);
+
+        $this->actingAs($this->staff)
+            ->post(route('admin.reports.info-requests.store', $report), [
+                'question' => 'What time did you first notice this issue?',
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $report->refresh();
+        $this->assertSame(ReportStatus::NEEDS_INFO, $report->status);
+
+        // The Ask Reporter button remains available in the Needs info state and
+        // the conversation is summarized in a strip that opens the chat modal.
+        $this->actingAs($this->staff)
+            ->get(route('admin.reports.show', $report))
+            ->assertOk()
+            ->assertSee('Ask Reporter for More Info')
+            ->assertSee('data-chat-summary-strip', false)
+            ->assertSee('1 message sent')
+            ->assertSee('Awaiting resident reply')
+            ->assertSee('data-chat-open', false);
     }
 
     public function test_report_status_service_is_the_single_place_status_logs_are_written(): void

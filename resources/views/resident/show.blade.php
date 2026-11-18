@@ -218,6 +218,59 @@
   </section>
 @endif
 
+<!-- REFERRAL CARD (plain language; no staff names, emails or letter text) -->
+@if($report->activeReferral && $report->activeReferral->office)
+  @php
+    $residentReferral = $report->activeReferral;
+    $residentReferralStatus = match ($residentReferral->status) {
+      'prepared' => 'Being prepared for sending',
+      'sent' => 'Sent',
+      'acknowledged' => 'Acknowledged by the agency',
+      'action_taken' => 'The agency has taken action',
+      'closed' => $residentReferral->outcome === 'resolved' ? 'Completed' : 'Closed',
+      default => 'In progress',
+    };
+    $residentReferralUpdates = $residentReferral->updates;
+    $latestResidentUpdate = $residentReferralUpdates->first();
+  @endphp
+  <section class="card" style="border: 2px solid #3b82f6; background: #eff6ff; margin-bottom: 1.25rem;">
+    <h3 class="card-title resident-report-text" style="font-size: 1.05rem;">
+      <i class="fa-solid fa-share" aria-hidden="true"></i> Referred to another office
+    </h3>
+    <p style="margin: .35rem 0 0;">
+      Referred to <strong>{{ $residentReferral->office->name }}</strong>
+      @if($residentReferral->sent_at)
+        on {{ $residentReferral->sent_at->format('M d, Y') }}.
+      @else
+        and being prepared for sending.
+      @endif
+    </p>
+    <p style="margin: .35rem 0 0;">
+      <strong>Status:</strong> {{ $residentReferralStatus }}
+    </p>
+    @if($latestResidentUpdate)
+      <p style="margin: .35rem 0 0;">
+        <strong>Last update:</strong>
+        {{ ($latestResidentUpdate->occurred_at ?? $latestResidentUpdate->created_at)?->format('M d, Y') }}
+        &mdash; {{ $latestResidentUpdate->note }}
+      </p>
+    @endif
+    @if($residentReferralUpdates->count() > 1)
+      <ol class="timeline" style="margin-top: .75rem;">
+        @foreach($residentReferralUpdates->skip(1) as $residentUpdate)
+          <li>
+            <strong>{{ ($residentUpdate->occurred_at ?? $residentUpdate->created_at)?->format('M d, Y') }}</strong>
+            <small>{{ $residentUpdate->note }}</small>
+          </li>
+        @endforeach
+      </ol>
+    @endif
+    <p class="text-sm text-muted" style="margin: .5rem 0 0;">
+      The barangay keeps track of this referral and will post updates here.
+    </p>
+  </section>
+@endif
+
 <!-- 3. STATUS TIMELINE -->
 <section class="card">
   <h3 class="card-title resident-report-text">

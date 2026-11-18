@@ -189,6 +189,18 @@ class Report extends Model
         return $this->hasMany(Referral::class);
     }
 
+    public function proofPhotos(): HasMany
+    {
+        return $this->hasMany(ReportProofPhoto::class)->oldest('id');
+    }
+
+    public function activeReferral(): HasOne
+    {
+        return $this->hasOne(Referral::class)
+            ->whereNotIn('status', ['closed'])
+            ->latestOfMany('id');
+    }
+
     public function duplicateSuggestions(): HasMany
     {
         return $this->hasMany(DuplicateSuggestion::class, 'report_id');

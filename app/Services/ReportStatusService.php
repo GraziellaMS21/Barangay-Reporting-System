@@ -23,6 +23,10 @@ class ReportStatusService
         'needs_info' => ['under_review', 'routed', 'in_progress', 'emergency_flagged'],
         'awaiting_confirmation' => ['resolved', 'emergency_flagged'],
         'emergency_flagged' => ['out_of_scope', 'under_review'],
+        // Referred reports stay open while the agency works; barangay staff may
+        // re-route internally, close out of scope, or resolve after the agency
+        // reports the issue fixed.
+        'referred' => ['routed', 'in_progress', 'needs_info', 'out_of_scope', 'merged', 'resolved'],
     ];
 
     public function transition(

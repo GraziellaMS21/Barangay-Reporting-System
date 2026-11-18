@@ -16,6 +16,8 @@ class ReportStatus
     public const NEEDS_INFO = 'needs_info';
     public const AWAITING_CONFIRMATION = 'awaiting_confirmation';
     public const REOPENED = 'reopened';
+    public const ON_HOLD = 'on_hold';
+    public const CLOSED = 'closed';
 
     public static function all(): array
     {
@@ -32,6 +34,8 @@ class ReportStatus
             self::NEEDS_INFO,
             self::AWAITING_CONFIRMATION,
             self::REOPENED,
+            self::ON_HOLD,
+            self::CLOSED,
         ];
     }
 }

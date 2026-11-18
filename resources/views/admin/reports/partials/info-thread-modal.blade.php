@@ -190,6 +190,10 @@
     log.replaceChildren(emptyState);
     emptyState.hidden = false;
 
+    // Immediately clear red circle notification badge since thread is opened and marked seen
+    const notifBadge = trigger.querySelector('[data-chat-notif-circle]') || document.querySelector('[data-chat-notif-circle]');
+    if (notifBadge) notifBadge.style.display = 'none';
+
     try {
       const data = await fetchThread(true);
       renderThread(data);

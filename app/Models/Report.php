@@ -19,14 +19,55 @@ class Report extends Model
         'under_review' => 'Under Review',
         'routed' => 'Routed',
         'in_progress' => 'In Progress',
+        'on_hold' => 'On Hold',
         'resolved' => 'Resolved',
         'referred' => 'Referred',
         'merged' => 'Merged',
         'out_of_scope' => 'Out of Scope',
+        'closed' => 'Closed',
         'emergency_flagged' => 'Emergency Flagged',
         'needs_info' => 'Needs Info',
         'awaiting_confirmation' => 'Awaiting Confirmation',
         'reopened' => 'Reopened',
+    ];
+
+    public const UPDATE_TYPES = [
+        'inspection_scheduled' => [
+            'label' => 'Inspection scheduled',
+            'status' => 'in_progress',
+            'template' => 'An inspection has been scheduled for this report. Barangay staff will assess the site.',
+            'message_required' => false,
+        ],
+        'work_started' => [
+            'label' => 'Work started / Crew dispatched',
+            'status' => 'in_progress',
+            'template' => 'Our crew has been assigned to your report and will begin work soon.',
+            'message_required' => false,
+        ],
+        'waiting_materials' => [
+            'label' => 'Waiting on materials/equipment',
+            'status' => 'on_hold',
+            'template' => 'Work is temporarily on hold while waiting for required materials or equipment to arrive.',
+            'message_required' => false,
+        ],
+        'needs_resident_input' => [
+            'label' => 'Needs resident input',
+            'status' => 'needs_info',
+            'template' => 'We need additional information from you to proceed with this report. Please provide more details.',
+            'message_required' => true,
+        ],
+        'referred_agency' => [
+            'label' => 'Referred to another office/agency',
+            'status' => 'referred',
+            'template' => 'This matter has been referred to the appropriate government office/agency for further action.',
+            'message_required' => true,
+        ],
+        'cannot_resolve' => [
+            'label' => 'Cannot be resolved',
+            'status' => 'closed',
+            'template' => 'This report cannot be resolved by the barangay at this time. Please see the explanation above.',
+            'message_required' => true,
+        ],
     ];
 
     public const STATUS_GROUPS = [
@@ -40,7 +81,7 @@ class Report extends Model
         ],
         'active' => [
             'label' => 'Active',
-            'statuses' => ['routed', 'in_progress', 'needs_info', 'awaiting_confirmation', 'reopened'],
+            'statuses' => ['routed', 'in_progress', 'on_hold', 'needs_info', 'awaiting_confirmation', 'reopened'],
         ],
         'resolved' => [
             'label' => 'Resolved',
@@ -48,7 +89,7 @@ class Report extends Model
         ],
         'closed-other' => [
             'label' => 'Others',
-            'statuses' => ['referred', 'merged', 'out_of_scope'],
+            'statuses' => ['referred', 'merged', 'out_of_scope', 'closed'],
         ],
     ];
 
@@ -56,10 +97,12 @@ class Report extends Model
         'under_review',
         'routed',
         'in_progress',
+        'on_hold',
         'needs_info',
         'awaiting_confirmation',
         'resolved',
         'out_of_scope',
+        'closed',
     ];
 
     public const CLOSED_STATUSES = [
@@ -67,6 +110,7 @@ class Report extends Model
         'out_of_scope',
         'merged',
         'referred',
+        'closed',
     ];
 
     protected $fillable = [

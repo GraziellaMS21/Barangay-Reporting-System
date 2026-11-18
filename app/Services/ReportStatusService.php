@@ -17,29 +17,33 @@ class ReportStatusService
     private const ALLOWED = [
         'submitted' => ['under_review', 'routed', 'needs_info', 'out_of_scope', 'referred', 'merged', 'emergency_flagged'],
         'under_review' => ['routed', 'needs_info', 'out_of_scope', 'referred', 'merged', 'emergency_flagged'],
-        'reopened' => ['under_review', 'routed', 'needs_info', 'out_of_scope', 'referred', 'merged', 'emergency_flagged'],
-        'routed' => ['in_progress', 'needs_info', 'referred', 'emergency_flagged'],
-        'in_progress' => ['awaiting_confirmation', 'needs_info', 'referred', 'emergency_flagged'],
-        'needs_info' => ['under_review', 'routed', 'in_progress', 'emergency_flagged'],
-        'awaiting_confirmation' => ['resolved', 'emergency_flagged'],
+        'reopened' => ['under_review', 'routed', 'in_progress', 'on_hold', 'needs_info', 'out_of_scope', 'referred', 'merged', 'emergency_flagged'],
+        'routed' => ['in_progress', 'on_hold', 'needs_info', 'referred', 'closed', 'awaiting_confirmation', 'resolved', 'emergency_flagged'],
+        'in_progress' => ['in_progress', 'on_hold', 'needs_info', 'referred', 'closed', 'awaiting_confirmation', 'resolved', 'emergency_flagged'],
+        'on_hold' => ['in_progress', 'on_hold', 'needs_info', 'referred', 'closed', 'awaiting_confirmation', 'resolved', 'emergency_flagged'],
+        'needs_info' => ['under_review', 'routed', 'in_progress', 'on_hold', 'needs_info', 'referred', 'closed', 'awaiting_confirmation', 'resolved', 'emergency_flagged'],
+        'awaiting_confirmation' => ['resolved', 'closed', 'in_progress', 'reopened', 'emergency_flagged'],
         'emergency_flagged' => ['out_of_scope', 'under_review'],
         // Referred reports stay open while the agency works; barangay staff may
         // re-route internally, close out of scope, or resolve after the agency
         // reports the issue fixed.
-        'referred' => ['routed', 'in_progress', 'needs_info', 'out_of_scope', 'merged', 'resolved'],
+        'referred' => ['routed', 'in_progress', 'on_hold', 'needs_info', 'out_of_scope', 'merged', 'resolved', 'closed'],
+        'resolved' => ['in_progress', 'reopened'],
+        'closed' => ['in_progress', 'reopened'],
     ];
 
     public function transition(
         Report $report,
         string $toStatus,
         ?string $note = null,
-        ?User $user = null
+        ?User $user = null,
+        array $extraAttributes = []
     ): Report {
         if ($toStatus !== $report->status && ! in_array($toStatus, self::ALLOWED[$report->status] ?? [], true)) {
             throw new \InvalidArgumentException("Transition from {$report->status} to {$toStatus} is not allowed.");
         }
 
-        return DB::transaction(function () use ($report, $toStatus, $note, $user) {
+        return DB::transaction(function () use ($report, $toStatus, $note, $user, $extraAttributes) {
             $fromStatus = $report->status;
 
             $report->status = $toStatus;
@@ -54,12 +58,15 @@ class ReportStatusService
 
             $report->save();
 
-            $report->statusLogs()->create([
+            $logData = array_merge([
                 'user_id' => $user?->id,
+                'office_id' => $extraAttributes['office_id'] ?? $report->office_id,
                 'from_status' => $fromStatus,
                 'to_status' => $toStatus,
                 'note' => $note,
-            ]);
+            ], $extraAttributes);
+
+            $report->statusLogs()->create($logData);
 
             event(new ReportStatusChanged(
                 $report,

@@ -22,6 +22,11 @@
             'icon' => 'fa-gears',
             'class' => 'b-blue',
         ],
+        'on_hold' => [
+            'label' => 'On Hold',
+            'icon' => 'fa-pause',
+            'class' => 'b-gold',
+        ],
         'resolved' => [
             'label' => 'Resolved',
             'icon' => 'fa-circle-check',
@@ -30,6 +35,11 @@
         'out_of_scope' => [
             'label' => 'Out of Scope',
             'icon' => 'fa-ban',
+            'class' => 'b-gray',
+        ],
+        'closed' => [
+            'label' => 'Closed',
+            'icon' => 'fa-circle-xmark',
             'class' => 'b-gray',
         ],
         'merged' => [

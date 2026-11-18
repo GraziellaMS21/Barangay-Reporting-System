@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Events\InfoRequested;
 use App\Events\ResolutionProposed;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\StoreReportUpdateRequest;
 use App\Models\AuditLog;
 use App\Models\Category;
 use App\Models\Office;
@@ -382,13 +383,13 @@ class ReportController extends Controller
 
         $activityEntries = collect();
         foreach ($report->statusLogs as $statusLog) {
-            if ($statusLog->to_status === 'needs_info' || $statusLog->from_status === 'needs_info') {
+            if (($statusLog->to_status === 'needs_info' || $statusLog->from_status === 'needs_info') && ! $statusLog->update_type) {
                 continue;
             }
 
             $activityEntries->push([
                 'at' => $statusLog->created_at,
-                'title' => Report::STATUSES[$statusLog->to_status] ?? $statusLog->to_status,
+                'title' => $statusLog->update_title.($statusLog->visible_to_resident === false ? ' (Internal)' : ''),
                 'body' => $statusLog->note,
                 'user' => $statusLog->user?->name,
             ]);
@@ -1112,6 +1113,92 @@ class ReportController extends Controller
         );
 
         return back()->with('success', 'Case marked as resolved.');
+    }
+
+    public function storeUpdate(
+        StoreReportUpdateRequest $request,
+        Report $report,
+        ReportStatusService $statusService
+    ): RedirectResponse {
+        $validated = $request->validated();
+        $user = $request->user();
+
+        $updateTypeConfig = Report::UPDATE_TYPES[$validated['update_type']] ?? null;
+        abort_unless($updateTypeConfig !== null, 422);
+
+        $targetStatus = $updateTypeConfig['status'];
+        $message = $validated['message'] ?: ($updateTypeConfig['template'] ?? null);
+        $expectedDate = $validated['expected_completion_date'] ?? null;
+        $visibleToResident = $request->boolean('visible_to_resident', true);
+
+        DB::transaction(function () use (
+            $request,
+            $report,
+            $targetStatus,
+            $message,
+            $user,
+            $validated,
+            $expectedDate,
+            $visibleToResident,
+            $statusService
+        ): void {
+            $storedAttachments = [];
+            if ($request->hasFile('photos')) {
+                foreach ($request->file('photos') as $photoFile) {
+                    if ($photoFile && $photoFile->isValid()) {
+                        $storedAttachments[] = $photoFile->store('progress_photos', 'public');
+                    }
+                }
+            }
+
+            $statusService->transition(
+                $report,
+                $targetStatus,
+                $message,
+                $user,
+                [
+                    'update_type' => $validated['update_type'],
+                    'expected_completion_date' => $expectedDate,
+                    'visible_to_resident' => $visibleToResident,
+                    'office_id' => $report->office_id,
+                    'attachments' => $storedAttachments,
+                ]
+            );
+        });
+
+        return back()->with('success', 'Progress update posted successfully.');
+    }
+
+    public function reopenReport(
+        Request $request,
+        Report $report,
+        ReportStatusService $statusService
+    ): RedirectResponse {
+        $user = $request->user();
+        abort_unless($user && in_array($user->role, ['admin', 'staff'], true), 403);
+
+        $allowedReopen = [ReportStatus::RESOLVED, ReportStatus::CLOSED, 'out_of_scope'];
+        abort_unless(in_array($report->status, $allowedReopen, true), 422);
+
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'min:5', 'max:1000'],
+        ], [
+            'reason.required' => 'A reason is required to reopen this report.',
+            'reason.min' => 'The reopen reason must be at least 5 characters.',
+        ]);
+
+        $statusService->transition(
+            $report,
+            ReportStatus::IN_PROGRESS,
+            'Report reopened by staff: '.$validated['reason'],
+            $user,
+            [
+                'visible_to_resident' => true,
+                'office_id' => $report->office_id,
+            ]
+        );
+
+        return back()->with('success', 'Report reopened back to In Progress.');
     }
 
     public function bulkConfirm(

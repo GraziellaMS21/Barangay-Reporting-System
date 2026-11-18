@@ -37,6 +37,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin,staff'])
     // JSON thread for the chat modal (open + light polling while it is open).
     Route::get('/reports/{report}/info-requests', [AdminReportController::class, 'infoThread'])->name('reports.info-requests.index');
     Route::post('/reports/{report}/internal-notes', [AdminReportController::class, 'storeInternalNote'])->name('reports.internal-notes.store');
+    Route::post('/reports/{report}/updates', [AdminReportController::class, 'storeUpdate'])->name('reports.updates.store');
+    Route::post('/reports/{report}/reopen', [AdminReportController::class, 'reopenReport'])->name('reports.reopen');
     Route::post('/reports/{report}/resolve', [AdminReportController::class, 'proposeResolution'])->name('reports.resolve');
     Route::post('/reports/{report}/close', [AdminReportController::class, 'closeManually'])->name('reports.close');
     Route::post('/reports/{report}/escalate', [AdminReportController::class, 'escalate'])->name('reports.escalate');

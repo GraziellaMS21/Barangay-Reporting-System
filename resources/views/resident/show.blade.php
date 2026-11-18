@@ -276,13 +276,41 @@
   <h3 class="card-title resident-report-text">
     <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Status history
   </h3>
+  @php
+    $publicStatusLogs = $report->statusLogs->filter(fn ($log) => $log->visible_to_resident !== false);
+  @endphp
   <ol class="timeline">
-    @forelse($report->statusLogs as $log)
+    @forelse($publicStatusLogs as $log)
       <li>
-        <strong>{{ \App\Models\Report::STATUSES[$log->to_status] ?? ucfirst(str_replace('_', ' ', $log->to_status)) }}</strong>
-        <small>{{ $log->created_at->format('M d, Y h:i A') }}</small>
+        <div class="timeline-header">
+          <strong>{{ $log->update_title }}</strong>
+          @if($log->update_type)
+            <span class="badge badge-outline timeline-status-pill">{{ \App\Models\Report::STATUSES[$log->to_status] ?? ucfirst(str_replace('_', ' ', $log->to_status)) }}</span>
+          @endif
+        </div>
+        <small class="timeline-meta">
+          {{ $log->created_at->format('M d, Y h:i A') }}
+          @if($log->office || ($log->update_type && $report->office))
+            · <span class="timeline-office">{{ $log->office?->name ?? $report->office?->name }}</span>
+          @endif
+        </small>
         @if($log->note)
-          <small>{{ $log->note }}</small>
+          <small class="timeline-note">{{ $log->note }}</small>
+        @endif
+        @if($log->expected_completion_date)
+          <small class="timeline-expected-date">
+            <i class="fa-regular fa-calendar" aria-hidden="true"></i>
+            Expected completion: {{ $log->expected_completion_date->format('M d, Y') }}
+          </small>
+        @endif
+        @if(!empty($log->attachments) && is_array($log->attachments))
+          <div class="timeline-photos">
+            @foreach($log->attachments as $photoPath)
+              <a href="{{ Storage::disk('public')->url($photoPath) }}" target="_blank" rel="noopener" class="timeline-photo-link">
+                <img src="{{ Storage::disk('public')->url($photoPath) }}" alt="Progress update photo" class="timeline-photo-img">
+              </a>
+            @endforeach
+          </div>
         @endif
       </li>
     @empty

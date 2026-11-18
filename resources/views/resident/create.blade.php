@@ -300,14 +300,33 @@
     </form>
   </section>
 
-  <dialog id="privacy-modal" style="border:none;border-radius:12px;padding:1.5rem;max-width:32rem;">
-    <h3 data-i18n="privacy_title">Data Privacy Notice (RA 10173)</h3>
-    <p style="font-size:.85rem;color:var(--mut);line-height:1.5;" data-i18n="privacy_text">By submitting this report, you
-      acknowledge that Barangay Calarian collects issue details, approximate location, and optional contact info strictly
-      to investigate, route, and resolve community problems.</p>
-    <div style="text-align:right;margin-top:1rem;">
-      <button type="button" class="btn btn-outline btn-small"
-        onclick="document.getElementById('privacy-modal').close()">Close</button>
+  <dialog id="privacy-modal" class="legend-modal" role="dialog" aria-modal="true" aria-labelledby="privacy-modal-title">
+    <div class="legend-frame">
+      <div class="legend-header">
+        <h3 id="privacy-modal-title" style="margin:0;font-size:1.15rem;font-weight:700;color:var(--ink);" data-i18n="privacy_title">Data Privacy Notice (RA 10173)</h3>
+        <button type="button" class="review-modal-close" onclick="document.getElementById('privacy-modal').close()" aria-label="Close">&times;</button>
+      </div>
+      <div style="font-size:.9rem;color:var(--tx);line-height:1.6;margin-top:.75rem;" data-i18n="privacy_text">
+        By submitting this report, you acknowledge that Barangay Calarian collects issue details, approximate location, and optional contact info strictly to investigate, route, and resolve community problems.
+      </div>
+      <div style="margin-top:1.5rem;text-align:right;">
+        <button type="button" class="btn btn-navy btn-small"
+          onclick="document.getElementById('privacy-modal').close()">Close</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="nearby-reports-modal" class="legend-modal" role="dialog" aria-modal="true" aria-labelledby="nearby-modal-title">
+    <div class="legend-frame">
+      <div class="legend-header">
+        <h3 id="nearby-modal-title" style="margin:0;font-size:1.15rem;font-weight:700;color:var(--ink);">Similar Reports Nearby</h3>
+        <button type="button" class="review-modal-close" onclick="document.getElementById('nearby-reports-modal').close()" aria-label="Close">&times;</button>
+      </div>
+      <div id="nearby-reports-modal-body" style="font-size:.875rem;line-height:1.5;margin-top:.75rem;display:flex;flex-direction:column;gap:.5rem;"></div>
+      <div style="margin-top:1.5rem;text-align:right;">
+        <button type="button" class="btn btn-outline btn-small"
+          onclick="document.getElementById('nearby-reports-modal').close()">Close</button>
+      </div>
     </div>
   </dialog>
 
@@ -597,9 +616,12 @@
         if (!res.ok) { line.style.display = 'none'; list.style.display = 'none'; return; }
         const reports = await res.json();
         if (Array.isArray(reports) && reports.length > 0) {
-          line.innerHTML = `${reports.length} similar reports nearby. <button type="button" onclick="document.getElementById('nearby-list').style.display='block'">View</button>`;
+          line.innerHTML = `<span style="color:#b45309;font-weight:600;"><i class="fa-solid fa-triangle-exclamation"></i> ${reports.length} similar report(s) found nearby.</span> <button type="button" class="btn btn-outline btn-small" style="padding:.15rem .5rem;font-size:.78rem;margin-left:.5rem;" onclick="openNearbyModal()">View details</button>`;
           line.style.display = 'block';
-          list.innerHTML = reports.map(r => `<div><b>${r.tracking_code}</b>: ${r.category} (${r.status})</div>`).join('');
+          const modalBody = document.getElementById('nearby-reports-modal-body');
+          if (modalBody) {
+            modalBody.innerHTML = reports.map(r => `<div style="padding:.6rem .75rem;border:1px solid var(--line);border-radius:8px;background:#f8fafc;"><strong class="font-mono text-blue-700">${r.tracking_code}</strong> · <span>${r.category}</span> <span class="status-badge" style="margin-left:.25rem;font-size:.72rem;">${r.status}</span></div>`).join('');
+          }
         } else {
           line.style.display = 'none'; list.style.display = 'none';
         }
@@ -675,8 +697,33 @@
     function removePhoto(index) { selectedPhotosList.splice(index, 1); renderPhotoPreviews(); }
 
     function openPrivacy(e) {
-      e.preventDefault();
-      document.getElementById('privacy-modal').showModal();
+      if (e) e.preventDefault();
+      const modal = document.getElementById('privacy-modal');
+      if (modal) {
+        if (typeof modal.showModal === 'function') modal.showModal();
+        else modal.setAttribute('open', '');
+      }
+    }
+    const privacyModalEl = document.getElementById('privacy-modal');
+    if (privacyModalEl) {
+      privacyModalEl.addEventListener('click', (e) => {
+        if (e.target === privacyModalEl) privacyModalEl.close();
+      });
+    }
+
+    function openNearbyModal(e) {
+      if (e) e.preventDefault();
+      const modal = document.getElementById('nearby-reports-modal');
+      if (modal) {
+        if (typeof modal.showModal === 'function') modal.showModal();
+        else modal.setAttribute('open', '');
+      }
+    }
+    const nearbyModalEl = document.getElementById('nearby-reports-modal');
+    if (nearbyModalEl) {
+      nearbyModalEl.addEventListener('click', (e) => {
+        if (e.target === nearbyModalEl) nearbyModalEl.close();
+      });
     }
   </script>
 @endsection

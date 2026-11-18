@@ -76,9 +76,11 @@
   $isAfterRoute = in_array($report->status, [
       'routed',
       'in_progress',
+      'on_hold',
       'needs_info',
       'awaiting_confirmation',
       'resolved',
+      'closed',
       'referred',
       'merged',
       'out_of_scope',
@@ -88,12 +90,12 @@
   $statusStep = match ($report->status) {
       'submitted', 'under_review', 'reopened' => 0,
       'routed' => 1,
-      'in_progress' => 2,
+      'in_progress', 'on_hold' => 2,
       'needs_info' => (($report->statusLogs->where('to_status', 'needs_info')->last()?->from_status) === 'in_progress' ? 2 : 1),
-      'awaiting_confirmation', 'resolved', 'referred', 'merged', 'out_of_scope' => 3,
+      'awaiting_confirmation', 'resolved', 'closed', 'referred', 'merged', 'out_of_scope' => 3,
       default => 0,
   };
-  $isCompleted = $report->status === 'resolved';
+  $isCompleted = in_array($report->status, ['resolved', 'closed'], true);
   $oneLineSummary = \Illuminate\Support\Str::limit($report->description, 110);
   $priorityLabel = $report->urgency ?: 'Unassigned';
   $googleMapsUrl = $report->lat !== null && $report->lng !== null
@@ -424,14 +426,27 @@
             @endif
           </div>
           <div class="review-header-actions">
-            @if(in_array($report->status, ['submitted', 'under_review', 'reopened', 'routed', 'in_progress', 'needs_info'], true))
+            @php
+              $hasInfoRequests = $report->infoRequests->isNotEmpty();
+              $hasResidentReply = $report->infoRequests->whereNotNull('responded_at')->isNotEmpty();
+              $unreadReplies = $infoThreadSummary['unread'] ?? 0;
+            @endphp
+            @if($hasInfoRequests || in_array($report->status, ['submitted', 'under_review', 'reopened', 'routed', 'in_progress', 'needs_info'], true))
               <button type="button" class="review-button review-button-outline"
                       data-chat-open data-report-id="{{ $report->id }}"
                       data-chat-tracking="{{ $report->tracking_code }}"
                       data-chat-category="{{ $report->category?->name ?? 'Category not assigned' }}"
                       data-chat-status="{{ \App\Models\Report::STATUSES[$report->status] ?? $report->status }}"
                       data-chat-summary="{{ $report->description }}{{ $report->purok ? ' — '.$report->purok->name : '' }}">
-                <i class="fa-solid fa-comment-dots" aria-hidden="true"></i> Ask Reporter for More Info
+                <i class="fa-solid fa-comment-dots" aria-hidden="true"></i>
+                <span>Ask Reporter for More Info</span>
+                @if($unreadReplies > 0 || ($hasResidentReply && !session('info_thread_seen.'.$report->id)))
+                  <span class="chat-notif-circle" data-chat-notif-circle title="New reply from resident">
+                    {{ $unreadReplies > 0 ? $unreadReplies : '' }}
+                  </span>
+                @else
+                  <span class="chat-notif-circle" data-chat-notif-circle style="display:none;"></span>
+                @endif
               </button>
             @endif
             @if(in_array($report->status, ['submitted', 'under_review', 'reopened'], true))
@@ -452,18 +467,7 @@
               <span data-chat-message-count>{{ $infoThreadSummary['count'] }} message{{ $infoThreadSummary['count'] === 1 ? '' : 's' }} sent</span>
               <span class="review-info-summary-dot" aria-hidden="true">·</span>
               <span data-chat-awaiting @if(! $infoThreadSummary['awaiting_reply']) hidden @endif>Awaiting resident reply</span>
-              @if($infoThreadSummary['unread'] > 0)
-                <span class="review-info-summary-unread" title="{{ $infoThreadSummary['unread'] }} unread resident repl{{ $infoThreadSummary['unread'] === 1 ? 'y' : 'ies' }}">{{ $infoThreadSummary['unread'] }} unread</span>
-              @endif
             </p>
-            <button type="button" class="review-button review-button-outline review-button-small"
-                    data-chat-open data-report-id="{{ $report->id }}"
-                    data-chat-tracking="{{ $report->tracking_code }}"
-                    data-chat-category="{{ $report->category?->name ?? 'Category not assigned' }}"
-                    data-chat-status="{{ \App\Models\Report::STATUSES[$report->status] ?? $report->status }}"
-                    data-chat-summary="{{ $report->description }}{{ $report->purok ? ' — '.$report->purok->name : '' }}">
-              <i class="fa-solid fa-comment-dots" aria-hidden="true"></i> Open conversation
-            </button>
           </div>
         @endif
         <p class="review-ai-description" data-ai-state-message aria-live="polite">
@@ -736,9 +740,9 @@
               </button>
             @endif
 
-            <button type="submit" name="intent" value="save" class="review-button review-button-blue">
+            <!-- <button type="submit" name="intent" value="save" class="review-button review-button-blue">
               Confirm review
-            </button>
+            </button> -->
           </div>
         @endif
       </div>
@@ -982,69 +986,154 @@
         </span>
       </div>
       <div class="review-card-content">
-        @if($report->status === 'routed')
+        @if(in_array($report->status, ['routed', 'in_progress', 'on_hold', 'needs_info'], true))
+          @php
+            $updateTypes = \App\Models\Report::UPDATE_TYPES;
+            $defaultUpdateType = array_key_first($updateTypes);
+            $selectedUpdateType = old('update_type', $defaultUpdateType);
+            if (! isset($updateTypes[$selectedUpdateType])) {
+                $selectedUpdateType = $defaultUpdateType;
+            }
+            $selectedUpdateMeta = $updateTypes[$selectedUpdateType];
+            $defaultUpdateMessage = old('message', $selectedUpdateMeta['template'] ?? '');
+            $openResolutionForm = $errors->has('note') || $errors->has('proof_photos') || $errors->has('proof_photos.*');
+          @endphp
           <p class="review-next-summary">{{ $report->category?->name ?? 'Category not assigned' }} · {{ $report->urgency ?? 'Urgency not assigned' }} · {{ $report->office?->name ?? 'Office not assigned' }} · {{ $report->assignee?->name ?? 'Unassigned' }}</p>
-          <form method="POST" action="{{ route('admin.reports.status', $report) }}">
-            @csrf
-            @method('PATCH')
-            <input type="hidden" name="status" value="in_progress">
-            <button type="submit" class="review-button review-button-outline">Start work</button>
-          </form>
-        @elseif($report->status === 'in_progress')
-          <form method="POST" action="{{ route('admin.reports.resolve', $report) }}" enctype="multipart/form-data" class="review-resolution-form">
-            @csrf
-            <div class="review-form-field">
-              <label for="resolution-note">Resolution note</label>
-              <textarea id="resolution-note" name="note" rows="4" required maxlength="2000">{{ old('note') }}</textarea>
-              @error('note')<span class="review-field-error">{{ $message }}</span>@enderror
-            </div>
-            <div class="review-form-field">
-              <label for="proof-photos">Proof photos <span class="review-optional">(optional)</span></label>
-              <p class="review-field-hint">
-                Up to {{ $proofConfig['max_files'] }} images, {{ round($proofConfig['max_size_kb'] / 1024) }} MB each. JPG, PNG or WebP.
-              </p>
-              <input id="proof-photos" type="file" name="proof_photos[]" multiple accept="{{ $proofConfig['accept'] }}"
-                     data-proof-input
-                     data-max-files="{{ $proofConfig['max_files'] }}"
-                     data-max-size-kb="{{ $proofConfig['max_size_kb'] }}">
-              <ul class="review-proof-errors" data-proof-errors hidden></ul>
-              <div class="review-proof-preview" data-proof-preview></div>
-            </div>
-            <button type="submit" class="review-button review-button-outline">Mark resolved</button>
-          </form>
+          @if($report->status === 'needs_info')
+            <p class="review-next-summary">Waiting for the resident's reply. The conversation is in the <strong>chat modal</strong> you can open from Review AI suggestions above, or you can post a progress update below.</p>
+          @endif
 
-          @if($report->proofPhotos->isNotEmpty())
-            <div class="review-saved-proofs">
-              <h3 class="review-field-label">Saved proof photos</h3>
-              <div class="review-proof-preview">
-                @foreach($report->proofPhotos as $proofPhoto)
-                  <div class="review-proof-item">
-                    <a href="{{ route('admin.reports.proof-photos.show', [$report, $proofPhoto]) }}" target="_blank" rel="noopener">
-                      <img src="{{ route('admin.reports.proof-photos.show', [$report, $proofPhoto]) }}" alt="Saved proof photo">
-                    </a>
-                    <form method="POST" action="{{ route('admin.reports.proof-photos.destroy', [$report, $proofPhoto]) }}"
-                          data-confirm-delete="Delete this proof photo? This cannot be undone.">
-                      @csrf
-                      @method('DELETE')
-                      <button type="submit" class="review-proof-delete" aria-label="Delete proof photo">&times;</button>
-                    </form>
-                  </div>
-                @endforeach
+          <form method="POST" action="{{ route('admin.reports.updates.store', $report) }}" enctype="multipart/form-data" class="review-update-form" data-prevent-double-submit>
+            @csrf
+            <div class="review-form-grid">
+              <div class="review-form-field">
+                <label for="update-type">Update type</label>
+                <select id="update-type" name="update_type" required data-update-type-select>
+                  @foreach($updateTypes as $typeKey => $typeMeta)
+                    <option value="{{ $typeKey }}"
+                            data-template="{{ $typeMeta['template'] }}"
+                            data-message-required="{{ $typeMeta['message_required'] ? '1' : '0' }}"
+                            @selected($selectedUpdateType === $typeKey)>
+                      {{ $typeMeta['label'] }} ({{ \App\Models\Report::STATUSES[$typeMeta['status']] ?? $typeMeta['status'] }})
+                    </option>
+                  @endforeach
+                </select>
+                @error('update_type')<span class="review-field-error">{{ $message }}</span>@enderror
+              </div>
+
+              <div class="review-form-field">
+                <label for="expected-completion-date">Expected completion date <span class="review-optional">(optional)</span></label>
+                <input id="expected-completion-date" type="date" name="expected_completion_date" min="{{ now()->toDateString() }}" value="{{ old('expected_completion_date') }}">
+                @error('expected_completion_date')<span class="review-field-error">{{ $message }}</span>@enderror
+              </div>
+
+              <div class="review-form-field review-form-field-wide">
+                <label for="update-message">
+                  Message to resident
+                  <span class="review-optional" data-update-message-optional>{{ $selectedUpdateMeta['message_required'] ? '(required)' : '(optional)' }}</span>
+                </label>
+                <textarea id="update-message" name="message" rows="3" maxlength="2000" data-update-message @if($selectedUpdateMeta['message_required']) required @endif>{{ $defaultUpdateMessage }}</textarea>
+                @error('message')<span class="review-field-error">{{ $message }}</span>@enderror
+              </div>
+
+              <div class="review-form-field review-form-field-wide">
+                <label for="update-photos">Progress photos <span class="review-optional">(optional)</span></label>
+                <p class="review-field-hint">
+                  Up to {{ $proofConfig['max_files'] }} images, {{ round($proofConfig['max_size_kb'] / 1024) }} MB each. JPG, PNG or WebP.
+                </p>
+                <input id="update-photos" type="file" name="photos[]" multiple accept="{{ $proofConfig['accept'] }}"
+                       data-proof-input
+                       data-max-files="{{ $proofConfig['max_files'] }}"
+                       data-max-size-kb="{{ $proofConfig['max_size_kb'] }}">
+                <ul class="review-proof-errors" data-proof-errors hidden></ul>
+                <div class="review-proof-preview" data-proof-preview></div>
+                @error('photos')<span class="review-field-error">{{ $message }}</span>@enderror
+                @error('photos.*')<span class="review-field-error">{{ $message }}</span>@enderror
+              </div>
+
+              <div class="review-form-field review-form-field-wide">
+                <input type="hidden" name="visible_to_resident" value="0">
+                <label class="review-checkbox-label">
+                  <input type="checkbox" name="visible_to_resident" value="1" @checked(old('visible_to_resident', '1') == '1')>
+                  <span>Visible to resident</span>
+                </label>
+                <p class="review-field-hint">Uncheck to save as an internal staff note hidden from the resident page.</p>
               </div>
             </div>
-          @endif
-        @elseif($report->status === 'needs_info')
-          <p class="review-next-summary">Waiting for the resident's reply. The conversation is in the <strong>chat modal</strong> you can open from Review AI suggestions above.</p>
+
+            <div class="review-actions-row">
+              <button type="submit" class="review-button review-button-primary" data-submit-once>Post update</button>
+              <button type="button" class="review-button review-button-outline" data-toggle-resolution aria-expanded="{{ $openResolutionForm ? 'true' : 'false' }}" aria-controls="resolution-form-panel">
+                Mark resolved
+              </button>
+            </div>
+          </form>
+
+          <div id="resolution-form-panel" class="review-resolution-panel" data-resolution-panel @if(! $openResolutionForm) hidden @endif>
+            <form method="POST" action="{{ route('admin.reports.resolve', $report) }}" enctype="multipart/form-data" class="review-resolution-form" data-prevent-double-submit>
+              @csrf
+              <div class="review-form-field">
+                <label for="resolution-note">Resolution note</label>
+                <textarea id="resolution-note" name="note" rows="4" required maxlength="2000">{{ old('note') }}</textarea>
+                @error('note')<span class="review-field-error">{{ $message }}</span>@enderror
+              </div>
+              <div class="review-form-field">
+                <label for="proof-photos">Proof photos <span class="review-optional">(optional)</span></label>
+                <p class="review-field-hint">
+                  Up to {{ $proofConfig['max_files'] }} images, {{ round($proofConfig['max_size_kb'] / 1024) }} MB each. JPG, PNG or WebP.
+                </p>
+                <input id="proof-photos" type="file" name="proof_photos[]" multiple accept="{{ $proofConfig['accept'] }}"
+                       data-proof-input
+                       data-max-files="{{ $proofConfig['max_files'] }}"
+                       data-max-size-kb="{{ $proofConfig['max_size_kb'] }}">
+                <ul class="review-proof-errors" data-proof-errors hidden></ul>
+                <div class="review-proof-preview" data-proof-preview></div>
+              </div>
+              <button type="submit" class="review-button review-button-primary" data-submit-once>Mark resolved</button>
+            </form>
+
+            @if($report->proofPhotos->isNotEmpty())
+              <div class="review-saved-proofs">
+                <h3 class="review-field-label">Saved proof photos</h3>
+                <div class="review-proof-preview">
+                  @foreach($report->proofPhotos as $proofPhoto)
+                    <div class="review-proof-item">
+                      <a href="{{ route('admin.reports.proof-photos.show', [$report, $proofPhoto]) }}" target="_blank" rel="noopener">
+                        <img src="{{ route('admin.reports.proof-photos.show', [$report, $proofPhoto]) }}" alt="Saved proof photo">
+                      </a>
+                      <form method="POST" action="{{ route('admin.reports.proof-photos.destroy', [$report, $proofPhoto]) }}"
+                            data-confirm-delete="Delete this proof photo? This cannot be undone.">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="review-proof-delete" aria-label="Delete proof photo">&times;</button>
+                      </form>
+                    </div>
+                  @endforeach
+                </div>
+              </div>
+            @endif
+          </div>
         @elseif($report->status === 'awaiting_confirmation')
           <p class="review-next-summary">Waiting for the resident to confirm the resolution.</p>
           @if($report->due_at && $report->due_at->copy()->addDays($autoCloseDays)->isPast())
-            <form method="POST" action="{{ route('admin.reports.close', $report) }}">
+            <form method="POST" action="{{ route('admin.reports.close', $report) }}" data-prevent-double-submit>
               @csrf
-              <button type="submit" class="review-button review-button-outline">Close case</button>
+              <button type="submit" class="review-button review-button-outline" data-submit-once>Close case</button>
             </form>
           @endif
-        @elseif($report->status === 'resolved')
-          <p class="review-next-summary">This report has been resolved.</p>
+        @elseif(in_array($report->status, ['resolved', 'closed'], true))
+          <p class="review-next-summary">
+            This report has been {{ $report->status === 'closed' ? 'closed' : 'resolved' }}. If further work is needed, you can reopen it back to In Progress.
+          </p>
+          <form method="POST" action="{{ route('admin.reports.reopen', $report) }}" class="review-reopen-form" data-prevent-double-submit>
+            @csrf
+            <div class="review-form-field">
+              <label for="reopen-reason">Reason for reopening</label>
+              <textarea id="reopen-reason" name="reason" rows="2" required minlength="5" maxlength="1000" placeholder="Explain why this report is being reopened...">{{ old('reason') }}</textarea>
+              @error('reason')<span class="review-field-error">{{ $message }}</span>@enderror
+            </div>
+            <button type="submit" class="review-button review-button-outline" data-submit-once>Reopen report</button>
+          </form>
         @elseif($report->status === 'referred')
           @php
             $referral = $report->activeReferral;
@@ -1152,7 +1241,10 @@
                       <input id="referral-update-photo" type="file" name="photo" accept="image/jpeg,image/png,image/webp">
                     </div>
                     <div class="review-form-field review-form-field-wide">
-                      <label><input type="checkbox" name="visible_to_resident" value="1" checked> Show this update to the resident</label>
+                      <label class="review-checkbox-label">
+                        <input type="checkbox" name="visible_to_resident" value="1" checked>
+                        <span>Show this update to the resident</span>
+                      </label>
                     </div>
                   </div>
                   <button type="submit" class="review-button review-button-primary">Log update</button>
@@ -1550,10 +1642,10 @@
     }, 1500);
   });
 
-  const proofInput = root.querySelector('[data-proof-input]');
-  if (proofInput) {
-    const preview = root.querySelector('[data-proof-preview]');
-    const errorList = root.querySelector('[data-proof-errors]');
+  root.querySelectorAll('[data-proof-input]').forEach((proofInput) => {
+    const fieldScope = proofInput.closest('.review-form-field') || root;
+    const preview = fieldScope.querySelector('[data-proof-preview]');
+    const errorList = fieldScope.querySelector('[data-proof-errors]');
     const maxFiles = Number(proofInput.dataset.maxFiles || 5);
     const maxSizeKb = Number(proofInput.dataset.maxSizeKb || 5120);
     const acceptTypes = (proofInput.accept || '').split(',').map((type) => type.trim()).filter(Boolean);
@@ -1628,7 +1720,55 @@
       syncInput();
       renderPending();
     });
+  });
+
+  const updateTypeSelect = root.querySelector('[data-update-type-select]');
+  const updateMessageTextarea = root.querySelector('[data-update-message]');
+  const updateMessageOptional = root.querySelector('[data-update-message-optional]');
+  if (updateTypeSelect && updateMessageTextarea) {
+    let lastPrefilledTemplate = updateTypeSelect.selectedOptions[0]?.dataset.template || '';
+    updateTypeSelect.addEventListener('change', () => {
+      const selectedOption = updateTypeSelect.selectedOptions[0];
+      if (!selectedOption) return;
+      const newTemplate = selectedOption.dataset.template || '';
+      const isRequired = selectedOption.dataset.messageRequired === '1';
+      if (updateMessageTextarea.value.trim() === '' || updateMessageTextarea.value === lastPrefilledTemplate) {
+        updateMessageTextarea.value = newTemplate;
+      }
+      lastPrefilledTemplate = newTemplate;
+      updateMessageTextarea.required = isRequired;
+      if (updateMessageOptional) {
+        updateMessageOptional.textContent = isRequired ? '(required)' : '(optional)';
+      }
+    });
   }
+
+  const toggleResolutionBtn = root.querySelector('[data-toggle-resolution]');
+  const resolutionPanel = root.querySelector('[data-resolution-panel]');
+  if (toggleResolutionBtn && resolutionPanel) {
+    toggleResolutionBtn.addEventListener('click', () => {
+      const willOpen = resolutionPanel.hidden;
+      resolutionPanel.hidden = !willOpen;
+      toggleResolutionBtn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+      if (willOpen) {
+        resolutionPanel.querySelector('textarea')?.focus();
+      }
+    });
+  }
+
+  root.querySelectorAll('form[data-prevent-double-submit]').forEach((protectedForm) => {
+    protectedForm.addEventListener('submit', (event) => {
+      const submitBtn = event.submitter || protectedForm.querySelector('[data-submit-once], button[type="submit"]');
+      if (submitBtn) {
+        if (submitBtn.dataset.submitting === 'true') {
+          event.preventDefault();
+          return;
+        }
+        submitBtn.dataset.submitting = 'true';
+        submitBtn.disabled = true;
+      }
+    });
+  });
 
   const modeBanner = root.querySelector('[data-mode-banner]');
   const modeBadge = root.querySelector('[data-mode-badge]');

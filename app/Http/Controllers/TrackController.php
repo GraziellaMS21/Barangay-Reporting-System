@@ -33,6 +33,7 @@ class TrackController extends Controller
                 'tracking_code',
                 'report_type',
                 'category_id',
+                'office_id',
                 'purok_id',
                 'status',
                 'reopened_count',
@@ -44,7 +45,8 @@ class TrackController extends Controller
             ->with([
                 'purok:id,name',
                 'category:id,name',
-                'statusLogs' => fn ($query) => $query->with('user:id,name,role')->oldest(),
+                'office:id,name',
+                'statusLogs' => fn ($query) => $query->with(['user:id,name,role', 'office:id,name'])->oldest(),
                 'infoRequests' => fn ($query) => $query->with('requester:id,name')->latest(),
                 'resolutionProofs' => fn ($query) => $query->with('user:id,name')->latest(),
                 'feedback',

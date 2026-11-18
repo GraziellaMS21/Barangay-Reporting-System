@@ -327,14 +327,20 @@ class ReportController extends Controller
             : Report::MANUAL_STATUSES;
 
         $categories = Category::query()
-            ->with('defaultOffice')
+            ->with(['defaultOffice' => fn ($query) => $query->where('is_active', true)])
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name', 'slug', 'default_office_id', 'question_schema']);
 
-        $offices = Office::query()->orderBy('name')->get();
+        $offices = Office::query()
+            ->active()
+            ->internal()
+            ->with('defaultAssignee:id,name')
+            ->orderBy('name')
+            ->get();
         $externalOffices = Office::query()
-            ->where('is_external', true)
+            ->active()
+            ->external()
             ->orderBy('name')
             ->get();
         $puroks = Purok::query()->orderBy('name')->get(['id', 'name']);
@@ -569,10 +575,15 @@ class ReportController extends Controller
             'staff_description' => ['required', 'string', 'max:2000'],
             'purok_id' => ['nullable', 'integer', Rule::exists('puroks', 'id')],
             'landmark' => ['nullable', 'string', 'max:255'],
-            'office_id' => ['nullable', 'integer', Rule::exists('offices', 'id')],
+            'office_id' => ['nullable', 'integer', Rule::exists('offices', 'id')->where('is_active', true)],
             'authority_mode' => ['nullable', Rule::in(['within', 'beyond'])],
             'referral_letter' => ['nullable', 'string', 'max:20000'],
             'resident_message' => ['nullable', 'string', 'max:1000'],
+            'follow_up_owner_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('users', 'id')->where(fn ($query) => $query->whereIn('role', ['admin', 'staff'])),
+            ],
             'assigned_to' => [
                 'nullable',
                 'integer',
@@ -628,6 +639,7 @@ class ReportController extends Controller
                 'authority_mode' => $validated['authority_mode'] ?? null,
                 'referral_letter' => $validated['referral_letter'] ?? null,
                 'resident_message' => $validated['resident_message'] ?? null,
+                'follow_up_owner_id' => isset($validated['follow_up_owner_id']) ? (int) $validated['follow_up_owner_id'] : null,
             ], $reviewer, $intent);
         } catch (\InvalidArgumentException $exception) {
             return back()->withInput()->withErrors(['review' => $exception->getMessage()]);

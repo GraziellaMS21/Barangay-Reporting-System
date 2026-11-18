@@ -6,17 +6,20 @@ use App\Http\Controllers\Controller;
 use App\Models\Office;
 use App\Models\Referral;
 use App\Models\ReferralUpdate;
+use App\Models\Report;
 use App\Models\User;
 use App\Services\ReferralService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Referral tracking. Agencies have no accounts: staff log every update here.
+ * Unified Referrals and routing tracking for both internal barangay offices
+ * (Mode A) and external agencies (Mode B).
  */
 class ReferralController extends Controller
 {
@@ -24,40 +27,156 @@ class ReferralController extends Controller
 
     public function index(Request $request): View
     {
+        $allowedStatuses = array_unique(array_merge(
+            ['all'],
+            array_keys(Referral::STATUSES),
+            array_keys(Report::STATUSES)
+        ));
+
         $validated = $request->validate([
-            'status' => ['nullable', Rule::in(['all', ...array_keys(Referral::STATUSES)])],
+            'type' => ['nullable', Rule::in(['all', 'internal', 'external'])],
+            'status' => ['nullable', Rule::in($allowedStatuses)],
             'office_id' => ['nullable', 'integer', Rule::exists('offices', 'id')],
         ]);
 
+        $typeFilter = $validated['type'] ?? 'all';
         $statusFilter = $validated['status'] ?? 'all';
         $officeFilter = $validated['office_id'] ?? null;
 
-        $query = Referral::query()
-            ->with(['report:id,tracking_code,status', 'office:id,name'])
-            ->latest('id');
+        $items = collect();
 
-        if ($statusFilter !== 'all') {
-            $query->where('status', $statusFilter);
+        // 1. External agency referrals (Mode B)
+        if ($typeFilter === 'all' || $typeFilter === 'external') {
+            $referralQuery = Referral::query()
+                ->with([
+                    'report:id,tracking_code,status',
+                    'office:id,name,type,is_internal,is_external',
+                    'followUpOwner:id,name',
+                    'preparedBy:id,name',
+                ])
+                ->latest('id');
+
+            if ($statusFilter !== 'all') {
+                $referralQuery->where('status', $statusFilter);
+            }
+
+            if ($officeFilter !== null) {
+                $referralQuery->where('office_id', (int) $officeFilter);
+            }
+
+            foreach ($referralQuery->get() as $referral) {
+                $ownerName = $referral->followUpOwner?->name
+                    ?? $referral->preparedBy?->name
+                    ?? 'Unassigned';
+
+                $items->push([
+                    'kind' => 'external',
+                    'id' => $referral->id,
+                    'report_id' => $referral->report_id,
+                    'reference_no' => $referral->reference_no ?? 'Not assigned',
+                    'tracking_code' => $referral->report?->tracking_code,
+                    'type_label' => 'External',
+                    'office_name' => $referral->office?->name ?? 'Unassigned',
+                    'status' => $referral->status,
+                    'status_label' => Referral::STATUSES[$referral->status] ?? $referral->status,
+                    'routed_or_sent_at' => $referral->sent_at,
+                    'routed_or_sent_empty' => 'Not sent',
+                    'follow_up_at' => $referral->follow_up_at,
+                    'is_overdue' => $referral->isOverdue(),
+                    'owner_name' => $ownerName,
+                    'url' => route('admin.reports.show', $referral->report_id),
+                    'sort_at' => $referral->sent_at ?? $referral->created_at,
+                    'model' => $referral,
+                ]);
+            }
         }
 
-        if ($officeFilter !== null) {
-            $query->where('office_id', (int) $officeFilter);
+        // 2. Internal barangay routed reports (Mode A — derived directly from Report)
+        if ($typeFilter === 'all' || $typeFilter === 'internal') {
+            $internalQuery = Report::query()
+                ->with([
+                    'office:id,name,type,is_internal,is_external',
+                    'assignee:id,name',
+                    'statusLogs' => fn ($q) => $q->where('to_status', 'routed')->latest('id'),
+                ])
+                ->whereNotNull('office_id')
+                ->whereHas('office', fn ($q) => $q->where('is_internal', true)->where('is_external', false))
+                ->where('status', '!=', 'referred')
+                ->latest('id');
+
+            if ($statusFilter !== 'all') {
+                $internalQuery->where('status', $statusFilter);
+            }
+
+            if ($officeFilter !== null) {
+                $internalQuery->where('office_id', (int) $officeFilter);
+            }
+
+            foreach ($internalQuery->get() as $report) {
+                $routedLog = $report->statusLogs->first();
+                $routedAt = $routedLog?->created_at ?? $report->reviewed_at ?? $report->created_at;
+                $isOverdue = $report->due_at !== null
+                    && $report->due_at->isPast()
+                    && ! in_array($report->status, Report::CLOSED_STATUSES, true);
+
+                $items->push([
+                    'kind' => 'internal',
+                    'id' => $report->id,
+                    'report_id' => $report->id,
+                    'reference_no' => $report->tracking_code,
+                    'tracking_code' => $report->tracking_code,
+                    'type_label' => 'Within barangay',
+                    'office_name' => $report->office?->name ?? 'Unassigned',
+                    'status' => $report->status,
+                    'status_label' => Report::STATUSES[$report->status] ?? $report->status,
+                    'routed_or_sent_at' => $routedAt,
+                    'routed_or_sent_empty' => 'Not routed',
+                    'follow_up_at' => $report->due_at,
+                    'is_overdue' => $isOverdue,
+                    'owner_name' => $report->assignee?->name ?? 'Unassigned',
+                    'url' => route('admin.reports.show', $report),
+                    'sort_at' => $routedAt ?? $report->created_at,
+                    'model' => $report,
+                ]);
+            }
         }
 
-        $referrals = $query->paginate(15)->withQueryString();
+        $sorted = $items->sortByDesc(fn (array $row) => $row['sort_at']?->getTimestamp() ?? 0)->values();
+        $perPage = 15;
+        $currentPage = LengthAwarePaginator::resolveCurrentPage();
+        $referrals = new LengthAwarePaginator(
+            $sorted->forPage($currentPage, $perPage)->values(),
+            $sorted->count(),
+            $perPage,
+            $currentPage,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
 
         $offices = Office::query()
-            ->where(fn ($officeQuery) => $officeQuery
-                ->where('is_external', true)
-                ->orWhereHas('referrals'))
+            ->orderByDesc('is_internal')
             ->orderBy('name')
-            ->get(['id', 'name']);
+            ->get(['id', 'name', 'type', 'is_internal', 'is_external', 'is_active']);
+
+        $statusOptions = [
+            'External referrals' => Referral::STATUSES,
+            'Within barangay reports' => [
+                'routed' => Report::STATUSES['routed'],
+                'in_progress' => Report::STATUSES['in_progress'],
+                'on_hold' => Report::STATUSES['on_hold'] ?? 'On Hold',
+                'needs_info' => Report::STATUSES['needs_info'],
+                'awaiting_confirmation' => Report::STATUSES['awaiting_confirmation'],
+                'resolved' => Report::STATUSES['resolved'],
+                'closed' => Report::STATUSES['closed'] ?? 'Closed',
+            ],
+        ];
 
         return view('admin.referrals.index', compact(
             'referrals',
             'offices',
+            'typeFilter',
             'statusFilter',
-            'officeFilter'
+            'officeFilter',
+            'statusOptions'
         ));
     }
 

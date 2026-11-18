@@ -38,7 +38,7 @@ class ReportReviewService
             $aiResult = $lockedReport->aiResult()->whereNull('error')->first();
             $routingDecision = $this->routingService->decisionForCategory($category);
             $selectedOffice = ($data['office_id'] ?? null)
-                ? Office::query()->findOrFail($data['office_id'])
+                ? Office::query()->where('is_active', true)->findOrFail($data['office_id'])
                 : null;
             $oldValues = $this->reviewValues($lockedReport);
 
@@ -160,7 +160,8 @@ class ReportReviewService
                     $selectedOffice,
                     $reviewer,
                     $data['referral_letter'] ?? null,
-                    $data['resident_message'] ?? null
+                    $data['resident_message'] ?? null,
+                    isset($data['follow_up_owner_id']) ? (int) $data['follow_up_owner_id'] : $reviewer->id
                 );
             } elseif (in_array($lockedReport->status, ['submitted', 'reopened', 'needs_info'], true)) {
                 $this->statusService->transition(

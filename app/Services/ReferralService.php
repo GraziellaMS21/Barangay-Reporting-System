@@ -37,9 +37,10 @@ class ReferralService
         Office $office,
         ?User $user,
         ?string $letterText = null,
-        ?string $residentMessage = null
+        ?string $residentMessage = null,
+        ?int $followUpOwnerId = null
     ): Referral {
-        return DB::transaction(function () use ($report, $office, $user, $letterText, $residentMessage): Referral {
+        return DB::transaction(function () use ($report, $office, $user, $letterText, $residentMessage, $followUpOwnerId): Referral {
             $lockedReport = Report::query()->whereKey($report->id)->lockForUpdate()->firstOrFail();
 
             $referral = Referral::query()
@@ -51,6 +52,8 @@ class ReferralService
                 ? $letterText
                 : $this->buildLetter($lockedReport, $office);
 
+            $ownerId = $followUpOwnerId ?? $user?->id;
+
             if ($referral === null) {
                 $referral = Referral::query()->create([
                     'report_id' => $lockedReport->id,
@@ -59,12 +62,14 @@ class ReferralService
                     'referral_text' => $letter,
                     'status' => 'prepared',
                     'prepared_by' => $user?->id,
+                    'follow_up_owner_id' => $ownerId,
                 ]);
             } else {
                 $referral->update([
                     'referral_text' => $letter,
                     'status' => 'prepared',
                     'prepared_by' => $user?->id ?? $referral->prepared_by,
+                    'follow_up_owner_id' => $ownerId ?? $referral->follow_up_owner_id ?? $referral->prepared_by,
                     'closed_at' => null,
                     'outcome' => null,
                 ]);

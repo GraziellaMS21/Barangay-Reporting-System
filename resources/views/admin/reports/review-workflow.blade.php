@@ -53,10 +53,12 @@
   $reviewedInitialCount = $alreadyReviewed ? $requiredFieldsCount : 0;
   $selectedCategoryId = (int) $finalCategoryId;
   $routingDecision = $routingDecisions[$selectedCategoryId] ?? null;
-  $officeDefault = old('office_id', $alreadyReviewed
+  $candidateOfficeDefault = $alreadyReviewed
       ? ($report->office_id ?? $routingDecision['office_id'] ?? '')
-      : ($routingDecision['office_id'] ?? $report->office_id ?? ''));
-  $assignedDefault = old('assigned_to', $report->assigned_to ?? $currentUserId);
+      : ($routingDecision['office_id'] ?? $report->office_id ?? '');
+  $selectedInternalOffice = $offices->firstWhere('id', (int) $candidateOfficeDefault);
+  $officeDefault = old('office_id', $selectedInternalOffice ? $selectedInternalOffice->id : '');
+  $assignedDefault = old('assigned_to', $report->assigned_to ?? $selectedInternalOffice?->default_assignee_id ?? '');
   // The Message to the resident starts empty; guidance lives in the placeholder
   // so response templates never push stub text like "Template: needs more info"
   // into an outgoing message.
@@ -97,7 +99,7 @@
   };
   $isCompleted = in_array($report->status, ['resolved', 'closed'], true);
   $oneLineSummary = \Illuminate\Support\Str::limit($report->description, 110);
-  $priorityLabel = $report->urgency ?: 'Unassigned';
+  $priorityLabel = $report->urgency ?: 'not set';
   $googleMapsUrl = $report->lat !== null && $report->lng !== null
       ? 'https://www.google.com/maps/search/?api=1&query='.$report->lat.','.$report->lng
       : null;
@@ -783,7 +785,7 @@
         <script type="application/json" data-letter-templates>@json($letterTemplates)</script>
 
         <p class="review-priority-line">
-          Priority:
+          Urgency:
           <span class="review-badge review-badge-blue" title="Priority score: {{ $report->priority_score ?? 0 }}">{{ $priorityLabel }}</span>
           @if($report->due_at)
             <span>Due {{ $report->due_at->format('M d, Y h:i A') }}</span>
@@ -797,10 +799,13 @@
               <label for="office_id">Office</label>
               <select id="office_id" name="office_id" data-office-select>
                 <option value="">Select an office</option>
-                @foreach($offices->where('is_external', false) as $office)
-                  <option value="{{ $office->id }}" @selected((string) $officeDefault === (string) $office->id)>{{ $office->name }}</option>
+                @foreach($offices as $office)
+                  <option value="{{ $office->id }}"
+                          data-default-assignee="{{ $office->default_assignee_id ?? '' }}"
+                          @selected((string) $officeDefault === (string) $office->id)>{{ $office->name }}</option>
                 @endforeach
               </select>
+              <p class="review-field-hint">The department that handles this report</p>
               <p class="review-field-hint" data-routing-reason>
                 @if($routingDecision)
                   Rule: {{ $categories->firstWhere('id', $selectedCategoryId)?->name }} → {{ $routingDecision['office_name'] ?? 'No office' }}.
@@ -811,13 +816,13 @@
             </div>
             <div class="review-form-field">
               <label for="assigned_to">Assigned to</label>
-              <select id="assigned_to" name="assigned_to">
+              <select id="assigned_to" name="assigned_to" data-assigned-select>
                 <option value="">Unassigned</option>
                 @foreach($staffUsers as $staffUser)
                   <option value="{{ $staffUser->id }}" @selected((string) $assignedDefault === (string) $staffUser->id)>{{ $staffUser->name }}</option>
                 @endforeach
               </select>
-              <p class="review-field-hint">Defaults to the selected office's assignee, or you when none is configured.</p>
+              <p class="review-field-hint">The staff member responsible for follow-through</p>
             </div>
             <div class="review-form-field review-form-field-wide">
               <label for="review_note">Message to the resident <span class="review-optional">(optional)</span></label>
@@ -842,30 +847,42 @@
 
         {{-- Mode B: beyond barangay authority (refer to an external agency) --}}
         <div class="review-mode-block" data-mode-block="beyond" @if($initialMode === 'within') hidden @endif>
-          <div class="review-form-field">
-            <label for="agency_id">Agency</label>
-            <select id="agency_id" name="office_id" data-agency-select @disabled($initialMode === 'within')>
-              <option value="">Select an agency</option>
-              @foreach($externalOffices as $externalOffice)
-                <option value="{{ $externalOffice->id }}" @selected((string) $defaultAgencyId === (string) $externalOffice->id)>{{ $externalOffice->name }}</option>
-              @endforeach
-            </select>
-            <p class="review-field-hint" data-agency-info>
-              @if($defaultAgency)
-                Contact: {{ $defaultAgency->contact_person ?? 'Not provided' }}
-                @if($defaultAgency->contact_email)
-                  · {{ $defaultAgency->contact_email }}
+          <div class="review-form-grid">
+            <div class="review-form-field">
+              <label for="agency_id">Agency</label>
+              <select id="agency_id" name="office_id" data-agency-select @disabled($initialMode === 'within')>
+                <option value="">Select an agency</option>
+                @foreach($externalOffices as $externalOffice)
+                  <option value="{{ $externalOffice->id }}" @selected((string) $defaultAgencyId === (string) $externalOffice->id)>{{ $externalOffice->name }}</option>
+                @endforeach
+              </select>
+              <p class="review-field-hint" data-agency-info>
+                @if($defaultAgency)
+                  Contact: {{ $defaultAgency->contact_person ?? 'Not provided' }}
+                  @if($defaultAgency->contact_email)
+                    · {{ $defaultAgency->contact_email }}
+                  @endif
+                  @if($defaultAgency->contact_phone)
+                    · {{ $defaultAgency->contact_phone }}
+                  @endif
+                  @if($defaultAgency->address)
+                    · {{ $defaultAgency->address }}
+                  @endif
+                @else
+                  No external agencies are configured yet. An administrator can add them under offices.
                 @endif
-                @if($defaultAgency->contact_phone)
-                  · {{ $defaultAgency->contact_phone }}
-                @endif
-                @if($defaultAgency->address)
-                  · {{ $defaultAgency->address }}
-                @endif
-              @else
-                No external agencies are configured yet. An administrator can add them under offices.
-              @endif
-            </p>
+              </p>
+            </div>
+            <div class="review-form-field">
+              <label for="follow_up_owner_id">Follow-up owner</label>
+              <select id="follow_up_owner_id" name="follow_up_owner_id" @disabled($initialMode === 'within')>
+                <option value="">Unassigned</option>
+                @foreach($staffUsers as $staffUser)
+                  <option value="{{ $staffUser->id }}" @selected((string) old('follow_up_owner_id', $currentUserId) === (string) $staffUser->id)>{{ $staffUser->name }}</option>
+                @endforeach
+              </select>
+              <p class="review-field-hint">The staff member responsible for following up with the agency.</p>
+            </div>
           </div>
           <div class="review-form-field review-form-field-wide">
             <label for="referral_letter">Referral letter</label>
@@ -1982,10 +1999,26 @@
     if (blockBeyond) blockBeyond.hidden = within;
     if (officeSelect) officeSelect.disabled = !within;
     if (agencySelect) agencySelect.disabled = within;
+    const followUpOwnerSelect = root.querySelector('#follow_up_owner_id');
+    if (followUpOwnerSelect) followUpOwnerSelect.disabled = within;
     if (letterTextarea) letterTextarea.disabled = within;
     if (residentMessageTextarea) residentMessageTextarea.disabled = within;
     if (!within && agencySelect) applyLetterTemplate(agencySelect.value);
     updateGate();
+  };
+
+  const assignedSelect = root.querySelector('[data-assigned-select]');
+  let assignedTouched = false;
+  assignedSelect?.addEventListener('change', () => {
+    assignedTouched = true;
+  });
+
+  const syncDefaultAssignee = () => {
+    if (!officeSelect || !assignedSelect || assignedTouched) return;
+    const opt = officeSelect.selectedOptions[0];
+    if (opt && opt.dataset.defaultAssignee !== undefined) {
+      assignedSelect.value = opt.dataset.defaultAssignee || '';
+    }
   };
 
   modeToggle?.addEventListener('click', () => {
@@ -2004,6 +2037,7 @@
   });
   officeSelect?.addEventListener('change', () => {
     officeTouched = true;
+    syncDefaultAssignee();
     updateGate();
   });
   root.querySelector('[name="category_id"]')?.addEventListener('change', (event) => {
@@ -2016,6 +2050,7 @@
     if (modeNote && !modeOverridden) modeNote.textContent = decision.reason || modeNote.textContent;
     if (officeSelect && !officeTouched && decision.office_id) {
       officeSelect.value = String(decision.office_id);
+      syncDefaultAssignee();
     }
     if (!modeOverridden) setMode(ruleMode);
     updateGate();

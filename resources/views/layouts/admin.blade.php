@@ -33,7 +33,7 @@
           <i class="fa-solid fa-map-location-dot" aria-hidden="true"></i> Staff map
         </a>
         <a href="{{ route('admin.referrals.index') }}" @class(['active' => request()->routeIs('admin.referrals.index')])>
-          <i class="fa-solid fa-clipboard-list" aria-hidden="true"></i> Referrals
+          <i class="fa-solid fa-clipboard-list" aria-hidden="true"></i> Referrals and routing
         </a>
         <a href="{{ route('reports.create') }}">
           <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Resident site

@@ -7,9 +7,13 @@ use App\Models\Office;
 use App\Models\Referral;
 use App\Models\Report;
 use App\Models\RoutingRule;
+use App\Models\User;
+use Illuminate\Support\Collection;
 
 class RoutingService
 {
+    public function __construct(private readonly ReferralService $referralService) {}
+
     public function recommendedOffice(Category $category): ?Office
     {
         $rule = RoutingRule::query()
@@ -17,6 +21,49 @@ class RoutingService
             ->first();
 
         return $rule?->office ?? $category->defaultOffice;
+    }
+
+    /**
+     * @param  Collection<int, Category>  $categories
+     * @return array<int, array{office_id: int|null, office_name: string|null, within_authority: bool, reason: string}>
+     */
+    public function decisionsForCategories(Collection $categories): array
+    {
+        $rules = RoutingRule::query()
+            ->with('office')
+            ->whereIn('category_id', $categories->modelKeys())
+            ->get()
+            ->keyBy('category_id');
+
+        return $categories->mapWithKeys(function (Category $category) use ($rules): array {
+            $rule = $rules->get($category->id);
+            $office = $rule?->office ?? $category->defaultOffice;
+
+            return [$category->id => [
+                'office_id' => $office?->id,
+                'office_name' => $office?->name,
+                'within_authority' => (bool) ($rule?->within_authority ?? true),
+                'reason' => $rule?->jurisdiction_note ?? 'Assigned to the category default office.',
+            ]];
+        })->all();
+    }
+
+    /**
+     * @return array{office: Office|null, within_authority: bool, jurisdiction_note: string}
+     */
+    public function decisionForCategory(Category $category): array
+    {
+        $rule = RoutingRule::query()
+            ->with('office')
+            ->where('category_id', $category->id)
+            ->first();
+        $office = $rule?->office ?? $category->defaultOffice;
+
+        return [
+            'office' => $office,
+            'within_authority' => (bool) ($rule?->within_authority ?? true),
+            'jurisdiction_note' => $rule?->jurisdiction_note ?? 'Assigned to the category default office.',
+        ];
     }
 
     public function decisionFor(Report $report): array
@@ -30,17 +77,14 @@ class RoutingService
             ];
         }
 
-        $rule = RoutingRule::query()->where('category_id', $category->id)->first();
-        $office = $rule?->office ?? $category->defaultOffice;
-
-        return [
-            'office' => $office,
-            'within_authority' => (bool) ($rule?->within_authority ?? true),
-            'jurisdiction_note' => $rule?->jurisdiction_note ?? 'Trip within barangay authority.',
-        ];
+        return $this->decisionForCategory($category);
     }
 
-    public function createReferral(Report $report, ?Office $office = null): ?Referral
+    /**
+     * Legacy entry point for creating a referral. Delegates to ReferralService so
+     * every referral gets a REF number, a real letter and the "prepared" status.
+     */
+    public function createReferral(Report $report, ?Office $office = null, ?User $user = null): ?Referral
     {
         $office ??= $this->recommendedOffice($report->category ?? throw new \RuntimeException('Report must include a category to route.'));
 
@@ -48,15 +92,6 @@ class RoutingService
             return null;
         }
 
-        return Referral::firstOrCreate(
-            [
-                'report_id' => $report->id,
-                'office_id' => $office->id,
-            ],
-            [
-                'referral_text' => 'This report falls outside the barangay authority and is referred to '.$office->name.'.',
-                'status' => 'pending',
-            ]
-        );
+        return $this->referralService->prepareReferral($report, $office, $user);
     }
 }

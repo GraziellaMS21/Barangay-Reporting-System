@@ -17,9 +17,12 @@ class DashboardController extends Controller
         DashboardInsightsService $dashboardInsightsService
     ): View {
         $counts = [
-            'awaiting_review' => Report::query()->where('status', 'submitted')->count(),
+            'needs_review' => Report::query()->whereIn('status', ['submitted', 'under_review'])->count(),
+            'awaiting_review' => Report::query()->whereIn('status', ['submitted', 'under_review'])->count(),
             'high_or_critical' => Report::query()->whereIn('status', ['under_review', 'in_progress', 'routed'])->whereIn('urgency', ['High', 'Critical'])->count(),
             'in_progress' => Report::query()->where('status', 'in_progress')->count(),
+            'overdue' => Report::query()->whereNotNull('due_at')->where('due_at', '<', now())->whereNotIn('status', Report::CLOSED_STATUSES)->count(),
+            'awaiting_resident' => Report::query()->whereIn('status', ['needs_info', 'awaiting_confirmation'])->count(),
             'resolved' => Report::query()->where('status', 'resolved')->count(),
             'emergency' => Report::query()
                 ->where(fn ($query) => $query
@@ -37,7 +40,7 @@ class DashboardController extends Controller
         $averageResolutionHours = $resolvedReports->isEmpty()
             ? null
             : round($resolvedReports->avg(
-                fn (Report $report): float => $report->created_at->diffInMinutes($report->resolved_at) / 60
+                fn (Report $report): float => abs($report->created_at->diffInMinutes($report->resolved_at)) / 60
             ), 1);
         $topPriorityReports = Report::query()
             ->whereNotIn('status', [...Report::CLOSED_STATUSES, 'emergency_flagged'])
@@ -45,11 +48,16 @@ class DashboardController extends Controller
             ->orderByDesc('created_at')
             ->limit(5)
             ->get(['id', 'tracking_code', 'priority_score', 'urgency', 'status']);
-        $unreviewedReports = Report::query()
-            ->where('status', 'submitted')
-            ->latest()
+        $needsAttentionReports = Report::query()
+            ->whereNotIn('status', Report::CLOSED_STATUSES)
+            ->orderByDesc('is_emergency')
+            ->orderByRaw('CASE WHEN due_at IS NOT NULL AND due_at < ? THEN 0 ELSE 1 END', [now()->toDateTimeString()])
+            ->orderByDesc('priority_score')
+            ->orderBy('created_at')
             ->limit(5)
-            ->get(['id', 'tracking_code', 'created_at']);
+            ->get(['id', 'tracking_code', 'priority_score', 'urgency', 'status', 'due_at', 'created_at', 'is_emergency']);
+        $pendingDuplicateCount = DuplicateSuggestion::query()->where('decision', 'pending')->count();
+        $pendingReferralCount = Referral::query()->needsAttention()->count();
         $pendingDuplicateSuggestions = DuplicateSuggestion::query()
             ->where('decision', 'pending')
             ->with(['report:id,tracking_code', 'candidate:id,tracking_code'])
@@ -57,9 +65,10 @@ class DashboardController extends Controller
             ->limit(5)
             ->get();
         $pendingReferrals = Referral::query()
-            ->where('status', 'pending')
+            ->needsAttention()
             ->with(['report:id,tracking_code', 'office:id,name'])
-            ->latest()
+            ->orderByRaw('CASE WHEN follow_up_at IS NOT NULL AND follow_up_at < ? THEN 0 ELSE 1 END', [now()->toDateTimeString()])
+            ->latest('id')
             ->limit(5)
             ->get();
         $dashboardInsights = $dashboardInsightsService->generate([
@@ -81,11 +90,10 @@ class DashboardController extends Controller
         return view('admin.dashboard', compact(
             'counts',
             'chartData',
-            'recentReports',
+            'needsAttentionReports',
             'averageResolutionHours',
-            'topPriorityReports',
-            'unreviewedReports',
-            'pendingDuplicateSuggestions',
+            'pendingDuplicateCount',
+            'pendingReferralCount',
             'pendingReferrals',
             'dashboardInsights'
         ));

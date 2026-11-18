@@ -1,0 +1,2 @@
+@props(['name', 'rows' => 4, 'required' => false, 'placeholder' => null, 'minHeight' => null])
+<textarea id="{{ $name }}" name="{{ $name }}" rows="{{ $rows }}" @if($required) required @endif placeholder="{{ $placeholder }}" {{ $attributes }}>{{ $slot }}</textarea>

@@ -90,6 +90,9 @@ class Report extends Model
         'category_id',
         'office_id',
         'urgency',
+        'resident_category_id',
+        'resident_purok_id',
+        'resident_landmark',
         'summary',
         'is_emergency',
         'priority_score',
@@ -146,6 +149,16 @@ class Report extends Model
         return $this->belongsTo(Category::class);
     }
 
+    public function residentCategory(): BelongsTo
+    {
+        return $this->belongsTo(Category::class, 'resident_category_id');
+    }
+
+    public function residentPurok(): BelongsTo
+    {
+        return $this->belongsTo(Purok::class, 'resident_purok_id');
+    }
+
     public function office(): BelongsTo
     {
         return $this->belongsTo(Office::class);
@@ -174,6 +187,18 @@ class Report extends Model
     public function referrals(): HasMany
     {
         return $this->hasMany(Referral::class);
+    }
+
+    public function proofPhotos(): HasMany
+    {
+        return $this->hasMany(ReportProofPhoto::class)->oldest('id');
+    }
+
+    public function activeReferral(): HasOne
+    {
+        return $this->hasOne(Referral::class)
+            ->whereNotIn('status', ['closed'])
+            ->latestOfMany('id');
     }
 
     public function duplicateSuggestions(): HasMany

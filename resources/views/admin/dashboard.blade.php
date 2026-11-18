@@ -6,186 +6,70 @@
 @section('content')
 <div class="page-heading">
   <h2>Barangay operations dashboard</h2>
-  <p>Review key report metrics, trends, and items that need attention.</p>
+  <p>What needs action right now.</p>
 </div>
 
 @if($counts['emergency'] > 0)
   <div class="emergency-dashboard-alert" role="alert">
     <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
     <span><strong>{{ $counts['emergency'] }} emergency report{{ $counts['emergency'] === 1 ? '' : 's' }}</strong> need staff review. This system is not monitored in real time.</span>
-    <a href="{{ route('admin.reports.index', ['stage' => 'all', 'emergency' => '1']) }}">Review emergency reports</a>
+    <a href="{{ route('admin.reports.index', ['emergency' => '1']) }}">Review emergency reports</a>
   </div>
 @endif
 
 <section class="stat-grid" aria-label="Operational metrics">
-  <article class="card stat-card">
-    <span class="stat-icon" aria-hidden="true"><i class="fa-solid fa-eye"></i></span>
-    <div><strong>{{ $counts['awaiting_review'] }}</strong><span>Awaiting review</span></div>
-  </article>
-  <article class="card stat-card">
-    <span class="stat-icon" aria-hidden="true"><i class="fa-solid fa-triangle-exclamation"></i></span>
-    <div><strong>{{ $counts['high_or_critical'] }}</strong><span>High or critical</span></div>
-  </article>
-  <article class="card stat-card">
-    <span class="stat-icon" aria-hidden="true"><i class="fa-solid fa-gears"></i></span>
-    <div><strong>{{ $counts['in_progress'] }}</strong><span>In progress</span></div>
-  </article>
-  <article class="card stat-card">
-    <span class="stat-icon" aria-hidden="true"><i class="fa-solid fa-clock"></i></span>
-    <div>
-      <strong>{{ $averageResolutionHours === null ? '—' : number_format($averageResolutionHours, 1).' h' }}</strong>
-      <span>Average time to resolve</span>
-    </div>
-  </article>
+  <a class="card stat-card" style="border-left:4px solid #e0352b;" href="{{ route('admin.reports.index', ['overdue' => '1']) }}">
+    <div><strong style="color:#e0352b; font-size:2.25rem;">{{ $counts['overdue'] ?: 'All clear' }}</strong><span>Overdue</span></div>
+  </a>
+  <a class="card stat-card" style="border-left:4px solid #c58a00;" href="{{ route('admin.reports.index', ['urgency' => 'High']) }}">
+    <div><strong style="color:#c58a00; font-size:2.25rem;">{{ $counts['high_or_critical'] ?: 'All clear' }}</strong><span>High or critical</span></div>
+  </a>
+  <a class="card stat-card" href="{{ route('admin.reports.index', ['stage' => 'new']) }}">
+    <div><strong style="font-size:2.25rem; font-weight:800;">{{ $counts['needs_review'] }}</strong><span>Needs review</span></div>
+  </a>
+  <a class="card stat-card" style="opacity:0.85;" href="{{ route('admin.reports.index', ['status' => 'needs_info']) }}">
+    <div><strong style="font-size:1.5rem;">{{ $counts['awaiting_resident'] }}</strong><span>Awaiting resident</span></div>
+  </a>
 </section>
 
-<section class="chart-grid" aria-label="Report analytics">
-  @foreach([
-    'category' => ['Reports by category', 'doughnut'],
-    'status' => ['Reports by status', 'horizontal-bar'],
-    'weekly' => ['Reports per week · last 8 weeks', 'line'],
-    'purok' => ['Reports by purok · top 8', 'horizontal-bar'],
-    'urgency' => ['Urgency breakdown', 'bar'],
-  ] as $key => [$title, $type])
-    @php($chart = $chartData[$key])
-    <section class="card chart-card">
-      <h2 class="card-title">{{ $title }}</h2>
-      @if(array_sum($chart['counts']) > 0)
-        <div class="chart-canvas-wrap"
-          data-report-chart="{{ json_encode($chart, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_HEX_TAG) }}"
-          data-chart-type="{{ $type }}">
-          <canvas role="img" aria-label="{{ $title }}"></canvas>
-        </div>
-      @else
-        <p class="chart-empty-state">No reports yet.</p>
-      @endif
-    </section>
-  @endforeach
-</section>
-
+<div style="display:grid; grid-template-columns:2fr 1fr; gap:1rem;">
 <section class="card">
-  <h2 class="card-title"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> 5 most recent reports</h2>
+  <h2 class="card-title">Needs attention</h2>
   <div class="table-wrap">
     <table class="data-table data-table-cards">
-      <thead>
-        <tr>
-          <th scope="col">Tracking code</th>
-          <th scope="col">Category</th>
-          <th scope="col">Status</th>
-          <th scope="col">Submitted</th>
-        </tr>
-      </thead>
+      <thead><tr><th>Report</th><th>Why</th><th>Age</th><th></th></tr></thead>
       <tbody>
-        @forelse($recentReports as $report)
-          <tr>
-            <td data-label="Tracking code"><a href="{{ route('admin.reports.show', $report) }}">{{ $report->tracking_code }}</a></td>
-            <td data-label="Category">{{ $report->category?->name ?? 'Unclassified' }}</td>
-            <td data-label="Status"><x-status-badge :status="$report->status" /></td>
-            <td data-label="Submitted">{{ $report->created_at->format('M d, Y') }}</td>
+        @forelse($needsAttentionReports as $report)
+          <tr style="cursor:pointer" onclick="window.location='{{ route('admin.reports.show', $report) }}'">
+            <td data-label="Report">
+              <div class="font-mono font-bold">{{ $report->tracking_code }}</div>
+              <div class="text-sm clamp-2">{{ \Illuminate\Support\Str::limit($report->summary ?? '', 80) }}</div>
+              <div class="text-xs text-muted">{{ $report->purok?->name }}</div>
+            </td>
+            <td data-label="Why">
+              @if($report->due_at && $report->due_at->isPast())
+                <span class="status-badge b-red">Overdue</span>
+              @elseif($report->urgency === 'Critical')
+                <span class="status-badge b-red">Critical</span>
+              @elseif($report->reopened_count > 0)
+                <span class="status-badge b-gold">Reopened</span>
+              @else
+                <span class="status-badge b-blue">New</span>
+              @endif
+            </td>
+            <td data-label="Age" title="{{ $report->created_at->format('M d, Y h:i A') }}">{{ $report->created_at->diffForHumans(null, true) }}</td>
+            <td data-label=""><a href="{{ route('admin.reports.show', $report) }}"><i class="fa-solid fa-chevron-right"></i></a></td>
           </tr>
         @empty
-          <tr><td class="table-empty" colspan="4" data-label="">No reports have been submitted yet.</td></tr>
+          <tr><td class="table-empty" colspan="4">No reports need attention.</td></tr>
         @endforelse
       </tbody>
     </table>
   </div>
 </section>
 
-<div class="attention-grid">
-  <section class="card">
-    <h2 class="card-title"><i class="fa-solid fa-arrow-up-wide-short" aria-hidden="true"></i> Top 5 priority reports</h2>
-    <div class="table-wrap">
-      <table class="data-table data-table-cards">
-        <thead>
-          <tr><th scope="col">Report</th><th scope="col">Priority</th><th scope="col">Urgency</th></tr>
-        </thead>
-        <tbody>
-          @forelse($topPriorityReports as $report)
-            <tr>
-              <td data-label="Report"><a href="{{ route('admin.reports.show', $report) }}">{{ $report->tracking_code }}</a></td>
-              <td data-label="Priority">{{ $report->priority_score }}</td>
-              <td data-label="Urgency">{{ $report->urgency ?? '—' }}</td>
-            </tr>
-          @empty
-            <tr><td class="table-empty" colspan="3" data-label="">No scored reports need attention.</td></tr>
-          @endforelse
-        </tbody>
-      </table>
-    </div>
-  </section>
-
-  <section class="card">
-    <h2 class="card-title"><i class="fa-solid fa-eye" aria-hidden="true"></i> Still unreviewed</h2>
-    <div class="table-wrap">
-      <table class="data-table data-table-cards">
-        <thead>
-          <tr><th scope="col">Report</th><th scope="col">Submitted</th></tr>
-        </thead>
-        <tbody>
-          @forelse($unreviewedReports as $report)
-            <tr>
-              <td data-label="Report"><a href="{{ route('admin.reports.show', $report) }}">{{ $report->tracking_code }}</a></td>
-              <td data-label="Submitted">{{ $report->created_at->format('M d, Y') }}</td>
-            </tr>
-          @empty
-            <tr><td class="table-empty" colspan="2" data-label="">No unreviewed reports.</td></tr>
-          @endforelse
-        </tbody>
-      </table>
-    </div>
-  </section>
-
-  <section class="card">
-    <h2 class="card-title"><i class="fa-solid fa-copy" aria-hidden="true"></i> Pending duplicate suggestions</h2>
-    <div class="table-wrap">
-      <table class="data-table data-table-cards">
-        <thead>
-          <tr><th scope="col">Report pair</th><th scope="col">Similarity</th></tr>
-        </thead>
-        <tbody>
-          @forelse($pendingDuplicateSuggestions as $suggestion)
-            <tr>
-              <td data-label="Report pair">
-                <a href="{{ route('admin.reports.show', $suggestion->report) }}">{{ $suggestion->report->tracking_code }}</a>
-                and
-                <a href="{{ route('admin.reports.show', $suggestion->candidate) }}">{{ $suggestion->candidate->tracking_code }}</a>
-              </td>
-              <td data-label="Similarity">{{ number_format($suggestion->score * 100, 0) }}%</td>
-            </tr>
-          @empty
-            <tr><td class="table-empty" colspan="2" data-label="">No pending duplicate suggestions.</td></tr>
-          @endforelse
-        </tbody>
-      </table>
-    </div>
-  </section>
-
-  <section class="card">
-    <h2 class="card-title"><i class="fa-solid fa-share-from-square" aria-hidden="true"></i> Pending referrals</h2>
-    <div class="table-wrap">
-      <table class="data-table data-table-cards">
-        <thead>
-          <tr><th scope="col">Report</th><th scope="col">Office</th></tr>
-        </thead>
-        <tbody>
-          @forelse($pendingReferrals as $referral)
-            <tr>
-              <td data-label="Report"><a href="{{ route('admin.reports.show', $referral->report) }}">{{ $referral->report->tracking_code }}</a></td>
-              <td data-label="Office">{{ $referral->office->name }}</td>
-            </tr>
-          @empty
-            <tr><td class="table-empty" colspan="2" data-label="">No pending referrals.</td></tr>
-          @endforelse
-        </tbody>
-      </table>
-    </div>
-  </section>
-</div>
-
 <section class="card dashboard-insights" aria-labelledby="dashboard-insights-heading">
-  <h2 id="dashboard-insights-heading" class="card-title">
-    <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Gemini dashboard insights
-  </h2>
+  <h2 id="dashboard-insights-heading" class="card-title">Gemini dashboard insights</h2>
   @if($dashboardInsights !== [])
     <ul class="stacked-list">
       @foreach($dashboardInsights as $insight)
@@ -196,4 +80,85 @@
     <p class="empty-state">Insights are temporarily unavailable. Review the dashboard totals and report trends above.</p>
   @endif
 </section>
+
+<section class="card" aria-labelledby="referrals-attention-heading" style="grid-column: 1 / -1;">
+  <h2 id="referrals-attention-heading" class="card-title">Referrals needing attention</h2>
+  <div class="table-wrap">
+    <table class="data-table data-table-cards">
+      <thead><tr><th>REF no.</th><th>Agency</th><th>Status</th><th>Follow-up</th><th></th></tr></thead>
+      <tbody>
+        @forelse($pendingReferrals as $referral)
+          @php($referralOverdue = $referral->isOverdue())
+          <tr style="cursor:pointer" onclick="window.location='{{ route('admin.reports.show', $referral->report_id) }}'">
+            <td data-label="REF no.">
+              <div class="font-mono font-bold">{{ $referral->reference_no ?? 'Not assigned' }}</div>
+              <div class="text-xs text-muted">{{ $referral->report?->tracking_code }}</div>
+            </td>
+            <td data-label="Agency">{{ $referral->office?->name }}</td>
+            <td data-label="Status">
+              @if($referral->status === 'prepared')
+                <span class="status-badge b-gold">Not sent</span>
+              @elseif($referralOverdue)
+                <span class="status-badge b-red">Follow-up overdue</span>
+              @else
+                <span class="status-badge b-blue">{{ \App\Models\Referral::STATUSES[$referral->status] ?? $referral->status }}</span>
+              @endif
+            </td>
+            <td data-label="Follow-up">
+              @if($referral->follow_up_at)
+                {{ $referral->follow_up_at->format('M d, Y') }}
+              @else
+                <span class="text-muted">Not scheduled</span>
+              @endif
+            </td>
+            <td data-label=""><a href="{{ route('admin.reports.show', $referral->report_id) }}"><i class="fa-solid fa-chevron-right"></i></a></td>
+          </tr>
+        @empty
+          <tr><td class="table-empty" colspan="5">No referrals need attention.</td></tr>
+        @endforelse
+      </tbody>
+    </table>
+  </div>
+</section>
+</div>
+
+<section class="chart-grid" aria-label="Report analytics">
+  @foreach(['category' => ['Reports by category', 'doughnut'], 'weekly' => ['Reports per week', 'line']] as $key => [$title, $type])
+    @php($chart = $chartData[$key])
+    <section class="card chart-card">
+      <h2 class="card-title">{{ $title }}</h2>
+      @if(array_sum($chart['counts']) > 0)
+        <div class="chart-canvas-wrap" data-report-chart="{{ json_encode($chart, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_HEX_TAG) }}" data-chart-type="{{ $type }}">
+          <canvas role="img" aria-label="{{ $title }}"></canvas>
+        </div>
+      @else
+        <p class="chart-empty-state">No reports yet.</p>
+      @endif
+    </section>
+  @endforeach
+</section>
+
+<details class="card">
+  <summary class="card-title" style="cursor:pointer">More charts</summary>
+  <section class="chart-grid" aria-label="More charts">
+    @foreach(['status' => ['Reports by status', 'horizontal-bar'], 'purok' => ['Reports by purok', 'horizontal-bar'], 'urgency' => ['Urgency breakdown', 'bar']] as $key => [$title, $type])
+      @php($chart = $chartData[$key])
+      <section class="card chart-card">
+        <h2 class="card-title">{{ $title }}</h2>
+        @if(array_sum($chart['counts']) > 0)
+          <div class="chart-canvas-wrap" data-report-chart="{{ json_encode($chart, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_HEX_TAG) }}" data-chart-type="{{ $type }}">
+            <canvas role="img" aria-label="{{ $title }}"></canvas>
+          </div>
+        @else
+          <p class="chart-empty-state">No reports yet.</p>
+        @endif
+      </section>
+    @endforeach
+  </section>
+</details>
+
+<p class="field-hint">
+  <a href="{{ route('admin.referrals.index') }}">Referrals needing attention: {{ $pendingReferralCount }}</a> ·
+  <a href="{{ route('admin.reports.index') }}">Pending duplicates: {{ $pendingDuplicateCount }}</a>
+</p>
 @endsection

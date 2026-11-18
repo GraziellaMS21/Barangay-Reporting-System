@@ -208,15 +208,33 @@ class ReportPrivacyAndValidationTest extends TestCase
         $report = Report::factory()->create([
             'reporter_name' => null,
             'reporter_contact' => null,
+            'reporter_email' => null,
         ]);
 
         $this->actingAs($staff)
             ->get(route('admin.reports.show', $report))
             ->assertOk()
-            ->assertSeeText('Reporter')
-            ->assertSeeText('Email:')
+            ->assertSeeText('Not stated (anonymous report)')
             ->assertDontSeeText('Name:')
-            ->assertDontSeeText('Phone:');
+            ->assertDontSeeText('Phone:')
+            ->assertDontSeeText('Email:');
+    }
+
+    public function test_staff_review_shows_reporter_contact_below_name(): void
+    {
+        $staff = User::factory()->staff()->create();
+        $report = Report::factory()->create([
+            'reporter_name' => 'Juan Dela Cruz',
+            'reporter_contact' => '09170000001',
+            'reporter_email' => 'juan@example.test',
+        ]);
+
+        $this->actingAs($staff)
+            ->get(route('admin.reports.show', $report))
+            ->assertOk()
+            ->assertSeeText('Juan Dela Cruz')
+            ->assertSeeText('09170000001')
+            ->assertSeeText('juan@example.test');
     }
 
     public function test_staff_review_escapes_reporter_name_output(): void

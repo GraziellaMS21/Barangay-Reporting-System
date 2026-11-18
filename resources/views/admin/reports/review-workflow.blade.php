@@ -235,7 +235,19 @@
           @if($report->is_anonymous || ! filled($report->reporter_name))
             <span class="review-not-provided"><i class="fa-solid fa-user" aria-hidden="true"></i> Not stated (anonymous report)</span>
           @else
-            <span><i class="fa-solid fa-user" aria-hidden="true"></i> {{ $report->reporter_name }}</span>
+            <span class="review-reported-identity">
+              <span><i class="fa-solid fa-user" aria-hidden="true"></i> {{ $report->reporter_name }}</span>
+              @if($report->reporter_contact || $report->reporter_email)
+                <span class="review-reported-contact">
+                  @if($report->reporter_contact)
+                    <span><i class="fa-solid fa-phone" aria-hidden="true"></i> {{ $report->reporter_contact }}</span>
+                  @endif
+                  @if($report->reporter_email)
+                    <span><i class="fa-solid fa-envelope" aria-hidden="true"></i> {{ $report->reporter_email }}</span>
+                  @endif
+                </span>
+              @endif
+            </span>
           @endif
         </div>
 
@@ -334,19 +346,6 @@
             @endif
           </div>
         </div>
-
-        <details class="review-reporter">
-          <summary>Reporter</summary>
-          <div class="review-reporter-details">
-            @if($report->is_anonymous)
-              <span>Anonymous report</span>
-            @else
-              @if($report->reporter_name)<span><strong>Name:</strong> {{ $report->reporter_name }}</span>@endif
-              @if($report->reporter_contact)<span><strong>Phone:</strong> {{ $report->reporter_contact }}</span>@endif
-              @if($report->reporter_email)<span><strong>Email:</strong> {{ $report->reporter_email }}</span>@endif
-            @endif
-          </div>
-        </details>
       </div>
     </details>
   </section>
@@ -699,8 +698,6 @@
                 Accept all AI suggestions
               </button>
             @endif
-
-            <span class="review-field-hint">Step 2 of 3: confirm the reviewed values before routing.</span>
 
             <button type="submit" name="intent" value="save" class="review-button review-button-blue">
               Confirm review

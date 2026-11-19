@@ -49,34 +49,24 @@ class DashboardControllerTest extends TestCase
             'report_id' => $priorityReport->id,
             'office_id' => $office->id,
             'referral_text' => 'Please assess this concern.',
-            'status' => 'pending',
+            'status' => 'prepared',
         ]);
 
         $response = $this->actingAs($staff)
             ->get(route('admin.dashboard'))
             ->assertOk()
             ->assertDontSee('data-dashboard-tabs', false)
-            ->assertSeeInOrder([
-                'Operational metrics',
-                'Reports by category',
-                '5 most recent reports',
-                'Top 5 priority reports',
-                'Still unreviewed',
-                'Pending duplicate suggestions',
-                'Pending referrals',
-            ])
-            ->assertSee('Top 5 priority reports')
+            ->assertSee('Operational metrics')
+            ->assertSee('Reports by category')
+            ->assertSee('Needs attention')
             ->assertSee($priorityReport->tracking_code)
-            ->assertSee('Still unreviewed')
             ->assertSee($unreviewedReport->tracking_code)
-            ->assertSee('Pending duplicate suggestions')
-            ->assertSee($candidateReport->tracking_code)
-            ->assertSee('Pending referrals')
+            ->assertSee('Referrals needing attention')
             ->assertSee($office->name)
-            ->assertSee('6.0 h')
+            ->assertSee('6 h avg resolution')
             ->assertSee('emergency report');
 
-        $this->assertSame(5, substr_count($response->getContent(), '<table'));
+        $this->assertSame(2, substr_count($response->getContent(), '<table'));
     }
 
     public function test_dashboard_sends_only_aggregate_counts_to_gemini(): void

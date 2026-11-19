@@ -38,12 +38,12 @@ class StaffPagesTest extends TestCase
 
         $this->get(route('reports.success', $report->tracking_code))
             ->assertOk()
-            ->assertSee('Your tracking code');
+            ->assertSee('Unique Tracking Code');
 
         $this->get(route('track.show', $report->tracking_code))
             ->assertOk()
             ->assertSee($report->tracking_code)
-            ->assertSee('Status history');
+            ->assertSee('Status History');
     }
 
     public function test_staff_can_sign_in_and_reach_the_dashboard(): void

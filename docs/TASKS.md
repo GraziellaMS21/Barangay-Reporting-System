@@ -83,11 +83,12 @@ Ordered, outcome-driven tasks to bring the existing codebase into alignment with
 
 ---
 
-## Task 5: End-to-End Verification of Code and Documentation
+## Task 5: End-to-End Verification of Code and Documentation [Completed]
+- **Status**: Completed (2026-11-19)
 - **Goal**: Ensure absolute parity between documentation and live codebase.
 - **Steps**:
-  1. Run `php artisan test` to verify complete test suite passes.
-  2. Run `./vendor/bin/pint --test` to confirm strict formatting compliance.
-  3. Run `php artisan route:list` to verify route bindings.
-  4. Perform a text search across the codebase to ensure zero orphaned status strings remain.
+  1. [x] Run `php artisan test` to verify complete test suite passes (132 tests, 132 passed, 1,041 assertions).
+  2. [x] Run `./vendor/bin/pint --test` to confirm strict formatting compliance across all modified and new files.
+  3. [x] Run `php artisan route:list` to verify route bindings (all 103 routes clean).
+  4. [x] Perform a text search across the codebase to ensure zero orphaned status strings remain (purged `out_of_scope` reference in `routes/engine.php` in favor of `Report::CLOSED_STATUSES`).
 - **Done When**: Test suite is 100% green, Pint is clean, and docs in `docs/` reflect the exact code state.

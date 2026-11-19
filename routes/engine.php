@@ -1,4 +1,5 @@
 <?php
+
 // Engine routes
 use App\Models\Report;
 use Illuminate\Http\Request;
@@ -17,7 +18,7 @@ Route::get('/api/nearby-reports', function (Request $request) {
     $lng = (float) $lng;
 
     $reports = Report::query()
-        ->whereNotIn('status', ['resolved', 'out_of_scope', 'merged'])
+        ->whereNotIn('status', Report::CLOSED_STATUSES)
         ->where('is_emergency', false)
         ->whereNotNull('lat')
         ->whereNotNull('lng')
@@ -44,12 +45,13 @@ Route::get('/api/nearby-reports', function (Request $request) {
         $distance = $earthRadius * $c;
 
         $report->distance_m = round($distance);
+
         return $distance <= 300;
     })->map(function ($report) {
         return [
             'tracking_code' => $report->tracking_code,
             'category' => $report->category?->name ?? 'Issue',
-            'status' => \App\Models\Report::STATUSES[$report->status] ?? ucfirst($report->status),
+            'status' => Report::STATUSES[$report->status] ?? ucfirst($report->status),
             'distance_m' => $report->distance_m,
             'created_at' => $report->created_at->diffForHumans(),
         ];

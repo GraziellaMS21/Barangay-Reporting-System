@@ -78,7 +78,7 @@
         @forelse($referrals as $row)
           @php
             $statusBadgeClass = match ($row['status']) {
-              'prepared', 'needs_info', 'on_hold', 'awaiting_confirmation' => 'review-badge-amber',
+              'prepared', 'needs_info', 'awaiting_confirmation' => 'review-badge-amber',
               'sent', 'acknowledged', 'routed', 'in_progress' => 'review-badge-blue',
               'action_taken', 'resolved' => 'review-badge-green',
               default => 'review-badge-gray',

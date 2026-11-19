@@ -78,7 +78,6 @@
   $isAfterRoute = in_array($report->status, [
       'routed',
       'in_progress',
-      'on_hold',
       'needs_info',
       'awaiting_confirmation',
       'resolved',
@@ -92,7 +91,7 @@
   $statusStep = match ($report->status) {
       'submitted', 'under_review', 'reopened' => 0,
       'routed' => 1,
-      'in_progress', 'on_hold' => 2,
+      'in_progress' => 2,
       'needs_info' => (($report->statusLogs->where('to_status', 'needs_info')->last()?->from_status) === 'in_progress' ? 2 : 1),
       'awaiting_confirmation', 'resolved', 'closed', 'referred', 'merged', 'out_of_scope' => 3,
       default => 0,
@@ -1003,7 +1002,7 @@
         </span>
       </div>
       <div class="review-card-content">
-        @if(in_array($report->status, ['routed', 'in_progress', 'on_hold', 'needs_info'], true))
+        @if(in_array($report->status, ['routed', 'in_progress', 'needs_info'], true))
           @php
             $updateTypes = \App\Models\Report::UPDATE_TYPES;
             $defaultUpdateType = array_key_first($updateTypes);

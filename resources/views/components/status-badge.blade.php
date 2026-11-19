@@ -22,11 +22,6 @@
             'icon' => 'fa-gears',
             'class' => 'b-blue',
         ],
-        'on_hold' => [
-            'label' => 'On Hold',
-            'icon' => 'fa-pause',
-            'class' => 'b-gold',
-        ],
         'resolved' => [
             'label' => 'Resolved',
             'icon' => 'fa-circle-check',

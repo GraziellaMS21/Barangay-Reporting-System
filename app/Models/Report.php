@@ -19,7 +19,6 @@ class Report extends Model
         'under_review' => 'Under Review',
         'routed' => 'Routed',
         'in_progress' => 'In Progress',
-        'on_hold' => 'On Hold',
         'resolved' => 'Resolved',
         'referred' => 'Referred',
         'merged' => 'Merged',
@@ -46,7 +45,7 @@ class Report extends Model
         ],
         'waiting_materials' => [
             'label' => 'Waiting on materials/equipment',
-            'status' => 'on_hold',
+            'status' => 'in_progress',
             'template' => 'Work is temporarily on hold while waiting for required materials or equipment to arrive.',
             'message_required' => false,
         ],
@@ -81,7 +80,7 @@ class Report extends Model
         ],
         'active' => [
             'label' => 'Active',
-            'statuses' => ['routed', 'in_progress', 'on_hold', 'needs_info', 'awaiting_confirmation', 'reopened'],
+            'statuses' => ['routed', 'in_progress', 'needs_info', 'awaiting_confirmation', 'reopened'],
         ],
         'resolved' => [
             'label' => 'Resolved',
@@ -97,7 +96,6 @@ class Report extends Model
         'under_review',
         'routed',
         'in_progress',
-        'on_hold',
         'needs_info',
         'awaiting_confirmation',
         'resolved',

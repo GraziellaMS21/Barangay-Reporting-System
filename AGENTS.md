@@ -14,15 +14,15 @@ Imperative operational manual for AI coding agents working in **Barangay-Reporti
 Every agent must follow this exact sequence before touching any file:
 
 1. **Read Core Context**: Read this file ([`AGENTS.md`](file:///C:/githubFiles/Barangay-Reporting-System-1/AGENTS.md)), followed by [**`docs/PROJECT.md`**](file:///C:/githubFiles/Barangay-Reporting-System-1/docs/PROJECT.md) and [**`docs/CURRENT-STATE.md`**](file:///C:/githubFiles/Barangay-Reporting-System-1/docs/CURRENT-STATE.md).
-2. **Targeted Reading Only**: Read *only* the specific documentation files relevant to your assigned task (e.g., [**`docs/WORKFLOW.md`**](file:///C:/githubFiles/Barangay-Reporting-System-1/docs/WORKFLOW.md) for statuses, [**`docs/DATABASE.md`**](file:///C:/githubFiles/Barangay-Reporting-System-1/docs/DATABASE.md) for schema, [**`docs/API.md`**](file:///C:/githubFiles/Barangay-Reporting-System-1/docs/API.md) for routing).
+2. **Targeted Reading Only**: Read _only_ the specific documentation files relevant to your assigned task (e.g., [**`docs/WORKFLOW.md`**](file:///C:/githubFiles/Barangay-Reporting-System-1/docs/WORKFLOW.md) for statuses, [**`docs/DATABASE.md`**](file:///C:/githubFiles/Barangay-Reporting-System-1/docs/DATABASE.md) for schema, [**`docs/API.md`**](file:///C:/githubFiles/Barangay-Reporting-System-1/docs/API.md) for routing).
 3. **Execution Workflow**:
-   - **Investigate**: Inspect existing code, tests, and database structure.
-   - **Plan**: Outline minimal, non-breaking modifications.
-   - **Wait for Approval**: For architectural, schema, or workflow shifts, present plan to user first.
-   - **Small Change**: Implement focused, discrete code edits.
-   - **Run Tests**: Verify with `./vendor/bin/pint --test` and `php artisan test <path>`.
-   - **Report**: Detail files modified, test results, and any open questions.
-4. **Canonical Status Reference**: The definitive report status list lives *only* in [**`docs/WORKFLOW.md`**](file:///C:/githubFiles/Barangay-Reporting-System-1/docs/WORKFLOW.md). Never invent new statuses or hardcode status names without updating `docs/WORKFLOW.md` first.
+    - **Investigate**: Inspect existing code, tests, and database structure.
+    - **Plan**: Outline minimal, non-breaking modifications.
+    - **Wait for Approval**: For architectural, schema, or workflow shifts, present plan to user first.
+    - **Small Change**: Implement focused, discrete code edits.
+    - **Run Tests**: Verify with `./vendor/bin/pint --test` and `php artisan test <path>`.
+    - **Report**: Detail files modified, test results, and any open questions.
+4. **Canonical Status Reference**: The definitive report status list lives _only_ in [**`docs/WORKFLOW.md`**](file:///C:/githubFiles/Barangay-Reporting-System-1/docs/WORKFLOW.md). Never invent new statuses or hardcode status names without updating `docs/WORKFLOW.md` first.
 5. **No Deferred Features**: Do not build deferred features (Voice call reporting, SMS gateway broadcasting, softphone, speech-to-text, etc.; see Deferred list in [`docs/PROJECT.md`](file:///C:/githubFiles/Barangay-Reporting-System-1/docs/PROJECT.md)).
 
 ---
@@ -70,14 +70,14 @@ php artisan config:clear             # Clear cached configuration
 
 - `app/Models/`: Eloquent entities with typed casts, relations, and constants (`Report.php`, `Category.php`, `Referral.php`, etc.).
 - `app/Http/Controllers/`:
-  - Resident/Public controllers: `ReportController.php`, `TrackController.php`, `MapController.php`.
-  - Staff/Admin controllers in `Admin/`: `ReportController.php`, `DashboardController.php`, `SettingsController.php`, `ReferralController.php`.
+    - Resident/Public controllers: `ReportController.php`, `TrackController.php`, `MapController.php`.
+    - Staff/Admin controllers in `Admin/`: `ReportController.php`, `DashboardController.php`, `SettingsController.php`, `ReferralController.php`.
 - `app/Services/`: Domain logic services (`GeminiService.php`, `ReportStatusService.php`, `RoutingService.php`, `PriorityService.php`, `ProofPhotoService.php`, `ReferralService.php`, `ReportReviewService.php`).
 - `routes/`: Modular route files required in `routes/web.php`:
-  - `routes/resident.php`: Resident submission, tracking, feedback, public map.
-  - `routes/staff.php`: Staff queue, review cards, proof photos, status updates, info requests.
-  - `routes/admin.php`: Admin metrics, settings, user management, audit logs.
-  - `routes/engine.php`: API utilities (e.g. `/api/nearby-reports`).
+    - `routes/resident.php`: Resident submission, tracking, feedback, public map.
+    - `routes/staff.php`: Staff queue, review cards, proof photos, status updates, info requests.
+    - `routes/admin.php`: Admin metrics, settings, user management, audit logs.
+    - `routes/engine.php`: API utilities (e.g. `/api/nearby-reports`).
 - `resources/views/`: Blade templates partitioned into `resident/`, `admin/`, `layouts/`, and `components/`.
 - `database/migrations/`: Sequential migration files.
 - `database/seeders/`: Seeders for puroks, emergency contacts, categories, and demo reports.
@@ -102,3 +102,10 @@ php artisan config:clear             # Clear cached configuration
 - **Environment Handling**: Never commit `.env` or leak credentials. Refer only to `.env.example` keys (`GEMINI_API_KEY`, `DB_CONNECTION`, etc.).
 - **Resident Privacy (RA 10173)**: Never transmit reporter personal identification (name, contact number, email) to external AI APIs. Hide emergency reports from public maps and unauthenticated API responses.
 - **Mandatory Verification**: Always verify changes by running targeted tests (`php artisan test <path>`) and linting (`./vendor/bin/pint --test`) prior to concluding tasks.
+
+## UI/UX work
+
+- For UI tasks (views, components, layout, styling), use the `ui-ux-pro-max` skill.
+- The skill's suggestions must follow docs/CONVENTIONS.md: use the existing design tokens, the single-card resident form, and mobile-first rules (375 px, no horizontal scroll).
+- Do not redesign existing screens or change the visual identity without approval. Propose changes in a plan first.
+- UI changes must not alter status names, transitions, or privacy rules in docs/WORKFLOW.md and docs/PROJECT.md.

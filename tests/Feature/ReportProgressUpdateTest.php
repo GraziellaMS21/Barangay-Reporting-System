@@ -89,7 +89,7 @@ class ReportProgressUpdateTest extends TestCase
         $this->assertCount(1, $log->attachments);
         Storage::disk('public')->assertExists($log->attachments[0]);
 
-        // 2. Waiting on materials/equipment -> on_hold
+        // 2. Waiting on materials/equipment -> in_progress (progress note, self-transition)
         $this->actingAs($this->staff)
             ->post(route('admin.reports.updates.store', $report), [
                 'update_type' => 'waiting_materials',
@@ -100,7 +100,7 @@ class ReportProgressUpdateTest extends TestCase
             ->assertSessionHas('success');
 
         $report->refresh();
-        $this->assertSame('on_hold', $report->status);
+        $this->assertSame('in_progress', $report->status);
 
         // 3. Cannot be resolved -> closed
         $this->actingAs($this->staff)

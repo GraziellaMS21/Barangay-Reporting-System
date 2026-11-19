@@ -7,18 +7,19 @@ Ordered, outcome-driven tasks to bring the existing codebase into alignment with
 
 ---
 
-## Task 1: Remove `on_hold` Status
+## Task 1: Remove `on_hold` Status [Completed]
+- **Status**: Completed (2026-11-19)
 - **Goal**: Eliminate `on_hold` from the core state machine, representing "waiting on materials" as a progress update note under `in_progress`.
 - **Steps**:
-  1. Update [`Report::UPDATE_TYPES`](file:///C:/githubFiles/Barangay-Reporting-System-1/app/Models/Report.php#L34): Change `'waiting_materials'` target status from `'on_hold'` to `'in_progress'`.
-  2. Remove `ON_HOLD = 'on_hold'` constant from [`ReportStatus.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/app/Support/ReportStatus.php) and `Report::STATUSES`.
-  3. Remove `on_hold` from [`ReportStatusService::$ALLOWED`](file:///C:/githubFiles/Barangay-Reporting-System-1/app/Services/ReportStatusService.php) and `Report::STATUS_GROUPS`.
-  4. Create a database migration to update existing records:
+  1. [x] Update [`Report::UPDATE_TYPES`](file:///C:/githubFiles/Barangay-Reporting-System-1/app/Models/Report.php#L34): Change `'waiting_materials'` target status from `'on_hold'` to `'in_progress'`.
+  2. [x] Remove `ON_HOLD = 'on_hold'` constant from [`ReportStatus.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/app/Support/ReportStatus.php) and `Report::STATUSES`.
+  3. [x] Remove `on_hold` from [`ReportStatusService::$ALLOWED`](file:///C:/githubFiles/Barangay-Reporting-System-1/app/Services/ReportStatusService.php) and `Report::STATUS_GROUPS`.
+  4. [x] Create a database migration to update existing records:
      - `UPDATE reports SET status = 'in_progress' WHERE status = 'on_hold';`
-     - Update associated `status_logs` entries.
-  5. Remove or update references in [`status-badge.blade.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/views/components/status-badge.blade.php), [`review-workflow.blade.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/views/admin/reports/review-workflow.blade.php), and [`referrals/index.blade.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/views/admin/referrals/index.blade.php).
-  6. Update tests in `tests/Feature/ReportProgressUpdateTest.php`.
-- **Done When**: `./vendor/bin/pint --test` passes, `php artisan test` passes, and `on_hold` is completely absent from active status sets.
+     - Update associated `status_logs` entries (`database/migrations/2026_11_19_000001_remove_on_hold_status_and_migrate_records.php`).
+  5. [x] Remove or update references in [`status-badge.blade.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/views/components/status-badge.blade.php), [`review-workflow.blade.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/views/admin/reports/review-workflow.blade.php), and [`referrals/index.blade.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/views/admin/referrals/index.blade.php).
+  6. [x] Update tests in `tests/Feature/ReportProgressUpdateTest.php`.
+- **Verification**: `./vendor/bin/pint --test` passes, `ReportProgressUpdateTest` passes (5 tests, 48 assertions), and `on_hold` is completely absent from active status sets.
 
 ---
 

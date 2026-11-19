@@ -162,7 +162,6 @@ class ReferralController extends Controller
             'Within barangay reports' => [
                 'routed' => Report::STATUSES['routed'],
                 'in_progress' => Report::STATUSES['in_progress'],
-                'on_hold' => Report::STATUSES['on_hold'] ?? 'On Hold',
                 'needs_info' => Report::STATUSES['needs_info'],
                 'awaiting_confirmation' => Report::STATUSES['awaiting_confirmation'],
                 'resolved' => Report::STATUSES['resolved'],

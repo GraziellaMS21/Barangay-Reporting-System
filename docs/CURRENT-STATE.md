@@ -32,9 +32,9 @@ This document provides a realistic, code-verified audit of what is currently imp
 The following specific gaps exist between the current codebase and the canonical design in [**`docs/WORKFLOW.md`**](file:///C:/githubFiles/Barangay-Reporting-System-1/docs/WORKFLOW.md):
 
 ### Gap 1: Status Enum Discrepancy
-- **In Code**: [`ReportStatus.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/app/Support/ReportStatus.php) and [`Report.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/app/Models/Report.php) define 14 statuses including `on_hold`, `out_of_scope`, and `closed`.
-- **Target Design**: 12 statuses. `on_hold` is eliminated (treated as an `in_progress` update note). `out_of_scope` and `closed` are unified into `no_action`.
-- **Action Required**: Remove `ON_HOLD`, `OUT_OF_SCOPE`, and `CLOSED` constants; add `NO_ACTION` and reason code constants.
+- **In Code**: [`ReportStatus.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/app/Support/ReportStatus.php) and [`Report.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/app/Models/Report.php) now define 13 statuses (`on_hold` eliminated in Task 1; `out_of_scope` and `closed` remain pending Task 2).
+- **Target Design**: 12 statuses. `on_hold` is eliminated (done). `out_of_scope` and `closed` are unified into `no_action` (Task 2).
+- **Action Required**: Remove `OUT_OF_SCOPE` and `CLOSED` constants; add `NO_ACTION` and reason code constants (Task 2).
 
 ### Gap 2: State Machine Integrity & Public `canTransition()` Method
 - **In Code**: [`ReportStatusService`](file:///C:/githubFiles/Barangay-Reporting-System-1/app/Services/ReportStatusService.php) contains only an internal `private const ALLOWED` array checked during `transition()`.
@@ -46,15 +46,15 @@ The following specific gaps exist between the current codebase and the canonical
 - **Data Migration Required**:
   - Convert existing `reports.status = 'out_of_scope'` $\rightarrow$ `'no_action'` (`no_action_reason = 'not_barangay_matter'`).
   - Convert existing `reports.status = 'closed'` $\rightarrow$ `'no_action'` (`no_action_reason = 'cannot_resolve'`).
-  - Convert existing `reports.status = 'on_hold'` $\rightarrow$ `'in_progress'` (append progress note `"waiting_materials"`).
-  - Update historical records in `status_logs` and `audit_logs`.
+  - Convert historical records in `status_logs` and `audit_logs`.
+  - *(Note: Historical `reports.status = 'on_hold'` $\rightarrow$ `'in_progress'` migration was completed in Task 1).*
 
 ### Gap 4: Update Types & Progress Updates
-- **In Code**: `Report::UPDATE_TYPES` routes `'waiting_materials'` to status `'on_hold'` and `'cannot_resolve'` to `'closed'`.
-- **Target Design**: `'waiting_materials'` routes to status `'in_progress'` (with progress note), and `'cannot_resolve'` routes to `'no_action'` with `reason: cannot_resolve`.
+- **In Code**: `Report::UPDATE_TYPES` `'waiting_materials'` now routes to status `'in_progress'` (completed in Task 1). `'cannot_resolve'` still routes to `'closed'`.
+- **Target Design**: `'cannot_resolve'` routes to `'no_action'` with `reason: cannot_resolve` (Task 2).
 
 ### Gap 5: UI Badges & Action Modals
-- **In Code**: [`status-badge.blade.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/views/components/status-badge.blade.php) and [`review-workflow.blade.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/views/admin/reports/review-workflow.blade.php) still display badges and modals for `on_hold`, `out_of_scope`, and `closed`.
+- **In Code**: [`status-badge.blade.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/views/components/status-badge.blade.php) and [`review-workflow.blade.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/views/admin/reports/review-workflow.blade.php) had `on_hold` removed in Task 1; still display badges and modals for `out_of_scope` and `closed`.
 - **Target Design**: Replace with a standardized `no_action` badge, reason code dropdown modal in review forms, and clear resident-facing reason text on [`resident/show.blade.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/views/resident/show.blade.php).
 
 ### Gap 6: New Recovery & Direct Transitions

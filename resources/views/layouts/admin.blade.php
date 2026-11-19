@@ -11,36 +11,43 @@
 <x-hall-background>
   <div class="staff-shell">
     <aside id="staff-sidebar" class="staff-sidebar" aria-label="Staff navigation">
-      <a href="{{ route('admin.dashboard') }}" class="site-brand staff-sidebar-brand">
+      <a href="{{ route('admin.dashboard') }}" class="site-brand staff-sidebar-brand" title="Calarian Reports">
         <x-brand-seal />
-        <span>
+        <span class="sidebar-brand-text">
           <strong>Calarian Reports</strong>
           <small>{{ auth()->user()->isAdmin() ? 'Admin dashboard' : 'Staff dashboard' }}</small>
         </span>
       </a>
       <nav class="staff-nav" aria-label="Staff navigation">
-        <a href="{{ route('admin.dashboard') }}" @class(['active' => request()->routeIs('admin.dashboard')])>
+        <a href="{{ route('admin.dashboard') }}" @class(['active' => request()->routeIs('admin.dashboard')]) title="{{ auth()->user()->isAdmin() ? 'Admin Dashboard' : 'Staff Dashboard' }}">
           <i class="fa-solid fa-gauge-high" aria-hidden="true"></i>
-          {{ auth()->user()->isAdmin() ? 'Admin Dashboard' : 'Staff Dashboard' }}
+          <span class="nav-label">{{ auth()->user()->isAdmin() ? 'Admin Dashboard' : 'Staff Dashboard' }}</span>
         </a>
-        <a href="{{ route('admin.reports.index') }}" @class(['active' => request()->routeIs('admin.reports.index')])>
-          <i class="fa-solid fa-inbox" aria-hidden="true"></i> Report queue
+        <a href="{{ route('admin.reports.index') }}" @class(['active' => request()->routeIs('admin.reports.index')]) title="Report queue">
+          <i class="fa-solid fa-inbox" aria-hidden="true"></i>
+          <span class="nav-label">Report queue</span>
         </a>
-        <a href="{{ route('admin.reports.my-cases') }}" @class(['active' => request()->routeIs('admin.reports.my-cases')])>
-          <i class="fa-solid fa-user-check" aria-hidden="true"></i> My cases
+        <a href="{{ route('admin.reports.my-cases') }}" @class(['active' => request()->routeIs('admin.reports.my-cases')]) title="My cases">
+          <i class="fa-solid fa-user-check" aria-hidden="true"></i>
+          <span class="nav-label">My cases</span>
         </a>
-        <a href="{{ route('admin.map') }}" @class(['active' => request()->routeIs('admin.map')])>
-          <i class="fa-solid fa-map-location-dot" aria-hidden="true"></i> Staff map
+        <a href="{{ route('admin.map') }}" @class(['active' => request()->routeIs('admin.map')]) title="Staff map">
+          <i class="fa-solid fa-map-location-dot" aria-hidden="true"></i>
+          <span class="nav-label">Staff map</span>
         </a>
-        <a href="{{ route('admin.referrals.index') }}" @class(['active' => request()->routeIs('admin.referrals.index')])>
-          <i class="fa-solid fa-clipboard-list" aria-hidden="true"></i> Referrals and routing
+        <a href="{{ route('admin.referrals.index') }}" @class(['active' => request()->routeIs('admin.referrals.index')]) title="Referrals and routing">
+          <i class="fa-solid fa-clipboard-list" aria-hidden="true"></i>
+          <span class="nav-label">Referrals and routing</span>
         </a>
-        <a href="{{ route('reports.create') }}">
-          <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Resident site
+        <a href="{{ route('reports.create') }}" title="Resident site">
+          <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+          <span class="nav-label">Resident site</span>
         </a>
         @if(auth()->user()->isAdmin())
-          <div class="staff-nav-heading">Administration</div>
-          <a href="{{ route('admin.settings.index') }}"
+          <div class="staff-nav-heading">
+            <span class="nav-heading-text">Administration</span>
+          </div>
+          <a href="{{ route('admin.settings.index') }}" title="Settings"
             @class(['active' => request()->routeIs(
               'admin.settings.index',
               'admin.settings.priority*',
@@ -51,29 +58,36 @@
               'admin.settings.sensitive-places.*',
               'admin.settings.users.*'
             )])>
-            <i class="fa-solid fa-gear" aria-hidden="true"></i> Settings
+            <i class="fa-solid fa-gear" aria-hidden="true"></i>
+            <span class="nav-label">Settings</span>
           </a>
-          <a href="{{ route('admin.settings.emergency-contacts.index') }}"
+          <a href="{{ route('admin.settings.emergency-contacts.index') }}" title="Emergency Contacts"
             @class(['active' => request()->routeIs('admin.settings.emergency-contacts.*')])>
-            <i class="fa-solid fa-phone" aria-hidden="true"></i> Emergency Contacts
+            <i class="fa-solid fa-phone" aria-hidden="true"></i>
+            <span class="nav-label">Emergency Contacts</span>
           </a>
-          <a href="{{ route('admin.audit-log.index') }}"
+          <a href="{{ route('admin.audit-log.index') }}" title="Audit log"
             @class(['active' => request()->routeIs('admin.audit-log.*')])>
-            <i class="fa-solid fa-clipboard-check" aria-hidden="true"></i> Audit log
+            <i class="fa-solid fa-clipboard-check" aria-hidden="true"></i>
+            <span class="nav-label">Audit log</span>
           </a>
         @endif
         <form method="POST" action="{{ route('logout') }}">
           @csrf
-          <button type="submit">
-            <i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i> Log out
+          <button type="submit" title="Log out">
+            <i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i>
+            <span class="nav-label">Log out</span>
           </button>
         </form>
       </nav>
-      <footer class="staff-sidebar-footer">
-        <strong>{{ auth()->user()->name }}</strong>
-        <span class="role-badge {{ auth()->user()->isAdmin() ? 'role-admin' : 'role-staff' }}">
-          {{ auth()->user()->isAdmin() ? 'Admin' : 'Staff' }}
-        </span>
+      <footer class="staff-sidebar-footer" title="{{ auth()->user()->name }} ({{ auth()->user()->isAdmin() ? 'Admin' : 'Staff' }})">
+        <span class="sidebar-avatar" aria-hidden="true">{{ str(auth()->user()->name)->substr(0, 1)->upper() }}</span>
+        <div class="sidebar-user-details">
+          <strong>{{ auth()->user()->name }}</strong>
+          <span class="role-badge {{ auth()->user()->isAdmin() ? 'role-admin' : 'role-staff' }}">
+            {{ auth()->user()->isAdmin() ? 'Admin' : 'Staff' }}
+          </span>
+        </div>
       </footer>
     </aside>
 

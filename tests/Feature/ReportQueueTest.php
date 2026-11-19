@@ -54,17 +54,18 @@ class ReportQueueTest extends TestCase
             'is_emergency' => true,
         ]);
 
-        $activeResponse = $this->actingAs($staff)
-            ->get(route('admin.reports.index', ['stage' => 'active']))
+        $inProgressResponse = $this->actingAs($staff)
+            ->get(route('admin.reports.index', ['stage' => 'in_progress']))
             ->assertOk()
             ->assertSee('All')
-            ->assertSee('New')
-            ->assertSee('Active')
-            ->assertSee('Resolved')
-            ->assertSee('Others')
+            ->assertSee('Needs review')
+            ->assertSee('In progress')
+            ->assertSee('Waiting on others')
+            ->assertSee('Done')
+            ->assertSee('My cases')
+            ->assertSee('Overdue')
             ->assertSee('Emergency')
-            ->assertSee('Routed')
-            ->assertSee('In Progress')
+            ->assertSee('Next Action')
             ->assertSee('id="mobile-stage"', false)
             ->assertSee($routedReport->tracking_code)
             ->assertSee($emergencyActiveReport->tracking_code)
@@ -72,41 +73,38 @@ class ReportQueueTest extends TestCase
             ->assertDontSee($resolvedReport->tracking_code)
             ->assertDontSee($mergedReport->tracking_code);
 
-        $this->assertSame(2, $activeResponse->viewData('reports')->total());
-        $this->assertSame(2, $activeResponse->viewData('stageCounts')->get('active'));
-        $this->assertSame(9, $activeResponse->viewData('stageCounts')->get('all'));
-        $this->assertSame(2, $activeResponse->viewData('emergencyCount'));
+        $this->assertSame(2, $inProgressResponse->viewData('reports')->total());
+        $this->assertSame(2, $inProgressResponse->viewData('stageCounts')->get('in_progress'));
+        $this->assertSame(9, $inProgressResponse->viewData('stageCounts')->get('all'));
+        $this->assertSame(2, $inProgressResponse->viewData('emergencyCount'));
 
-        $newResponse = $this->get(route('admin.reports.index', ['stage' => 'new']))
+        $needsReviewResponse = $this->get(route('admin.reports.index', ['stage' => 'needs_review']))
             ->assertOk()
             ->assertSee($newReport->tracking_code)
             ->assertSee($submittedReport->tracking_code)
-            ->assertDontSee($routedReport->tracking_code)
-            ->assertDontSee('Show:');
+            ->assertDontSee($routedReport->tracking_code);
 
-        $this->assertSame(2, $newResponse->viewData('reports')->total());
+        $this->assertSame(2, $needsReviewResponse->viewData('reports')->total());
 
-        $resolvedResponse = $this->get(route('admin.reports.index', ['stage' => 'resolved']))
+        $doneResponse = $this->get(route('admin.reports.index', ['stage' => 'done']))
             ->assertOk()
             ->assertSee($resolvedReport->tracking_code)
-            ->assertDontSee($mergedReport->tracking_code);
-
-        $this->assertSame(1, $resolvedResponse->viewData('reports')->total());
-
-        $closedOtherResponse = $this->get(route('admin.reports.index', ['stage' => 'closed-other']))
-            ->assertOk()
-            ->assertSee('Referred')
-            ->assertSee('Merged')
-            ->assertSee('No Action')
-            ->assertSee($referredReport->tracking_code)
             ->assertSee($mergedReport->tracking_code)
             ->assertSee($noActionReport->tracking_code)
-            ->assertDontSee($resolvedReport->tracking_code);
+            ->assertDontSee($routedReport->tracking_code)
+            ->assertDontSee($referredReport->tracking_code);
 
-        $this->assertSame(3, $closedOtherResponse->viewData('reports')->total());
+        $this->assertSame(3, $doneResponse->viewData('reports')->total());
+
+        $waitingResponse = $this->get(route('admin.reports.index', ['stage' => 'waiting']))
+            ->assertOk()
+            ->assertSee($referredReport->tracking_code)
+            ->assertDontSee($routedReport->tracking_code);
+
+        $this->assertSame(1, $waitingResponse->viewData('reports')->total());
 
         $emergencyResponse = $this->get(route('admin.reports.index', [
-            'stage' => 'active',
+            'stage' => 'in_progress',
             'emergency' => '1',
         ]))->assertOk()
             ->assertSee($emergencyActiveReport->tracking_code)
@@ -126,7 +124,7 @@ class ReportQueueTest extends TestCase
         $this->assertSame(2, $allEmergenciesResponse->viewData('reports')->total());
 
         $mergedResponse = $this->get(route('admin.reports.index', [
-            'stage' => 'closed-other',
+            'stage' => 'done',
             'status' => 'merged',
         ]))->assertOk()
             ->assertSee($mergedReport->tracking_code)

@@ -77,6 +77,11 @@ class ReportController extends Controller
                     )),
             ]);
 
+        $myCasesCount = Report::query()->where('assigned_to', auth()->id())->whereNotIn('status', Report::CLOSED_STATUSES)->count();
+        $overdueCount = Report::query()->whereNotNull('due_at')->where('due_at', '<', now())->whereNotIn('status', Report::CLOSED_STATUSES)->count();
+        $stageCounts->put('my_cases', $myCasesCount);
+        $stageCounts->put('overdue', $overdueCount);
+
         $emergencyCount = Report::query()
             ->where(fn ($emergencyQuery) => $emergencyQuery
                 ->where('is_emergency', true)
@@ -120,7 +125,7 @@ class ReportController extends Controller
     private function validateQueueFilters(Request $request): array
     {
         return $request->validate([
-            'stage' => ['nullable', Rule::in(array_keys(Report::STATUS_GROUPS))],
+            'stage' => ['nullable', Rule::in([...array_keys(Report::STATUS_GROUPS), 'my_cases', 'overdue'])],
             'status' => ['nullable', Rule::in(['all', ...array_keys(Report::STATUSES)])],
             'emergency' => ['nullable', Rule::in(['0', '1'])],
             'purok_id' => ['nullable', 'integer', Rule::exists('puroks', 'id')],
@@ -154,6 +159,7 @@ class ReportController extends Controller
                 'description',
                 'purok_id',
                 'category_id',
+                'office_id',
                 'status',
                 'urgency',
                 'is_emergency',
@@ -167,9 +173,13 @@ class ReportController extends Controller
                 'summary',
                 'ai_status',
             ])
-            ->with(['purok:id,name', 'category:id,name', 'assignee:id,name', 'aiResult', 'duplicateSuggestions']);
+            ->with(['purok:id,name', 'category:id,name', 'assignee:id,name', 'office:id,name', 'activeReferral.office:id,name', 'aiResult', 'duplicateSuggestions']);
 
-        if ($currentStage !== 'all') {
+        if ($currentStage === 'my_cases') {
+            $query->where('assigned_to', auth()->id())->whereNotIn('status', Report::CLOSED_STATUSES);
+        } elseif ($currentStage === 'overdue') {
+            $query->whereNotNull('due_at')->where('due_at', '<', now())->whereNotIn('status', Report::CLOSED_STATUSES);
+        } elseif ($currentStage !== 'all' && isset(Report::STATUS_GROUPS[$currentStage]['statuses'])) {
             $query->whereIn('status', Report::STATUS_GROUPS[$currentStage]['statuses']);
         }
 
@@ -262,7 +272,9 @@ class ReportController extends Controller
 
                 return;
             default:
-                $query->orderByDesc('created_at')->orderByDesc('id');
+                $query->orderByRaw('CASE WHEN is_emergency = 1 OR status = ? THEN 0 ELSE 1 END', ['emergency_flagged'])
+                    ->orderByDesc('created_at')
+                    ->orderByDesc('id');
         }
     }
 

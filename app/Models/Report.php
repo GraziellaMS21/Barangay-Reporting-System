@@ -76,7 +76,42 @@ class Report extends Model
         ],
     ];
 
+    public const LIFECYCLE_GROUPS = [
+        'needs_review' => [
+            'label' => 'Needs review',
+            'statuses' => ['submitted', 'under_review', 'reopened'],
+        ],
+        'in_progress' => [
+            'label' => 'In progress',
+            'statuses' => ['routed', 'in_progress'],
+        ],
+        'waiting' => [
+            'label' => 'Waiting on others',
+            'statuses' => ['needs_info', 'awaiting_confirmation', 'referred'],
+        ],
+        'done' => [
+            'label' => 'Done',
+            'statuses' => ['resolved', 'no_action', 'merged'],
+        ],
+    ];
+
     public const STATUS_GROUPS = [
+        'needs_review' => [
+            'label' => 'Needs review',
+            'statuses' => ['submitted', 'under_review', 'reopened'],
+        ],
+        'in_progress' => [
+            'label' => 'In progress',
+            'statuses' => ['routed', 'in_progress'],
+        ],
+        'waiting' => [
+            'label' => 'Waiting on others',
+            'statuses' => ['needs_info', 'awaiting_confirmation', 'referred'],
+        ],
+        'done' => [
+            'label' => 'Done',
+            'statuses' => ['resolved', 'no_action', 'merged'],
+        ],
         'all' => [
             'label' => 'All',
             'statuses' => null,
@@ -306,6 +341,121 @@ class Report extends Model
         }
 
         return null;
+    }
+
+    public function getNextAction(): array
+    {
+        $isEmergency = $this->is_emergency || $this->status === 'emergency_flagged';
+        $isClosed = in_array($this->status, self::CLOSED_STATUSES, true);
+        $dueText = null;
+        $dueTone = 'gray';
+
+        if ($this->due_at && ! $isClosed) {
+            if ($this->due_at->isPast()) {
+                $dueText = 'Overdue by '.$this->due_at->diffForHumans(null, true);
+                $dueTone = 'red';
+            } else {
+                $dueText = 'Due in '.$this->due_at->diffForHumans(null, true);
+                $dueTone = $this->due_at->diffInHours(now()) <= 12 ? 'amber' : 'blue';
+            }
+        }
+
+        if ($isEmergency) {
+            return [
+                'actor' => 'Captain / Tanod',
+                'actor_tone' => 'red',
+                'action' => 'Immediate response',
+                'due_text' => $dueText ?? 'Urgent',
+                'due_tone' => 'red',
+            ];
+        }
+
+        return match ($this->status) {
+            'submitted' => [
+                'actor' => 'Staff',
+                'actor_tone' => 'blue',
+                'action' => 'Triage & route',
+                'due_text' => $dueText,
+                'due_tone' => $dueTone,
+            ],
+            'under_review' => [
+                'actor' => 'Staff',
+                'actor_tone' => 'blue',
+                'action' => 'Confirm routing',
+                'due_text' => $dueText,
+                'due_tone' => $dueTone,
+            ],
+            'routed' => [
+                'actor' => $this->office?->name ?? 'Office',
+                'actor_tone' => 'blue',
+                'action' => 'Start fieldwork',
+                'due_text' => $dueText,
+                'due_tone' => $dueTone,
+            ],
+            'in_progress' => [
+                'actor' => $this->assignee?->name ?? ($this->office?->name ?? 'Field crew'),
+                'actor_tone' => 'purple',
+                'action' => 'Propose fix & proof',
+                'due_text' => $dueText,
+                'due_tone' => $dueTone,
+            ],
+            'needs_info' => [
+                'actor' => 'Resident',
+                'actor_tone' => 'amber',
+                'action' => 'Awaiting clarification',
+                'due_text' => $dueText,
+                'due_tone' => $dueTone,
+            ],
+            'awaiting_confirmation' => [
+                'actor' => 'Resident',
+                'actor_tone' => 'amber',
+                'action' => 'Confirm fixed / Rate',
+                'due_text' => $dueText,
+                'due_tone' => $dueTone,
+            ],
+            'reopened' => [
+                'actor' => 'Staff',
+                'actor_tone' => 'red',
+                'action' => 'Investigate dispute',
+                'due_text' => $dueText,
+                'due_tone' => 'red',
+            ],
+            'referred' => [
+                'actor' => $this->activeReferral?->office?->name ?? 'External Agency',
+                'actor_tone' => 'slate',
+                'action' => 'Agency follow-up',
+                'due_text' => $this->activeReferral?->follow_up_at ? 'Follow up '.$this->activeReferral->follow_up_at->format('M d') : null,
+                'due_tone' => $this->activeReferral?->isOverdue() ? 'red' : 'slate',
+            ],
+            'resolved' => [
+                'actor' => 'Completed',
+                'actor_tone' => 'green',
+                'action' => 'Verified fixed',
+                'due_text' => null,
+                'due_tone' => 'green',
+            ],
+            'no_action' => [
+                'actor' => 'Closed',
+                'actor_tone' => 'slate',
+                'action' => 'No action taken',
+                'due_text' => null,
+                'due_tone' => 'slate',
+            ],
+            'merged' => [
+                'actor' => 'Closed',
+                'actor_tone' => 'slate',
+                'action' => 'Merged into duplicate',
+                'due_text' => null,
+                'due_tone' => 'slate',
+            ],
+            default => [
+                'actor' => 'Staff',
+                'actor_tone' => 'blue',
+                'action' => 'Review report',
+                'due_text' => $dueText,
+                'due_tone' => $dueTone,
+            ],
+        };
     }
 
     public static function generateTrackingCode(): string

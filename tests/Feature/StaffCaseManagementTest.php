@@ -6,6 +6,7 @@ use App\Events\InfoRequested;
 use App\Events\ReportStatusChanged;
 use App\Events\ResolutionProposed;
 use App\Models\Category;
+use App\Models\Office;
 use App\Models\Purok;
 use App\Models\Report;
 use App\Models\User;
@@ -288,8 +289,8 @@ class StaffCaseManagementTest extends TestCase
             ->assertSee('Review AI suggestions')
             ->assertSee('Route and assign')
             ->assertSee('data-routing-map', false)
-            ->assertSee('Mark duplicate')
-            ->assertSee('No action')
+            ->assertSee('Mark as duplicate')
+            ->assertSee('Take no action')
             ->assertSee('data-mode-banner', false);
     }
 
@@ -315,7 +316,7 @@ class StaffCaseManagementTest extends TestCase
         $this->actingAs($this->staff)
             ->get(route('admin.reports.show', $report))
             ->assertOk()
-            ->assertSee('Ask Reporter for More Info')
+            ->assertSee('Ask Reporter for Info')
             ->assertSee('data-chat-summary-strip', false)
             ->assertSee('1 message sent')
             ->assertSee('Awaiting resident reply')
@@ -380,5 +381,91 @@ class StaffCaseManagementTest extends TestCase
             ->assertSee('data-gate-hint="urgency"', false)
             ->assertSee('data-gate-reason-card2', false)
             ->assertSee('Required to route');
+    }
+
+    public function test_queue_renders_next_action_column_and_lifecycle_tabs(): void
+    {
+        $report = Report::factory()->create([
+            'status' => ReportStatus::UNDER_REVIEW,
+            'tracking_code' => 'BRG-NXT001',
+        ]);
+
+        $this->actingAs($this->staff)
+            ->get(route('admin.reports.index'))
+            ->assertOk()
+            ->assertSee('Next Action')
+            ->assertSee('Needs review')
+            ->assertSee('In progress')
+            ->assertSee('Waiting on others')
+            ->assertSee('Done')
+            ->assertSee('My cases')
+            ->assertSee('Overdue')
+            ->assertSee('Confirm routing');
+    }
+
+    public function test_review_page_triage_collapses_optional_fields_and_shows_kebab_menu(): void
+    {
+        $report = Report::factory()->create([
+            'status' => ReportStatus::UNDER_REVIEW,
+            'category_id' => $this->category->id,
+            'urgency' => 'high',
+        ]);
+
+        $this->actingAs($this->staff)
+            ->get(route('admin.reports.show', $report))
+            ->assertOk()
+            ->assertSee('review-optional-details', false)
+            ->assertSee('More actions')
+            ->assertSee('Mark as duplicate')
+            ->assertSee('Take no action')
+            ->assertSee('data-reviewed-count', false);
+    }
+
+    public function test_unified_timeline_composer_posts_public_and_internal_notes(): void
+    {
+        $office = Office::create([
+            'name' => 'Barangay Works',
+            'type' => 'internal',
+        ]);
+
+        $this->staff->update(['office_id' => $office->id]);
+
+        $report = Report::factory()->create([
+            'status' => ReportStatus::IN_PROGRESS,
+            'office_id' => $office->id,
+            'assigned_to' => $this->staff->id,
+        ]);
+
+        // Post public progress update (keeps status at in_progress)
+        $this->actingAs($this->staff)
+            ->post(route('admin.reports.updates.store', $report), [
+                'update_type' => 'work_started',
+                'message' => 'Crews arrived on site and started clearing operations.',
+                'visible_to_resident' => '1',
+            ])
+            ->assertSessionHasNoErrors()
+            ->assertRedirect();
+
+        $this->assertSame(ReportStatus::IN_PROGRESS, $report->fresh()->status);
+        $this->assertDatabaseHas('status_logs', [
+            'report_id' => $report->id,
+            'to_status' => ReportStatus::IN_PROGRESS,
+            'visible_to_resident' => true,
+        ]);
+
+        // Post internal note (hidden from resident)
+        $this->actingAs($this->staff)
+            ->post(route('admin.reports.updates.store', $report), [
+                'update_type' => 'work_started',
+                'message' => 'Internal note: CENRO requested an additional dump truck.',
+                'visible_to_resident' => '0',
+            ])
+            ->assertSessionHasNoErrors()
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('status_logs', [
+            'report_id' => $report->id,
+            'visible_to_resident' => false,
+        ]);
     }
 }

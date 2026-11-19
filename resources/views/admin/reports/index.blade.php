@@ -93,14 +93,32 @@
   ];
 @endphp
 
+@php
+  $lifecycleTabs = [
+    'needs_review' => ['label' => 'Needs review', 'count' => $stageCounts->get('needs_review', 0)],
+    'in_progress' => ['label' => 'In progress', 'count' => $stageCounts->get('in_progress', 0)],
+    'waiting' => ['label' => 'Waiting on others', 'count' => $stageCounts->get('waiting', 0)],
+    'done' => ['label' => 'Done', 'count' => $stageCounts->get('done', 0)],
+    'my_cases' => ['label' => 'My cases', 'count' => $stageCounts->get('my_cases', 0)],
+    'overdue' => ['label' => 'Overdue', 'count' => $stageCounts->get('overdue', 0)],
+  ];
+@endphp
+
 <div class="lifecycle-filter-toolbar">
   <nav class="status-filters" aria-label="Filter reports by lifecycle stage">
-    @foreach($statusGroups as $stage => $group)
+    <a href="{{ route($queueRoute, array_merge($preservedFilters, ['stage' => 'all'])) }}"
+      @class(['status-filter', 'active' => $currentStage === 'all'])>
+      All
+      @if($stageCounts->get('all', 0) > 0)
+        <span>{{ $stageCounts->get('all') }}</span>
+      @endif
+    </a>
+    @foreach($lifecycleTabs as $stage => $tab)
       <a href="{{ route($queueRoute, array_merge($preservedFilters, ['stage' => $stage])) }}"
         @class(['status-filter', 'active' => $currentStage === $stage])>
-        {{ $group['label'] }}
-        @if($stageCounts->get($stage, 0) > 0)
-          <span>{{ $stageCounts->get($stage) }}</span>
+        {{ $tab['label'] }}
+        @if($tab['count'] > 0)
+          <span>{{ $tab['count'] }}</span>
         @endif
       </a>
     @endforeach
@@ -112,8 +130,9 @@
     @endforeach
     <label class="sr-only" for="mobile-stage">Lifecycle stage</label>
     <select id="mobile-stage" name="stage">
-      @foreach($statusGroups as $stage => $group)
-        <option value="{{ $stage }}" @selected($currentStage === $stage)>{{ $group['label'] }}</option>
+      <option value="all" @selected($currentStage === 'all')>All ({{ $stageCounts->get('all', 0) }})</option>
+      @foreach($lifecycleTabs as $stage => $tab)
+        <option value="{{ $stage }}" @selected($currentStage === $stage)>{{ $tab['label'] }} ({{ $tab['count'] }})</option>
       @endforeach
     </select>
     <button type="submit" class="btn btn-navy btn-small">Apply</button>
@@ -127,7 +146,7 @@
   </a>
 </div>
 
-@if(in_array($currentStage, ['active', 'closed-other'], true))
+@if(isset($statusGroups[$currentStage]['statuses']) && count($statusGroups[$currentStage]['statuses']) > 1)
   <nav class="status-subfilters" aria-label="Filter by exact status">
     <span>Show:</span>
     <a href="{{ route($queueRoute, array_merge($preservedFilters, ['stage' => $currentStage])) }}"
@@ -308,22 +327,15 @@
         <th scope="col" style="width:2.25rem;">
           <input type="checkbox" class="table-checkbox" id="select-all-checkbox" aria-label="Select all reports">
         </th>
-        <th scope="col" style="width:34%;">Incident &amp; Category</th>
-        <th scope="col" style="width:17%;">Location</th>
-        <th scope="col" class="sortable" style="width:20%;">
+        <th scope="col" style="width:26%;">Incident &amp; Category</th>
+        <th scope="col" style="width:12%;">Location</th>
+        <th scope="col" class="sortable" style="width:11%;">
           <span class="th-status">
             <a href="{{ $statusSort['url'] }}">Status
               <span class="sort-indicator {{ $statusSort['active'] ? '' : 'idle' }}" aria-hidden="true">
                 {{ $statusSort['active'] ? ($statusSort['ascending'] ? '▲' : '▼') : '⇅' }}
               </span>
               @if($statusSort['active'])<span class="sr-only">(sorted {{ $statusSort['ascending'] ? 'ascending' : 'descending' }})</span>@endif
-            </a>
-            <span style="color:#cbd5e1;margin:0 0.2rem;">/</span>
-            <a href="{{ $urgencySort['url'] }}">Urgency
-              <span class="sort-indicator {{ $urgencySort['active'] ? '' : 'idle' }}" aria-hidden="true">
-                {{ $urgencySort['active'] ? ($urgencySort['ascending'] ? '▲' : '▼') : '⇅' }}
-              </span>
-              @if($urgencySort['active'])<span class="sr-only">(sorted {{ $urgencySort['ascending'] ? 'ascending' : 'descending' }})</span>@endif
             </a>
             <button type="button" class="status-legend-btn" data-legend-open
               aria-haspopup="dialog" title="What the statuses mean">
@@ -332,9 +344,17 @@
             </button>
           </span>
         </th>
-        <th scope="col" style="width:14%;">Assignee</th>
+        <th scope="col" class="sortable" style="width:10%;">
+          <a href="{{ $urgencySort['url'] }}">Priority
+            <span class="sort-indicator {{ $urgencySort['active'] ? '' : 'idle' }}" aria-hidden="true">
+              {{ $urgencySort['active'] ? ($urgencySort['ascending'] ? '▲' : '▼') : '⇅' }}
+            </span>
+            @if($urgencySort['active'])<span class="sr-only">(sorted {{ $urgencySort['ascending'] ? 'ascending' : 'descending' }})</span>@endif
+          </a>
+        </th>
+        <th scope="col" style="width:20%;">Next Action</th>
         <th scope="col" class="sortable" style="width:15%;">
-          <a href="{{ $submittedSort['url'] }}">Submitted &amp; Action
+          <a href="{{ $submittedSort['url'] }}">Assignee &amp; Action
             <span class="sort-indicator {{ $submittedSort['active'] ? '' : 'idle' }}" aria-hidden="true">
               {{ $submittedSort['active'] ? ($submittedSort['ascending'] ? '▲' : '▼') : '⇅' }}
             </span>
@@ -349,8 +369,9 @@
           $unreadCount = (int) ($unreadReplies->get($report->id, 0));
           $isClosed = in_array($report->status, \App\Models\Report::CLOSED_STATUSES, true);
           $isEmergency = $report->is_emergency || $report->status === 'emergency_flagged';
+          $next = $report->getNextAction();
         @endphp
-        <tr data-report-row="{{ $report->id }}" @class(['is-emergency-row' => $isEmergency])>
+        <tr data-report-row="{{ $report->id }}" data-href="{{ route('admin.reports.show', $report) }}" class="queue-row cursor-pointer hover:bg-slate-50 transition-colors {{ $isEmergency ? 'is-emergency-row' : '' }}">
           <td data-label="Select">
             <input type="checkbox" name="report_ids[]" value="{{ $report->id }}"
               class="report-checkbox table-checkbox" form="queue-bulk-form"
@@ -362,6 +383,11 @@
               @if($isEmergency)
                 <span class="status-badge b-red" style="font-size:0.7rem;padding:0.1rem 0.45rem;">
                   <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Emergency
+                </span>
+              @endif
+              @if($report->reopened_count > 0)
+                <span class="status-badge b-gold" title="Reopened" style="font-size:0.7rem;padding:0.1rem 0.45rem;">
+                  <i class="fa-solid fa-arrow-rotate-left" aria-hidden="true"></i> Reopened
                 </span>
               @endif
               @if($report->category)
@@ -383,51 +409,59 @@
               </div>
             @endif
           </td>
-          <td data-label="Status &amp; Urgency">
-            <div style="display:inline-flex;align-items:center;gap:0.4rem;flex-wrap:wrap;">
-              <x-status-badge :status="$report->status" />
-              @if($report->due_at && $report->due_at->isPast() && !$isClosed)
-                <i class="fa-solid fa-clock text-red-600" title="Overdue" aria-label="Overdue"></i>
-              @endif
-              @if($report->escalated_at)
-                <i class="fa-solid fa-fire text-red-600" title="Escalated" aria-label="Escalated"></i>
-              @endif
-              @if($report->reopened_count > 0)
-                <i class="fa-solid fa-arrow-rotate-left text-amber-600" title="Reopened" aria-label="Reopened"></i>
-              @endif
-            </div>
-            <div style="display:flex;align-items:center;gap:0.35rem;margin-top:0.3rem;font-size:0.75rem;">
+          <td data-label="Status">
+            <x-status-badge :status="$report->status" />
+          </td>
+          <td data-label="Priority">
               @php
-                $uColor = match(strtolower($report->urgency ?? '')) {
-                  'critical' => '#dc2626',
-                  'high' => '#d97706',
-                  'medium' => '#2563eb',
-                  'low' => '#64748b',
-                  default => '#94a3b8'
+                $uClass = match(strtolower($report->urgency ?? '')) {
+                  'critical' => 'priority-chip-critical',
+                  'high' => 'priority-chip-high',
+                  'medium' => 'priority-chip-medium',
+                  'low' => 'priority-chip-low',
+                  default => 'priority-chip-low'
                 };
               @endphp
-              <span style="display:inline-block;width:7px;height:7px;border-radius:999px;background:{{ $uColor }};" aria-hidden="true"></span>
-              <span style="font-weight:600;color:#334155;">{{ $report->urgency ?: 'Unassigned' }}</span>
+              <span class="priority-chip {{ $uClass }}" title="Priority Score: {{ $report->priority_score ?? 0 }}">
+                P{{ $report->priority_score ?? 0 }} · {{ $report->urgency ?: 'Low' }}
+              </span>
+          </td>
+          <td data-label="Next Action">
+            <div class="next-action-cell" style="display:flex;flex-direction:column;gap:0.25rem;">
+              <div style="display:inline-flex;align-items:center;gap:0.35rem;flex-wrap:wrap;">
+                <span class="next-actor-pill tone-{{ $next['actor_tone'] }}">
+                  {{ $next['actor'] }}
+                </span>
+                <span class="next-action-text" style="font-size:0.8rem;font-weight:600;color:var(--ink);">
+                  {{ $next['action'] }}
+                </span>
+              </div>
+              @if($next['due_text'])
+                <div>
+                  <span class="next-due-pill tone-{{ $next['due_tone'] }}" @if($next['due_tone'] === 'red') title="Overdue" @endif>
+                    <i class="fa-solid fa-clock" aria-hidden="true" style="font-size:0.68rem;"></i>
+                    <span>{{ $next['due_text'] }}</span>
+                  </span>
+                </div>
+              @endif
             </div>
           </td>
-          <td data-label="Assignee">
-            @if($report->assignee)
-              <span class="cell-assignee" title="{{ $report->assignee->name }}">
-                <span class="assignee-initials" aria-hidden="true">{{ \Illuminate\Support\Str::initials($report->assignee->name) }}</span>
-                <span class="assignee-name">{{ $report->assignee->name }}</span>
-              </span>
-            @else
-              <span class="cell-assignee" title="Unassigned">
-                <span class="assignee-initials unassigned" aria-hidden="true">—</span>
-                <span class="cell-muted assignee-name">Unassigned</span>
-              </span>
-            @endif
-          </td>
-          <td data-label="Submitted &amp; Action" class="cell-submitted">
-            <div style="font-size:0.76rem;color:#64748b;margin-bottom:0.35rem;">
-              <span class="cell-age" style="font-weight:600;">{{ $report->created_at->diffForHumans(null, true) }} ago</span>
+          <td data-label="Assignee &amp; Action" class="cell-submitted">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;flex-wrap:wrap;">
+              @if($report->assignee)
+                <span class="cell-assignee" title="{{ $report->assignee->name }}">
+                  <span class="assignee-initials" aria-hidden="true">{{ \Illuminate\Support\Str::initials($report->assignee->name) }}</span>
+                  <span class="assignee-name" style="max-width:105px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ $report->assignee->name }}</span>
+                </span>
+              @else
+                <span class="cell-assignee" title="Unassigned">
+                  <span class="assignee-initials unassigned" aria-hidden="true">—</span>
+                  <span class="cell-muted assignee-name">Unassigned</span>
+                </span>
+              @endif
+              <span class="cell-age" style="font-size:0.75rem;color:#64748b;font-weight:600;">{{ $report->created_at->diffForHumans(null, true) }} ago</span>
             </div>
-            <div class="row-actions" style="display:flex;align-items:center;gap:0.35rem;">
+            <div class="row-actions" style="display:flex;align-items:center;gap:0.35rem;margin-top:0.35rem;">
               <a class="btn btn-navy btn-small" style="padding:0.25rem 0.65rem;font-size:0.78rem;font-weight:700;" href="{{ route('admin.reports.show', $report) }}">
                 Review
               </a>
@@ -611,6 +645,16 @@
             : 'Note (optional)';
         }
       }
+    });
+  });
+
+  // Whole-row clickability: navigate to show page on click except interactive children
+  document.querySelectorAll('tr[data-href]').forEach((row) => {
+    row.addEventListener('click', (event) => {
+      if (event.target.closest('input, button, select, a, .kebab, label, [data-chat-open]')) {
+        return;
+      }
+      window.location.href = row.dataset.href;
     });
   });
 

@@ -46,11 +46,11 @@
   $descriptionFinalState = $alreadyReviewed
       ? ($aiDescriptionPresent && $report->staff_description === $aiDescription ? 'Accepted' : ($aiReady ? 'Edited' : 'Resident'))
       : ($aiDescriptionPresent ? 'AI suggested' : 'Resident');
-  $categoryReviewRequired = $aiReady && $aiCategoryPresent;
-  $urgencyReviewRequired = $aiReady && $aiUrgencyPresent;
-  $descriptionReviewRequired = $aiReady && $aiDescriptionPresent;
-  $requiredFieldsCount = ($categoryReviewRequired ? 1 : 0) + ($urgencyReviewRequired ? 1 : 0) + ($descriptionReviewRequired ? 1 : 0);
-  $reviewedInitialCount = $alreadyReviewed ? $requiredFieldsCount : 0;
+  $categoryReviewRequired = true;
+  $urgencyReviewRequired = true;
+  $descriptionReviewRequired = false;
+  $requiredFieldsCount = 2;
+  $reviewedInitialCount = ($finalCategoryId ? 1 : 0) + ($finalUrgency ? 1 : 0);
   $selectedCategoryId = (int) $finalCategoryId;
   $routingDecision = $routingDecisions[$selectedCategoryId] ?? null;
   $candidateOfficeDefault = $alreadyReviewed
@@ -104,6 +104,7 @@
 @endphp
 
 <div class="review-workflow" data-review-workflow
+     data-is-after-route="{{ $isAfterRoute ? 'true' : 'false' }}"
      data-ai-state="{{ $aiReady ? 'ready' : ($aiPending ? 'pending' : 'unavailable') }}"
      data-ai-poll-url="{{ route('admin.reports.review-ai', $report) }}"
      data-confidence-high="{{ $highConfidenceThreshold }}"
@@ -219,9 +220,9 @@
     </section>
   @endif
 
-  <div class="review-split-grid grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-    {{-- Left Column (lg:col-span-7) — Evidence & History --}}
-    <div class="review-col-evidence lg:col-span-7 space-y-6" style="display:flex;flex-direction:column;gap:1.5rem;">
+  <div class="review-split-grid">
+    {{-- Left Column — Evidence & History --}}
+    <div class="review-col-evidence space-y-6" style="display:flex;flex-direction:column;gap:1.5rem;">
       <section class="review-workflow-card">
         <details id="resident-report-card" class="review-collapsible" @if(! $isAfterRoute) open @endif>
       <summary class="review-card-heading">
@@ -383,72 +384,75 @@
   @endif
 
   {{-- Tabbed History & Internal Notes --}}
-  <section class="review-workflow-card review-history-tabs-card review-activity-card review-notes-card" data-history-tabs>
-    <div class="review-card-heading review-card-heading-static" style="padding-bottom:0.5rem;">
-      <span class="review-card-title">Case history &amp; notes</span>
-      <span class="review-card-instruction">Audit trail and internal notes</span>
-    </div>
-    
-    <div class="review-history-tabs-nav" style="display:flex;gap:0.5rem;border-bottom:1px solid var(--review-border,#e5e7eb);padding:0 1.25rem 0.5rem;">
-      <button type="button" class="btn btn-small review-tab-btn is-active" data-tab-btn="activity" style="font-size:0.82rem;font-weight:600;">
-        <i class="fa-solid fa-timeline" aria-hidden="true" style="margin-right:0.3rem;"></i> Activity ({{ count($activityEntries) }})
-      </button>
-      <button type="button" class="btn btn-small btn-outline review-tab-btn" data-tab-btn="notes" style="font-size:0.82rem;font-weight:600;">
-        <i class="fa-solid fa-note-sticky" aria-hidden="true" style="margin-right:0.3rem;"></i> Internal notes ({{ $report->internalNotes->count() }})
-      </button>
+  {{-- Unified Case Timeline & Composer --}}
+  <section class="review-workflow-card review-timeline-card">
+    <div class="review-card-heading review-card-heading-static" style="padding-bottom:0.75rem; border-bottom: 1px solid var(--line);">
+      <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
+        <div>
+          <span class="review-card-title">Case timeline &amp; notes</span>
+          <span class="review-card-instruction">Audit trail, citizen interactions, and internal notes</span>
+        </div>
+        <span class="review-badge review-badge-blue">{{ count($activityEntries) }} event{{ count($activityEntries) === 1 ? '' : 's' }}</span>
+      </div>
     </div>
 
-    <div class="review-tab-pane" data-tab-pane="activity" style="padding:1.25rem;">
+    {{-- Internal Note Box --}}
+    @unless($isCompleted || $emergencyActionOnly)
+      <div class="review-composer-box" style="padding: 0.85rem 1.25rem; background: #f8fafc; border-bottom: 1px solid var(--line);">
+        <form method="POST" action="{{ route('admin.reports.internal-notes.store', $report) }}" data-prevent-double-submit>
+          @csrf
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.35rem;">
+            <label for="timeline-internal-note" style="font-size:0.8rem;font-weight:700;color:#475569;">
+              <i class="fa-solid fa-lock text-slate-500 mr-1" aria-hidden="true"></i> Add internal note <span style="font-weight:normal;color:#64748b;font-size:0.75rem;">(visible to staff only)</span>
+            </label>
+          </div>
+          <div style="display:flex;gap:0.5rem;align-items:flex-end;">
+            <textarea id="timeline-internal-note" name="body" rows="2" maxlength="3000" required placeholder="Record staff observations, internal coordination, or phone call notes..." style="flex:1;font-size:0.84rem;padding:0.5rem 0.65rem;border:1px solid var(--line);border-radius:8px;background:#fff;"></textarea>
+            <button type="submit" class="btn btn-navy btn-small" style="padding:0.5rem 0.85rem;font-size:0.8rem;white-space:nowrap;font-weight:700;">
+              Save note
+            </button>
+          </div>
+        </form>
+      </div>
+    @endunless
+
+    {{-- Unified Descending Event Feed --}}
+    <div class="review-timeline-feed" style="padding:1.25rem;">
       <ol class="review-activity-list">
         @forelse($activityEntries as $activity)
-          <li>
-            <div class="review-activity-heading">
-              <strong>{{ $activity['title'] }}</strong>
-              <time datetime="{{ $activity['at']?->toIso8601String() }}">{{ $activity['at']?->format('M d, Y h:i A') }}</time>
+          @php
+            $isInternal = isset($activity['visible_to_resident']) ? !$activity['visible_to_resident'] : str_contains($activity['title'], '(Internal)');
+          @endphp
+          <li style="border-left: 3px solid {{ $isInternal ? '#94a3b8' : '#2563eb' }}; padding-left: 0.85rem; margin-bottom: 1.15rem; position: relative;">
+            <div class="review-activity-heading" style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;flex-wrap:wrap;">
+              <div style="display:inline-flex;align-items:center;gap:0.4rem;flex-wrap:wrap;">
+                <strong>{{ $activity['title'] }}</strong>
+                @if($isInternal)
+                  <span class="review-badge review-badge-gray" style="font-size:0.68rem;padding:0.1rem 0.35rem;"><i class="fa-solid fa-lock" aria-hidden="true"></i> Internal</span>
+                @else
+                  <span class="review-badge review-badge-blue" style="font-size:0.68rem;padding:0.1rem 0.35rem;"><i class="fa-solid fa-eye" aria-hidden="true"></i> Public</span>
+                @endif
+              </div>
+              <time datetime="{{ $activity['at']?->toIso8601String() }}" style="font-size:0.75rem;color:#64748b;">{{ $activity['at']?->format('M d, Y h:i A') }}</time>
             </div>
             @if($activity['user'])
-              <p class="review-activity-user">{{ $activity['user'] }}</p>
+              <p class="review-activity-user" style="font-size:0.76rem;color:#475569;margin-top:0.15rem;"><i class="fa-solid fa-user-check" style="font-size:0.7rem;color:#94a3b8;margin-right:0.25rem;" aria-hidden="true"></i>{{ $activity['user'] }}</p>
             @endif
             @if($activity['body'])
-              <p class="review-activity-body">{{ $activity['body'] }}</p>
+              <p class="review-activity-body" style="font-size:0.84rem;color:#334155;margin-top:0.35rem;line-height:1.45;background:#fff;padding:0.5rem 0.75rem;border-radius:6px;border:1px solid #f1f5f9;">{{ $activity['body'] }}</p>
             @endif
           </li>
         @empty
-          <li class="review-activity-empty">No activity yet.</li>
+          <li class="review-activity-empty">No activity recorded yet.</li>
         @endforelse
       </ol>
-    </div>
-
-    <div class="review-tab-pane" data-tab-pane="notes" style="padding:1.25rem;" hidden>
-      @unless($emergencyActionOnly)
-        <form method="POST" action="{{ route('admin.reports.internal-notes.store', $report) }}" class="review-note-form">
-          @csrf
-          <div class="review-form-field">
-            <label for="internal-note">Add an internal note</label>
-            <textarea id="internal-note" name="body" rows="3" maxlength="3000">{{ old('body') }}</textarea>
-          </div>
-          <button type="submit" class="review-button review-button-outline">Add note</button>
-        </form>
-      @endunless
-      @if($report->internalNotes->isNotEmpty())
-        <ul class="review-internal-notes" style="margin-top:1rem;">
-          @foreach($report->internalNotes->sortByDesc('created_at') as $note)
-            <li>
-              <div><strong>{{ $note->user?->name ?? 'Staff' }}</strong><time>{{ $note->created_at->format('M d, Y h:i A') }}</time></div>
-              <p>{{ $note->body }}</p>
-            </li>
-          @endforeach
-        </ul>
-      @else
-        <p class="text-muted" style="font-size:0.83rem;margin-top:0.75rem;">No internal notes added yet.</p>
-      @endif
     </div>
   </section>
 
   </div> {{-- End review-col-evidence --}}
 
-  {{-- Right Column (lg:col-span-5) — Sticky Decision Panel --}}
-  <div class="review-col-decision lg:col-span-5 space-y-6" style="display:flex;flex-direction:column;gap:1.5rem;">
+  {{-- Right Column — Sticky Decision & Action Panel --}}
+  <div class="review-col-decision space-y-6" style="display:flex;flex-direction:column;gap:1.5rem;">
 
   @if(! $emergencyActionOnly)
     <form id="review-form" method="POST" action="{{ route('admin.reports.review', $report) }}" class="space-y-6" style="display:flex;flex-direction:column;gap:1.25rem;">
@@ -508,34 +512,55 @@
               $hasResidentReply = $report->infoRequests->whereNotNull('responded_at')->isNotEmpty();
               $unreadReplies = $infoThreadSummary['unread'] ?? 0;
             @endphp
-            @if($hasInfoRequests || in_array($report->status, ['submitted', 'under_review', 'reopened', 'routed', 'in_progress', 'needs_info'], true))
-              <button type="button" class="review-button review-button-outline"
-                      data-chat-open data-report-id="{{ $report->id }}"
-                      data-chat-tracking="{{ $report->tracking_code }}"
-                      data-chat-category="{{ $report->category?->name ?? 'Category not assigned' }}"
-                      data-chat-status="{{ \App\Models\Report::STATUSES[$report->status] ?? $report->status }}"
-                      data-chat-summary="{{ $report->description }}{{ $report->purok ? ' — '.$report->purok->name : '' }}">
-                <i class="fa-solid fa-comment-dots" aria-hidden="true"></i>
-                <span>Ask Reporter for More Info</span>
+            <div class="kebab" style="position:relative;">
+              <button type="button" class="btn btn-outline btn-small" data-kebab-toggle aria-haspopup="true" aria-expanded="false" style="display:inline-flex;align-items:center;gap:0.4rem;font-size:0.8rem;font-weight:600;">
+                <i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i>
+                <span>More actions</span>
                 @if($unreadReplies > 0 || ($hasResidentReply && !session('info_thread_seen.'.$report->id)))
-                  <span class="chat-notif-circle" data-chat-notif-circle title="New reply from resident">
-                    {{ $unreadReplies > 0 ? $unreadReplies : '' }}
-                  </span>
-                @else
-                  <span class="chat-notif-circle" data-chat-notif-circle style="display:none;"></span>
+                  <span class="chat-notif-circle" data-chat-notif-circle title="New reply from resident">{{ $unreadReplies > 0 ? $unreadReplies : '!' }}</span>
                 @endif
               </button>
-            @endif
-            @if(in_array($report->status, ['submitted', 'under_review', 'reopened'], true))
-              <button type="button" class="review-button review-button-outline" data-open-dialog="duplicate-modal">
-                <i class="fa-solid fa-copy" aria-hidden="true"></i> Mark duplicate
-              </button>
-            @endif
-            @if(app(\App\Services\ReportStatusService::class)->canTransition($report->status, \App\Support\ReportStatus::NO_ACTION))
-              <button type="button" class="review-button review-button-outline" data-open-dialog="no-action-modal">
-                <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i> No action
-              </button>
-            @endif
+              <div class="kebab-menu" hidden style="position:absolute;right:0;top:calc(100% + 4px);z-index:30;min-width:210px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 15px -3px rgba(0,0,0,0.1);padding:0.4rem 0;">
+                @if($hasInfoRequests || in_array($report->status, ['submitted', 'under_review', 'reopened', 'routed', 'in_progress', 'needs_info'], true))
+                  <button type="button" class="kebab-item"
+                          data-chat-open data-report-id="{{ $report->id }}"
+                          data-chat-tracking="{{ $report->tracking_code }}"
+                          data-chat-category="{{ $report->category?->name ?? 'Category not assigned' }}"
+                          data-chat-status="{{ \App\Models\Report::STATUSES[$report->status] ?? $report->status }}"
+                          data-chat-summary="{{ $report->description }}{{ $report->purok ? ' — '.$report->purok->name : '' }}"
+                          style="display:flex;align-items:center;gap:0.5rem;width:100%;padding:0.5rem 0.85rem;font-size:0.82rem;text-align:left;border:none;background:transparent;cursor:pointer;">
+                    <i class="fa-solid fa-comment-dots text-blue-600" aria-hidden="true"></i>
+                    <span>Ask Reporter for Info</span>
+                  </button>
+                @endif
+                @if(in_array($report->status, ['submitted', 'under_review', 'reopened'], true))
+                  <button type="button" class="kebab-item" data-open-dialog="duplicate-modal"
+                          style="display:flex;align-items:center;gap:0.5rem;width:100%;padding:0.5rem 0.85rem;font-size:0.82rem;text-align:left;border:none;background:transparent;cursor:pointer;">
+                    <i class="fa-solid fa-copy text-amber-600" aria-hidden="true"></i>
+                    <span>Mark as duplicate</span>
+                  </button>
+                @endif
+                @if(app(\App\Services\ReportStatusService::class)->canTransition($report->status, \App\Support\ReportStatus::NO_ACTION))
+                  <button type="button" class="kebab-item" data-open-dialog="no-action-modal"
+                          style="display:flex;align-items:center;gap:0.5rem;width:100%;padding:0.5rem 0.85rem;font-size:0.82rem;text-align:left;border:none;background:transparent;cursor:pointer;">
+                    <i class="fa-solid fa-circle-xmark text-slate-500" aria-hidden="true"></i>
+                    <span>Take no action</span>
+                  </button>
+                @endif
+                @if(!$report->is_emergency && !in_array($report->status, \App\Models\Report::CLOSED_STATUSES, true))
+                  <form method="POST" action="{{ route('admin.reports.emergency', $report) }}" data-confirm-submit="Flag this report as an emergency concern?">
+                    @csrf
+                    @method('PATCH')
+                    <input type="hidden" name="confirm" value="1">
+                    <button type="submit" class="kebab-item"
+                            style="display:flex;align-items:center;gap:0.5rem;width:100%;padding:0.5rem 0.85rem;font-size:0.82rem;text-align:left;border:none;background:transparent;cursor:pointer;color:#dc2626;">
+                      <i class="fa-solid fa-triangle-exclamation text-red-600" aria-hidden="true"></i>
+                      <span>Flag as emergency</span>
+                    </button>
+                  </form>
+                @endif
+              </div>
+            </div>
           </div>
         </div>
 
@@ -673,131 +698,152 @@
                   </div>
                 </td>
               </tr>
-
-              <tr data-review-row data-field="description"
-                  data-resident-value="{{ $residentDescription }}"
-                  data-resident-label="{{ $residentDescription }}"
-                  data-ai-value="{{ $aiDescription ?? '' }}"
-                  data-ai-label="{{ $aiDescription ?? '' }}"
-                  data-ai-present="{{ $aiDescriptionPresent ? 'true' : 'false' }}"
-                  data-review-required="{{ $descriptionReviewRequired ? 'true' : 'false' }}"
-                  data-reviewed="{{ $alreadyReviewed || ! $descriptionReviewRequired ? 'true' : 'false' }}">
-                <th scope="row" data-column-label="Field">Description</th>
-                <td data-column-label="Resident">
-                  @if(trim((string) $residentDescription) !== '')
-                    <div class="review-clamp-wrap">
-                      <div class="review-clamp" data-clamp><span data-resident-display>{{ $residentDescription }}</span></div>
-                    </div>
-                  @else
-                    <span class="review-not-provided">Not provided</span>
-                  @endif
-                </td>
-                <td data-column-label="AI suggestion">
-                  @if($aiReady && $aiDescriptionPresent)
-                    <div class="review-clamp-wrap">
-                      <div class="review-description-diff review-clamp" data-description-diff
-                           data-original="{{ $residentDescription }}" data-ai="{{ $aiDescription }}"></div>
-                    </div>
-                    <span data-ai-value-display class="sr-only">{{ $aiDescription }}</span>
-                  @else
-                    <span data-ai-value-display>
-                      @if($aiPending)Waiting for suggestion
-                      @elseif($aiUnavailable)Not available
-                      @else
-                        <span class="review-not-provided">Not provided</span>
-                      @endif
-                    </span>
-                    <div class="review-description-diff" data-description-diff data-original="{{ $residentDescription }}" data-ai=""></div>
-                  @endif
-                  <span class="review-badge review-badge-outline-green" data-comparison-badge hidden></span>
-                </td>
-                <td data-column-label="Final">
-                  <label class="sr-only" for="final-description">Final description</label>
-                  <textarea id="final-description" name="staff_description" rows="4" maxlength="2000"
-                            data-final-control data-required-field required @disabled($emergencyActionOnly)>{{ $finalDescription }}</textarea>
-                  <div class="review-final-meta">
-                    <span class="review-badge {{ $descriptionFinalState === 'Accepted' ? 'review-badge-green' : ($descriptionFinalState === 'Edited' ? 'review-badge-amber' : ($descriptionFinalState === 'AI suggested' ? 'review-badge-blue' : 'review-badge-gray')) }}"
-                          data-final-state>{{ $descriptionFinalState }}</span>
-                    <div class="review-row-actions">
-                      <button type="button" class="review-text-link" data-use-ai @disabled($emergencyActionOnly) @if(! $aiDescriptionPresent) hidden @endif>Use AI</button>
-                      <button type="button" class="review-text-link" data-use-resident @disabled($emergencyActionOnly) @if(! $residentDescription || $residentDescription === $aiDescription) hidden @endif>Use resident's</button>
-                      <button type="button" class="review-text-link" data-accept-row @disabled($emergencyActionOnly) @if(! $aiDescriptionPresent) hidden @endif>Accept</button>
-                      <button type="button" class="review-text-link" data-use-original @disabled($emergencyActionOnly)>Use original</button>
-                      <button type="button" class="review-text-link" data-append-ai @disabled($emergencyActionOnly) @if(! $aiDescriptionPresent) hidden @endif>Append AI summary</button>
-                      <button type="button" class="review-text-link" data-undo-row hidden>Undo</button>
-                    </div>
-                  </div>
-                </td>
-              </tr>
-
-              <tr data-review-row data-field="purok"
-                  data-resident-value="{{ $residentPurok?->id ?? '' }}"
-                  data-resident-label="{{ $residentPurok?->name ?? '' }}"
-                  data-ai-value="" data-ai-label="" data-ai-present="false"
-                  data-review-required="false" data-reviewed="true">
-                <th scope="row" data-column-label="Field">Purok</th>
-                <td data-column-label="Resident">
-                  @if($residentPurok)
-                    <span data-resident-display>{{ $residentPurok->name }}</span>
-                  @else
-                    <span class="review-not-provided">Not provided</span>
-                  @endif
-                </td>
-                <td data-column-label="AI suggestion">
-                  <span data-ai-value-display @if(! $aiPending && ! $aiUnavailable) class="review-not-provided" @endif>
-                    @if($aiPending)Waiting for suggestion
-                    @elseif($aiUnavailable)Not available
-                    @else Not provided
-                    @endif
-                  </span>
-                  <span class="review-badge review-badge-outline-blue" data-comparison-badge hidden></span>
-                </td>
-                <td data-column-label="Final">
-                  <label class="sr-only" for="final-purok">Final purok</label>
-                  <select id="final-purok" name="purok_id" data-final-control @disabled($emergencyActionOnly)>
-                    <option value="">Select purok</option>
-                    @foreach($puroks as $purok)
-                      <option value="{{ $purok->id }}" @selected((string) $finalPurokId === (string) $purok->id)>{{ $purok->name }}</option>
-                    @endforeach
-                  </select>
-                  <span class="review-badge review-badge-gray" data-final-state>Resident</span>
-                </td>
-              </tr>
-
-              <tr data-review-row data-field="landmark"
-                  data-resident-value="{{ $residentLandmark ?? '' }}"
-                  data-resident-label="{{ $residentLandmark ?? '' }}"
-                  data-ai-value="" data-ai-label="" data-ai-present="false"
-                  data-review-required="false" data-reviewed="true">
-                <th scope="row" data-column-label="Field">Landmark</th>
-                <td data-column-label="Resident">
-                  @if(trim((string) $residentLandmark) !== '')
-                    <div class="review-clamp-wrap">
-                      <div class="review-clamp" data-clamp><span data-resident-display>{{ $residentLandmark }}</span></div>
-                    </div>
-                  @else
-                    <span class="review-not-provided">Not provided</span>
-                  @endif
-                </td>
-                <td data-column-label="AI suggestion">
-                  <span data-ai-value-display @if(! $aiPending && ! $aiUnavailable) class="review-not-provided" @endif>
-                    @if($aiPending)Waiting for suggestion
-                    @elseif($aiUnavailable)Not available
-                    @else Not provided
-                    @endif
-                  </span>
-                  <span class="review-badge review-badge-outline-blue" data-comparison-badge hidden></span>
-                </td>
-                <td data-column-label="Final">
-                  <label class="sr-only" for="final-landmark">Final landmark</label>
-                  <input id="final-landmark" type="text" name="landmark" maxlength="255"
-                         value="{{ $finalLandmark }}" data-final-control @disabled($emergencyActionOnly)>
-                  <span class="review-badge review-badge-gray" data-final-state>Resident</span>
-                </td>
-              </tr>
             </tbody>
           </table>
         </div>
+
+        {{-- Collapsible Optional Details (Description, Purok, Landmark) --}}
+        <details class="review-optional-details" style="margin-top: 1rem; border: 1px dashed var(--line); border-radius: 10px; padding: 0.75rem; background: #fafafa;">
+          <summary style="font-size: 0.82rem; font-weight: 600; color: #475569; cursor: pointer; user-select: none;">
+            <i class="fa-solid fa-sliders" style="margin-right: 0.35rem; color: var(--blue);"></i>
+            <span>Additional incident details (Description, Purok, Landmark)</span>
+          </summary>
+          <div class="review-table-wrap" style="margin-top: 0.75rem;">
+            <table class="review-comparison-table">
+              <thead>
+                <tr>
+                  <th scope="col">Field</th>
+                  <th scope="col">Resident</th>
+                  <th scope="col">AI suggestion</th>
+                  <th scope="col">Final</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr data-review-row data-field="description"
+                    data-resident-value="{{ $residentDescription }}"
+                    data-resident-label="{{ $residentDescription }}"
+                    data-ai-value="{{ $aiDescription ?? '' }}"
+                    data-ai-label="{{ $aiDescription ?? '' }}"
+                    data-ai-present="{{ $aiDescriptionPresent ? 'true' : 'false' }}"
+                    data-review-required="false"
+                    data-reviewed="true">
+                  <th scope="row" data-column-label="Field">Description</th>
+                  <td data-column-label="Resident">
+                    @if(trim((string) $residentDescription) !== '')
+                      <div class="review-clamp-wrap">
+                        <div class="review-clamp" data-clamp><span data-resident-display>{{ $residentDescription }}</span></div>
+                      </div>
+                    @else
+                      <span class="review-not-provided">Not provided</span>
+                    @endif
+                  </td>
+                  <td data-column-label="AI suggestion">
+                    @if($aiReady && $aiDescriptionPresent)
+                      <div class="review-clamp-wrap">
+                        <div class="review-description-diff review-clamp" data-description-diff
+                             data-original="{{ $residentDescription }}" data-ai="{{ $aiDescription }}"></div>
+                      </div>
+                      <span data-ai-value-display class="sr-only">{{ $aiDescription }}</span>
+                    @else
+                      <span data-ai-value-display>
+                        @if($aiPending)Waiting for suggestion
+                        @elseif($aiUnavailable)Not available
+                        @else
+                          <span class="review-not-provided">Not provided</span>
+                        @endif
+                      </span>
+                      <div class="review-description-diff" data-description-diff data-original="{{ $residentDescription }}" data-ai=""></div>
+                    @endif
+                    <span class="review-badge review-badge-outline-green" data-comparison-badge hidden></span>
+                  </td>
+                  <td data-column-label="Final">
+                    <label class="sr-only" for="final-description">Final description</label>
+                    <textarea id="final-description" name="staff_description" rows="4" maxlength="2000"
+                              data-final-control @disabled($emergencyActionOnly)>{{ $finalDescription }}</textarea>
+                    <div class="review-final-meta">
+                      <span class="review-badge {{ $descriptionFinalState === 'Accepted' ? 'review-badge-green' : ($descriptionFinalState === 'Edited' ? 'review-badge-amber' : ($descriptionFinalState === 'AI suggested' ? 'review-badge-blue' : 'review-badge-gray')) }}"
+                            data-final-state>{{ $descriptionFinalState }}</span>
+                      <div class="review-row-actions">
+                        <button type="button" class="review-text-link" data-use-ai @disabled($emergencyActionOnly) @if(! $aiDescriptionPresent) hidden @endif>Use AI</button>
+                        <button type="button" class="review-text-link" data-use-resident @disabled($emergencyActionOnly) @if(! $residentDescription || $residentDescription === $aiDescription) hidden @endif>Use resident's</button>
+                        <button type="button" class="review-text-link" data-accept-row @disabled($emergencyActionOnly) @if(! $aiDescriptionPresent) hidden @endif>Accept</button>
+                        <button type="button" class="review-text-link" data-use-original @disabled($emergencyActionOnly)>Use original</button>
+                        <button type="button" class="review-text-link" data-append-ai @disabled($emergencyActionOnly) @if(! $aiDescriptionPresent) hidden @endif>Append AI summary</button>
+                        <button type="button" class="review-text-link" data-undo-row hidden>Undo</button>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+
+                <tr data-review-row data-field="purok"
+                    data-resident-value="{{ $residentPurok?->id ?? '' }}"
+                    data-resident-label="{{ $residentPurok?->name ?? '' }}"
+                    data-ai-value="" data-ai-label="" data-ai-present="false"
+                    data-review-required="false" data-reviewed="true">
+                  <th scope="row" data-column-label="Field">Purok</th>
+                  <td data-column-label="Resident">
+                    @if($residentPurok)
+                      <span data-resident-display>{{ $residentPurok->name }}</span>
+                    @else
+                      <span class="review-not-provided">Not provided</span>
+                    @endif
+                  </td>
+                  <td data-column-label="AI suggestion">
+                    <span data-ai-value-display @if(! $aiPending && ! $aiUnavailable) class="review-not-provided" @endif>
+                      @if($aiPending)Waiting for suggestion
+                      @elseif($aiUnavailable)Not available
+                      @else Not provided
+                      @endif
+                    </span>
+                    <span class="review-badge review-badge-outline-blue" data-comparison-badge hidden></span>
+                  </td>
+                  <td data-column-label="Final">
+                    <label class="sr-only" for="final-purok">Final purok</label>
+                    <select id="final-purok" name="purok_id" data-final-control @disabled($emergencyActionOnly)>
+                      <option value="">Select purok</option>
+                      @foreach($puroks as $purok)
+                        <option value="{{ $purok->id }}" @selected((string) $finalPurokId === (string) $purok->id)>{{ $purok->name }}</option>
+                      @endforeach
+                    </select>
+                    <span class="review-badge review-badge-gray" data-final-state>Resident</span>
+                  </td>
+                </tr>
+
+                <tr data-review-row data-field="landmark"
+                    data-resident-value="{{ $residentLandmark ?? '' }}"
+                    data-resident-label="{{ $residentLandmark ?? '' }}"
+                    data-ai-value="" data-ai-label="" data-ai-present="false"
+                    data-review-required="false" data-reviewed="true">
+                  <th scope="row" data-column-label="Field">Landmark</th>
+                  <td data-column-label="Resident">
+                    @if(trim((string) $residentLandmark) !== '')
+                      <div class="review-clamp-wrap">
+                        <div class="review-clamp" data-clamp><span data-resident-display>{{ $residentLandmark }}</span></div>
+                      </div>
+                    @else
+                      <span class="review-not-provided">Not provided</span>
+                    @endif
+                  </td>
+                  <td data-column-label="AI suggestion">
+                    <span data-ai-value-display @if(! $aiPending && ! $aiUnavailable) class="review-not-provided" @endif>
+                      @if($aiPending)Waiting for suggestion
+                      @elseif($aiUnavailable)Not available
+                      @else Not provided
+                      @endif
+                    </span>
+                    <span class="review-badge review-badge-outline-blue" data-comparison-badge hidden></span>
+                  </td>
+                  <td data-column-label="Final">
+                    <label class="sr-only" for="final-landmark">Final landmark</label>
+                    <input id="final-landmark" type="text" name="landmark" maxlength="255"
+                           value="{{ $finalLandmark }}" data-final-control @disabled($emergencyActionOnly)>
+                    <span class="review-badge review-badge-gray" data-final-state>Resident</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
 
         @if($aiReady && ($aiResult->photo_description || $aiResult->key_facts))
           <details class="review-ai-details">
@@ -815,7 +861,7 @@
           </details>
         @endif
 
-        @if(! $emergencyActionOnly)
+        @if(! $isAfterRoute && ! $emergencyActionOnly)
           <div class="review-actions-row">
             <span class="review-gate-hint review-card2-gate-summary" data-gate-reason-card2 aria-live="polite"></span>
             @if($aiReady)
@@ -827,10 +873,6 @@
                 Accept all AI suggestions
               </button>
             @endif
-
-            <!-- <button type="submit" name="intent" value="save" class="review-button review-button-blue">
-              Confirm review
-            </button> -->
           </div>
         @endif
       </div>
@@ -1967,7 +2009,9 @@
 
     const card2GateReason = root.querySelector('[data-gate-reason-card2]');
     if (card2GateReason) {
-      if (missingCategory || missingUrgency) {
+      if (root.dataset.isAfterRoute === 'true') {
+        card2GateReason.hidden = true;
+      } else if (missingCategory || missingUrgency) {
         card2GateReason.textContent = `Route gate: Select ${missingCategory && missingUrgency ? 'Category & Urgency' : (missingCategory ? 'Category' : 'Urgency')} to route`;
         card2GateReason.className = 'review-gate-hint review-card2-gate-summary is-missing';
         card2GateReason.hidden = false;

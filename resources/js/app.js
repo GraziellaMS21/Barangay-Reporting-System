@@ -392,6 +392,64 @@ if (photosInput && addPhotosButton && photoEmptyState && photoPreviews && photoU
   });
 }
 
+export function setupCooperativeMapGestures(map, container) {
+  if (!container || !map) return;
+
+  if (map.scrollWheelZoom) {
+    map.scrollWheelZoom.disable();
+  }
+
+  let hint = container.querySelector('.map-cooperative-hint');
+  if (!hint) {
+    hint = document.createElement('div');
+    hint.className = 'map-cooperative-hint';
+    hint.setAttribute('aria-hidden', 'true');
+    hint.innerHTML = '<span><i class="fa-solid fa-hand-pointer"></i> Use two fingers to move the map</span>';
+    container.style.position = 'relative';
+    container.appendChild(hint);
+  }
+
+  let hintTimer = null;
+
+  const showHint = () => {
+    hint.classList.add('is-visible');
+    clearTimeout(hintTimer);
+    hintTimer = setTimeout(() => {
+      hint.classList.remove('is-visible');
+    }, 1200);
+  };
+
+  container.addEventListener('touchstart', (e) => {
+    const isMarker = Boolean(e.target.closest('.leaflet-marker-icon'));
+    const isControl = Boolean(e.target.closest('.leaflet-control'));
+
+    if (e.touches.length === 1 && !isMarker && !isControl) {
+      map.dragging.disable();
+    } else if (e.touches.length >= 2) {
+      map.dragging.enable();
+    }
+  }, { passive: true });
+
+  container.addEventListener('touchmove', (e) => {
+    const isMarker = Boolean(e.target.closest('.leaflet-marker-icon'));
+    const isControl = Boolean(e.target.closest('.leaflet-control'));
+
+    if (e.touches.length === 1 && !isMarker && !isControl) {
+      showHint();
+    }
+  }, { passive: true });
+
+  container.addEventListener('touchend', () => {
+    map.dragging.enable();
+  }, { passive: true });
+
+  container.addEventListener('touchcancel', () => {
+    map.dragging.enable();
+  }, { passive: true });
+}
+
+window.setupCooperativeMapGestures = setupCooperativeMapGestures;
+
 const reportMapElement = document.getElementById('map');
 const detailMapElement = document.getElementById('report-location-map');
 
@@ -399,7 +457,8 @@ if (reportMapElement) {
   const defaultCenter = [6.9214, 122.0790];
   const latInput = document.getElementById('lat');
   const lngInput = document.getElementById('lng');
-  const map = L.map(reportMapElement).setView(defaultCenter, 15);
+  const map = L.map(reportMapElement, { scrollWheelZoom: false }).setView(defaultCenter, 15);
+  setupCooperativeMapGestures(map, reportMapElement);
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
@@ -460,6 +519,7 @@ if (detailMapElement) {
     const map = L.map(detailMapElement, {
       scrollWheelZoom: false,
     }).setView([latitude, longitude], 16);
+    setupCooperativeMapGestures(map, detailMapElement);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
@@ -475,7 +535,10 @@ const staffMapElement = document.querySelector('[data-staff-report-map]');
 if (staffMapElement) {
   const reports = JSON.parse(staffMapElement.dataset.staffReportMap);
   const defaultCenter = [6.918, 122.081];
-  const map = L.map(staffMapElement).setView(defaultCenter, 13);
+  const map = L.map(staffMapElement, {
+    scrollWheelZoom: false,
+  }).setView(defaultCenter, 13);
+  setupCooperativeMapGestures(map, staffMapElement);
   const markerLayer = L.layerGroup().addTo(map);
   const filterControls = {
     category: document.querySelector('[data-map-filter="category"]'),

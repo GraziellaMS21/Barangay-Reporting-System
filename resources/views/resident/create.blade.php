@@ -1126,10 +1126,21 @@
       const CALARIAN_CENTER = [6.921, 122.078];
       const CALARIAN_BOUNDS = [[6.905, 122.060], [6.940, 122.098]];
       if (typeof L !== 'undefined') {
-        mapInstance = L.map('map').setView(CALARIAN_CENTER, 15);
-        window.leafletMapInstance = mapInstance;
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OSM' }).addTo(mapInstance);
-        mapInstance.setMaxBounds(CALARIAN_BOUNDS);
+        const mapEl = document.getElementById('map');
+        if (mapEl && !mapEl._leaflet_id) {
+          mapInstance = L.map('map', { scrollWheelZoom: false }).setView(CALARIAN_CENTER, 15);
+          window.leafletMapInstance = mapInstance;
+          if (window.setupCooperativeMapGestures) {
+            window.setupCooperativeMapGestures(mapInstance, mapEl);
+          }
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OSM' }).addTo(mapInstance);
+          mapInstance.setMaxBounds(CALARIAN_BOUNDS);
+        } else if (window.leafletMapInstance) {
+          mapInstance = window.leafletMapInstance;
+          if (window.setupCooperativeMapGestures && mapEl) {
+            window.setupCooperativeMapGestures(mapInstance, mapEl);
+          }
+        }
         let marker = null;
         function placePin(lat, lng) {
           if (marker) marker.setLatLng([lat, lng]); else marker = L.marker([lat, lng], { draggable: true }).addTo(mapInstance);

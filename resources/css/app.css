@@ -864,6 +864,40 @@ h3 {
     border-radius: inherit;
 }
 
+.map-cooperative-hint {
+    position: absolute;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(15, 23, 42, 0.6);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 1rem;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    border-radius: inherit;
+}
+
+.map-cooperative-hint.is-visible {
+    opacity: 1;
+}
+
+.map-cooperative-hint span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.92rem;
+    font-weight: 700;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 0.5rem 1rem;
+    border-radius: 9999px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
 .staff-map-layout {
     display: grid;
     grid-template-columns: minmax(16rem, 0.85fr) minmax(0, 2fr);

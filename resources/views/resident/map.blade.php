@@ -119,7 +119,11 @@
       return;
     }
 
-    const map = L.map('public-map').setView([6.918, 122.081], 13);
+    const publicMapEl = document.getElementById('public-map');
+    const map = L.map('public-map', { scrollWheelZoom: false }).setView([6.918, 122.081], 13);
+    if (window.setupCooperativeMapGestures && publicMapEl) {
+      window.setupCooperativeMapGestures(map, publicMapEl);
+    }
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap contributors'

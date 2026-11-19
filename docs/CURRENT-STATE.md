@@ -111,3 +111,13 @@ The following specific gaps exist between the current codebase and the canonical
   - **Dashboard Rows Keyboard Accessible**: Added `tabindex="0"`, `role="link"`, `aria-label`, and `onkeydown` Enter/Space key triggers to `.dashboard-table-row` in both "Needs Attention" and "Pending Referrals" tables in [`admin/dashboard.blade.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/views/admin/dashboard.blade.php). Added `:focus-visible` styles with outline and hover transitions in [`resources/css/app.css`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/css/app.css).
   - **Audit Log Human-Readable Summary & Collapsible Raw JSON**: Upgraded old and new values in [`admin/audit-log/index.blade.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/views/admin/audit-log/index.blade.php) from raw JSON dumps into clean, structured key-value definition lists (`<dl class="audit-summary-list">`), while keeping complete raw JSON collapsed within native `<details class="audit-raw-details"><summary>View raw JSON</summary>...` elements.
   - **Feature Tests**: Added assertions in [`tests/Feature/DashboardControllerTest.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/tests/Feature/DashboardControllerTest.php) and [`tests/Feature/AdminSettingsTest.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/tests/Feature/AdminSettingsTest.php). Total test suite: 139 tests, 1,085 assertions, 100% green.
+
+### Batch 4: Maps [Completed]
+- **Status**: Completed (2026-11-19)
+- **Delivered**:
+  - **Cooperative Map Gestures Across All Maps**: Implemented `setupCooperativeMapGestures(map, container)` in [`app.js`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/js/app.js) and wired across the resident form map (`#map`), review location map (`#report-location-map`), staff map (`#staff-map`), and public map (`#public-map`).
+  - **One-Finger Mobile Scroll Trapping Eliminated**: On touch devices, single-finger swipes over the map container bypass Leaflet dragging, allowing natural vertical page scrolling. A subtle toast overlay ("Use two fingers to move the map") guides users.
+  - **Two-Finger Map Interaction**: Multi-touch swiping allows two-finger panning and pinch-to-zoom.
+  - **Resident Pin Stays Draggable**: When touching `.leaflet-marker-icon`, the marker's drag handler retains control, ensuring 100% draggable pin placement with one finger. Single tap places or relocates pins.
+  - **Desktop Mouse Wheel Protection**: Set `scrollWheelZoom: false` across all embedded maps so desktop mouse scrolling does not trap within map containers.
+  - **Verification**: Vite compiled production assets cleanly; test suite 100% green (139 tests, 1,085 assertions).

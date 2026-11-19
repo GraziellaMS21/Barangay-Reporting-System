@@ -67,6 +67,7 @@ class DemoReportSeeder extends Seeder
 
         $this->seedAiResults($categoryIds);
         $this->seedReferrals();
+        $this->seedInternalRoutedReports($categoryIds);
     }
 
     /**
@@ -216,6 +217,7 @@ class DemoReportSeeder extends Seeder
                         $demoReferral['status'] === 'overdue' ? 9 : 4
                     ),
                     'prepared_by' => $staff?->id,
+                    'follow_up_owner_id' => $staff?->id,
                 ]
             );
 
@@ -231,6 +233,74 @@ class DemoReportSeeder extends Seeder
                 }
 
                 $referral->update(['status' => $demoReferral['status']]);
+            }
+        }
+    }
+
+    private function seedInternalRoutedReports($categoryIds): void
+    {
+        $internalOffices = Office::query()
+            ->where('is_internal', true)
+            ->pluck('id', 'name');
+        if ($internalOffices->isEmpty()) {
+            return;
+        }
+
+        $staff = User::query()->whereIn('role', ['staff', 'admin'])->orderBy('id')->first();
+        $purokId = Purok::query()->orderBy('id')->value('id');
+
+        $demoInternal = [
+            [
+                'tracking_code' => 'BRG-DEMO09',
+                'description' => 'Overflowing garbage bins along the alley near Purok 1 chapel need scheduled pickup.',
+                'category' => 'garbage',
+                'office' => 'Barangay Sanitation Office',
+                'status' => 'routed',
+                'urgency' => 'High',
+                'due_at' => now()->addDays(2),
+            ],
+            [
+                'tracking_code' => 'BRG-DEMO10',
+                'description' => 'Silt and debris blocking the barangay footpath canal after last night’s rain.',
+                'category' => 'drainage',
+                'office' => 'Barangay Infrastructure Office',
+                'status' => 'in_progress',
+                'urgency' => 'Medium',
+                'due_at' => now()->subDay(),
+            ],
+        ];
+
+        foreach ($demoInternal as $item) {
+            $officeId = $internalOffices->get($item['office']);
+            if (! $officeId) {
+                continue;
+            }
+
+            $report = Report::firstOrCreate(
+                ['tracking_code' => $item['tracking_code']],
+                [
+                    'description' => $item['description'],
+                    'staff_description' => $item['description'],
+                    'category_id' => $categoryIds->get($item['category']) ?? $categoryIds->first(),
+                    'purok_id' => $purokId,
+                    'office_id' => $officeId,
+                    'assigned_to' => $staff?->id,
+                    'reviewed_by' => $staff?->id,
+                    'reviewed_at' => now()->subDays(2),
+                    'status' => $item['status'],
+                    'urgency' => $item['urgency'],
+                    'due_at' => $item['due_at'],
+                ]
+            );
+
+            if ($report->wasRecentlyCreated) {
+                $report->statusLogs()->create([
+                    'user_id' => $staff?->id,
+                    'office_id' => $officeId,
+                    'from_status' => 'under_review',
+                    'to_status' => 'routed',
+                    'note' => 'Routed to '.$item['office'].'.',
+                ]);
             }
         }
     }

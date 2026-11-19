@@ -24,6 +24,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth','role:admin'])->group
     Route::get('/settings/emergency-alert-emails', [SettingsController::class,'emergencyAlertEmails'])->name('settings.emergency-alert-emails.index');
     Route::put('/settings/emergency-alert-emails', [SettingsController::class,'updateEmergencyAlertEmails'])->name('settings.emergency-alert-emails.update');
     Route::resource('settings/categories', CategorySettingsController::class)->except(['show','destroy'])->names('settings.categories');
+    Route::patch('settings/offices/{office}/toggle-active', [OfficeSettingsController::class, 'toggleActive'])->name('settings.offices.toggle-active');
     Route::resource('settings/offices', OfficeSettingsController::class)->except('show')->names('settings.offices');
     Route::resource('settings/routing-rules', RoutingRuleSettingsController::class)->except('show')->parameters(['routing-rules'=>'routingRule'])->names('settings.routing-rules');
     Route::resource('settings/sensitive-places', SensitivePlaceSettingsController::class)->except('show')->parameters(['sensitive-places'=>'sensitivePlace'])->names('settings.sensitive-places');

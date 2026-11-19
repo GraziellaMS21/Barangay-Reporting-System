@@ -17,15 +17,26 @@ class RoutingService
     public function recommendedOffice(Category $category): ?Office
     {
         $rule = RoutingRule::query()
+            ->with('office')
             ->where('category_id', $category->id)
             ->first();
 
-        return $rule?->office ?? $category->defaultOffice;
+        $ruleOffice = $rule?->office;
+        if ($ruleOffice && $ruleOffice->is_active) {
+            return $ruleOffice;
+        }
+
+        $defaultOffice = $category->defaultOffice;
+        if ($defaultOffice && $defaultOffice->is_active) {
+            return $defaultOffice;
+        }
+
+        return null;
     }
 
     /**
      * @param  Collection<int, Category>  $categories
-     * @return array<int, array{office_id: int|null, office_name: string|null, within_authority: bool, reason: string}>
+     * @return array<int, array{office_id: int|null, office_name: string|null, within_authority: bool, reason: string, default_assignee_id: int|null}>
      */
     public function decisionsForCategories(Collection $categories): array
     {
@@ -37,13 +48,17 @@ class RoutingService
 
         return $categories->mapWithKeys(function (Category $category) use ($rules): array {
             $rule = $rules->get($category->id);
-            $office = $rule?->office ?? $category->defaultOffice;
+            $candidate = $rule?->office ?? $category->defaultOffice;
+            $office = ($candidate && $candidate->is_active)
+                ? $candidate
+                : (($category->defaultOffice && $category->defaultOffice->is_active) ? $category->defaultOffice : null);
 
             return [$category->id => [
                 'office_id' => $office?->id,
                 'office_name' => $office?->name,
                 'within_authority' => (bool) ($rule?->within_authority ?? true),
                 'reason' => $rule?->jurisdiction_note ?? 'Assigned to the category default office.',
+                'default_assignee_id' => $office?->default_assignee_id,
             ]];
         })->all();
     }
@@ -57,7 +72,10 @@ class RoutingService
             ->with('office')
             ->where('category_id', $category->id)
             ->first();
-        $office = $rule?->office ?? $category->defaultOffice;
+        $candidate = $rule?->office ?? $category->defaultOffice;
+        $office = ($candidate && $candidate->is_active)
+            ? $candidate
+            : (($category->defaultOffice && $category->defaultOffice->is_active) ? $category->defaultOffice : null);
 
         return [
             'office' => $office,

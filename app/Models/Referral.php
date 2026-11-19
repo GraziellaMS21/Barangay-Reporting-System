@@ -51,7 +51,17 @@ class Referral extends Model
         'closed_at',
         'outcome',
         'prepared_by',
+        'follow_up_owner_id',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (Referral $referral): void {
+            if ($referral->follow_up_owner_id === null && $referral->prepared_by !== null) {
+                $referral->follow_up_owner_id = $referral->prepared_by;
+            }
+        });
+    }
 
     protected function casts(): array
     {
@@ -75,6 +85,11 @@ class Referral extends Model
     public function preparedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'prepared_by');
+    }
+
+    public function followUpOwner(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'follow_up_owner_id');
     }
 
     public function updates(): HasMany

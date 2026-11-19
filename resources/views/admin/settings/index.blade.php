@@ -19,8 +19,8 @@
     <p>Set category risk weights and their default offices.</p>
   </a>
   <a class="card settings-link" href="{{ route('admin.settings.offices.index') }}">
-    <h2 class="card-title"><i class="fa-solid fa-building" aria-hidden="true"></i> Offices</h2>
-    <p>Maintain barangay and external office details.</p>
+    <h2 class="card-title"><i class="fa-solid fa-building" aria-hidden="true"></i> Manage offices and agencies</h2>
+    <p>Maintain internal barangay offices and external agencies for routing and referrals.</p>
   </a>
   <a class="card settings-link" href="{{ route('admin.settings.routing-rules.index') }}">
     <h2 class="card-title"><i class="fa-solid fa-route" aria-hidden="true"></i> Routing rules</h2>

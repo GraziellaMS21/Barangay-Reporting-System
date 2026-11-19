@@ -22,7 +22,10 @@ class ReportController extends Controller
         return view('resident.create', [
             'puroks' => Purok::orderBy('name')->get(),
             'contacts' => EmergencyContact::query()->active()->ordered()->get(),
-            'categories' => Category::query()->where('is_active', true)->orderBy('name')->get(),
+            'categories' => Category::query()
+                ->where('is_active', true)
+                ->orderByRaw("CASE WHEN LOWER(slug) IN ('other', 'others') OR LOWER(name) IN ('other', 'others') THEN 1 ELSE 0 END, name ASC")
+                ->get(),
         ]);
     }
 

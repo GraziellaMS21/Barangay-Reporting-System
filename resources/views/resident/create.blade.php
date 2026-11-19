@@ -24,90 +24,514 @@
 @endsection
 
 @section('content')
+  @php
+    // Ensure "Other" / "Others" category is always at the last position
+    $sortedCategories = $categories->sortBy(function($c) {
+        $slug = strtolower($c->slug ?? '');
+        $name = strtolower($c->name ?? '');
+        return ($slug === 'other' || $slug === 'others' || $name === 'other' || $name === 'others') ? 1 : 0;
+    })->values();
+  @endphp
+
   <style>
+    /* Card Container Enhancements */
+    .report-card {
+      border: 1px solid #e2e8f0;
+      border-radius: 20px;
+      padding: 2.25rem;
+      background: #ffffff;
+      box-shadow: 0 4px 6px -1px rgba(11, 31, 75, 0.04), 0 20px 30px -4px rgba(11, 31, 75, 0.08);
+      transition: box-shadow 0.25s ease;
+      position: relative;
+    }
+
+    @media (max-width: 640px) {
+      .report-card {
+        padding: 1.25rem;
+        border-radius: 16px;
+      }
+    }
+
+    /* Top Action Bar */
+    .card-topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      padding-bottom: 1.25rem;
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .emergency-pill-strip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.65rem;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 999px;
+      padding: 0.3rem 0.5rem 0.3rem 0.85rem;
+      font-size: 0.85rem;
+    }
+
+    .emergency-pill-strip .emg-label {
+      color: var(--red);
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .emergency-pill-strip .emg-action-btn {
+      background: var(--red);
+      color: #ffffff;
+      border: none;
+      padding: 0.25rem 0.75rem;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      transition: background 0.15s, transform 0.15s;
+    }
+
+    .emergency-pill-strip .emg-action-btn:hover {
+      background: #b91c1c;
+      transform: translateY(-1px);
+    }
+
+    .lang-segmented-control {
+      display: inline-flex;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      border-radius: 999px;
+      padding: 3px;
+      gap: 2px;
+    }
+
+    .lang-segmented-btn {
+      border: none;
+      background: transparent;
+      padding: 0.3rem 0.85rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #64748b;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .lang-segmented-btn:hover:not(.active) {
+      color: var(--ink);
+    }
+
+    .lang-segmented-btn.active {
+      background: var(--ink);
+      color: #ffffff;
+      box-shadow: 0 2px 4px rgba(11, 31, 75, 0.2);
+    }
+
+    /* Section Headings */
+    .card-section-heading {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      margin-bottom: 0.85rem;
+    }
+
+    .card-section-icon {
+      display: inline-grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: #eff6ff;
+      color: var(--blue);
+      font-size: 0.95rem;
+      flex-shrink: 0;
+    }
+
+    .card-section-title {
+      font-size: 1.12rem;
+      font-weight: 700;
+      color: var(--ink);
+      margin: 0;
+      letter-spacing: -0.01em;
+    }
+
+    .badge-optional {
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: #64748b;
+      margin-left: 0.25rem;
+    }
+
+    /* Category Chips */
+    .cat-chips-wrap {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      margin-bottom: 1.25rem;
+    }
+
     .cat-chip {
       display: inline-flex;
       align-items: center;
-      gap: .35rem;
-      padding: .35rem .75rem;
-      border: 1px solid var(--line);
+      gap: 0.5rem;
+      padding: 0.55rem 1.05rem;
+      border: 1.5px solid #e2e8f0;
       border-radius: 999px;
-      background: #fff;
+      background: #f8fafc;
       color: var(--tx);
-      font-size: .85rem;
+      font-size: 0.875rem;
       font-weight: 600;
       cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+      box-shadow: 0 1px 2px rgba(11, 31, 75, 0.03);
+    }
+
+    .cat-chip i {
+      color: #64748b;
+      font-size: 0.95rem;
+      transition: color 0.2s, transform 0.2s;
+    }
+
+    .cat-chip:hover {
+      background: #eff6ff;
+      border-color: #93c5fd;
+      color: #1d4ed8;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.08);
+    }
+
+    .cat-chip:hover i {
+      color: #2563eb;
+      transform: scale(1.1);
     }
 
     .cat-chip.selected {
-      background: var(--blue);
-      color: #fff;
-      border-color: var(--blue);
+      background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+      color: #ffffff;
+      border-color: #1e40af;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+      transform: translateY(-1px);
     }
 
-    .section-divider {
+    .cat-chip.selected i {
+      color: #fbbf24;
+    }
+
+    /* Dynamic Questions Container */
+    #dynamic-questions-container {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-left: 4px solid var(--blue);
+      border-radius: 14px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1.25rem;
+      animation: fadeIn 0.25s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Section Dividers */
+    .card-divider {
       border: 0;
-      border-top: 1px solid var(--line);
-      margin: 1.25rem 0;
+      height: 1px;
+      background: linear-gradient(to right, transparent, #e2e8f0 10%, #e2e8f0 90%, transparent);
+      margin: 1.75rem 0;
+    }
+
+    /* Danger Callout Box */
+    .danger-callout-box {
+      background: #fff8f8;
+      border: 1px solid #fee2e2;
+      border-radius: 12px;
+      padding: 0.85rem 1.15rem;
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+    }
+
+    .danger-callout-box:hover {
+      background: #fef2f2;
+      border-color: #fca5a5;
+    }
+
+    /* Custom Collapsible Card Sections */
+    .card-collapsible {
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      margin-bottom: 1.25rem;
+      background: #ffffff;
+      overflow: hidden;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .card-collapsible[open] {
+      border-color: #cbd5e1;
+      box-shadow: 0 2px 5px rgba(11, 31, 75, 0.04);
+    }
+
+    .card-collapsible summary {
+      padding: 1rem 1.25rem;
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--ink);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #f8fafc;
+      user-select: none;
+      list-style: none;
+    }
+
+    .card-collapsible summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .card-collapsible summary::after {
+      content: '\f078';
+      font-family: 'Font Awesome 6 Free';
+      font-weight: 900;
+      font-size: 0.8rem;
+      color: #94a3b8;
+      transition: transform 0.2s ease;
+    }
+
+    .card-collapsible[open] summary::after {
+      transform: rotate(180deg);
+    }
+
+    .card-collapsible-content {
+      padding: 1.25rem;
+      border-top: 1px solid #f1f5f9;
+      background: #ffffff;
+    }
+
+    /* Toggle Buttons */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .toggle-btns {
+      display: inline-flex;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1.5px solid #cbd5e1;
+      background: #f1f5f9;
+      padding: 2px;
+      gap: 2px;
+    }
+
+    .toggle-btn {
+      padding: 0.4rem 1rem;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #64748b;
+      border-radius: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .toggle-btn.active {
+      background: var(--blue);
+      color: #ffffff;
+      box-shadow: 0 2px 4px rgba(36, 86, 214, 0.2);
+    }
+
+    /* Map Box */
+    .map-container-box {
+      border: 1.5px solid #e2e8f0;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    /* Photo Guidance Box */
+    .photo-guidance-card {
+      background: #eff6ff;
+      border-left: 4px solid var(--blue);
+      border-radius: 0 10px 10px 0;
+      padding: 0.85rem 1rem;
+      margin-bottom: 1rem;
+      font-size: 0.85rem;
+      color: #1e3a8a;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.65rem;
+    }
+
+    /* Footer & Submit Area */
+    .card-submit-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1.25rem;
+      flex-wrap: wrap;
+      padding-top: 0.5rem;
+    }
+
+    .consent-checkbox-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--tx);
+      cursor: pointer;
+    }
+
+    .consent-checkbox-wrap input[type="checkbox"] {
+      width: 1.15rem;
+      height: 1.15rem;
+      accent-color: var(--blue);
+      cursor: pointer;
+    }
+
+    /* Emergency Hotlines Screen Card */
+    .emergency-hero-card {
+      border: 2px solid #ef4444;
+      border-radius: 20px;
+      background: #ffffff;
+      padding: 2.25rem;
+      box-shadow: 0 10px 25px -5px rgba(224, 53, 43, 0.15);
+      animation: fadeIn 0.25s ease-out;
+    }
+
+    .hotline-card-enhanced {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.25rem;
+      border-radius: 12px;
+      border: 1.5px solid #e2e8f0;
+      background: #f8fafc;
+      color: var(--ink);
+      font-weight: 700;
+      text-decoration: none;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .hotline-card-enhanced:hover {
+      background: #eff6ff;
+      border-color: #93c5fd;
+      color: #1d4ed8;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 10px rgba(36, 86, 214, 0.1);
+    }
+
+    .hotline-card-primary {
+      background: #fee2e2;
+      border-color: #fca5a5;
+      color: #b91c1c;
+      font-size: 1.1rem;
+    }
+
+    .hotline-card-primary:hover {
+      background: #fecaca;
+      border-color: #ef4444;
+      color: #991b1b;
     }
   </style>
 
-  <!-- Emergency screen -->
-  <section id="emergency-screen" class="card" style="display:none;border:1px solid #e5e7eb;box-shadow:none;">
-    <div style="display:flex;align-items:center;gap:.75rem;color:var(--red);margin-bottom:1rem;">
-      <i class="fa-solid fa-triangle-exclamation" style="font-size:2rem;"></i>
+  <!-- Emergency Screen Card -->
+  <section id="emergency-screen" class="emergency-hero-card" style="display:none;">
+    <div style="display:flex;align-items:center;gap:1rem;color:var(--red);margin-bottom:1.25rem;padding-bottom:1rem;border-bottom:1px solid #fee2e2;">
+      <div style="width:48px;height:48px;border-radius:12px;background:#fee2e2;display:grid;place-items:center;flex-shrink:0;">
+        <i class="fa-solid fa-triangle-exclamation" style="font-size:1.6rem;color:var(--red);"></i>
+      </div>
       <div>
-        <h2 style="color:var(--red);margin:0;" data-i18n="emg_title">Emergency Detected</h2>
-        <p style="margin:.2rem 0 0;" data-i18n="emg_subtitle">For immediate life-threatening danger, call official
-          hotlines directly.</p>
+        <h2 style="color:var(--red);margin:0;font-size:1.35rem;font-weight:800;" data-i18n="emg_title">Emergency Detected</h2>
+        <p style="margin:0.2rem 0 0;color:#64748b;font-size:0.92rem;" data-i18n="emg_subtitle">For immediate life-threatening danger, call official hotlines directly.</p>
       </div>
     </div>
-    <div class="card alert" style="margin-top:1rem;">
-      <p style="font-weight:700;color:var(--red);" data-i18n="emg_not_monitored"><i class="fa-solid fa-bell-slash"></i>
-        THIS ONLINE SYSTEM IS NOT MONITORED IN REAL-TIME.</p>
-      <p style="margin:.25rem 0 0;" data-i18n="emg_call_prompt">Please contact emergency services immediately using the
-        numbers below:</p>
+
+    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:1rem 1.25rem;margin-bottom:1.5rem;">
+      <p style="font-weight:800;color:#b91c1c;margin:0;display:flex;align-items:center;gap:0.5rem;" data-i18n="emg_not_monitored">
+        <i class="fa-solid fa-bell-slash"></i> THIS ONLINE SYSTEM IS NOT MONITORED IN REAL-TIME.
+      </p>
+      <p style="margin:0.35rem 0 0;color:#7f1d1d;font-size:0.88rem;" data-i18n="emg_call_prompt">
+        Please contact emergency services immediately using the numbers below:
+      </p>
     </div>
-    <div style="margin-top:1rem;">
-      <a href="tel:911" class="hotline-card"
-        style="border-color:var(--red);background:#fee2e2;display:block;margin-bottom:.5rem;padding:.75rem;border-radius:10px;font-weight:700;color:var(--red);">911
-        — National Emergency Hotline</a>
+
+    <div style="display:grid;gap:0.75rem;margin-bottom:1.75rem;">
+      <a href="tel:911" class="hotline-card-enhanced hotline-card-primary">
+        <span style="display:flex;align-items:center;gap:0.75rem;">
+          <i class="fa-solid fa-phone-volume"></i>
+          <span>911 — National Emergency Hotline</span>
+        </span>
+        <span style="background:var(--red);color:#ffffff;padding:0.25rem 0.65rem;border-radius:999px;font-size:0.75rem;font-weight:700;">CALL NOW</span>
+      </a>
+
       @foreach($contacts as $contact)
         @php $num = trim((string) $contact->number); @endphp
         @if($num !== '' && stripos($num, 'N/A') === false && $num !== '911')
-          <a href="tel:{{ preg_replace('/[^0-9+]/', '', $num) }}" class="hotline-card"
-            style="display:block;margin-bottom:.5rem;padding:.75rem;border-radius:10px;border:1px solid var(--line);">{{ $contact->name }}
-            — {{ $num }}</a>
+          <a href="tel:{{ preg_replace('/[^0-9+]/', '', $num) }}" class="hotline-card-enhanced">
+            <span style="display:flex;align-items:center;gap:0.65rem;">
+              <i class="fa-solid fa-phone" style="color:var(--blue);"></i>
+              <span>{{ $contact->name }}</span>
+            </span>
+            <span style="color:var(--blue);font-family:monospace;font-size:0.95rem;">{{ $num }}</span>
+          </a>
         @endif
       @endforeach
     </div>
-    <div style="margin-top:1.5rem;text-align:center;">
-      <button type="button" class="btn btn-outline" onclick="hideEmergency()" data-i18n="emg_back_btn">Return to
-        report</button>
+
+    <div style="text-align:center;padding-top:1rem;border-top:1px solid #f1f5f9;">
+      <button type="button" class="btn btn-outline" onclick="hideEmergency()" data-i18n="emg_back_btn" style="min-width:180px;">
+        <i class="fa-solid fa-arrow-left"></i> Return to report
+      </button>
     </div>
   </section>
 
-  <!-- Single card form -->
-  <section id="report-form" class="card" style="border:1px solid #e5e7eb;box-shadow:none;">
+  <!-- Main Report Form Card -->
+  <section id="report-form" class="card report-card">
     @if($errors->any())
-      <div role="alert" class="form-errors" style="margin-bottom:1.25rem;">
-        <ul style="margin:0;padding-left:1.2rem;">
+      <div role="alert" class="form-errors" style="margin-bottom:1.5rem;border-radius:12px;padding:1rem 1.25rem;">
+        <div style="display:flex;align-items:center;gap:0.5rem;font-weight:700;margin-bottom:0.4rem;color:#b91c1c;">
+          <i class="fa-solid fa-circle-exclamation"></i> Please correct the errors below:
+        </div>
+        <ul style="margin:0;padding-left:1.4rem;">
           @foreach($errors->all() as $error)
-          <li>{{ $error }}</li>@endforeach
+            <li>{{ $error }}</li>
+          @endforeach
         </ul>
       </div>
     @endif
 
-    <div
-      style="display:flex;justify-content:space-between;align-items:center;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem;">
-      <div style="display:flex;align-items:center;gap:.5rem;">
-        <span style="color:var(--red);font-weight:700;" data-i18n="emg_strip">Emergency? Call 911</span>
-        <button type="button" class="btn btn-small" style="background:var(--red);color:#fff;" onclick="showEmergency()"
-          data-i18n="emg_btn">Emergency / Crime</button>
+    <!-- Top Action Bar -->
+    <div class="card-topbar">
+      <div class="emergency-pill-strip">
+        <span class="emg-label" data-i18n="emg_strip">
+          <i class="fa-solid fa-triangle-exclamation"></i> Emergency? Call 911
+        </span>
+        <button type="button" class="emg-action-btn" onclick="showEmergency()" data-i18n="emg_btn">
+          <i class="fa-solid fa-phone-flip"></i> Emergency / Crime
+        </button>
       </div>
-      <div style="display:inline-flex;gap:.25rem;">
-        <button type="button" class="lang-toggle-btn js-lang-btn-en active" onclick="setLanguage('en')">EN</button>
-        <button type="button" class="lang-toggle-btn js-lang-btn-fil" onclick="setLanguage('fil')">FIL</button>
+
+      <div class="lang-segmented-control" role="group" aria-label="Select Language">
+        <button type="button" class="lang-segmented-btn js-lang-btn-en active" onclick="setLanguage('en')">EN</button>
+        <button type="button" class="lang-segmented-btn js-lang-btn-fil" onclick="setLanguage('fil')">FIL</button>
       </div>
     </div>
 
@@ -121,193 +545,285 @@
       <input type="hidden" name="is_ongoing" id="is_ongoing" value="{{ old('is_ongoing', 0) ? 1 : 0 }}">
       <input type="hidden" name="is_recurring" id="is_recurring" value="{{ old('is_recurring', 0) ? 1 : 0 }}">
 
-      <!-- Choose a category (optional) -->
-      <h2 style="font-size:1.1rem;margin-bottom:.5rem;" data-i18n="choose_category">Choose a category (optional)</h2>
+      <!-- 1. Category Selection (Others guaranteed at last) -->
+      <div class="card-section-heading">
+        <div class="card-section-icon"><i class="fa-solid fa-tags"></i></div>
+        <h2 class="card-section-title">
+          <span data-i18n="choose_category">Choose a category</span> <span class="badge-optional" data-i18n="lbl_optional">(optional)</span>
+        </h2>
+      </div>
 
-      <div style="display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:.75rem;">
-        @foreach($categories as $category)
+      <div class="cat-chips-wrap">
+        @foreach($sortedCategories as $category)
           <button type="button" class="cat-chip {{ old('category_id') == $category->id ? 'selected' : '' }}"
             data-cat-id="{{ $category->id }}" data-cat-slug="{{ $category->slug }}"
-            onclick="selectCategory({{ $category->id }})">
+            onclick="selectCategory({{ $category->id }})"
+            aria-pressed="{{ old('category_id') == $category->id ? 'true' : 'false' }}">
             @if($category->slug === 'drainage') <i class="fa-solid fa-water"></i>
             @elseif($category->slug === 'garbage') <i class="fa-solid fa-trash-can"></i>
             @elseif($category->slug === 'road-damage') <i class="fa-solid fa-road"></i>
             @elseif($category->slug === 'streetlight') <i class="fa-solid fa-lightbulb"></i>
             @elseif($category->slug === 'flooding') <i class="fa-solid fa-house-flood-water"></i>
+            @elseif(in_array(strtolower($category->slug), ['other', 'others']) || in_array(strtolower($category->name), ['other', 'others'])) <i class="fa-solid fa-ellipsis"></i>
             @else <i class="fa-solid fa-circle-question"></i>
             @endif
-            {{ $category->name }}
+            <span>{{ $category->name }}</span>
           </button>
         @endforeach
       </div>
       @error('category_id')
-      <p class="field-error">{{ $message }}</p>@enderror
+        <p class="field-error" style="margin-top:-0.5rem;margin-bottom:1rem;">{{ $message }}</p>
+      @enderror
 
-      <div id="dynamic-questions-container" style="display:none;margin-bottom:1rem;">
+      <!-- Dynamic Questions (Rendered on Category Selection) -->
+      <div id="dynamic-questions-container" style="display:none;">
         <div id="dynamic-questions-fields"></div>
       </div>
 
-      <div class="field">
-        <label for="description"><i class="fa-solid fa-align-left"></i> <span id="description-label"
-            data-i18n="lbl_description">What is the problem?</span> *</label>
-        <textarea id="description" name="description" rows="4" required minlength="10"
-          maxlength="2000">{{ old('description') }}</textarea>
-        <p class="field-hint" data-i18n="hint_description">You may write in English, Filipino, Bisaya, or Chavacano
-          (minimum 10 characters).</p>
+      <!-- 2. Problem Description -->
+      <div class="field" style="margin-bottom:1.25rem;">
+        <label for="description" style="font-size:0.95rem;font-weight:700;">
+          <i class="fa-solid fa-align-left" style="color:var(--blue);"></i>
+          <span id="description-label" data-i18n="lbl_description">What is the problem?</span> <span style="color:var(--red);">*</span>
+        </label>
+        <textarea id="description" name="description" rows="4" required minlength="10" maxlength="2000"
+          placeholder="Please describe the issue in detail...">{{ old('description') }}</textarea>
+        <p class="field-hint" data-i18n="hint_description">
+          You may write in English, Filipino, Bisaya, or Chavacano (minimum 10 characters).
+        </p>
         @error('description')
-        <p class="field-error">{{ $message }}</p>@enderror
+          <p class="field-error">{{ $message }}</p>
+        @enderror
       </div>
 
-      <div class="field">
-        <label style="display:flex;align-items:center;gap:.5rem;font-weight:600;">
-          <input type="checkbox" id="people_at_risk_cb" name="people_at_risk" value="1" {{ old('people_at_risk') ? 'checked' : '' }} onchange="toggleDanger(this.checked)"
-            style="width:1rem;height:1rem;accent-color:var(--blue);">
-          <span data-i18n="danger_checkbox">Someone is in danger right now</span>
-        </label>
-      </div>
+      <!-- Danger Right Now Checkbox -->
+      <label class="danger-callout-box">
+        <input type="checkbox" id="people_at_risk_cb" name="people_at_risk" value="1"
+          {{ old('people_at_risk') ? 'checked' : '' }} onchange="toggleDanger(this.checked)"
+          style="width:1.15rem;height:1.15rem;accent-color:var(--red);cursor:pointer;flex-shrink:0;">
+        <div style="flex:1;">
+          <span style="font-weight:700;color:#991b1b;font-size:0.92rem;" data-i18n="danger_checkbox">
+            Someone is in danger right now
+          </span>
+          <p style="margin:0.15rem 0 0;font-size:0.8rem;color:#b91c1c;">
+            Check this if there is immediate risk to health, safety, or life.
+          </p>
+        </div>
+      </label>
+
+      <!-- Inline Emergency Warning -->
       <div id="inline-emergency"
-        style="display:none;background:#fee2e2;border:1px solid #fecaca;border-radius:10px;padding:.75rem;margin-bottom:1rem;">
-        <p style="color:#b91c1c;font-weight:700;margin:0 0 .5rem;" data-i18n="emg_inline">Emergency contacts</p>
-        <a href="tel:911" style="display:block;margin-bottom:.5rem;color:var(--red);font-weight:700;">911</a>
+        style="display:none;background:#fef2f2;border:1.5px solid #fecaca;border-left:4px solid var(--red);border-radius:12px;padding:1rem 1.25rem;margin-bottom:1.5rem;">
+        <p style="color:#b91c1c;font-weight:800;margin:0 0 0.5rem;display:flex;align-items:center;gap:0.5rem;" data-i18n="emg_inline">
+          <i class="fa-solid fa-phone-volume"></i> Emergency contacts
+        </p>
+        <a href="tel:911" class="hotline-card-enhanced hotline-card-primary" style="margin-bottom:0.5rem;">
+          <span>911 — National Emergency Hotline</span>
+          <span style="font-size:0.8rem;background:var(--red);color:#fff;padding:0.2rem 0.6rem;border-radius:999px;">CALL NOW</span>
+        </a>
         @foreach($contacts as $contact)
           @php $num = trim((string) $contact->number); @endphp
           @if($num !== '' && stripos($num, 'N/A') === false && $num !== '911')
-            <a href="tel:{{ preg_replace('/[^0-9+]/', '', $num) }}"
-              style="display:block;margin-bottom:.5rem;">{{ $contact->name }} — {{ $num }}</a>
+            <a href="tel:{{ preg_replace('/[^0-9+]/', '', $num) }}" class="hotline-card-enhanced" style="margin-bottom:0.4rem;padding:0.65rem 1rem;">
+              <span>{{ $contact->name }}</span>
+              <span style="color:var(--blue);font-family:monospace;">{{ $num }}</span>
+            </a>
           @endif
         @endforeach
       </div>
 
-      <details style="margin-bottom:1rem;">
-        <summary data-i18n="more_details">More details (optional)</summary>
-        <div style="margin-top:.75rem;">
-          <div class="toggle-row"
-            style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
-            <strong data-i18n="q_ongoing">Is this happening right now?</strong>
-            <div class="toggle-btns" style="display:flex;gap:.5rem;">
-              <button type="button" class="toggle-btn" onclick="setBinaryField('is_ongoing',1)"
-                data-i18n="btn_yes">Yes</button>
-              <button type="button" class="toggle-btn" onclick="setBinaryField('is_ongoing',0)"
-                data-i18n="btn_no">No</button>
+      <!-- More Details (Collapsible Card Section) -->
+      <details class="card-collapsible">
+        <summary>
+          <span style="display:flex;align-items:center;gap:0.5rem;">
+            <i class="fa-solid fa-sliders" style="color:var(--blue);"></i>
+            <span data-i18n="more_details">More details (optional)</span>
+          </span>
+        </summary>
+        <div class="card-collapsible-content">
+          <div class="toggle-row" style="margin-bottom:1rem;">
+            <div>
+              <strong style="color:var(--ink);display:block;font-size:0.92rem;" data-i18n="q_ongoing">Is this happening right now?</strong>
+              <small style="color:#64748b;">Indicate whether the incident is currently active</small>
+            </div>
+            <div class="toggle-btns" id="ongoing-toggle-btns">
+              <button type="button" class="toggle-btn {{ old('is_ongoing') == 1 ? 'active' : '' }}"
+                onclick="setBinaryField('is_ongoing', 1, this)" data-i18n="btn_yes">Yes</button>
+              <button type="button" class="toggle-btn {{ old('is_ongoing') == 0 ? 'active' : '' }}"
+                onclick="setBinaryField('is_ongoing', 0, this)" data-i18n="btn_no">No</button>
             </div>
           </div>
-          <div class="toggle-row"
-            style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-top:.75rem;">
-            <strong data-i18n="q_recurring">Recurring or one-time?</strong>
-            <div class="toggle-btns" style="display:flex;gap:.5rem;">
-              <button type="button" class="toggle-btn" onclick="setBinaryField('is_recurring',1)"
-                data-i18n="btn_recurring">Recurring</button>
-              <button type="button" class="toggle-btn" onclick="setBinaryField('is_recurring',0)"
-                data-i18n="btn_onetime">One-time</button>
+
+          <div class="toggle-row" style="padding-top:0.75rem;border-top:1px dashed #e2e8f0;">
+            <div>
+              <strong style="color:var(--ink);display:block;font-size:0.92rem;" data-i18n="q_recurring">Recurring or one-time?</strong>
+              <small style="color:#64748b;">Has this problem happened repeatedly in your area?</small>
+            </div>
+            <div class="toggle-btns" id="recurring-toggle-btns">
+              <button type="button" class="toggle-btn {{ old('is_recurring') == 1 ? 'active' : '' }}"
+                onclick="setBinaryField('is_recurring', 1, this)" data-i18n="btn_recurring">Recurring</button>
+              <button type="button" class="toggle-btn {{ old('is_recurring') == 0 ? 'active' : '' }}"
+                onclick="setBinaryField('is_recurring', 0, this)" data-i18n="btn_onetime">One-time</button>
             </div>
           </div>
         </div>
       </details>
 
-      <hr class="section-divider">
+      <hr class="card-divider">
 
-      <!-- Where is it? -->
-      <h2 style="font-size:1.1rem;margin-bottom:.5rem;" data-i18n="where_is_it">Where is it?</h2>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4" style="margin-bottom:1rem;">
+      <!-- 3. Where is it? (Location) -->
+      <div class="card-section-heading">
+        <div class="card-section-icon"><i class="fa-solid fa-map-location-dot"></i></div>
+        <h2 class="card-section-title" data-i18n="where_is_it">Where is it?</h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4" style="margin-bottom:1.5rem;">
         <div>
-          <div id="map" class="map-frame" style="min-height:280px;" aria-label="Choose the report location on the map">
+          <div class="map-container-box">
+            <div id="map" class="map-frame" style="min-height:280px;" aria-label="Choose the report location on the map"></div>
           </div>
-          <p class="field-hint" data-i18n="loc_help">Choose at least one: pin, purok, or landmark.</p>
-          <div id="nearby-line" style="display:none;margin-top:.5rem;font-size:.85rem;"></div>
-          <div id="nearby-list" style="display:none;margin-top:.25rem;font-size:.85rem;"></div>
+          <p class="field-hint" style="margin-top:0.45rem;display:flex;align-items:center;gap:0.35rem;" data-i18n="loc_help">
+            <i class="fa-solid fa-circle-info" style="color:var(--blue);"></i> Choose at least one: pin, purok, or landmark.
+          </p>
+          <div id="nearby-line" style="display:none;margin-top:0.6rem;font-size:0.85rem;"></div>
+          <div id="nearby-list" style="display:none;margin-top:0.35rem;font-size:0.85rem;"></div>
         </div>
-        <div>
-          <div class="field">
-            <label for="purok_id" data-i18n="lbl_purok">Purok</label>
-            <select id="purok_id" name="purok_id">
-              <option value="" data-i18n="opt_select_purok">Select purok</option>
-              @foreach($puroks as $purok)
-                <option value="{{ $purok->id }}" @selected(old('purok_id') == $purok->id)>{{ $purok->name }}</option>
-              @endforeach
-            </select>
+
+        <div style="display:flex;flex-direction:column;justify-content:space-between;">
+          <div>
+            <div class="field" style="margin-bottom:1rem;">
+              <label for="purok_id" data-i18n="lbl_purok"><i class="fa-solid fa-building-user"></i> Purok</label>
+              <select id="purok_id" name="purok_id">
+                <option value="" data-i18n="opt_select_purok">Select purok</option>
+                @foreach($puroks as $purok)
+                  <option value="{{ $purok->id }}" @selected(old('purok_id') == $purok->id)>{{ $purok->name }}</option>
+                @endforeach
+              </select>
+            </div>
+
+            <div class="field" style="margin-bottom:1rem;">
+              <label for="landmark" data-i18n="lbl_landmark"><i class="fa-solid fa-signs-post"></i> Landmark or Street</label>
+              <input type="text" id="landmark" name="landmark" value="{{ old('landmark') }}"
+                placeholder="e.g. Near the chapel, beside school">
+            </div>
           </div>
-          <div class="field">
-            <label for="landmark" data-i18n="lbl_landmark">Landmark or Street</label>
-            <input type="text" id="landmark" name="landmark" value="{{ old('landmark') }}"
-              placeholder="Near the chapel, beside school">
+
+          <div>
+            <button type="button" id="btn-locate" class="btn btn-outline" style="width:100%;min-height:44px;font-weight:600;">
+              <i class="fa-solid fa-crosshairs" style="color:var(--blue);"></i>
+              <span data-i18n="btn_use_location">Use my current location</span>
+            </button>
+            @error('location')
+              <p class="field-error" style="margin-top:0.4rem;">{{ $message }}</p>
+            @enderror
           </div>
-          <button type="button" id="btn-locate" class="btn btn-outline btn-small"><i class="fa-solid fa-crosshairs"></i>
-            <span data-i18n="btn_use_location">Use my current location</span></button>
-          @error('location')
-          <p class="field-error">{{ $message }}</p>@enderror
         </div>
       </div>
 
-      <hr class="section-divider">
+      <hr class="card-divider">
 
-      <!-- Photo and updates -->
-      <h2 style="font-size:1.1rem;margin-bottom:.5rem;" data-i18n="photo_updates">Photo and updates</h2>
-      <div class="field">
+      <!-- 4. Photo and updates -->
+      <div class="card-section-heading">
+        <div class="card-section-icon"><i class="fa-solid fa-camera"></i></div>
+        <h2 class="card-section-title" data-i18n="photo_updates">Photo and updates</h2>
+      </div>
+
+      <div class="field" style="margin-bottom:1.5rem;">
+        <div class="photo-guidance-card">
+          <i class="fa-solid fa-lightbulb" style="color:var(--blue);font-size:1.1rem;margin-top:0.1rem;"></i>
+          <span data-i18n="photo_tip">Tip: show the problem near a landmark; avoid faces and license plates.</span>
+        </div>
+
         <input type="file" id="photos" name="photos[]" accept="image/jpeg,image/png" multiple hidden>
-        <button type="button" id="add-photos" class="btn btn-outline btn-small"><i class="fa-solid fa-plus"></i> <span
-            data-i18n="btn_add_photos">Add photo</span></button>
-        <div id="photo-previews" class="photo-preview-grid" style="margin-top:.5rem;" aria-live="polite"></div>
+        <button type="button" id="add-photos" class="btn btn-outline" style="min-height:44px;font-weight:600;">
+          <i class="fa-solid fa-cloud-arrow-up" style="color:var(--blue);"></i>
+          <span data-i18n="btn_add_photos">Add photo</span>
+        </button>
+
+        <div id="photo-previews" class="photo-preview-grid" style="margin-top:0.75rem;" aria-live="polite"></div>
         <p id="photo-empty-state" class="field-hint" style="display:none;">No photos selected yet.</p>
-        <p class="field-hint" data-i18n="photo_tip">Tip: show the problem near a landmark; avoid faces and license plates.
-        </p>
-        <p id="photo-upload-error" class="field-hint" role="alert" style="color:var(--red);" hidden></p>
-        <p id="photo-total-size" class="field-hint" aria-live="polite"></p>
+        <p id="photo-upload-error" class="field-hint" role="alert" style="color:var(--red);font-weight:700;" hidden></p>
+        <p id="photo-total-size" class="field-hint" aria-live="polite" style="font-weight:600;"></p>
         @error('photos')
-        <p class="field-error">{{ $message }}</p>@enderror
+          <p class="field-error">{{ $message }}</p>
+        @enderror
       </div>
 
-      <details style="margin-bottom:1rem;">
-        <summary data-i18n="updates_optional">Get updates on this report (optional)</summary>
-        <div style="margin-top:.75rem;">
-          <label style="display:flex;align-items:center;gap:.5rem;font-weight:600;margin-bottom:.75rem;">
-            <input type="checkbox" name="is_anonymous" id="is_anonymous" value="1" {{ old('is_anonymous') ? 'checked' : '' }} onchange="toggleAnonymousFields(this.checked)" style="width:1rem;height:1rem;accent-color:var(--blue);">
+      <!-- Updates & Anonymity Collapsible -->
+      <details class="card-collapsible">
+        <summary>
+          <span style="display:flex;align-items:center;gap:0.5rem;">
+            <i class="fa-solid fa-envelope-open-text" style="color:var(--blue);"></i>
+            <span data-i18n="updates_optional">Get updates on this report (optional)</span>
+          </span>
+        </summary>
+        <div class="card-collapsible-content">
+          <label style="display:flex;align-items:center;gap:0.65rem;font-weight:700;color:var(--ink);margin-bottom:1.25rem;cursor:pointer;">
+            <input type="checkbox" name="is_anonymous" id="is_anonymous" value="1"
+              {{ old('is_anonymous') ? 'checked' : '' }} onchange="toggleAnonymousFields(this.checked)"
+              style="width:1.15rem;height:1.15rem;accent-color:var(--blue);cursor:pointer;">
             <span data-i18n="chk_anonymous">Submit this report anonymously</span>
           </label>
-          <div id="contact-fields-section">
-            <div class="field">
-              <label for="reporter_name" data-i18n="lbl_name">Name (optional)</label>
-              <input type="text" id="reporter_name" name="reporter_name" value="{{ old('reporter_name') }}"
-                maxlength="100">
+
+          <div id="contact-fields-section" style="transition:opacity 0.2s ease;">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="field" style="margin-bottom:0.75rem;">
+                <label for="reporter_name" data-i18n="lbl_name"><i class="fa-solid fa-user"></i> Name (optional)</label>
+                <input type="text" id="reporter_name" name="reporter_name" value="{{ old('reporter_name') }}"
+                  maxlength="100" placeholder="Juan Dela Cruz">
+              </div>
+
+              <div class="field" style="margin-bottom:0.75rem;">
+                <label for="reporter_contact" data-i18n="lbl_phone"><i class="fa-solid fa-phone"></i> Mobile number (optional)</label>
+                <input type="tel" id="reporter_contact" name="reporter_contact" value="{{ old('reporter_contact') }}"
+                  maxlength="20" placeholder="09171234567">
+                <p class="field-hint" data-i18n="hint_phone">Barangay staff may call you. Philippine format.</p>
+              </div>
             </div>
-            <div class="field">
-              <label for="reporter_contact" data-i18n="lbl_phone">Mobile number (optional)</label>
-              <input type="tel" id="reporter_contact" name="reporter_contact" value="{{ old('reporter_contact') }}"
-                maxlength="20" placeholder="09171234567">
-              <p class="field-hint" data-i18n="hint_phone">Barangay staff may call you. Philippine format.</p>
-            </div>
-            <div class="field">
-              <label for="reporter_email" data-i18n="lbl_email">Email (optional)</label>
-              <input type="email" id="reporter_email" name="reporter_email" value="{{ old('reporter_email') }}">
+
+            <div class="field" style="margin-top:0.5rem;margin-bottom:0;">
+              <label for="reporter_email" data-i18n="lbl_email"><i class="fa-solid fa-at"></i> Email (optional)</label>
+              <input type="email" id="reporter_email" name="reporter_email" value="{{ old('reporter_email') }}"
+                placeholder="juan@example.com">
             </div>
           </div>
         </div>
       </details>
 
-      <hr class="section-divider">
+      <hr class="card-divider">
 
-      <!-- Footer -->
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
-        <label style="display:flex;align-items:center;gap:.5rem;font-size:.88rem;font-weight:600;">
-          <input type="checkbox" name="consent" id="consent_checkbox" value="1" required {{ old('consent') ? 'checked' : '' }} style="width:1rem;height:1rem;accent-color:var(--blue);">
-          <span><span data-i18n="consent_agree">I agree to the</span> <a href="#" onclick="openPrivacy(event)"
-              data-i18n="privacy_link">Data Privacy Notice</a> (RA 10173)</span>
+      <!-- Card Footer: Consent & Submit -->
+      <div class="card-submit-bar">
+        <label class="consent-checkbox-wrap">
+          <input type="checkbox" name="consent" id="consent_checkbox" value="1" required
+            {{ old('consent') ? 'checked' : '' }}>
+          <span>
+            <span data-i18n="consent_agree">I agree to the</span>
+            <a href="#" onclick="openPrivacy(event)" data-i18n="privacy_link" style="text-decoration:underline;font-weight:700;">Data Privacy Notice</a> (RA 10173)
+          </span>
         </label>
         @error('consent')
-        <p class="field-error">{{ $message }}</p>@enderror
-        <button type="submit" id="btn-final-submit" class="btn btn-gold"><i class="fa-solid fa-paper-plane"></i> <span
-            data-i18n="btn_submit_final">Submit report</span></button>
+          <p class="field-error" style="width:100%;">{{ $message }}</p>
+        @enderror
+
+        <button type="submit" id="btn-final-submit" class="btn btn-gold" style="min-width:200px;font-weight:800;font-size:1rem;padding:0.75rem 1.75rem;box-shadow:0 4px 12px rgba(255, 194, 26, 0.35);">
+          <i class="fa-solid fa-paper-plane"></i> <span data-i18n="btn_submit_final">Submit report</span>
+        </button>
       </div>
     </form>
   </section>
 
+  <!-- Privacy Notice Modal -->
   <dialog id="privacy-modal" class="legend-modal" role="dialog" aria-modal="true" aria-labelledby="privacy-modal-title">
-    <div class="legend-frame">
+    <div class="legend-frame" style="border-radius:18px;max-width:540px;">
       <div class="legend-header">
-        <h3 id="privacy-modal-title" style="margin:0;font-size:1.15rem;font-weight:700;color:var(--ink);" data-i18n="privacy_title">Data Privacy Notice (RA 10173)</h3>
+        <h3 id="privacy-modal-title" style="margin:0;font-size:1.15rem;font-weight:800;color:var(--ink);" data-i18n="privacy_title">
+          <i class="fa-solid fa-shield-halved" style="color:var(--blue);margin-right:0.4rem;"></i> Data Privacy Notice (RA 10173)
+        </h3>
         <button type="button" class="review-modal-close" onclick="document.getElementById('privacy-modal').close()" aria-label="Close">&times;</button>
       </div>
-      <div style="font-size:.9rem;color:var(--tx);line-height:1.6;margin-top:.75rem;" data-i18n="privacy_text">
-        By submitting this report, you acknowledge that Barangay Calarian collects issue details, approximate location, and optional contact info strictly to investigate, route, and resolve community problems.
+      <div style="font-size:0.92rem;color:var(--tx);line-height:1.6;margin-top:1rem;" data-i18n="privacy_text">
+        By submitting this report, you acknowledge that Barangay Calarian collects issue details, approximate location, and optional contact info strictly to investigate, route, and resolve community problems. Your information will never be shared with unauthorized parties.
       </div>
       <div style="margin-top:1.5rem;text-align:right;">
         <button type="button" class="btn btn-navy btn-small"
@@ -316,13 +832,19 @@
     </div>
   </dialog>
 
+  <!-- Nearby Reports Modal -->
   <dialog id="nearby-reports-modal" class="legend-modal" role="dialog" aria-modal="true" aria-labelledby="nearby-modal-title">
-    <div class="legend-frame">
+    <div class="legend-frame" style="border-radius:18px;max-width:560px;">
       <div class="legend-header">
-        <h3 id="nearby-modal-title" style="margin:0;font-size:1.15rem;font-weight:700;color:var(--ink);">Similar Reports Nearby</h3>
+        <h3 id="nearby-modal-title" style="margin:0;font-size:1.15rem;font-weight:800;color:var(--ink);">
+          <i class="fa-solid fa-triangle-exclamation" style="color:#d97706;margin-right:0.4rem;"></i> Similar Reports Nearby
+        </h3>
         <button type="button" class="review-modal-close" onclick="document.getElementById('nearby-reports-modal').close()" aria-label="Close">&times;</button>
       </div>
-      <div id="nearby-reports-modal-body" style="font-size:.875rem;line-height:1.5;margin-top:.75rem;display:flex;flex-direction:column;gap:.5rem;"></div>
+      <p style="font-size:0.86rem;color:#64748b;margin:0.5rem 0 1rem;">
+        Other residents have reported similar issues near this location. You can review them below to avoid duplicate submissions:
+      </p>
+      <div id="nearby-reports-modal-body" style="font-size:0.875rem;line-height:1.5;display:flex;flex-direction:column;gap:0.65rem;max-height:360px;overflow-y:auto;"></div>
       <div style="margin-top:1.5rem;text-align:right;">
         <button type="button" class="btn btn-outline btn-small"
           onclick="document.getElementById('nearby-reports-modal').close()">Close</button>
@@ -331,7 +853,7 @@
   </dialog>
 
   <script id="categories-data" type="application/json">
-    {!! json_encode($categories->map(fn($c) => ['id' => $c->id, 'name' => $c->name, 'slug' => $c->slug, 'question_schema' => $c->question_schema ?? []])) !!}
+    {!! json_encode($sortedCategories->map(fn($c) => ['id' => $c->id, 'name' => $c->name, 'slug' => $c->slug, 'question_schema' => $c->question_schema ?? []])) !!}
   </script>
 
   <script>
@@ -347,7 +869,7 @@
         emg_call_prompt: "Please contact emergency services immediately using the numbers below:",
         emg_back_btn: "Return to report", emg_inline: "Emergency contacts",
         where_is_it: "Where is it?", photo_updates: "Photo and updates",
-        choose_category: "Choose a category (optional)",
+        choose_category: "Choose a category", lbl_optional: "(optional)",
         lbl_description: "What is the problem?", lbl_explain_more: "Explain more",
         placeholder_explain_more: "Add any other details that can help the staff.",
         hint_description: "You may write in English, Filipino, Bisaya, or Chavacano (minimum 10 characters).",
@@ -358,7 +880,7 @@
         btn_add_photos: "Add photo", photo_tip: "Tip: show the problem near a landmark; avoid faces and license plates.",
         chk_anonymous: "Submit this report anonymously", lbl_name: "Name (optional)", lbl_phone: "Mobile number (optional)", hint_phone: "Barangay staff may call you. Philippine format.", lbl_email: "Email (optional)",
         updates_optional: "Get updates on this report (optional)",
-        privacy_title: "Data Privacy Notice (RA 10173)", privacy_text: "By submitting this report, you acknowledge that Barangay Calarian collects issue details, approximate location, and optional contact info strictly to investigate, route, and resolve community problems.",
+        privacy_title: "Data Privacy Notice (RA 10173)", privacy_text: "By submitting this report, you acknowledge that Barangay Calarian collects issue details, approximate location, and optional contact info strictly to investigate, route, and resolve community problems. Your information will never be shared with unauthorized parties.",
         btn_submit_final: "Submit report",
         consent_agree: "I agree to the", privacy_link: "Data Privacy Notice"
       },
@@ -373,7 +895,7 @@
         emg_call_prompt: "Makipag-ugnayan kaagad sa mga numero sa ibaba:",
         emg_back_btn: "Bumalik sa ulat", emg_inline: "Mga emergency contact",
         where_is_it: "Saan ito?", photo_updates: "Larawan at updates",
-        choose_category: "Pumili ng kategorya (opsyonal)",
+        choose_category: "Pumili ng kategorya", lbl_optional: "(opsyonal)",
         lbl_description: "Ano ang problema?", lbl_explain_more: "Ipaliwanag pa",
         placeholder_explain_more: "Magdagdag ng iba pang detalye na makakatulong sa kawani.",
         hint_description: "Maaari kang sumulat sa Tagalog/Filipino, English, Bisaya, o Chavacano (hindi bababa sa 10 titik).",
@@ -389,7 +911,9 @@
         consent_agree: "Sumasang-ayon ako sa", privacy_link: "Paunawa sa Data Privacy"
       }
     };
+
     let currentLang = 'en';
+
     function setLanguage(lang) {
       currentLang = lang;
       document.querySelectorAll('.js-lang-btn-en').forEach(b => b.classList.toggle('active', lang === 'en'));
@@ -408,12 +932,21 @@
       document.getElementById('inline-emergency').style.display = checked ? 'block' : 'none';
     }
 
-    function setBinaryField(fieldId, val) {
-      document.getElementById(fieldId).value = val;
+    function setBinaryField(fieldId, val, btnEl) {
+      const input = document.getElementById(fieldId);
+      if (input) input.value = val;
+      if (btnEl) {
+        const parent = btnEl.closest('.toggle-btns');
+        if (parent) {
+          parent.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+          btnEl.classList.add('active');
+        }
+      }
     }
 
     function toggleAnonymousFields(isAnon) {
       const section = document.getElementById('contact-fields-section');
+      if (!section) return;
       if (isAnon) {
         section.style.opacity = '0.4';
         section.style.pointerEvents = 'none';
@@ -431,6 +964,7 @@
       document.getElementById('report-form').style.display = 'none';
       document.getElementById('emergency-screen').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
+
     function hideEmergency() {
       document.getElementById('emergency-screen').style.display = 'none';
       document.getElementById('report-form').style.display = 'block';
@@ -452,19 +986,21 @@
       area_affected: { label: { en: 'Area affected', fil: 'Naapektuhang lugar' }, placeholder: { en: 'e.g. Main road in front of school', fil: 'hal. pangunahing kalsada sa harap ng paaralan' } },
       details: { label: { en: 'Additional details', fil: 'Karagdagang detalye' }, placeholder: { en: 'Additional details', fil: 'Karagdagang detalye' } }
     };
+
     function qLabel(q) {
       const m = questionI18n[q.key];
       if (m && m.label && m.label[currentLang]) return m.label[currentLang];
       return q.label;
     }
+
     function qPlaceholder(q) {
       const m = questionI18n[q.key];
       if (m && m.placeholder && m.placeholder[currentLang]) return m.placeholder[currentLang];
       return '';
     }
+
     function selectCategory(catId) {
       const input = document.getElementById('category_id_input');
-      // Clicking the selected chip again deselects it (FR-01: no category is required)
       if (input.value && parseInt(input.value, 10) === catId) {
         deselectCategory();
         return;
@@ -477,8 +1013,10 @@
     function deselectCategory() {
       const input = document.getElementById('category_id_input');
       input.value = '';
-      document.querySelectorAll('.cat-chip').forEach(card => card.classList.remove('selected'));
-      // Remove the extra fields so no stale answers are submitted
+      document.querySelectorAll('.cat-chip').forEach(card => {
+        card.classList.remove('selected');
+        card.setAttribute('aria-pressed', 'false');
+      });
       const container = document.getElementById('dynamic-questions-container');
       document.getElementById('dynamic-questions-fields').innerHTML = '';
       container.style.display = 'none';
@@ -496,13 +1034,15 @@
         textarea.placeholder = dict.placeholder_explain_more;
       } else {
         labelSpan.textContent = dict.lbl_description;
-        textarea.placeholder = '';
+        textarea.placeholder = 'Please describe the issue in detail...';
       }
     }
 
     function renderQuestions(catId) {
       document.querySelectorAll('.cat-chip').forEach(card => {
-        card.classList.toggle('selected', parseInt(card.getAttribute('data-cat-id'), 10) === catId);
+        const isMatch = parseInt(card.getAttribute('data-cat-id'), 10) === catId;
+        card.classList.toggle('selected', isMatch);
+        card.setAttribute('aria-pressed', isMatch ? 'true' : 'false');
       });
       const category = categoriesData.find(c => c.id === catId);
       const container = document.getElementById('dynamic-questions-container');
@@ -512,9 +1052,12 @@
         category.question_schema.forEach(q => {
           const qDiv = document.createElement('div');
           qDiv.className = 'field';
+          qDiv.style.marginBottom = '0.9rem';
           const label = document.createElement('label');
-          label.style.fontWeight = '600';
-          label.style.fontSize = '.9rem';
+          label.style.fontWeight = '700';
+          label.style.fontSize = '0.88rem';
+          label.style.color = 'var(--ink)';
+          label.style.marginBottom = '0.35rem';
           const labelText = (typeof qLabel === 'function') ? qLabel(q) : q.label;
           label.innerHTML = `${labelText} ${q.required ? '<span style="color:var(--red);">*</span>' : ''}`;
           qDiv.appendChild(label);
@@ -528,30 +1071,26 @@
             q.options.forEach(opt => { const o = document.createElement('option'); o.value = opt; o.textContent = opt; sel.appendChild(o); });
             qDiv.appendChild(sel);
           } else if (q.type === 'boolean') {
-  const wrap = document.createElement('div');
-  wrap.style.display = 'flex';
-  wrap.style.gap = '1.5rem';
-  wrap.style.marginTop = '.35rem';
-
-  const labelStyle = 'cursor:pointer;display:flex;align-items:center;gap:.4rem;margin:0;font-size:.9rem;font-weight:400;white-space:nowrap;width:auto;';
-  const radioStyle = 'width:1rem;height:1rem;padding:0;margin:0;flex:none;accent-color:#2563eb;';
-
-  wrap.innerHTML = `
-    <label style="${labelStyle}">
-      <input type="radio" style="${radioStyle}" name="answers[${q.key}]" value="1" ${q.required ? 'required' : ''}> Yes / Oo
-    </label>
-    <label style="${labelStyle}">
-      <input type="radio" style="${radioStyle}" name="answers[${q.key}]" value="0"> No / Hindi
-    </label>`;
-  qDiv.appendChild(wrap);
-}else if (q.type === 'textarea') {
+            const wrap = document.createElement('div');
+            wrap.style.display = 'flex';
+            wrap.style.gap = '1.5rem';
+            wrap.style.marginTop = '0.35rem';
+            const labelStyle = 'cursor:pointer;display:flex;align-items:center;gap:.4rem;margin:0;font-size:.9rem;font-weight:600;white-space:nowrap;width:auto;';
+            const radioStyle = 'width:1.1rem;height:1.1rem;padding:0;margin:0;flex:none;accent-color:#2563eb;cursor:pointer;';
+            wrap.innerHTML = `
+              <label style="${labelStyle}">
+                <input type="radio" style="${radioStyle}" name="answers[${q.key}]" value="1" ${q.required ? 'required' : ''}> Yes / Oo
+              </label>
+              <label style="${labelStyle}">
+                <input type="radio" style="${radioStyle}" name="answers[${q.key}]" value="0"> No / Hindi
+              </label>`;
+            qDiv.appendChild(wrap);
+          } else if (q.type === 'textarea') {
             const ta = document.createElement('textarea'); ta.name = `answers[${q.key}]`; ta.rows = 2; if (q.required) ta.required = true; ta.placeholder = (typeof qPlaceholder === 'function') ? qPlaceholder(q) : ''; qDiv.appendChild(ta);
           } else if (q.type === 'number') {
             const inp = document.createElement('input'); inp.type = 'number'; inp.name = `answers[${q.key}]`; if (q.required) inp.required = true; inp.placeholder = (typeof qPlaceholder === 'function') ? qPlaceholder(q) : ''; qDiv.appendChild(inp);
-          } else if (q.type === 'text') {
-            const inp = document.createElement('input'); inp.type = 'text'; inp.name = `answers[${q.key}]`; if (q.required) inp.required = true; inp.placeholder = (typeof qPlaceholder === 'function') ? qPlaceholder(q) : ''; qDiv.appendChild(inp);
           } else {
-            const inp = document.createElement('input'); inp.type = 'text'; inp.name = `answers[${q.key}]`; if (q.required) inp.required = true; qDiv.appendChild(inp);
+            const inp = document.createElement('input'); inp.type = 'text'; inp.name = `answers[${q.key}]`; if (q.required) inp.required = true; inp.placeholder = (typeof qPlaceholder === 'function') ? qPlaceholder(q) : ''; qDiv.appendChild(inp);
           }
           fields.appendChild(qDiv);
         });
@@ -562,7 +1101,7 @@
       updateDescriptionLabel();
     }
 
-    // map
+    // Leaflet Map Initialization
     let mapInstance = null;
     document.addEventListener('DOMContentLoaded', () => {
       const CALARIAN_CENTER = [6.921, 122.078];
@@ -587,21 +1126,62 @@
         }
         mapInstance.on('click', e => placePin(e.latlng.lat, e.latlng.lng));
         const btnLocate = document.getElementById('btn-locate');
-        if (btnLocate) btnLocate.addEventListener('click', () => {
-          if (navigator.geolocation) navigator.geolocation.getCurrentPosition(pos => {
-            placePin(pos.coords.latitude, pos.coords.longitude);
-            mapInstance.setView([pos.coords.latitude, pos.coords.longitude], 16);
+        if (btnLocate) {
+          btnLocate.addEventListener('click', () => {
+            if (navigator.geolocation) {
+              const originalText = btnLocate.innerHTML;
+              btnLocate.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Locating...';
+              btnLocate.disabled = true;
+              navigator.geolocation.getCurrentPosition(
+                pos => {
+                  placePin(pos.coords.latitude, pos.coords.longitude);
+                  mapInstance.setView([pos.coords.latitude, pos.coords.longitude], 16);
+                  btnLocate.innerHTML = originalText;
+                  btnLocate.disabled = false;
+                },
+                err => {
+                  btnLocate.innerHTML = originalText;
+                  btnLocate.disabled = false;
+                  alert('Unable to retrieve location. Please click on the map or select a purok.');
+                },
+                { timeout: 8000 }
+              );
+            }
           });
-        });
+        }
       }
-      try { const saved = localStorage.getItem('calarian_lang'); if (saved && (saved === 'en' || saved === 'fil')) setLanguage(saved); } catch (e) { }
-      // Restore state when the form is re-shown after a validation error (old category re-selected)
+
+      try {
+        const saved = localStorage.getItem('calarian_lang');
+        if (saved && (saved === 'en' || saved === 'fil')) setLanguage(saved);
+      } catch (e) { }
+
       const restoredCat = document.getElementById('category_id_input').value;
       if (restoredCat) renderQuestions(parseInt(restoredCat, 10));
       else updateDescriptionLabel();
+
       const firstError = document.querySelector('.field-error');
       if (firstError) firstError.scrollIntoView({ block: 'center' });
+
       if (document.getElementById('people_at_risk_cb').checked) toggleDanger(true);
+
+      // Restore toggle buttons active status based on values
+      const ongoingVal = document.getElementById('is_ongoing').value;
+      const recurringVal = document.getElementById('is_recurring').value;
+      if (ongoingVal !== '') {
+        const ongoingBtns = document.querySelectorAll('#ongoing-toggle-btns .toggle-btn');
+        if (ongoingBtns.length >= 2) {
+          ongoingBtns[0].classList.toggle('active', ongoingVal == '1');
+          ongoingBtns[1].classList.toggle('active', ongoingVal == '0');
+        }
+      }
+      if (recurringVal !== '') {
+        const recurringBtns = document.querySelectorAll('#recurring-toggle-btns .toggle-btn');
+        if (recurringBtns.length >= 2) {
+          recurringBtns[0].classList.toggle('active', recurringVal == '1');
+          recurringBtns[1].classList.toggle('active', recurringVal == '0');
+        }
+      }
     });
 
     async function triggerNearbyReportsCheck() {
@@ -616,11 +1196,20 @@
         if (!res.ok) { line.style.display = 'none'; list.style.display = 'none'; return; }
         const reports = await res.json();
         if (Array.isArray(reports) && reports.length > 0) {
-          line.innerHTML = `<span style="color:#b45309;font-weight:600;"><i class="fa-solid fa-triangle-exclamation"></i> ${reports.length} similar report(s) found nearby.</span> <button type="button" class="btn btn-outline btn-small" style="padding:.15rem .5rem;font-size:.78rem;margin-left:.5rem;" onclick="openNearbyModal()">View details</button>`;
+          line.innerHTML = `<span style="color:#b45309;font-weight:700;"><i class="fa-solid fa-triangle-exclamation"></i> ${reports.length} similar report(s) found nearby.</span> <button type="button" class="btn btn-outline btn-small" style="padding:0.2rem 0.6rem;font-size:0.78rem;margin-left:0.5rem;font-weight:700;" onclick="openNearbyModal()">View details</button>`;
           line.style.display = 'block';
           const modalBody = document.getElementById('nearby-reports-modal-body');
           if (modalBody) {
-            modalBody.innerHTML = reports.map(r => `<div style="padding:.6rem .75rem;border:1px solid var(--line);border-radius:8px;background:#f8fafc;"><strong class="font-mono text-blue-700">${r.tracking_code}</strong> · <span>${r.category}</span> <span class="status-badge" style="margin-left:.25rem;font-size:.72rem;">${r.status}</span></div>`).join('');
+            modalBody.innerHTML = reports.map(r => `
+              <div style="padding:0.75rem 0.9rem;border:1px solid var(--line);border-radius:10px;background:#f8fafc;display:flex;align-items:center;justify-content:space-between;gap:0.75rem;">
+                <div>
+                  <strong class="font-mono text-blue-700">${r.tracking_code}</strong>
+                  <span style="color:#64748b;margin:0 0.35rem;">·</span>
+                  <span style="font-weight:600;">${r.category}</span>
+                </div>
+                <span class="status-badge" style="font-size:0.72rem;">${r.status}</span>
+              </div>
+            `).join('');
           }
         } else {
           line.style.display = 'none'; list.style.display = 'none';
@@ -628,13 +1217,14 @@
       } catch (e) { line.style.display = 'none'; list.style.display = 'none'; }
     }
 
-    // photos
+    // Photo Compression and Previews
     let selectedPhotosList = [];
     const photosInput = document.getElementById('photos');
     const addPhotosBtn = document.getElementById('add-photos');
     const photoPreviews = document.getElementById('photo-previews');
     const photoTotalSize = document.getElementById('photo-total-size');
     const photoUploadError = document.getElementById('photo-upload-error');
+
     if (addPhotosBtn && photosInput) {
       addPhotosBtn.addEventListener('click', () => photosInput.click());
       photosInput.addEventListener('change', async () => {
@@ -647,6 +1237,7 @@
         renderPhotoPreviews();
       });
     }
+
     async function compressImageFile(file, maxWidth = 1600, maxHeight = 1600, quality = 0.8) {
       if (file.size < 400 * 1024) return file;
       return new Promise(resolve => {
@@ -673,6 +1264,7 @@
         reader.onerror = () => resolve(file);
       });
     }
+
     function renderPhotoPreviews() {
       const dt = new DataTransfer();
       selectedPhotosList.forEach(p => dt.items.add(p));
@@ -684,16 +1276,26 @@
         const url = URL.createObjectURL(photo);
         const item = document.createElement('div');
         item.className = 'photo-preview-item';
-        item.innerHTML = `<img src="${url}" alt="Preview" style="width:72px;height:72px;object-fit:cover;border-radius:8px;"><button type="button" class="photo-preview-remove" onclick="removePhoto(${idx})"><i class="fa-solid fa-xmark"></i></button>`;
+        item.style.position = 'relative';
+        item.style.borderRadius = '12px';
+        item.style.overflow = 'hidden';
+        item.style.boxShadow = '0 2px 5px rgba(0,0,0,0.08)';
+        item.innerHTML = `
+          <img src="${url}" alt="Preview" style="width:100%;height:84px;object-fit:cover;display:block;">
+          <button type="button" class="photo-preview-remove" onclick="removePhoto(${idx})" aria-label="Remove photo">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        `;
         photoPreviews.appendChild(item);
       });
       const totalMb = (totalBytes / (1024 * 1024)).toFixed(2);
       if (photoTotalSize) photoTotalSize.textContent = selectedPhotosList.length > 0 ? `${selectedPhotosList.length} photo(s) (${totalMb} MB total)` : '';
       if (photoUploadError) {
-        if (totalBytes > 5 * 1024 * 1024) { photoUploadError.textContent = 'Combined size exceeds 5 MB.'; photoUploadError.hidden = false; }
+        if (totalBytes > 5 * 1024 * 1024) { photoUploadError.textContent = 'Combined size exceeds 5 MB limit.'; photoUploadError.hidden = false; }
         else photoUploadError.hidden = true;
       }
     }
+
     function removePhoto(index) { selectedPhotosList.splice(index, 1); renderPhotoPreviews(); }
 
     function openPrivacy(e) {
@@ -704,6 +1306,7 @@
         else modal.setAttribute('open', '');
       }
     }
+
     const privacyModalEl = document.getElementById('privacy-modal');
     if (privacyModalEl) {
       privacyModalEl.addEventListener('click', (e) => {
@@ -719,6 +1322,7 @@
         else modal.setAttribute('open', '');
       }
     }
+
     const nearbyModalEl = document.getElementById('nearby-reports-modal');
     if (nearbyModalEl) {
       nearbyModalEl.addEventListener('click', (e) => {

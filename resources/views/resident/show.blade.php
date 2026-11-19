@@ -183,7 +183,159 @@
       background: #22c55e;
       box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25);
     }
+
+    /* Stepper Styling */
+    .track-stepper-wrap {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      position: relative;
+      margin: 1.5rem 0 0.5rem;
+      padding: 0 0.5rem;
+    }
+
+    .track-stepper-line {
+      position: absolute;
+      top: 20px;
+      left: 45px;
+      right: 45px;
+      height: 3px;
+      background: #e2e8f0;
+      z-index: 1;
+    }
+
+    .track-step-node {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      flex: 1;
+    }
+
+    .track-step-bubble {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #ffffff;
+      border: 3px solid #cbd5e1;
+      color: #64748b;
+      font-weight: 800;
+      font-size: 0.95rem;
+      display: grid;
+      place-items: center;
+      transition: all 0.25s ease;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+    }
+
+    .track-step-node.completed .track-step-bubble {
+      background: #22c55e;
+      border-color: #22c55e;
+      color: #ffffff;
+    }
+
+    .track-step-node.active .track-step-bubble {
+      background: var(--blue);
+      border-color: #93c5fd;
+      color: #ffffff;
+      box-shadow: 0 0 0 4px rgba(36, 86, 214, 0.2);
+      transform: scale(1.08);
+    }
+
+    .track-step-label {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #64748b;
+      margin-top: 0.5rem;
+      line-height: 1.3;
+      max-width: 110px;
+    }
+
+    .track-step-node.completed .track-step-label {
+      color: #15803d;
+    }
+
+    .track-step-node.active .track-step-label {
+      color: var(--blue);
+      font-weight: 800;
+    }
+
+    @media (max-width: 600px) {
+      .track-stepper-wrap {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.85rem;
+      }
+      .track-stepper-line {
+        display: none;
+      }
+      .track-step-node {
+        flex-direction: row;
+        gap: 0.65rem;
+        text-align: left;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 0.65rem 0.85rem;
+      }
+      .track-step-bubble {
+        width: 32px;
+        height: 32px;
+        font-size: 0.82rem;
+        flex-shrink: 0;
+      }
+      .track-step-label {
+        margin: 0;
+        font-size: 0.76rem;
+        max-width: none;
+      }
+    }
+
+    /* Print Stylesheet */
+    @media print {
+      header, footer, nav, .hero, .hero-actions, .card-topbar, .btn-copy-code, form, #service-star-container, .interactive-star {
+        display: none !important;
+      }
+      body, main {
+        background: #ffffff !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+      .track-card {
+        border: 1px solid #94a3b8 !important;
+        box-shadow: none !important;
+        padding: 1.25rem !important;
+        margin-bottom: 1rem !important;
+        page-break-inside: avoid;
+      }
+      .print-only-header {
+        display: block !important;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #000;
+      }
+    }
+
+    @media screen {
+      .print-only-header {
+        display: none !important;
+      }
+    }
   </style>
+
+  <div class="print-only-header">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <h2 style="margin:0;font-size:1.5rem;font-weight:800;color:#0f172a;">Barangay Calarian Reporting System</h2>
+        <p style="margin:0.25rem 0 0;font-size:0.95rem;color:#475569;">Official Report Progress Slip</p>
+      </div>
+      <div style="text-align:right;">
+        <span style="font-family:monospace;font-size:1.35rem;font-weight:800;color:#0f172a;">{{ $report->tracking_code }}</span>
+        <div style="font-size:0.85rem;color:#475569;">Printed: {{ now()->format('M d, Y h:i A') }}</div>
+      </div>
+    </div>
+  </div>
 
   @if(session('status'))
     <div class="track-card alert" style="border: 1px solid #86efac; background: #f0fdf4; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.75rem;">
@@ -220,6 +372,10 @@
           <button type="button" class="btn-copy-code" onclick="copyTrackingCode()" title="Copy tracking code">
             <i class="fa-solid fa-copy" id="copy-icon"></i>
             <span id="copy-text">Copy</span>
+          </button>
+          <button type="button" class="btn-copy-code" onclick="window.print()" title="Print report slip">
+            <i class="fa-solid fa-print"></i>
+            <span>Print</span>
           </button>
         </div>
       </div>
@@ -263,6 +419,94 @@
         <p style="margin:0;font-size:0.95rem;color:var(--tx);line-height:1.6;white-space:pre-wrap;">{{ $report->description }}</p>
       </div>
     @endif
+  </section>
+
+  <!-- LIFECYCLE PROGRESS STEPPER -->
+  @php
+    $currentStep = match($report->status) {
+      'submitted', 'under_review', 'routed', 'needs_info' => 1,
+      'in_progress', 'referred', 'merged', 'reopened' => 2,
+      'awaiting_confirmation' => 3,
+      'resolved', 'no_action' => 4,
+      default => 1,
+    };
+  @endphp
+
+  <section class="track-card track-stepper-card" aria-label="Report progress steps">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;flex-wrap:wrap;gap:0.5rem;">
+      <h3 style="margin:0;font-size:0.95rem;font-weight:800;color:var(--ink);text-transform:uppercase;letter-spacing:0.04em;display:flex;align-items:center;gap:0.4rem;">
+        <i class="fa-solid fa-bars-progress" style="color:var(--blue);"></i> Lifecycle Progress
+      </h3>
+      @if($report->status === 'needs_info')
+        <span class="track-chip" style="background:#fef3c7;border-color:#fde68a;color:#92400e;font-size:0.75rem;font-weight:700;">
+          <i class="fa-solid fa-triangle-exclamation"></i> Action Required by Resident
+        </span>
+      @elseif($report->status === 'no_action')
+        <span class="track-chip" style="background:#f1f5f9;border-color:#cbd5e1;color:#475569;font-size:0.75rem;font-weight:700;">
+          No Action Taken
+        </span>
+      @elseif($report->status === 'reopened')
+        <span class="track-chip" style="background:#fef3c7;border-color:#fde68a;color:#92400e;font-size:0.75rem;font-weight:700;">
+          <i class="fa-solid fa-rotate-left"></i> Reopened (In Progress)
+        </span>
+      @elseif($report->status === 'resolved')
+        <span class="track-chip" style="background:#dcfce7;border-color:#86efac;color:#15803d;font-size:0.75rem;font-weight:700;">
+          <i class="fa-solid fa-check"></i> Complete
+        </span>
+      @endif
+    </div>
+
+    <div class="track-stepper-wrap">
+      <div class="track-stepper-line"></div>
+
+      <!-- Step 1 -->
+      <div class="track-step-node {{ $currentStep > 1 ? 'completed' : ($currentStep === 1 ? 'active' : '') }}">
+        <div class="track-step-bubble">
+          @if($currentStep > 1)
+            <i class="fa-solid fa-check"></i>
+          @else
+            1
+          @endif
+        </div>
+        <div class="track-step-label">1. Received & Review</div>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="track-step-node {{ $currentStep > 2 ? 'completed' : ($currentStep === 2 ? 'active' : '') }}">
+        <div class="track-step-bubble">
+          @if($currentStep > 2)
+            <i class="fa-solid fa-check"></i>
+          @else
+            2
+          @endif
+        </div>
+        <div class="track-step-label">2. Work In Progress</div>
+      </div>
+
+      <!-- Step 3 -->
+      <div class="track-step-node {{ $currentStep > 3 ? 'completed' : ($currentStep === 3 ? 'active' : '') }}">
+        <div class="track-step-bubble">
+          @if($currentStep > 3)
+            <i class="fa-solid fa-check"></i>
+          @else
+            3
+          @endif
+        </div>
+        <div class="track-step-label">3. Verification</div>
+      </div>
+
+      <!-- Step 4 -->
+      <div class="track-step-node {{ $currentStep === 4 ? 'completed' : '' }}">
+        <div class="track-step-bubble">
+          @if($currentStep === 4)
+            <i class="fa-solid fa-check"></i>
+          @else
+            4
+          @endif
+        </div>
+        <div class="track-step-label">4. {{ $report->status === 'no_action' ? 'Closed' : 'Resolved' }}</div>
+      </div>
+    </div>
   </section>
 
   <!-- WHAT HAPPENS NEXT GUIDANCE (for early & active statuses) -->
@@ -427,22 +671,65 @@
           </p>
 
           @if($latestResolutionProof)
+            @php
+              $residentPhoto = $report->photo_path ?? $report->photos->first()?->photo_path;
+              $proofPhoto = $latestResolutionProof->photo_path;
+            @endphp
+
             <div class="proof-box">
-              <strong style="color:var(--ink);font-size:0.88rem;display:block;margin-bottom:0.25rem;">Staff Resolution Note:</strong>
+              <strong style="color:var(--ink);font-size:0.92rem;display:block;margin-bottom:0.35rem;">Staff Resolution Note:</strong>
               <p style="margin:0;font-size:0.95rem;color:var(--tx);line-height:1.5;">{{ $latestResolutionProof->note }}</p>
 
-              @if($latestResolutionProof->photo_path)
-                <div style="margin-top:0.75rem;">
-                  <strong style="font-size:0.82rem;color:#64748b;display:block;margin-bottom:0.35rem;">Proof of Work:</strong>
-                  <a href="{{ Storage::disk('local')->url($latestResolutionProof->photo_path) }}" target="_blank" rel="noopener">
-                    <img src="{{ Storage::disk('local')->url($latestResolutionProof->photo_path) }}" alt="Resolution Proof"
-                      style="max-width:240px;border-radius:8px;border:1px solid #cbd5e1;box-shadow:0 2px 4px rgba(0,0,0,0.06);transition:transform 0.2s;"
-                      onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
-                  </a>
+              @if($proofPhoto)
+                <div style="margin-top:1rem;">
+                  <strong style="font-size:0.85rem;color:var(--ink);display:block;margin-bottom:0.5rem;">
+                    <i class="fa-solid fa-images" style="color:var(--blue);"></i> Before vs. After Photo Comparison:
+                  </strong>
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <!-- Before Photo -->
+                    <div style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;background:#f8fafc;">
+                      <div style="padding:0.4rem 0.75rem;background:#f1f5f9;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-weight:700;font-size:0.78rem;color:#64748b;">
+                          <i class="fa-solid fa-camera"></i> Before / Initial Report
+                        </span>
+                        <small style="color:#64748b;font-size:0.75rem;">{{ $report->created_at->format('M d, Y') }}</small>
+                      </div>
+                      <div style="padding:0.6rem;text-align:center;">
+                        @if($residentPhoto)
+                          <a href="{{ Storage::disk('local')->url($residentPhoto) }}" target="_blank" rel="noopener">
+                            <img src="{{ Storage::disk('local')->url($residentPhoto) }}" alt="Before: Initial Report Photo"
+                              style="width:100%;max-height:220px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;transition:transform 0.2s;"
+                              onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                          </a>
+                        @else
+                          <div style="height:120px;display:grid;place-items:center;background:#ffffff;border-radius:8px;border:1px dashed #cbd5e1;color:#94a3b8;font-size:0.82rem;">
+                            <span>No photo in initial report</span>
+                          </div>
+                        @endif
+                      </div>
+                    </div>
+
+                    <!-- After Photo -->
+                    <div style="border:1.5px solid #86efac;border-radius:10px;overflow:hidden;background:#f0fdf4;">
+                      <div style="padding:0.4rem 0.75rem;background:#dcfce7;border-bottom:1px solid #86efac;display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-weight:800;font-size:0.78rem;color:#15803d;">
+                          <i class="fa-solid fa-circle-check"></i> After / Staff Resolution Proof
+                        </span>
+                        <small style="color:#166534;font-size:0.75rem;font-weight:600;">{{ $latestResolutionProof->created_at->format('M d, Y') }}</small>
+                      </div>
+                      <div style="padding:0.6rem;text-align:center;">
+                        <a href="{{ Storage::disk('local')->url($proofPhoto) }}" target="_blank" rel="noopener">
+                          <img src="{{ Storage::disk('local')->url($proofPhoto) }}" alt="After: Staff Resolution Proof"
+                            style="width:100%;max-height:220px;object-fit:cover;border-radius:8px;border:1px solid #86efac;box-shadow:0 2px 5px rgba(34,197,94,0.12);transition:transform 0.2s;"
+                            onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                        </a>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               @endif
 
-              <small style="color:#64748b;display:block;margin-top:0.6rem;padding-top:0.5rem;border-top:1px solid #e2e8f0;">
+              <small style="color:#64748b;display:block;margin-top:0.75rem;padding-top:0.6rem;border-top:1px solid #e2e8f0;">
                 <i class="fa-solid fa-user-check" style="color:#16a34a;"></i>
                 Resolved by {{ $latestResolutionProof->user?->name ?? 'Barangay Staff' }} on {{ $latestResolutionProof->created_at->format('M d, Y h:i A') }}
               </small>
@@ -795,5 +1082,17 @@
       displayStarsInOrder(currentSelectedRating);
     }
   })();
+
+  document.addEventListener('DOMContentLoaded', () => {
+    try {
+      const code = '{{ $report->tracking_code }}';
+      if (code) {
+        let codes = JSON.parse(localStorage.getItem('calarian_recent_codes') || '[]');
+        if (!Array.isArray(codes)) codes = [];
+        codes = [code, ...codes.filter(c => c !== code)].slice(0, 5);
+        localStorage.setItem('calarian_recent_codes', JSON.stringify(codes));
+      }
+    } catch (e) { }
+  });
   </script>
 @endsection

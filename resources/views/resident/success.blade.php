@@ -113,6 +113,39 @@
     font-size: 0.88rem;
     color: #991b1b;
     text-decoration: none;
+    transition: all 0.2s;
+  }
+
+  @media print {
+    header, footer, nav, .hero, .hero-actions, .card-topbar, .success-actions-wrap, .btn-copy-code-lg, .emergency-disclaimer-card {
+      display: none !important;
+    }
+    body, main {
+      background: #ffffff !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+    .success-result-card {
+      border: 1px solid #94a3b8 !important;
+      box-shadow: none !important;
+      margin: 1rem auto !important;
+      padding: 1.5rem !important;
+      max-width: 100% !important;
+    }
+    .print-only-header {
+      display: block !important;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 2px solid #000;
+      text-align: left;
+    }
+  }
+
+  @media screen {
+    .print-only-header {
+      display: none !important;
+    }
+  }
     font-weight: 600;
     transition: all 0.2s;
   }
@@ -125,6 +158,19 @@
 </style>
 
 <section class="card success-result-card">
+  <div class="print-only-header">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <h2 style="margin:0;font-size:1.5rem;font-weight:800;">Barangay Calarian Reporting System</h2>
+        <p style="margin:0.25rem 0 0;font-size:0.95rem;color:#475569;">Official Report Submission Slip</p>
+      </div>
+      <div style="text-align:right;">
+        <span style="font-family:monospace;font-size:1.35rem;font-weight:800;">{{ $report->tracking_code }}</span>
+        <div style="font-size:0.85rem;color:#475569;">Date: {{ $report->created_at->format('M d, Y h:i A') }}</div>
+      </div>
+    </div>
+  </div>
+
   <div class="success-icon-badge" aria-hidden="true">
     <i class="fa-solid fa-circle-check"></i>
   </div>
@@ -156,6 +202,9 @@
     <a class="btn btn-gold" href="{{ route('track.show', $report->tracking_code) }}" style="font-weight: 800; min-height: 44px; padding: 0.65rem 1.4rem; display: inline-flex; align-items: center; gap: 0.5rem;" data-i18n="btn_track">
       <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> <span>Track this report</span>
     </a>
+    <button type="button" class="btn btn-outline" onclick="window.print()" style="font-weight: 700; min-height: 44px; padding: 0.65rem 1.4rem; display: inline-flex; align-items: center; gap: 0.5rem;" data-i18n="btn_print_slip">
+      <i class="fa-solid fa-print" aria-hidden="true"></i> <span>Print Slip</span>
+    </button>
     <a class="btn btn-outline" href="{{ route('reports.create') }}" style="font-weight: 700; min-height: 44px; padding: 0.65rem 1.4rem; display: inline-flex; align-items: center; gap: 0.5rem;" data-i18n="btn_new_report">
       <i class="fa-solid fa-plus" aria-hidden="true"></i> <span>Submit another report</span>
     </a>
@@ -198,6 +247,7 @@ const successI18n = {
     copied_aria: "Tracking code copied to clipboard",
     save_code_hint: "Save or take a screenshot of this code. You will need it to track resolution progress or communicate with staff.",
     btn_track: "Track this report",
+    btn_print_slip: "Print Slip",
     btn_new_report: "Submit another report",
     urgent_notice_title: "Urgent Notice:",
     urgent_notice_text: "This online system is not monitored in real time. If this is an active emergency or life-threatening event, call 911 or official hotlines directly."
@@ -213,6 +263,7 @@ const successI18n = {
     copied_aria: "Nakopya na ang tracking code sa clipboard",
     save_code_hint: "I-save o kumuha ng screenshot ng code na ito. Kakailanganin mo ito upang masubaybayan ang progreso o makipag-ugnayan sa kawani.",
     btn_track: "Subaybayan ang ulat na ito",
+    btn_print_slip: "I-print ang Slip",
     btn_new_report: "Magsumite ng isa pang ulat",
     urgent_notice_title: "Mahalagang Paunawa:",
     urgent_notice_text: "Ang online system na ito ay hindi minomonitor nang real time. Kung ito ay emergency o may panganib sa buhay, tumawag agad sa 911 o sa opisyal na hotlines."

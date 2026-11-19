@@ -574,4 +574,49 @@ class ReportPrivacyAndValidationTest extends TestCase
         ]);
         $searchResponse->assertRedirect(route('track.show', 'BRG-AB12CD'));
     }
+
+    public function test_resident_tracking_view_renders_lifecycle_stepper_and_before_after_comparison(): void
+    {
+        $category = Category::create([
+            'name' => 'Drainage Works',
+            'slug' => 'drainage-works',
+            'is_active' => true,
+            'risk_weight' => 2,
+            'sla_hours' => 24,
+        ]);
+
+        $report = Report::factory()->create([
+            'category_id' => $category->id,
+            'status' => 'awaiting_confirmation',
+            'description' => 'Blocked drainage culvert on corner lot.',
+            'photo_path' => 'reports/test_before.jpg',
+        ]);
+
+        $staffUser = User::factory()->create(['role' => 'staff']);
+
+        $report->resolutionProofs()->create([
+            'user_id' => $staffUser->id,
+            'note' => 'Debris cleared from drainage culvert.',
+            'photo_path' => 'resolution_proofs/test_after.jpg',
+        ]);
+
+        $response = $this->get(route('track.show', $report->tracking_code));
+
+        $response->assertOk()
+            ->assertSee('Lifecycle Progress')
+            ->assertSee('track-stepper-card', false)
+            ->assertSee('1. Received & Review', false)
+            ->assertSee('2. Work In Progress')
+            ->assertSee('3. Verification')
+            ->assertSee('Before vs. After Photo Comparison')
+            ->assertSee('Before / Initial Report')
+            ->assertSee('After / Staff Resolution Proof')
+            ->assertSee('Blocked drainage culvert on corner lot.')
+            ->assertSee('Print');
+
+        $successResponse = $this->get(route('reports.success', $report->tracking_code));
+        $successResponse->assertOk()
+            ->assertSee('data-i18n="btn_print_slip"', false)
+            ->assertSee('Print Slip');
+    }
 }

@@ -139,11 +139,15 @@ The following specific gaps exist between the current codebase and the canonical
   - **Full Filipino Localization on Track Page**: Implemented `EN | FIL` toggle and dictionary in `track.blade.php` matching the rest of the resident portal.
   - **Verification**: 25 tests in `ReportPrivacyAndValidationTest.php` passing cleanly; Pint code style verified; production Vite build compiled.
 
-### Batch B: Tracking & Case Verification [Pending]
-- Visual 4-step progress stepper on `resident/show.blade.php`.
-- Before & After photo comparison gallery on `show.blade.php` for `awaiting_confirmation` / `resolved`.
-- Elevated `needs_info` banner to amber high-priority alert.
-- Print stylesheet / "Print Slip" button on `success.blade.php` and `show.blade.php`.
+### Batch B: Tracking & Case Verification [Completed]
+- **Status**: Completed (2026-11-19)
+- **Delivered**:
+  - **Visual 4-Step Progress Stepper**: Implemented responsive lifecycle stepper (`.track-stepper-card`) on [`resident/show.blade.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/views/resident/show.blade.php) covering 4 resident stages: 1. Received & Review, 2. Work In Progress, 3. Verification, 4. Resolved/Closed, featuring completed check bubbles, active pulse indicators, and responsive mobile layout.
+  - **Before & After Photo Comparison Gallery**: For `awaiting_confirmation` and `resolved` reports with resolution proof photos, upgraded the proof box to a side-by-side comparison gallery contrasting initial report photos against staff resolution proof photos with timestamps and staff notes.
+  - **Elevated `needs_info` High-Priority Alert**: Prominently surfaced pending staff inquiries directly under the progress stepper with an amber alert container, clear speech bubble, and quick-reply form.
+  - **Print Slip & Print Stylesheet**: Added dedicated `@media print` stylesheets and print headers on both [`resident/show.blade.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/views/resident/show.blade.php) and [`resident/success.blade.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/views/resident/success.blade.php), plus "Print Slip" buttons for instant physical receipts or PDF saves.
+  - **Track Controller Detail Hydration**: Updated [`TrackController::show()`](file:///C:/githubFiles/Barangay-Reporting-System-1/app/Http/Controllers/TrackController.php) to select `landmark`, `description`, `photo_path`, and eagerly load `photos` and `category.sla_hours`, resolving a previous gap where reported descriptions and photos were omitted from the tracking query.
+  - **Verification**: 26 tests in `ReportPrivacyAndValidationTest.php` passing cleanly; Pint code style verified; production Vite build compiled.
 
 ### Batch C: Public Map & Civic Transparency [Pending]
 - Category filter toggles on `resident/map.blade.php`.

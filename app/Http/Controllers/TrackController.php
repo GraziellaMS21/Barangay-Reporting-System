@@ -35,6 +35,9 @@ class TrackController extends Controller
                 'category_id',
                 'office_id',
                 'purok_id',
+                'landmark',
+                'description',
+                'photo_path',
                 'status',
                 'no_action_reason',
                 'reopened_count',
@@ -44,8 +47,9 @@ class TrackController extends Controller
                 'updated_at',
             ])
             ->with([
+                'photos:id,report_id,photo_path',
                 'purok:id,name',
-                'category:id,name',
+                'category:id,name,sla_hours',
                 'office:id,name',
                 'statusLogs' => fn ($query) => $query->with(['user:id,name,role', 'office:id,name'])->oldest(),
                 'infoRequests' => fn ($query) => $query->with('requester:id,name')->latest(),

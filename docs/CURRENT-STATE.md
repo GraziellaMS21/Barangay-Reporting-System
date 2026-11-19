@@ -93,3 +93,14 @@ The following specific gaps exist between the current codebase and the canonical
   - **Balanced Confirm and Reopen Choices**: Upgraded resident resolution review in [`resident/show.blade.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/views/resident/show.blade.php) to equal side-by-side cards ("Yes, Issue is Fixed" vs. "No, Still Needs Work").
   - **Category Required with "Other" Fallback**: Removed "(optional)" badge, enforced required validation with clear error message, and sorted categories so "Other" appears as fallback.
   - **Feature Tests**: Added comprehensive test coverage in [`tests/Feature/ReportPrivacyAndValidationTest.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/tests/Feature/ReportPrivacyAndValidationTest.php). Total test suite: 137 tests, 1,069 assertions, 100% green.
+
+### Batch 2: Staff Queue and Review Page [Completed]
+- **Status**: Completed (2026-11-19)
+- **Delivered**:
+  - **Status Shown as Text Badge in Queue**: Replaced the icon-only status cell with `<x-status-badge :status="$report->status" />` in [`index.blade.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/views/admin/reports/index.blade.php), showing full text pills with status icon and readable label across all 12 canonical statuses. Retained modifier icons (Overdue, Escalated, Reopened) alongside the badge.
+  - **Emergency Queue Row & Badge Distinction**: Added `.is-emergency-row` with subtle red accent border (`border-left: 3.5px solid var(--red)`) and red "Emergency" pill badge in table rows in [`index.blade.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/views/admin/reports/index.blade.php) and [`app.css`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/css/app.css).
+  - **Gate Hints Shown Next to Category and Urgency in Card 2**:
+    - Added contextual field-level gate hint pills directly adjacent to the Category and Urgency controls in Card 2 (`review-workflow.blade.php`), clearly marking fields as `Required to route` (when unselected) or `Ready to route` (when selected).
+    - Added Card 2 header/action bar gate summary pill (`[data-gate-reason-card2]`) summarizing review gate requirements without needing to scroll to Card 3.
+    - Updated `updateGate()` in JavaScript to dynamically keep both Card 2 inline gate hints and Card 3 gate reason in sync upon selection, AI suggestion acceptance, or manual edit.
+  - **Feature Tests**: Added tests in [`tests/Feature/StaffCaseManagementTest.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/tests/Feature/StaffCaseManagementTest.php) verifying text status badge, emergency row distinction, and Card 2 gate hints. Total test suite: 139 tests, 1,079 assertions, 100% green.

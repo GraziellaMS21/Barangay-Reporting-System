@@ -3943,6 +3943,49 @@ h3 {
     color: var(--review-muted);
     font-size: .8125rem;
 }
+.review-gate-field-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.76rem;
+    font-weight: 700;
+    margin-top: 0.35rem;
+    border-radius: 6px;
+    padding: 0.15rem 0.5rem;
+    line-height: 1.3;
+}
+.review-gate-field-hint.is-missing {
+    color: #b3261b;
+    background: #ffebeb;
+    border: 1px solid #fecaca;
+}
+.review-gate-field-hint.is-ready {
+    color: #15803d;
+    background: #dcfce7;
+    border: 1px solid #bbf7d0;
+}
+.review-card2-gate-summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 0.2rem 0.6rem;
+    border-radius: 6px;
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    color: #475569;
+}
+.review-card2-gate-summary.is-missing {
+    color: #b3261b;
+    background: #fff1f2;
+    border-color: #fecdd3;
+}
+.review-card2-gate-summary.is-ready {
+    color: #15803d;
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+}
 .review-progress-pill {
     flex: 0 0 auto;
     margin-left: auto;
@@ -4904,6 +4947,13 @@ body.chat-modal-open {
 
 .data-table-queue {
     table-layout: auto;
+}
+.data-table tbody tr.is-emergency-row {
+    background: #fff8f8;
+    border-left: 3.5px solid var(--red);
+}
+.data-table tbody tr.is-emergency-row:hover {
+    background: #ffeded;
 }
 
 /* Icon-only status cells (legend via the "?" button in the header). */

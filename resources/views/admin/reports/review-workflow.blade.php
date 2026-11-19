@@ -541,6 +541,10 @@
                   <div class="review-final-meta">
                     <span class="review-badge {{ $categoryFinalState === 'Accepted' ? 'review-badge-green' : ($categoryFinalState === 'Edited' ? 'review-badge-amber' : ($categoryFinalState === 'AI suggested' ? 'review-badge-blue' : 'review-badge-gray')) }}"
                           data-final-state>{{ $categoryFinalState }}</span>
+                    <span class="review-gate-field-hint {{ $finalCategoryId ? 'is-ready' : 'is-missing' }}" data-gate-hint="category">
+                      <i class="fa-solid {{ $finalCategoryId ? 'fa-check' : 'fa-lock' }}" aria-hidden="true"></i>
+                      <span>{{ $finalCategoryId ? 'Ready to route' : 'Required to route' }}</span>
+                    </span>
                     <div class="review-row-actions">
                       <button type="button" class="review-text-link" data-use-ai @disabled($emergencyActionOnly) @if(! $aiCategoryId || ! $aiCategoryPresent || $aiCategoryId === $residentCategoryId) hidden @endif>Use AI</button>
                       <button type="button" class="review-text-link" data-use-resident @disabled($emergencyActionOnly) @if($residentCategoryId === null || $residentCategoryId === $aiCategoryId) hidden @endif>Use resident's</button>
@@ -584,6 +588,10 @@
                   <div class="review-final-meta">
                     <span class="review-badge {{ $urgencyFinalState === 'Accepted' ? 'review-badge-green' : ($urgencyFinalState === 'Edited' ? 'review-badge-amber' : ($urgencyFinalState === 'AI suggested' ? 'review-badge-blue' : 'review-badge-gray')) }}"
                           data-final-state>{{ $urgencyFinalState }}</span>
+                    <span class="review-gate-field-hint {{ $finalUrgency ? 'is-ready' : 'is-missing' }}" data-gate-hint="urgency">
+                      <i class="fa-solid {{ $finalUrgency ? 'fa-check' : 'fa-lock' }}" aria-hidden="true"></i>
+                      <span>{{ $finalUrgency ? 'Ready to route' : 'Required to route' }}</span>
+                    </span>
                     <div class="review-row-actions">
                       <button type="button" class="review-text-link" data-use-ai @disabled($emergencyActionOnly) @if(! $aiUrgencyPresent) hidden @endif>Use AI</button>
                       <button type="button" class="review-text-link" data-use-resident @disabled($emergencyActionOnly) hidden>Use resident's</button>
@@ -737,6 +745,7 @@
 
         @if(! $emergencyActionOnly)
           <div class="review-actions-row">
+            <span class="review-gate-hint review-card2-gate-summary" data-gate-reason-card2 aria-live="polite"></span>
             @if($aiReady)
               <button type="button" class="review-button review-button-blue" data-accept-all>
                 <i class="fa-solid fa-check-double" aria-hidden="true"></i> Accept all AI suggestions
@@ -1899,6 +1908,19 @@
     const urgency = root.querySelector('[name="urgency"]');
     const missingCategory = !category?.value;
     const missingUrgency = !urgency?.value;
+
+    const categoryGateHint = root.querySelector('[data-gate-hint="category"]');
+    if (categoryGateHint) {
+      categoryGateHint.className = `review-gate-field-hint ${missingCategory ? 'is-missing' : 'is-ready'}`;
+      categoryGateHint.innerHTML = `<i class="fa-solid ${missingCategory ? 'fa-lock' : 'fa-check'}" aria-hidden="true"></i> <span>${missingCategory ? 'Required to route' : 'Ready to route'}</span>`;
+    }
+
+    const urgencyGateHint = root.querySelector('[data-gate-hint="urgency"]');
+    if (urgencyGateHint) {
+      urgencyGateHint.className = `review-gate-field-hint ${missingUrgency ? 'is-missing' : 'is-ready'}`;
+      urgencyGateHint.innerHTML = `<i class="fa-solid ${missingUrgency ? 'fa-lock' : 'fa-check'}" aria-hidden="true"></i> <span>${missingUrgency ? 'Required to route' : 'Ready to route'}</span>`;
+    }
+
     const reasons = [];
     if (remaining > 0) reasons.push(`Review ${remaining} more field${remaining === 1 ? '' : 's'}.`);
     if (missingCategory || missingUrgency) {
@@ -1922,6 +1944,23 @@
     }
 
     if (gateReason) gateReason.textContent = reasons.join(' ');
+
+    const card2GateReason = root.querySelector('[data-gate-reason-card2]');
+    if (card2GateReason) {
+      if (missingCategory || missingUrgency) {
+        card2GateReason.textContent = `Route gate: Select ${missingCategory && missingUrgency ? 'Category & Urgency' : (missingCategory ? 'Category' : 'Urgency')} to route`;
+        card2GateReason.className = 'review-gate-hint review-card2-gate-summary is-missing';
+        card2GateReason.hidden = false;
+      } else if (remaining > 0) {
+        card2GateReason.textContent = `Route gate: ${remaining} field${remaining === 1 ? '' : 's'} pending review`;
+        card2GateReason.className = 'review-gate-hint review-card2-gate-summary';
+        card2GateReason.hidden = false;
+      } else {
+        card2GateReason.textContent = 'Route gate: Review requirements met';
+        card2GateReason.className = 'review-gate-hint review-card2-gate-summary is-ready';
+        card2GateReason.hidden = false;
+      }
+    }
   };
 
   rows.forEach((row) => {

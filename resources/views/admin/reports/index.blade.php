@@ -269,7 +269,7 @@
         <th scope="col" class="queue-col-category" style="width:8%;">Category</th>
         <th scope="col" class="queue-col-reporter" style="width:9%;">Reporter</th>
         <th scope="col" class="queue-col-purok" style="width:8%;">Purok</th>
-        <th scope="col" class="sortable" style="width:12%;">
+        <th scope="col" class="sortable" style="width:13%;">
           <span class="th-status">
             <a href="{{ $statusSort['url'] }}">Status
               <span class="sort-indicator {{ $statusSort['active'] ? '' : 'idle' }}" aria-hidden="true">
@@ -278,9 +278,9 @@
               @if($statusSort['active'])<span class="sr-only">(sorted {{ $statusSort['ascending'] ? 'ascending' : 'descending' }})</span>@endif
             </a>
             <button type="button" class="status-legend-btn" data-legend-open
-              aria-haspopup="dialog" title="What the status icons mean">
+              aria-haspopup="dialog" title="What the statuses mean">
               <i class="fa-solid fa-circle-question" aria-hidden="true"></i>
-              <span class="sr-only">What the status icons mean</span>
+              <span class="sr-only">What the statuses mean</span>
             </button>
           </span>
         </th>
@@ -311,14 +311,21 @@
           $isClosed = in_array($report->status, \App\Models\Report::CLOSED_STATUSES, true);
           $isEmergency = $report->is_emergency || $report->status === 'emergency_flagged';
         @endphp
-        <tr data-report-row="{{ $report->id }}">
+        <tr data-report-row="{{ $report->id }}" @class(['is-emergency-row' => $isEmergency])>
           <td data-label="Select">
             <input type="checkbox" name="report_ids[]" value="{{ $report->id }}"
               class="report-checkbox table-checkbox" form="queue-bulk-form"
               aria-label="Select report {{ $report->tracking_code }}">
           </td>
           <td data-label="Report">
-            <a href="{{ route('admin.reports.show', $report) }}" class="cell-report-code font-mono">{{ $report->tracking_code }}</a>
+            <div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;">
+              <a href="{{ route('admin.reports.show', $report) }}" class="cell-report-code font-mono">{{ $report->tracking_code }}</a>
+              @if($isEmergency)
+                <span class="status-badge b-red" style="font-size:0.7rem;padding:0.1rem 0.45rem;">
+                  <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Emergency
+                </span>
+              @endif
+            </div>
             <p class="cell-report-desc">{{ $report->summary ?: $report->description }}</p>
           </td>
           <td data-label="Category" class="queue-col-category">
@@ -343,19 +350,18 @@
             @endif
           </td>
           <td data-label="Status">
-            @php [$statusIconClass, $statusTone] = $statusIcons[$report->status] ?? ['fa-circle-question', 'gray']; @endphp
-            <i class="status-icon fa-solid {{ $statusIconClass }} si-{{ $statusTone }}"
-              title="{{ $statusLabels[$report->status] ?? $report->status }}"
-              aria-label="Status: {{ $statusLabels[$report->status] ?? $report->status }}"></i>
-            @if($report->due_at && $report->due_at->isPast() && !$isClosed)
-              <i class="fa-solid fa-clock text-red-600" title="Overdue"></i>
-            @endif
-            @if($report->escalated_at)
-              <i class="fa-solid fa-fire text-red-600" title="Escalated"></i>
-            @endif
-            @if($report->reopened_count > 0)
-              <i class="fa-solid fa-arrow-rotate-left text-amber-600" title="Reopened"></i>
-            @endif
+            <div style="display:inline-flex;align-items:center;gap:0.4rem;flex-wrap:wrap;">
+              <x-status-badge :status="$report->status" />
+              @if($report->due_at && $report->due_at->isPast() && !$isClosed)
+                <i class="fa-solid fa-clock text-red-600" title="Overdue" aria-label="Overdue"></i>
+              @endif
+              @if($report->escalated_at)
+                <i class="fa-solid fa-fire text-red-600" title="Escalated" aria-label="Escalated"></i>
+              @endif
+              @if($report->reopened_count > 0)
+                <i class="fa-solid fa-arrow-rotate-left text-amber-600" title="Reopened" aria-label="Reopened"></i>
+              @endif
+            </div>
           </td>
           <td data-label="Urgency" class="queue-col-urgency">
             @if($report->urgency)

@@ -118,6 +118,7 @@ class StaffCaseManagementTest extends TestCase
             ->get(route('admin.reports.index'))
             ->assertOk()
             ->assertSee($overdueReport->tracking_code)
+            ->assertSee('Under Review')
             ->assertSee('title="Overdue"', false)
             ->assertSee('title="Reopened"', false);
     }
@@ -346,5 +347,38 @@ class StaffCaseManagementTest extends TestCase
                 $event->note === 'Review initiated' &&
                 $event->userId === $this->staff->id;
         });
+    }
+
+    public function test_queue_displays_status_as_text_badge_and_highlights_emergencies(): void
+    {
+        $emergencyReport = Report::factory()->create([
+            'tracking_code' => 'BRG-EMG001',
+            'status' => ReportStatus::EMERGENCY_FLAGGED,
+            'is_emergency' => true,
+        ]);
+
+        $this->actingAs($this->staff)
+            ->get(route('admin.reports.index'))
+            ->assertOk()
+            ->assertSee($emergencyReport->tracking_code)
+            ->assertSee('Emergency Flagged')
+            ->assertSee('is-emergency-row', false);
+    }
+
+    public function test_review_page_displays_gate_hints_for_category_and_urgency(): void
+    {
+        $report = Report::factory()->create([
+            'status' => ReportStatus::UNDER_REVIEW,
+            'category_id' => null,
+            'urgency' => null,
+        ]);
+
+        $this->actingAs($this->staff)
+            ->get(route('admin.reports.show', $report))
+            ->assertOk()
+            ->assertSee('data-gate-hint="category"', false)
+            ->assertSee('data-gate-hint="urgency"', false)
+            ->assertSee('data-gate-reason-card2', false)
+            ->assertSee('Required to route');
     }
 }

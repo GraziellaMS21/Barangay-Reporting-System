@@ -169,3 +169,14 @@ The following specific gaps exist between the current codebase and the canonical
   - **Unselected "More Details" Defaults**: Changed `is_ongoing` and `is_recurring` hidden inputs and toggle buttons from default `0` ("No") to unselected (`""`), adding a distinct "Not sure" choice and preventing pre-selected "No" answers from unintentionally lowering priority scores.
   - **Full Bilingual Translation**: Added Filipino question and option translations to `questionI18n` and `optionI18n`, supporting seamless language switching.
   - **Verification**: 142 tests passing across full PHPUnit test suite (1,122 assertions, 100% green); Vite production build verified; Pint compliant.
+
+### Admin Dashboard UI Refinement & Optimization [Completed]
+- **Status**: Completed (2026-11-19)
+- **Delivered**:
+  - **Optimized Metric Cards Row**: Converted 6 KPI counter cards into a clean responsive container (`grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5`). Added distinct visual weight for urgent counters: `.kpi-alert-active` (subtle red background and border for Overdue when $> 0$) and `.kpi-warning-active` (amber highlight for High/Critical when $> 0$).
+  - **Operational Main Grid Polish**:
+    - "Needs Attention" list: Added clean 2-line clamping (`line-clamp-2`, `break-words`) on report descriptions, icons on all `WHY` status badges (Emergency, Overdue, Critical, Reopened, New), and subtle clock icon formatting for relative `AGE`.
+    - "Gemini Dashboard Insights": Fixed layout alignment so AI insights and bottom shortcut chips (`Referrals needing attention`, `Pending duplicates`) align neatly with the full height of the operational list.
+  - **Referrals Table Enhancements**: Refined `REF-YYYY-NNNN` typography with monospace blue styling, secondary tracking code icon, agency badges, high-contrast status pills (`Follow-up overdue` in red warning pill, `Not sent` in amber pill), and highlighted overdue dates.
+  - **Analytics & Charts Section**: Wrapped Chart.js canvases in clean white cards with consistent typography and min-height. Connected `<details class="dashboard-more-charts">` toggle listener in `app.js` to automatically trigger `chart.resize()` on all chart instances when expanded, preventing canvas distortion.
+  - **Verification**: 5 targeted tests in `DashboardControllerTest.php` passing; full test suite 142 tests passing (1,122 assertions, 100% green); Vite asset compilation verified; Pint compliant.

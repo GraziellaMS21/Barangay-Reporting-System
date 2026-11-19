@@ -5424,6 +5424,36 @@ body.chat-modal-open {
 .kpi-card.kpi-neutral::before { background: #64748b; }
 .kpi-card.kpi-success::before { background: #16a34a; }
 
+.kpi-card.kpi-danger.kpi-alert-active {
+    background: #fff5f5;
+    border-color: #fca5a5;
+    box-shadow: 0 4px 14px rgb(239 68 68 / 10%);
+}
+
+.kpi-card.kpi-danger.kpi-alert-active .kpi-label {
+    color: #991b1b !important;
+}
+
+.kpi-card.kpi-danger.kpi-alert-active .kpi-subtext {
+    color: #b91c1c;
+    font-weight: 600;
+}
+
+.kpi-card.kpi-warning.kpi-warning-active {
+    background: #fffdf2;
+    border-color: #fde047;
+    box-shadow: 0 4px 14px rgb(245 158 11 / 10%);
+}
+
+.kpi-card.kpi-warning.kpi-warning-active .kpi-label {
+    color: #92400e !important;
+}
+
+.kpi-card.kpi-warning.kpi-warning-active .kpi-subtext {
+    color: #b45309;
+    font-weight: 600;
+}
+
 .kpi-icon-danger { background: #fef2f2; color: #dc2626; }
 .kpi-icon-warning { background: #fffbeb; color: #d97706; }
 .kpi-icon-primary { background: #eff6ff; color: #2563eb; }
@@ -5616,6 +5646,12 @@ body.chat-modal-open {
     color: #334155;
     font-size: 0.83rem;
     line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    word-break: break-word;
+    overflow-wrap: break-word;
 }
 
 .dashboard-report-meta {
@@ -5838,14 +5874,21 @@ body.chat-modal-open {
 }
 
 .dashboard-secondary-charts {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.25rem;
     margin-top: 1.25rem;
     padding-top: 1.25rem;
     border-top: 1px solid #e2e8f0;
 }
 
-@media (max-width: 1280px) {
+@media (max-width: 1200px) {
     .dashboard-kpi-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .dashboard-secondary-charts {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
@@ -5857,11 +5900,25 @@ body.chat-modal-open {
     .dashboard-kpi-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+
+    .dashboard-secondary-charts {
+        grid-template-columns: 1fr;
+    }
 }
 
 @media (max-width: 560px) {
     .dashboard-kpi-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.65rem;
+    }
+
+    .kpi-card {
+        padding: 0.85rem 0.75rem;
+        gap: 0.5rem;
+    }
+
+    .kpi-value {
+        font-size: 1.35rem !important;
     }
 
     .dashboard-header {
@@ -5875,5 +5932,11 @@ body.chat-modal-open {
     .dashboard-action-btn {
         flex: 1;
         justify-content: center;
+    }
+}
+
+@media (max-width: 390px) {
+    .dashboard-kpi-grid {
+        grid-template-columns: 1fr;
     }
 }

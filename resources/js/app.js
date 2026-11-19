@@ -94,6 +94,25 @@ const initializeDashboardCharts = () => {
 
 if (document.querySelector('[data-report-chart]')) {
   initializeDashboardCharts();
+
+  const moreChartsEl = document.getElementById('dashboard-more-charts-details');
+  if (moreChartsEl) {
+    moreChartsEl.addEventListener('toggle', () => {
+      const textEl = document.getElementById('more-charts-toggle-text');
+      if (textEl) {
+        textEl.textContent = moreChartsEl.open ? 'Collapse' : 'Expand';
+      }
+      if (moreChartsEl.open) {
+        setTimeout(() => {
+          dashboardChartInstances.forEach((chart) => {
+            if (chart && typeof chart.resize === 'function') {
+              chart.resize();
+            }
+          });
+        }, 60);
+      }
+    });
+  }
 }
 
 document.addEventListener('submit', (event) => {

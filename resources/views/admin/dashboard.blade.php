@@ -44,8 +44,8 @@
   </div>
 @endif
 
-<section class="stat-grid dashboard-kpi-grid" aria-label="Operational metrics">
-  <a class="card stat-card kpi-card kpi-danger" href="{{ route('admin.reports.index', ['overdue' => '1']) }}">
+<section class="stat-grid dashboard-kpi-grid grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5" aria-label="Operational metrics">
+  <a class="card stat-card kpi-card kpi-danger {{ $counts['overdue'] > 0 ? 'kpi-alert-active' : '' }}" href="{{ route('admin.reports.index', ['overdue' => '1']) }}">
     <div class="stat-icon kpi-icon-danger" aria-hidden="true">
       <i class="fa-solid fa-clock-rotate-left"></i>
     </div>
@@ -57,7 +57,7 @@
     <i class="fa-solid fa-arrow-up-right-from-square kpi-arrow" aria-hidden="true"></i>
   </a>
 
-  <a class="card stat-card kpi-card kpi-warning" href="{{ route('admin.reports.index', ['urgency' => 'High']) }}">
+  <a class="card stat-card kpi-card kpi-warning {{ $counts['high_or_critical'] > 0 ? 'kpi-warning-active' : '' }}" href="{{ route('admin.reports.index', ['urgency' => 'High']) }}">
     <div class="stat-icon kpi-icon-warning" aria-hidden="true">
       <i class="fa-solid fa-bolt"></i>
     </div>
@@ -169,15 +169,15 @@
                 @elseif($report->due_at && $report->due_at->isPast())
                   <span class="status-badge b-red"><i class="fa-solid fa-clock" aria-hidden="true"></i> Overdue</span>
                 @elseif($report->urgency === 'Critical')
-                  <span class="status-badge b-red">Critical</span>
+                  <span class="status-badge b-red"><i class="fa-solid fa-bolt" aria-hidden="true"></i> Critical</span>
                 @elseif($report->reopened_count > 0)
-                  <span class="status-badge b-gold">Reopened</span>
+                  <span class="status-badge b-gold"><i class="fa-solid fa-arrow-rotate-left" aria-hidden="true"></i> Reopened</span>
                 @else
-                  <span class="status-badge b-blue">New</span>
+                  <span class="status-badge b-blue"><i class="fa-solid fa-circle-dot" aria-hidden="true"></i> New</span>
                 @endif
               </td>
               <td data-label="Age" title="{{ $report->created_at->format('M d, Y h:i A') }}">
-                <span class="dashboard-age-text">{{ $report->created_at->diffForHumans(null, true) }}</span>
+                <span class="dashboard-age-text"><i class="fa-regular fa-clock" aria-hidden="true" style="margin-right:0.25rem;color:#94a3b8;font-size:0.75rem;"></i>{{ $report->created_at->diffForHumans(null, true) }}</span>
               </td>
               <td data-label="" class="dashboard-row-action">
                 <a href="{{ route('admin.reports.show', $report) }}" class="dashboard-chevron-btn" aria-label="Open report {{ $report->tracking_code }}">
@@ -269,24 +269,32 @@
               onclick="window.location='{{ route('admin.reports.show', $referral->report_id) }}'"
               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location='{{ route('admin.reports.show', $referral->report_id) }}';}">
               <td data-label="REF no.">
-                <div class="font-mono font-bold">{{ $referral->reference_no ?? 'Not assigned' }}</div>
-                <div class="text-xs text-muted">{{ $referral->report?->tracking_code }}</div>
+                <div class="font-mono font-bold text-blue-700">{{ $referral->reference_no ?? 'Not assigned' }}</div>
+                <div class="text-xs text-muted" style="margin-top:0.15rem;">
+                  <i class="fa-solid fa-ticket" style="font-size:0.7rem;margin-right:0.25rem;" aria-hidden="true"></i>{{ $referral->report?->tracking_code }}
+                </div>
               </td>
               <td data-label="Agency">
-                <span class="font-semibold">{{ $referral->office?->name }}</span>
+                <div class="font-semibold text-slate-800">{{ $referral->office?->name }}</div>
+                @if($referral->office?->type)
+                  <span class="dashboard-category-tag" style="font-size:0.7rem;text-transform:uppercase;">{{ $referral->office->type }}</span>
+                @endif
               </td>
               <td data-label="Status">
                 @if($referral->status === 'prepared')
-                  <span class="status-badge b-gold">Not sent</span>
+                  <span class="status-badge b-gold"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Not sent</span>
                 @elseif($referralOverdue)
-                  <span class="status-badge b-red">Follow-up overdue</span>
+                  <span class="status-badge b-red"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Follow-up overdue</span>
                 @else
-                  <span class="status-badge b-blue">{{ \App\Models\Referral::STATUSES[$referral->status] ?? $referral->status }}</span>
+                  <span class="status-badge b-blue"><i class="fa-solid fa-clock" aria-hidden="true"></i> {{ \App\Models\Referral::STATUSES[$referral->status] ?? $referral->status }}</span>
                 @endif
               </td>
               <td data-label="Follow-up">
                 @if($referral->follow_up_at)
-                  <span class="{{ $referralOverdue ? 'text-red font-semibold' : '' }}">{{ $referral->follow_up_at->format('M d, Y') }}</span>
+                  <span class="{{ $referralOverdue ? 'text-red font-bold' : 'text-slate-700 font-medium' }}">
+                    @if($referralOverdue) <i class="fa-solid fa-clock-rotate-left" style="margin-right:0.25rem;" aria-hidden="true"></i> @endif
+                    {{ $referral->follow_up_at->format('M d, Y') }}
+                  </span>
                 @else
                   <span class="text-muted">Not scheduled</span>
                 @endif
@@ -334,14 +342,14 @@
   @endforeach
 </section>
 
-<details class="card dashboard-more-charts">
+<details class="card dashboard-more-charts" id="dashboard-more-charts-details">
   <summary class="dashboard-more-summary">
     <div>
       <span class="card-title"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i> More charts &amp; breakdowns</span>
       <span class="dashboard-card-subtitle">View status pipeline, purok distribution, and urgency breakdown</span>
     </div>
     <span class="dashboard-more-toggle">
-      <span>Expand</span>
+      <span id="more-charts-toggle-text">Expand</span>
       <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
     </span>
   </summary>

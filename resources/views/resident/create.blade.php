@@ -337,9 +337,11 @@
       background: #f1f5f9;
       padding: 2px;
       gap: 2px;
+      flex-wrap: wrap;
     }
 
     .toggle-btn {
+      min-height: 44px;
       padding: 0.4rem 1rem;
       border: none;
       background: transparent;
@@ -349,6 +351,9 @@
       color: #64748b;
       border-radius: 8px;
       transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .toggle-btn.active {
@@ -358,6 +363,41 @@
     }
 
     .toggle-btn:focus-within {
+      outline: 2px solid var(--blue);
+      outline-offset: 2px;
+    }
+
+    .dynamic-opt-chip {
+      min-height: 44px;
+      padding: 0.45rem 1rem;
+      border-radius: 999px;
+      border: 1.5px solid var(--line);
+      background: #f8fafc;
+      color: var(--ink);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+      transition: all 0.15s ease-in-out;
+    }
+
+    .dynamic-opt-chip:hover {
+      border-color: #cbd5e1;
+      background: #f1f5f9;
+    }
+
+    .dynamic-opt-chip.active {
+      background: #eff6ff;
+      border-color: var(--blue);
+      color: var(--blue);
+      font-weight: 700;
+      box-shadow: 0 0 0 1px var(--blue);
+    }
+
+    .dynamic-opt-chip:focus-visible {
       outline: 2px solid var(--blue);
       outline-offset: 2px;
     }
@@ -560,8 +600,8 @@
       <input type="hidden" name="category_id" id="category_id_input" value="{{ old('category_id') }}" required>
       <input type="hidden" name="lat" id="lat" value="{{ old('lat') }}">
       <input type="hidden" name="lng" id="lng" value="{{ old('lng') }}">
-      <input type="hidden" name="is_ongoing" id="is_ongoing" value="{{ old('is_ongoing', 0) ? 1 : 0 }}">
-      <input type="hidden" name="is_recurring" id="is_recurring" value="{{ old('is_recurring', 0) ? 1 : 0 }}">
+      <input type="hidden" name="is_ongoing" id="is_ongoing" value="{{ old('is_ongoing') !== null ? old('is_ongoing') : '' }}">
+      <input type="hidden" name="is_recurring" id="is_recurring" value="{{ old('is_recurring') !== null ? old('is_recurring') : '' }}">
 
       <!-- 1. Category Selection (Others guaranteed at last) -->
       <div class="card-section-heading">
@@ -670,10 +710,12 @@
               <small style="color:#64748b;">Indicate whether the incident is currently active</small>
             </div>
             <div class="toggle-btns" id="ongoing-toggle-btns">
-              <button type="button" class="toggle-btn {{ old('is_ongoing') == 1 ? 'active' : '' }}"
+              <button type="button" class="toggle-btn {{ old('is_ongoing') === '1' || old('is_ongoing') === 1 ? 'active' : '' }}"
                 onclick="setBinaryField('is_ongoing', 1, this)" data-i18n="btn_yes">Yes</button>
-              <button type="button" class="toggle-btn {{ old('is_ongoing') == 0 ? 'active' : '' }}"
+              <button type="button" class="toggle-btn {{ old('is_ongoing') === '0' || (old('is_ongoing') === 0 && old('is_ongoing') !== null && old('is_ongoing') !== '') ? 'active' : '' }}"
                 onclick="setBinaryField('is_ongoing', 0, this)" data-i18n="btn_no">No</button>
+              <button type="button" class="toggle-btn"
+                onclick="setBinaryField('is_ongoing', '', this)" data-i18n="btn_not_sure">Not sure</button>
             </div>
           </div>
 
@@ -683,10 +725,12 @@
               <small style="color:#64748b;">Has this problem happened repeatedly in your area?</small>
             </div>
             <div class="toggle-btns" id="recurring-toggle-btns">
-              <button type="button" class="toggle-btn {{ old('is_recurring') == 1 ? 'active' : '' }}"
+              <button type="button" class="toggle-btn {{ old('is_recurring') === '1' || old('is_recurring') === 1 ? 'active' : '' }}"
                 onclick="setBinaryField('is_recurring', 1, this)" data-i18n="btn_recurring">Recurring</button>
-              <button type="button" class="toggle-btn {{ old('is_recurring') == 0 ? 'active' : '' }}"
+              <button type="button" class="toggle-btn {{ old('is_recurring') === '0' || (old('is_recurring') === 0 && old('is_recurring') !== null && old('is_recurring') !== '') ? 'active' : '' }}"
                 onclick="setBinaryField('is_recurring', 0, this)" data-i18n="btn_onetime">One-time</button>
+              <button type="button" class="toggle-btn"
+                onclick="setBinaryField('is_recurring', '', this)" data-i18n="btn_not_sure">Not sure</button>
             </div>
           </div>
         </div>
@@ -908,7 +952,7 @@
         placeholder_explain_more: "Add any other details that can help the staff.",
         hint_description: "You may write in English, Filipino, Bisaya, or Chavacano (minimum 10 characters).",
         danger_checkbox: "Someone is in danger right now",
-        more_details: "More details (optional)", q_ongoing: "Is this happening right now?", q_recurring: "Recurring or one-time?", btn_yes: "Yes", btn_no: "No", btn_recurring: "Recurring", btn_onetime: "One-time",
+        more_details: "More details (optional)", q_ongoing: "Is this happening right now?", q_recurring: "Recurring or one-time?", btn_yes: "Yes", btn_no: "No", btn_not_sure: "Not sure", btn_recurring: "Recurring", btn_onetime: "One-time",
         loc_help: "Choose at least one: pin, purok, or landmark.", btn_use_location: "Use my current location",
         lbl_purok: "Purok", opt_select_purok: "Select purok", lbl_landmark: "Landmark or Street",
         btn_add_photos: "Add photo", photo_tip: "Tip: show the problem near a landmark; avoid faces and license plates.",
@@ -938,7 +982,7 @@
         placeholder_explain_more: "Magdagdag ng iba pang detalye na makakatulong sa kawani.",
         hint_description: "Maaari kang sumulat sa Tagalog/Filipino, English, Bisaya, o Chavacano (hindi bababa sa 10 titik).",
         danger_checkbox: "May nasa panganib ba ngayon?",
-        more_details: "Karagdagang detalye (opsyonal)", q_ongoing: "Kasalukuyan ba itong nangyayari?", q_recurring: "Paulit-ulit o minsan lang?", btn_yes: "Oo", btn_no: "Hindi", btn_recurring: "Paulit-ulit", btn_onetime: "Minsan lang",
+        more_details: "Karagdagang detalye (opsyonal)", q_ongoing: "Kasalukuyan ba itong nangyayari?", q_recurring: "Paulit-ulit o minsan lang?", btn_yes: "Oo", btn_no: "Hindi", btn_not_sure: "Hindi sigurado", btn_recurring: "Paulit-ulit", btn_onetime: "Minsan lang",
         loc_help: "Pumili ng kahit isa: pin, purok, o landmark.", btn_use_location: "Gamitin ang aking kasalukuyang lokasyon",
         lbl_purok: "Purok", opt_select_purok: "Pumili ng purok", lbl_landmark: "Landmark o Kalye",
         btn_add_photos: "Magdagdag ng larawan", photo_tip: "Tip: ipakita ang problema at landmark; iwasan ang mukha at plaka.",
@@ -996,13 +1040,22 @@
 
     function setBinaryField(fieldId, val, btnEl) {
       const input = document.getElementById(fieldId);
-      if (input) input.value = val;
-      if (btnEl) {
-        const parent = btnEl.closest('.toggle-btns');
-        if (parent) {
-          parent.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+      const parent = btnEl ? btnEl.closest('.toggle-btns') : null;
+      const wasActive = btnEl && btnEl.classList.contains('active');
+
+      if (wasActive || val === '' || val === null) {
+        if (input) input.value = '';
+        if (parent) parent.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+        if (!wasActive && btnEl && val === '') {
           btnEl.classList.add('active');
         }
+        return;
+      }
+
+      if (input) input.value = val;
+      if (parent) {
+        parent.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+        btnEl.classList.add('active');
       }
     }
 
@@ -1065,18 +1118,99 @@
     let categoriesData = [];
     try { categoriesData = JSON.parse(document.getElementById('categories-data').textContent); } catch (e) { }
 
+    const oldAnswers = @json(old('answers', []));
+
     const questionI18n = {
-      water_level: { label: { en: 'How high is the water?', fil: 'Gaano kalalim ang tubig?' }, placeholder: { en: 'Select water level', fil: 'Pumili ng taas' } },
+      water_blocked: { label: { en: 'Is water blocked or standing now?', fil: 'Nakatambak o hindi ba umaagos ang tubig ngayon?' }, placeholder: { en: '', fil: '' } },
+      water_present: { label: { en: 'Is the water still there now?', fil: 'Nandoon pa rin ba ang baha ngayon?' }, placeholder: { en: '', fil: '' } },
+      people_affected: { label: { en: 'Are homes or people affected?', fil: 'May mga bahay o tao bang apektado?' }, placeholder: { en: '', fil: '' } },
+      garbage_type: { label: { en: 'What is the garbage situation?', fil: 'Ano ang sitwasyon ng basura?' }, placeholder: { en: '', fil: '' } },
+      damage_type: { label: { en: 'Type of road damage', fil: 'Uri ng sira sa daan' }, placeholder: { en: '', fil: '' } },
+      blocks_traffic: { label: { en: 'Does it block vehicles?', fil: 'Humaharang ba ito sa mga sasakyan?' }, placeholder: { en: '', fil: '' } },
+      light_condition: { label: { en: 'What is the issue with the light?', fil: 'Ano ang problema sa ilaw?' }, placeholder: { en: '', fil: '' } },
+      // Fallback for legacy keys if present in DB
+      water_level: { label: { en: 'How high is the water?', fil: 'Gaano kalalim ang tubig?' }, placeholder: { en: '', fil: '' } },
       blocked_drain: { label: { en: 'Is the drain blocked?', fil: 'Nakabara ba ang kanal?' }, placeholder: { en: '', fil: '' } },
-      garbage_type: { label: { en: 'Type of garbage', fil: 'Uri ng basura' }, placeholder: { en: 'Select type', fil: 'Pumili ng uri' } },
-      volume: { label: { en: 'Approximate volume', fil: 'Tantyang dami' }, placeholder: { en: 'e.g. 2 sacks', fil: 'hal. 2 sako' } },
-      damage_type: { label: { en: 'Type of damage', fil: 'Uri ng pinsala' }, placeholder: { en: 'Select type', fil: 'Pumili ng uri' } },
-      size: { label: { en: 'Size', fil: 'Laki' }, placeholder: { en: 'e.g. 1 meter wide', fil: 'hal. 1 metro ang lapad' } },
+      volume: { label: { en: 'Approximate volume', fil: 'Tantyang dami' }, placeholder: { en: '', fil: '' } },
+      size: { label: { en: 'Size', fil: 'Laki' }, placeholder: { en: '', fil: '' } },
       not_working: { label: { en: 'Is it not working?', fil: 'Hindi ba gumagana?' }, placeholder: { en: '', fil: '' } },
-      pole_number: { label: { en: 'Pole number', fil: 'Numero ng poste' }, placeholder: { en: 'e.g. P-123', fil: 'hal. P-123' } },
-      water_depth: { label: { en: 'Water depth', fil: 'Lalim ng tubig' }, placeholder: { en: 'Select depth', fil: 'Pumili ng lalim' } },
-      area_affected: { label: { en: 'Area affected', fil: 'Naapektuhang lugar' }, placeholder: { en: 'e.g. Main road in front of school', fil: 'hal. pangunahing kalsada sa harap ng paaralan' } },
-      details: { label: { en: 'Additional details', fil: 'Karagdagang detalye' }, placeholder: { en: 'Additional details', fil: 'Karagdagang detalye' } }
+      pole_number: { label: { en: 'Pole number', fil: 'Numero ng poste' }, placeholder: { en: '', fil: '' } },
+      water_depth: { label: { en: 'Water depth', fil: 'Lalim ng tubig' }, placeholder: { en: '', fil: '' } },
+      area_affected: { label: { en: 'Area affected', fil: 'Naapektuhang lugar' }, placeholder: { en: '', fil: '' } },
+      details: { label: { en: 'Additional details', fil: 'Karagdagang detalye' }, placeholder: { en: '', fil: '' } }
+    };
+
+    const optionI18n = {
+      'Yes': { en: 'Yes', fil: 'Oo' },
+      'No': { en: 'No', fil: 'Hindi' },
+      'Not sure': { en: 'Not sure', fil: 'Hindi sigurado' },
+      'Partially': { en: 'Partially', fil: 'Bahagya' },
+      'Other': { en: 'Other', fil: 'Iba pa' },
+      'Uncollected': { en: 'Uncollected', fil: 'Hindi nakolekta' },
+      'Dumped pile': { en: 'Dumped pile', fil: 'Tambak na basura' },
+      'Overflowing bin': { en: 'Overflowing bin', fil: 'Umaapaw na basurahan' },
+      'Pothole': { en: 'Pothole', fil: 'Lubak' },
+      'Crack': { en: 'Crack', fil: 'Bitak' },
+      'Broken edge': { en: 'Broken edge', fil: 'Sirang gilid' },
+      'Not working (dark)': { en: 'Not working (dark)', fil: 'Hindi gumagana (madilim)' },
+      'Flickering': { en: 'Flickering', fil: 'Kumikislap-kislap' },
+      'Pole damaged': { en: 'Pole damaged', fil: 'Sirang poste' }
+    };
+
+    function getOptionLabel(opt) {
+      if (currentLang === 'fil' && optionI18n[opt] && optionI18n[opt].fil) {
+        return optionI18n[opt].fil;
+      }
+      return (optionI18n[opt] && optionI18n[opt].en) ? optionI18n[opt].en : opt;
+    }
+
+    function selectQuestionOption(key, val, btnEl) {
+      const hiddenInp = document.getElementById(`answer_${key}`);
+      const parent = btnEl ? btnEl.closest('.cat-question-chips') : null;
+      const wasActive = btnEl && btnEl.classList.contains('active');
+
+      if (wasActive) {
+        if (hiddenInp) hiddenInp.value = '';
+        btnEl.classList.remove('active');
+        btnEl.setAttribute('aria-pressed', 'false');
+      } else {
+        if (hiddenInp) hiddenInp.value = val;
+        if (parent) {
+          parent.querySelectorAll('.dynamic-opt-chip').forEach(b => {
+            b.classList.remove('active');
+            b.setAttribute('aria-pressed', 'false');
+          });
+        }
+        btnEl.classList.add('active');
+        btnEl.setAttribute('aria-pressed', 'true');
+      }
+    }
+
+    const categoryPlaceholders = {
+      'drainage': {
+        en: "Where is the clog? Is dirty water overflowing onto the road or sidewalk?",
+        fil: "Saan ang bara? Umaapaw ba ang maruming tubig sa kalsada o bangketa?"
+      },
+      'flooding': {
+        en: "How deep is the flood? Which streets or houses are reached?",
+        fil: "Gaano kalalim ang baha? Aling mga kalsada o bahay ang naaabot?"
+      },
+      'garbage': {
+        en: "Where is the trash piled? Is it causing bad odor or blocking passage?",
+        fil: "Saan nakatambak ang basura? May masamang amoy ba o nakaharang sa daanan?"
+      },
+      'road-damage': {
+        en: "Where is the damage located? Is it causing accidents or hazards to motorists?",
+        fil: "Saan eksaktong bahagi ng kalsada ang sira? Peligro ba ito sa motorista o nagdudulot ng aksidente?"
+      },
+      'streetlight': {
+        en: "Which light is out? Near which house, post, or corner?",
+        fil: "Aling ilaw ang patay? Sa tapat ng aling bahay, poste, o kanto?"
+      },
+      'other': {
+        en: "Please describe the problem, what caused it, and where it is located.",
+        fil: "Pakilarawan ang problema, ano ang sanhi nito, at saan ito matatagpuan."
+      }
     };
 
     function qLabel(q) {
@@ -1117,16 +1251,26 @@
     }
 
     function updateDescriptionLabel() {
-      const hasCategory = !!document.getElementById('category_id_input').value;
+      const catInput = document.getElementById('category_id_input');
+      const catId = catInput ? catInput.value : '';
       const labelSpan = document.getElementById('description-label');
       const textarea = document.getElementById('description');
       const dict = i18n[currentLang] || i18n.en;
-      if (hasCategory) {
+
+      if (catId) {
         labelSpan.textContent = dict.lbl_explain_more;
-        textarea.placeholder = dict.placeholder_explain_more;
+        const cat = categoriesData.find(c => c.id === parseInt(catId, 10));
+        const slug = cat ? (cat.slug || '').toLowerCase() : '';
+        if (slug && categoryPlaceholders[slug] && categoryPlaceholders[slug][currentLang]) {
+          textarea.placeholder = categoryPlaceholders[slug][currentLang];
+        } else {
+          textarea.placeholder = dict.placeholder_explain_more;
+        }
       } else {
         labelSpan.textContent = dict.lbl_description;
-        textarea.placeholder = 'Please describe the issue in detail...';
+        textarea.placeholder = currentLang === 'fil'
+          ? 'Pakilarawan nang detalyado ang problema...'
+          : 'Please describe the issue in detail...';
       }
     }
 
@@ -1139,65 +1283,127 @@
       const category = categoriesData.find(c => c.id === catId);
       const container = document.getElementById('dynamic-questions-container');
       const fields = document.getElementById('dynamic-questions-fields');
+
+      // Preserve any values currently selected in DOM before clearing
+      const currentDomValues = {};
+      fields.querySelectorAll('input[name^="answers["]').forEach(inp => {
+        const match = inp.name.match(/^answers\[([^\]]+)\]/);
+        if (match) currentDomValues[match[1]] = inp.value;
+      });
+      fields.querySelectorAll('textarea[name^="answers["]').forEach(ta => {
+        const match = ta.name.match(/^answers\[([^\]]+)\]/);
+        if (match) currentDomValues[match[1]] = ta.value;
+      });
+
       fields.innerHTML = '';
       if (category && category.question_schema && category.question_schema.length > 0) {
         category.question_schema.forEach(q => {
           const qDiv = document.createElement('div');
           qDiv.className = 'field';
-          qDiv.style.marginBottom = '0.9rem';
-          const label = document.createElement('label');
-          label.style.fontWeight = '700';
-          label.style.fontSize = '0.88rem';
-          label.style.color = 'var(--ink)';
+          qDiv.style.marginBottom = '1rem';
+
+          const label = document.createElement('div');
+          label.style.display = 'flex';
+          label.style.alignItems = 'center';
+          label.style.gap = '0.5rem';
           label.style.marginBottom = '0.35rem';
           const labelText = (typeof qLabel === 'function') ? qLabel(q) : q.label;
-          label.innerHTML = `${labelText} ${q.required ? '<span style="color:var(--red);">*</span>' : ''}`;
+          label.innerHTML = `
+            <span style="font-weight:700;font-size:0.88rem;color:var(--ink);">${labelText}</span>
+            <span style="font-size:0.75rem;font-weight:600;color:#64748b;background:#f1f5f9;padding:0.15rem 0.45rem;border-radius:4px;">${currentLang === 'fil' ? 'opsyonal' : 'optional'}</span>
+          `;
           qDiv.appendChild(label);
+
+          const currentVal = (currentDomValues[q.key] !== undefined && currentDomValues[q.key] !== '')
+            ? currentDomValues[q.key]
+            : ((oldAnswers && oldAnswers[q.key] !== undefined) ? oldAnswers[q.key] : '');
+
           if (q.type === 'select' && Array.isArray(q.options)) {
-            const sel = document.createElement('select');
-            sel.name = `answers[${q.key}]`;
-            if (q.required) sel.required = true;
-            const optDefault = document.createElement('option');
-            optDefault.value = ''; optDefault.textContent = currentLang === 'fil' ? '-- Pumili --' : '-- Select --';
-            sel.appendChild(optDefault);
-            q.options.forEach(opt => { const o = document.createElement('option'); o.value = opt; o.textContent = opt; sel.appendChild(o); });
-            qDiv.appendChild(sel);
+            const hiddenInp = document.createElement('input');
+            hiddenInp.type = 'hidden';
+            hiddenInp.name = `answers[${q.key}]`;
+            hiddenInp.id = `answer_${q.key}`;
+            hiddenInp.value = currentVal;
+            qDiv.appendChild(hiddenInp);
+
+            const chipsWrap = document.createElement('div');
+            chipsWrap.className = 'cat-question-chips';
+            chipsWrap.setAttribute('role', 'group');
+            chipsWrap.setAttribute('aria-label', labelText);
+            chipsWrap.style.display = 'flex';
+            chipsWrap.style.flexWrap = 'wrap';
+            chipsWrap.style.gap = '0.5rem';
+
+            q.options.forEach(opt => {
+              const optBtn = document.createElement('button');
+              optBtn.type = 'button';
+              const isSelected = String(currentVal) === String(opt);
+              optBtn.className = 'dynamic-opt-chip' + (isSelected ? ' active' : '');
+              optBtn.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+              optBtn.textContent = getOptionLabel(opt);
+              optBtn.addEventListener('click', () => selectQuestionOption(q.key, opt, optBtn));
+              chipsWrap.appendChild(optBtn);
+            });
+            qDiv.appendChild(chipsWrap);
           } else if (q.type === 'boolean') {
-            const wrap = document.createElement('div');
-            wrap.className = 'toggle-btns';
-            wrap.setAttribute('role', 'radiogroup');
-            wrap.setAttribute('aria-label', (typeof qLabel === 'function') ? qLabel(q) : q.label);
-            wrap.style.marginTop = '0.35rem';
-            
+            const hiddenInp = document.createElement('input');
+            hiddenInp.type = 'hidden';
+            hiddenInp.name = `answers[${q.key}]`;
+            hiddenInp.id = `answer_${q.key}`;
+            hiddenInp.value = currentVal;
+            qDiv.appendChild(hiddenInp);
+
+            const chipsWrap = document.createElement('div');
+            chipsWrap.className = 'cat-question-chips';
+            chipsWrap.setAttribute('role', 'group');
+            chipsWrap.setAttribute('aria-label', labelText);
+            chipsWrap.style.display = 'flex';
+            chipsWrap.style.flexWrap = 'wrap';
+            chipsWrap.style.gap = '0.5rem';
+
             const yesLabel = currentLang === 'fil' ? 'Oo' : 'Yes';
             const noLabel = currentLang === 'fil' ? 'Hindi' : 'No';
-            const btnLabelStyle = 'display:inline-flex;align-items:center;justify-content:center;min-height:44px;min-width:76px;padding:0.45rem 1.15rem;margin:0;cursor:pointer;';
 
-            wrap.innerHTML = `
-              <label class="toggle-btn" style="${btnLabelStyle}">
-                <input type="radio" class="sr-only" name="answers[${q.key}]" value="1" ${q.required ? 'required' : ''}>
-                <span>${yesLabel}</span>
-              </label>
-              <label class="toggle-btn" style="${btnLabelStyle}">
-                <input type="radio" class="sr-only" name="answers[${q.key}]" value="0">
-                <span>${noLabel}</span>
-              </label>
-            `;
+            const btnYes = document.createElement('button');
+            btnYes.type = 'button';
+            const isYes = String(currentVal) === '1';
+            btnYes.className = 'dynamic-opt-chip' + (isYes ? ' active' : '');
+            btnYes.setAttribute('aria-pressed', isYes ? 'true' : 'false');
+            btnYes.textContent = yesLabel;
+            btnYes.addEventListener('click', () => selectQuestionOption(q.key, '1', btnYes));
 
-            wrap.querySelectorAll('input[type="radio"]').forEach(radio => {
-              radio.addEventListener('change', () => {
-                wrap.querySelectorAll('.toggle-btn').forEach(btn => btn.classList.remove('active'));
-                radio.closest('.toggle-btn').classList.add('active');
-              });
-            });
+            const btnNo = document.createElement('button');
+            btnNo.type = 'button';
+            const isNo = String(currentVal) === '0';
+            btnNo.className = 'dynamic-opt-chip' + (isNo ? ' active' : '');
+            btnNo.setAttribute('aria-pressed', isNo ? 'true' : 'false');
+            btnNo.textContent = noLabel;
+            btnNo.addEventListener('click', () => selectQuestionOption(q.key, '0', btnNo));
 
-            qDiv.appendChild(wrap);
+            chipsWrap.appendChild(btnYes);
+            chipsWrap.appendChild(btnNo);
+            qDiv.appendChild(chipsWrap);
           } else if (q.type === 'textarea') {
-            const ta = document.createElement('textarea'); ta.name = `answers[${q.key}]`; ta.rows = 2; if (q.required) ta.required = true; ta.placeholder = (typeof qPlaceholder === 'function') ? qPlaceholder(q) : ''; qDiv.appendChild(ta);
+            const ta = document.createElement('textarea');
+            ta.name = `answers[${q.key}]`;
+            ta.rows = 2;
+            ta.placeholder = (typeof qPlaceholder === 'function') ? qPlaceholder(q) : '';
+            if (currentVal) ta.value = currentVal;
+            qDiv.appendChild(ta);
           } else if (q.type === 'number') {
-            const inp = document.createElement('input'); inp.type = 'number'; inp.name = `answers[${q.key}]`; if (q.required) inp.required = true; inp.placeholder = (typeof qPlaceholder === 'function') ? qPlaceholder(q) : ''; qDiv.appendChild(inp);
+            const inp = document.createElement('input');
+            inp.type = 'number';
+            inp.name = `answers[${q.key}]`;
+            inp.placeholder = (typeof qPlaceholder === 'function') ? qPlaceholder(q) : '';
+            if (currentVal) inp.value = currentVal;
+            qDiv.appendChild(inp);
           } else {
-            const inp = document.createElement('input'); inp.type = 'text'; inp.name = `answers[${q.key}]`; if (q.required) inp.required = true; inp.placeholder = (typeof qPlaceholder === 'function') ? qPlaceholder(q) : ''; qDiv.appendChild(inp);
+            const inp = document.createElement('input');
+            inp.type = 'text';
+            inp.name = `answers[${q.key}]`;
+            inp.placeholder = (typeof qPlaceholder === 'function') ? qPlaceholder(q) : '';
+            if (currentVal) inp.value = currentVal;
+            qDiv.appendChild(inp);
           }
           fields.appendChild(qDiv);
         });

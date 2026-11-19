@@ -51,8 +51,7 @@ class ResidentReportingPhase9Test extends TestCase
             'category_id' => $category->id,
             'description' => 'The drainage canal in front of the elementary school is heavily blocked.',
             'answers' => [
-                'water_level' => 'Knee',
-                'blocked_drain' => '1',
+                'water_blocked' => 'Yes',
             ],
             'is_ongoing' => '1',
             'people_at_risk' => '1',
@@ -89,7 +88,7 @@ class ResidentReportingPhase9Test extends TestCase
         ]);
 
         $this->assertNotNull($report->consent_at);
-        $this->assertEquals('Knee', $report->answers['water_level']);
+        $this->assertEquals('Yes', $report->answers['water_blocked']);
 
         Event::assertDispatched(ReportSubmitted::class, function ($event) use ($report) {
             return $event->report->id === $report->id;

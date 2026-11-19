@@ -536,6 +536,59 @@ h3 {
     font: 0.78rem/1.5 monospace;
 }
 
+.audit-summary-list {
+    display: grid;
+    gap: 0.25rem;
+    margin: 0;
+    padding: 0;
+    font-size: 0.82rem;
+    max-width: 24rem;
+}
+
+.audit-kv-pair {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    line-height: 1.4;
+}
+
+.audit-kv-key {
+    font-weight: 700;
+    color: var(--ink);
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.audit-kv-val {
+    margin: 0;
+    color: var(--tx);
+    word-break: break-word;
+}
+
+.audit-raw-details {
+    margin-top: 0.4rem;
+}
+
+.audit-raw-details summary {
+    font-size: 0.75rem;
+    color: var(--blue);
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+}
+
+.audit-raw-details summary:hover {
+    text-decoration: underline;
+}
+
+.audit-raw-details .audit-values {
+    margin-top: 0.35rem;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 0.4rem 0.6rem;
+}
+
 .settings-help-dialog {
     width: min(38rem, calc(100vw - 2rem));
     max-height: calc(100vh - 2rem);
@@ -5486,6 +5539,17 @@ body.chat-modal-open {
 
 .dashboard-table-row:hover {
     background-color: #f8faff;
+}
+
+.dashboard-table-row:focus-visible {
+    outline: 2.5px solid var(--blue);
+    outline-offset: -2px;
+    background-color: #f0f4ff;
+}
+
+.dashboard-table-row:focus-visible .dashboard-chevron-btn {
+    color: var(--blue);
+    transform: translateX(3px);
 }
 
 .dashboard-report-cell {

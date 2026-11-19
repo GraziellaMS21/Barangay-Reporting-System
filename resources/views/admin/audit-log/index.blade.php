@@ -81,10 +81,44 @@
               @if($auditLog->model_id) #{{ $auditLog->model_id }} @endif
             </td>
             <td data-label="Old values">
-              <pre class="audit-values">{{ $auditLog->old_values ? json_encode($auditLog->old_values, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) : '—' }}</pre>
+              @if(is_array($auditLog->old_values) && count($auditLog->old_values) > 0)
+                <dl class="audit-summary-list">
+                  @foreach($auditLog->old_values as $key => $val)
+                    <div class="audit-kv-pair">
+                      <dt class="audit-kv-key">{{ str($key)->replace('_', ' ')->title() }}:</dt>
+                      <dd class="audit-kv-val">{{ is_array($val) ? json_encode($val) : (is_bool($val) ? ($val ? 'true' : 'false') : ($val ?? '—')) }}</dd>
+                    </div>
+                  @endforeach
+                </dl>
+                <details class="audit-raw-details">
+                  <summary>View raw JSON</summary>
+                  <pre class="audit-values">{{ json_encode($auditLog->old_values, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
+                </details>
+              @elseif(!empty($auditLog->old_values))
+                <span class="audit-kv-val">{{ (string) $auditLog->old_values }}</span>
+              @else
+                <span class="cell-muted">—</span>
+              @endif
             </td>
             <td data-label="New values">
-              <pre class="audit-values">{{ $auditLog->new_values ? json_encode($auditLog->new_values, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) : '—' }}</pre>
+              @if(is_array($auditLog->new_values) && count($auditLog->new_values) > 0)
+                <dl class="audit-summary-list">
+                  @foreach($auditLog->new_values as $key => $val)
+                    <div class="audit-kv-pair">
+                      <dt class="audit-kv-key">{{ str($key)->replace('_', ' ')->title() }}:</dt>
+                      <dd class="audit-kv-val">{{ is_array($val) ? json_encode($val) : (is_bool($val) ? ($val ? 'true' : 'false') : ($val ?? '—')) }}</dd>
+                    </div>
+                  @endforeach
+                </dl>
+                <details class="audit-raw-details">
+                  <summary>View raw JSON</summary>
+                  <pre class="audit-values">{{ json_encode($auditLog->new_values, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
+                </details>
+              @elseif(!empty($auditLog->new_values))
+                <span class="audit-kv-val">{{ (string) $auditLog->new_values }}</span>
+              @else
+                <span class="cell-muted">—</span>
+              @endif
             </td>
           </tr>
         @empty

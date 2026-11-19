@@ -402,6 +402,9 @@ class AdminSettingsTest extends TestCase
         ]))->assertOk()
             ->assertSee('Medium')
             ->assertSee('High')
+            ->assertSee('audit-summary-list', false)
+            ->assertSee('audit-raw-details', false)
+            ->assertSee('View raw JSON')
             ->assertSee($report->tracking_code)
             ->assertSee('Staff started review.')
             ->assertDontSee('risk_weight');

@@ -64,7 +64,10 @@ class DashboardControllerTest extends TestCase
             ->assertSee('Referrals needing attention')
             ->assertSee($office->name)
             ->assertSee('6 h avg resolution')
-            ->assertSee('emergency report');
+            ->assertSee('emergency report')
+            ->assertSee('role="link"', false)
+            ->assertSee('tabindex="0"', false)
+            ->assertSee('onkeydown="if(event.key===\'Enter\'', false);
 
         $this->assertSame(2, substr_count($response->getContent(), '<table'));
     }

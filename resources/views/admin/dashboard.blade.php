@@ -143,7 +143,10 @@
         </thead>
         <tbody>
           @forelse($needsAttentionReports as $report)
-            <tr class="dashboard-table-row" onclick="window.location='{{ route('admin.reports.show', $report) }}'">
+            <tr class="dashboard-table-row" tabindex="0" role="link"
+              aria-label="Open report {{ $report->tracking_code }}"
+              onclick="window.location='{{ route('admin.reports.show', $report) }}'"
+              onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location='{{ route('admin.reports.show', $report) }}';}">
               <td data-label="Report">
                 <div class="dashboard-report-cell">
                   <span class="dashboard-tracking-pill">{{ $report->tracking_code }}</span>
@@ -261,7 +264,10 @@
         <tbody>
           @forelse($pendingReferrals as $referral)
             @php($referralOverdue = $referral->isOverdue())
-            <tr class="dashboard-table-row" onclick="window.location='{{ route('admin.reports.show', $referral->report_id) }}'">
+            <tr class="dashboard-table-row" tabindex="0" role="link"
+              aria-label="Open referral {{ $referral->reference_no ?? $referral->report?->tracking_code }}"
+              onclick="window.location='{{ route('admin.reports.show', $referral->report_id) }}'"
+              onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location='{{ route('admin.reports.show', $referral->report_id) }}';}">
               <td data-label="REF no.">
                 <div class="font-mono font-bold">{{ $referral->reference_no ?? 'Not assigned' }}</div>
                 <div class="text-xs text-muted">{{ $referral->report?->tracking_code }}</div>

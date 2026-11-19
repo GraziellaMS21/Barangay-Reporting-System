@@ -241,6 +241,19 @@ function applySuccessTranslations(lang) {
 
 document.addEventListener('DOMContentLoaded', () => {
   applySuccessTranslations(successLang);
+
+  try {
+    const codeEl = document.getElementById('submitted-tracking-code');
+    if (codeEl) {
+      const code = codeEl.textContent.trim().toUpperCase();
+      if (code) {
+        let codes = JSON.parse(localStorage.getItem('calarian_recent_codes') || '[]');
+        if (!Array.isArray(codes)) codes = [];
+        codes = [code, ...codes.filter(c => c !== code)].slice(0, 5);
+        localStorage.setItem('calarian_recent_codes', JSON.stringify(codes));
+      }
+    }
+  } catch (e) { }
 });
 
 function copySuccessCode() {

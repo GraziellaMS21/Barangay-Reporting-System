@@ -121,3 +121,32 @@ The following specific gaps exist between the current codebase and the canonical
   - **Resident Pin Stays Draggable**: When touching `.leaflet-marker-icon`, the marker's drag handler retains control, ensuring 100% draggable pin placement with one finger. Single tap places or relocates pins.
   - **Desktop Mouse Wheel Protection**: Set `scrollWheelZoom: false` across all embedded maps so desktop mouse scrolling does not trap within map containers.
   - **Verification**: Vite compiled production assets cleanly; test suite 100% green (139 tests, 1,085 assertions).
+
+---
+
+## 5. Resident Views UI/UX Refactor Progress
+
+### Batch A: Submission & Lookup Flow [Completed]
+- **Status**: Completed (2026-11-19)
+- **Delivered**:
+  - **Live Character Counter (`#description`)**: Added `#description-char-counter` to [`resident/create.blade.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/views/resident/create.blade.php) with live validation color coding (amber `< 10`, green `≥ 10`) and bilingual status indicators ("10 min" / "10 pinakamababa" to "reached" / "naabot na").
+  - **Accessible Segmented Booleans in Dynamic Schema**: Refactored `renderQuestions()` to render accessible `.toggle-btns` with `<label class="toggle-btn">` and `<input type="radio" class="sr-only">`, ensuring $\ge 44\text{px}$ touch targets, `:focus-within` keyboard indicators, and visual parity with "More details".
+  - **Prominent Quick Location Button**: Added `#btn-quick-locate` directly in the "Where is it?" card section header, allowing mobile users to invoke device geolocation instantly without scrolling down past purok and landmark inputs.
+  - **Anonymous Mode Accessibility & Informative Banner**: In `toggleAnonymousFields()`, disabled contact inputs (`#reporter_name`, `#reporter_contact`, `#reporter_email`) to prevent keyboard focus traps, added `aria-hidden`, and surfaced `#anon-notice-banner` explicitly advising residents that anonymous reports do not receive SMS/email updates.
+  - **Mobile Full-Width Submit Button**: Form footer flex layout switches to column on $\le 640\text{px}$ screens with `#btn-final-submit` spanning full container width (100%) and 48px min height.
+  - **Tracking Code Lookup Parity & Auto-Formatting**: Updated [`resident/track.blade.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/views/resident/track.blade.php) placeholder to canonical format `BRG-AB12CD` (replacing obsolete `BRG-2025-0012`), and auto-formats input to uppercase without whitespace.
+  - **Recently Tracked Codes Quick Access**: Added `localStorage.calarian_recent_codes` support with quick-tap pills on `track.blade.php` and automatic code persistence on report submission in `success.blade.php`.
+  - **Full Filipino Localization on Track Page**: Implemented `EN | FIL` toggle and dictionary in `track.blade.php` matching the rest of the resident portal.
+  - **Verification**: 25 tests in `ReportPrivacyAndValidationTest.php` passing cleanly; Pint code style verified; production Vite build compiled.
+
+### Batch B: Tracking & Case Verification [Pending]
+- Visual 4-step progress stepper on `resident/show.blade.php`.
+- Before & After photo comparison gallery on `show.blade.php` for `awaiting_confirmation` / `resolved`.
+- Elevated `needs_info` banner to amber high-priority alert.
+- Print stylesheet / "Print Slip" button on `success.blade.php` and `show.blade.php`.
+
+### Batch C: Public Map & Civic Transparency [Pending]
+- Category filter toggles on `resident/map.blade.php`.
+- Purok quick-zoom selector.
+- Enriched pin popups with category icon, purok, and relative time.
+- Bilingual toggle for public map.

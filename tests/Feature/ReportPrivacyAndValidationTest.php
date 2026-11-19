@@ -547,4 +547,31 @@ class ReportPrivacyAndValidationTest extends TestCase
             ->assertSee('role="radiogroup"', false)
             ->assertSee('role="radio"', false);
     }
+
+    public function test_resident_submission_and_lookup_views_render_enhanced_controls(): void
+    {
+        $this->seed(CategorySeeder::class);
+
+        $createResponse = $this->get(route('reports.create'));
+        $createResponse->assertOk()
+            ->assertSee('id="description-char-counter"', false)
+            ->assertSee('id="btn-quick-locate"', false)
+            ->assertSee('id="anon-notice-banner"', false)
+            ->assertSee('data-i18n="btn_quick_locate"', false)
+            ->assertSee('data-i18n="anon_notice_text"', false);
+
+        $trackResponse = $this->get(route('track.index'));
+        $trackResponse->assertOk()
+            ->assertSee('id="tracking_code"', false)
+            ->assertSee('placeholder="e.g. BRG-AB12CD"', false)
+            ->assertSee('id="recent-codes-wrap"', false)
+            ->assertSee('BRG-XXXXXX')
+            ->assertSee('data-i18n="track_title"', false)
+            ->assertSee('js-track-lang-fil', false);
+
+        $searchResponse = $this->post(route('track.search'), [
+            'tracking_code' => 'brg-ab12cd',
+        ]);
+        $searchResponse->assertRedirect(route('track.show', 'BRG-AB12CD'));
+    }
 }

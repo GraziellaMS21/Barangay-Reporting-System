@@ -357,6 +357,24 @@
       box-shadow: 0 2px 4px rgba(36, 86, 214, 0.2);
     }
 
+    .toggle-btn:focus-within {
+      outline: 2px solid var(--blue);
+      outline-offset: 2px;
+    }
+
+    @media (max-width: 640px) {
+      .card-submit-bar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1.25rem;
+      }
+      #btn-final-submit {
+        width: 100% !important;
+        min-height: 48px;
+        justify-content: center;
+      }
+    }
+
     /* Map Box */
     .map-container-box {
       border: 1.5px solid #e2e8f0;
@@ -588,9 +606,14 @@
         </label>
         <textarea id="description" name="description" rows="4" required minlength="10" maxlength="2000"
           placeholder="Please describe the issue in detail...">{{ old('description') }}</textarea>
-        <p class="field-hint" data-i18n="hint_description">
-          You may write in English, Filipino, Bisaya, or Chavacano (minimum 10 characters).
-        </p>
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-top:0.35rem;">
+          <p class="field-hint" data-i18n="hint_description" style="margin:0;">
+            You may write in English, Filipino, Bisaya, or Chavacano (minimum 10 characters).
+          </p>
+          <div id="description-char-counter" class="field-hint" style="margin:0;font-size:0.8rem;font-weight:700;color:#64748b;" aria-live="polite">
+            <span id="desc-char-count">0</span> / 10 <span id="desc-char-status">min</span>
+          </div>
+        </div>
         @error('description')
           <p class="field-error">{{ $message }}</p>
         @enderror
@@ -672,9 +695,15 @@
       <hr class="card-divider">
 
       <!-- 3. Where is it? (Location) -->
-      <div class="card-section-heading">
-        <div class="card-section-icon"><i class="fa-solid fa-map-location-dot"></i></div>
-        <h2 class="card-section-title" data-i18n="where_is_it">Where is it?</h2>
+      <div class="card-section-heading" style="justify-content:space-between;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:0.65rem;">
+          <div class="card-section-icon"><i class="fa-solid fa-map-location-dot"></i></div>
+          <h2 class="card-section-title" data-i18n="where_is_it">Where is it?</h2>
+        </div>
+        <button type="button" id="btn-quick-locate" class="btn btn-outline" style="min-height:38px;padding:0.35rem 0.85rem;font-size:0.82rem;font-weight:700;border-radius:999px;display:inline-flex;align-items:center;gap:0.4rem;">
+          <i class="fa-solid fa-crosshairs" style="color:var(--blue);"></i>
+          <span data-i18n="btn_quick_locate">Use GPS</span>
+        </button>
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4" style="margin-bottom:1.5rem;">
@@ -758,12 +787,17 @@
           </span>
         </summary>
         <div class="card-collapsible-content">
-          <label style="display:flex;align-items:center;gap:0.65rem;font-weight:700;color:var(--ink);margin-bottom:1.25rem;cursor:pointer;">
+          <label style="display:flex;align-items:center;gap:0.65rem;font-weight:700;color:var(--ink);margin-bottom:0.75rem;cursor:pointer;">
             <input type="checkbox" name="is_anonymous" id="is_anonymous" value="1"
               {{ old('is_anonymous') ? 'checked' : '' }} onchange="toggleAnonymousFields(this.checked)"
               style="width:1.15rem;height:1.15rem;accent-color:var(--blue);cursor:pointer;">
             <span data-i18n="chk_anonymous">Submit this report anonymously</span>
           </label>
+
+          <div id="anon-notice-banner" style="display:none;background:#fef3c7;border:1px solid #fde68a;border-radius:10px;padding:0.65rem 0.85rem;color:#92400e;font-size:0.84rem;font-weight:600;margin-bottom:1rem;" role="status">
+            <i class="fa-solid fa-circle-info" style="margin-right:0.35rem;"></i>
+            <span data-i18n="anon_notice_text">Anonymous reports will not receive status updates via SMS or email. You will need to check the website using your tracking code.</span>
+          </div>
 
           <div id="contact-fields-section" style="transition:opacity 0.2s ease;">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -882,7 +916,11 @@
         updates_optional: "Get updates on this report (optional)",
         privacy_title: "Data Privacy Notice (RA 10173)", privacy_text: "By submitting this report, you acknowledge that Barangay Calarian collects issue details, approximate location, and optional contact info strictly to investigate, route, and resolve community problems. Your information will never be shared with unauthorized parties.",
         btn_submit_final: "Submit report",
-        consent_agree: "I agree to the", privacy_link: "Data Privacy Notice"
+        consent_agree: "I agree to the", privacy_link: "Data Privacy Notice",
+        btn_quick_locate: "Use GPS",
+        anon_notice_text: "Anonymous reports will not receive status updates via SMS or email. You will need to check the website using your tracking code.",
+        desc_char_min: "min",
+        desc_char_reached: "reached"
       },
       fil: {
         hero_title: "Mag-ulat ng problema sa Barangay Calarian",
@@ -908,7 +946,11 @@
         updates_optional: "Gusto ng updates? (opsyonal)",
         privacy_title: "Paunawa sa Data Privacy (RA 10173)", privacy_text: "Sa pagsusumite ng ulat na ito, kinikilala mo na ang Barangay Calarian ay nangongolekta ng detalye ng suliranin, lokasyon, at opsyonal na impormasyon.",
         btn_submit_final: "Isumite ang ulat",
-        consent_agree: "Sumasang-ayon ako sa", privacy_link: "Paunawa sa Data Privacy"
+        consent_agree: "Sumasang-ayon ako sa", privacy_link: "Paunawa sa Data Privacy",
+        btn_quick_locate: "Gamitin ang GPS",
+        anon_notice_text: "Ang mga di-nagpapakilalang ulat ay hindi makakatanggap ng updates sa SMS o email. Kakailanganin mong suriin ang website gamit ang tracking code.",
+        desc_char_min: "pinakamababa",
+        desc_char_reached: "naabot na"
       }
     };
 
@@ -945,6 +987,7 @@
       const selectedCat = document.getElementById('category_id_input').value;
       if (selectedCat) renderQuestions(parseInt(selectedCat, 10));
       updateDescriptionLabel();
+      updateCharCounter();
     }
 
     function toggleDanger(checked) {
@@ -965,16 +1008,46 @@
 
     function toggleAnonymousFields(isAnon) {
       const section = document.getElementById('contact-fields-section');
+      const notice = document.getElementById('anon-notice-banner');
+      const nameInp = document.getElementById('reporter_name');
+      const contactInp = document.getElementById('reporter_contact');
+      const emailInp = document.getElementById('reporter_email');
       if (!section) return;
+
       if (isAnon) {
         section.style.opacity = '0.4';
         section.style.pointerEvents = 'none';
-        document.getElementById('reporter_name').value = '';
-        document.getElementById('reporter_contact').value = '';
-        document.getElementById('reporter_email').value = '';
+        section.setAttribute('aria-hidden', 'true');
+        if (notice) notice.style.display = 'block';
+        if (nameInp) { nameInp.value = ''; nameInp.disabled = true; }
+        if (contactInp) { contactInp.value = ''; contactInp.disabled = true; }
+        if (emailInp) { emailInp.value = ''; emailInp.disabled = true; }
       } else {
         section.style.opacity = '1';
         section.style.pointerEvents = 'auto';
+        section.removeAttribute('aria-hidden');
+        if (notice) notice.style.display = 'none';
+        if (nameInp) nameInp.disabled = false;
+        if (contactInp) contactInp.disabled = false;
+        if (emailInp) emailInp.disabled = false;
+      }
+    }
+
+    function updateCharCounter() {
+      const textarea = document.getElementById('description');
+      const countSpan = document.getElementById('desc-char-count');
+      const statusSpan = document.getElementById('desc-char-status');
+      const counterContainer = document.getElementById('description-char-counter');
+      if (!textarea || !countSpan) return;
+      const len = textarea.value.length;
+      countSpan.textContent = len;
+      const dict = i18n[currentLang] || i18n.en;
+      if (len >= 10) {
+        counterContainer.style.color = '#16a34a';
+        if (statusSpan) statusSpan.textContent = dict.desc_char_reached || 'reached';
+      } else {
+        counterContainer.style.color = len > 0 ? '#b45309' : '#64748b';
+        if (statusSpan) statusSpan.textContent = dict.desc_char_min || 'min';
       }
     }
 
@@ -1091,18 +1164,33 @@
             qDiv.appendChild(sel);
           } else if (q.type === 'boolean') {
             const wrap = document.createElement('div');
-            wrap.style.display = 'flex';
-            wrap.style.gap = '1.5rem';
+            wrap.className = 'toggle-btns';
+            wrap.setAttribute('role', 'radiogroup');
+            wrap.setAttribute('aria-label', (typeof qLabel === 'function') ? qLabel(q) : q.label);
             wrap.style.marginTop = '0.35rem';
-            const labelStyle = 'cursor:pointer;display:flex;align-items:center;gap:.4rem;margin:0;font-size:.9rem;font-weight:600;white-space:nowrap;width:auto;';
-            const radioStyle = 'width:1.1rem;height:1.1rem;padding:0;margin:0;flex:none;accent-color:#2563eb;cursor:pointer;';
+            
+            const yesLabel = currentLang === 'fil' ? 'Oo' : 'Yes';
+            const noLabel = currentLang === 'fil' ? 'Hindi' : 'No';
+            const btnLabelStyle = 'display:inline-flex;align-items:center;justify-content:center;min-height:44px;min-width:76px;padding:0.45rem 1.15rem;margin:0;cursor:pointer;';
+
             wrap.innerHTML = `
-              <label style="${labelStyle}">
-                <input type="radio" style="${radioStyle}" name="answers[${q.key}]" value="1" ${q.required ? 'required' : ''}> Yes / Oo
+              <label class="toggle-btn" style="${btnLabelStyle}">
+                <input type="radio" class="sr-only" name="answers[${q.key}]" value="1" ${q.required ? 'required' : ''}>
+                <span>${yesLabel}</span>
               </label>
-              <label style="${labelStyle}">
-                <input type="radio" style="${radioStyle}" name="answers[${q.key}]" value="0"> No / Hindi
-              </label>`;
+              <label class="toggle-btn" style="${btnLabelStyle}">
+                <input type="radio" class="sr-only" name="answers[${q.key}]" value="0">
+                <span>${noLabel}</span>
+              </label>
+            `;
+
+            wrap.querySelectorAll('input[type="radio"]').forEach(radio => {
+              radio.addEventListener('change', () => {
+                wrap.querySelectorAll('.toggle-btn').forEach(btn => btn.classList.remove('active'));
+                radio.closest('.toggle-btn').classList.add('active');
+              });
+            });
+
             qDiv.appendChild(wrap);
           } else if (q.type === 'textarea') {
             const ta = document.createElement('textarea'); ta.name = `answers[${q.key}]`; ta.rows = 2; if (q.required) ta.required = true; ta.placeholder = (typeof qPlaceholder === 'function') ? qPlaceholder(q) : ''; qDiv.appendChild(ta);
@@ -1155,30 +1243,58 @@
           triggerNearbyReportsCheck();
         }
         mapInstance.on('click', e => placePin(e.latlng.lat, e.latlng.lng));
+
+        function requestGeolocation(btnEl) {
+          if (!navigator.geolocation) {
+            alert(currentLang === 'fil' ? 'Hindi suportado ang geolocation sa iyong browser.' : 'Geolocation is not supported by your browser.');
+            return;
+          }
+          const origText = btnEl ? btnEl.innerHTML : '';
+          if (btnEl) {
+            btnEl.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> <span>${currentLang === 'fil' ? 'Hinahanap...' : 'Locating...'}</span>`;
+            btnEl.disabled = true;
+          }
+          navigator.geolocation.getCurrentPosition(
+            pos => {
+              placePin(pos.coords.latitude, pos.coords.longitude);
+              mapInstance.setView([pos.coords.latitude, pos.coords.longitude], 16);
+              if (btnEl) {
+                btnEl.innerHTML = origText;
+                btnEl.disabled = false;
+              }
+            },
+            err => {
+              if (btnEl) {
+                btnEl.innerHTML = origText;
+                btnEl.disabled = false;
+              }
+              alert(currentLang === 'fil' ? 'Hindi makuha ang lokasyon. Mangyaring mag-click sa mapa o pumili ng purok.' : 'Unable to retrieve location. Please click on the map or select a purok.');
+            },
+            { timeout: 8000 }
+          );
+        }
+
         const btnLocate = document.getElementById('btn-locate');
         if (btnLocate) {
-          btnLocate.addEventListener('click', () => {
-            if (navigator.geolocation) {
-              const originalText = btnLocate.innerHTML;
-              btnLocate.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Locating...';
-              btnLocate.disabled = true;
-              navigator.geolocation.getCurrentPosition(
-                pos => {
-                  placePin(pos.coords.latitude, pos.coords.longitude);
-                  mapInstance.setView([pos.coords.latitude, pos.coords.longitude], 16);
-                  btnLocate.innerHTML = originalText;
-                  btnLocate.disabled = false;
-                },
-                err => {
-                  btnLocate.innerHTML = originalText;
-                  btnLocate.disabled = false;
-                  alert('Unable to retrieve location. Please click on the map or select a purok.');
-                },
-                { timeout: 8000 }
-              );
-            }
-          });
+          btnLocate.addEventListener('click', () => requestGeolocation(btnLocate));
         }
+        const btnQuickLocate = document.getElementById('btn-quick-locate');
+        if (btnQuickLocate) {
+          btnQuickLocate.addEventListener('click', () => requestGeolocation(btnQuickLocate));
+        }
+      }
+
+      // Initialize live character counter for description
+      const descEl = document.getElementById('description');
+      if (descEl) {
+        descEl.addEventListener('input', updateCharCounter);
+        updateCharCounter();
+      }
+
+      // Initialize anonymous toggle state
+      const anonCb = document.getElementById('is_anonymous');
+      if (anonCb && anonCb.checked) {
+        toggleAnonymousFields(true);
       }
 
       try {

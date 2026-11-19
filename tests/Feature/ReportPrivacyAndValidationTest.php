@@ -619,4 +619,43 @@ class ReportPrivacyAndValidationTest extends TestCase
             ->assertSee('data-i18n="btn_print_slip"', false)
             ->assertSee('Print Slip');
     }
+
+    public function test_resident_public_map_view_renders_interactive_filters_and_purok_selector(): void
+    {
+        $category = Category::create([
+            'name' => 'Garbage Collection',
+            'slug' => 'garbage-collection',
+            'is_active' => true,
+            'risk_weight' => 1,
+            'sla_hours' => 48,
+        ]);
+
+        $report = Report::factory()->create([
+            'category_id' => $category->id,
+            'status' => 'in_progress',
+            'lat' => 6.921,
+            'lng' => 122.078,
+            'is_emergency' => false,
+        ]);
+
+        $emergencyReport = Report::factory()->create([
+            'category_id' => $category->id,
+            'status' => 'emergency_flagged',
+            'lat' => 6.925,
+            'lng' => 122.080,
+            'is_emergency' => true,
+            'tracking_code' => 'BRG-EMERG1',
+        ]);
+
+        $response = $this->get(route('map.index'));
+
+        $response->assertOk()
+            ->assertSee('Public Map')
+            ->assertSee('Active Barangay Reports')
+            ->assertSee('data-cat-filter="all"', false)
+            ->assertSee('id="purok-zoom-select"', false)
+            ->assertSee('Public Transparency Mode')
+            ->assertSee($report->tracking_code)
+            ->assertDontSee('BRG-EMERG1');
+    }
 }

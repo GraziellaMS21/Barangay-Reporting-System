@@ -149,8 +149,12 @@ The following specific gaps exist between the current codebase and the canonical
   - **Track Controller Detail Hydration**: Updated [`TrackController::show()`](file:///C:/githubFiles/Barangay-Reporting-System-1/app/Http/Controllers/TrackController.php) to select `landmark`, `description`, `photo_path`, and eagerly load `photos` and `category.sla_hours`, resolving a previous gap where reported descriptions and photos were omitted from the tracking query.
   - **Verification**: 26 tests in `ReportPrivacyAndValidationTest.php` passing cleanly; Pint code style verified; production Vite build compiled.
 
-### Batch C: Public Map & Civic Transparency [Pending]
-- Category filter toggles on `resident/map.blade.php`.
-- Purok quick-zoom selector.
-- Enriched pin popups with category icon, purok, and relative time.
-- Bilingual toggle for public map.
+### Batch C: Public Map & Civic Transparency [Completed]
+- **Status**: Completed (2026-11-19)
+- **Delivered**:
+  - **Interactive Category Filter Buttons**: Replaced static legend chips on [`resident/map.blade.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/views/resident/map.blade.php) with interactive `.map-filter-btn` pills with dynamic report count badges (`All`, `Drainage`, `Garbage`, etc.). Instant client-side filtering updates marker layers and view bounds dynamically.
+  - **Purok Quick-Zoom Selector**: Added `#purok-zoom-select` dropdown in the map toolbar, allowing residents to filter and zoom the map directly to reports in their specific purok.
+  - **Enriched Marker Popups**: Custom Leaflet popups display category icon, purok name, formatted status badge, relative reporting timestamp, and a direct link to track the issue.
+  - **Bilingual Support (`EN | FIL`)**: Added segmented `EN | FIL` toggle matching the resident portal design language, translating titles, descriptions, filter labels, and popup content into natural Filipino.
+  - **Map Controller Hydration**: Updated [`MapController::index()`](file:///C:/githubFiles/Barangay-Reporting-System-1/app/Http/Controllers/MapController.php) to select `tracking_code` and `created_at` and pass active categories and puroks to the view, while maintaining privacy filters hiding emergency reports.
+  - **Verification**: 27 tests in `ReportPrivacyAndValidationTest.php` passing cleanly; Pint code style verified; production Vite build compiled.

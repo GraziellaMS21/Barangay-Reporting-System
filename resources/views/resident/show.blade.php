@@ -335,6 +335,42 @@
     </section>
   @endif
 
+  <!-- NO ACTION NOTICE -->
+  @if($report->status === 'no_action')
+    <section class="track-card" style="border-left: 4px solid #64748b; background: #f8fafc;">
+      <div style="display:flex;align-items:flex-start;gap:0.85rem;">
+        <div style="width:40px;height:40px;border-radius:10px;background:#f1f5f9;display:grid;place-items:center;flex-shrink:0;">
+          <i class="fa-solid fa-circle-xmark" style="color:#64748b;font-size:1.4rem;"></i>
+        </div>
+        <div style="flex:1;">
+          <h3 style="color:#334155;margin:0 0 0.35rem;font-size:1.15rem;font-weight:800;">
+            Case Closed: No Further Action
+          </h3>
+          <p style="margin:0 0 0.75rem;font-size:0.88rem;color:#64748b;">
+            The barangay evaluated this report and concluded that no further action will be taken.
+          </p>
+          <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;padding:0.85rem 1rem;">
+            @if($report->no_action_reason)
+              <div style="margin-bottom:0.5rem;">
+                <span style="font-size:0.75rem;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:0.05em;display:block;">Reason</span>
+                <strong style="color:var(--ink);font-size:0.95rem;">{{ \App\Models\Report::NO_ACTION_REASONS[$report->no_action_reason] ?? ucfirst(str_replace('_', ' ', $report->no_action_reason)) }}</strong>
+              </div>
+            @endif
+            @php
+              $noActionLog = $report->statusLogs->where('to_status', 'no_action')->last();
+            @endphp
+            @if($noActionLog?->note)
+              <div>
+                <span style="font-size:0.75rem;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:0.05em;display:block;">Staff Explanation</span>
+                <p style="margin:0.25rem 0 0;font-size:0.92rem;color:var(--tx);line-height:1.5;">{{ $noActionLog->note }}</p>
+              </div>
+            @endif
+          </div>
+        </div>
+      </div>
+    </section>
+  @endif
+
   <!-- 2. RESOLUTION DETAILS & RESIDENT CONFIRMATION / REOPEN -->
   @if($report->status === 'awaiting_confirmation' || $report->status === 'resolved' || $latestResolutionProof)
     <section class="track-card track-resolution-card">

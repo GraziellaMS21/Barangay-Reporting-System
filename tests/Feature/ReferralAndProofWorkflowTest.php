@@ -491,16 +491,16 @@ class ReferralAndProofWorkflowTest extends TestCase
         ]);
     }
 
-    public function test_out_of_scope_and_duplicate_require_reason_fields(): void
+    public function test_no_action_and_duplicate_require_reason_fields(): void
     {
         $report = $this->report();
 
         $this->actingAs($this->staff)
             ->patch(route('admin.reports.status', $report), [
-                'status' => 'out_of_scope',
+                'status' => 'no_action',
             ])
             ->assertRedirect()
-            ->assertSessionHasErrors('note');
+            ->assertSessionHasErrors(['note', 'no_action_reason']);
 
         $other = $this->report();
         $this->actingAs($this->staff)
@@ -510,9 +510,23 @@ class ReferralAndProofWorkflowTest extends TestCase
             ->assertRedirect()
             ->assertSessionHasErrors('candidate_id');
 
-        // The report was not marked out of scope or merged.
+        // The report was not marked no_action or merged.
         $report->refresh();
         $this->assertSame('submitted', $report->status);
         $this->assertSame('submitted', $other->status);
+
+        // Providing note and valid reason code succeeds
+        $this->actingAs($this->staff)
+            ->patch(route('admin.reports.status', $report), [
+                'status' => 'no_action',
+                'no_action_reason' => 'not_barangay_matter',
+                'note' => 'Outside barangay authority.',
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $report->refresh();
+        $this->assertSame('no_action', $report->status);
+        $this->assertSame('not_barangay_matter', $report->no_action_reason);
     }
 }

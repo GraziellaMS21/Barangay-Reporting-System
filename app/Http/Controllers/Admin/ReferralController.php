@@ -165,7 +165,7 @@ class ReferralController extends Controller
                 'needs_info' => Report::STATUSES['needs_info'],
                 'awaiting_confirmation' => Report::STATUSES['awaiting_confirmation'],
                 'resolved' => Report::STATUSES['resolved'],
-                'closed' => Report::STATUSES['closed'] ?? 'Closed',
+                'no_action' => Report::STATUSES['no_action'],
             ],
         ];
 

@@ -68,7 +68,7 @@
     'routed' => ['fa-route', 'blue'],
     'in_progress' => ['fa-gears', 'blue'],
     'resolved' => ['fa-circle-check', 'green'],
-    'out_of_scope' => ['fa-ban', 'gray'],
+    'no_action' => ['fa-circle-xmark', 'gray'],
     'merged' => ['fa-code-merge', 'gray'],
     'referred' => ['fa-share', 'gray'],
     'emergency_flagged' => ['fa-triangle-exclamation', 'red'],
@@ -88,7 +88,7 @@
     'reopened' => 'The resident reported the same issue again.',
     'referred' => 'Forwarded to an external agency for action.',
     'merged' => 'Duplicate of another report; hidden from the queue.',
-    'out_of_scope' => 'Outside the barangay\'s authority.',
+    'no_action' => 'No further action taken by the barangay.',
     'emergency_flagged' => 'Possible emergency; needs immediate staff review.',
   ];
 @endphp

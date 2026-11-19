@@ -31,35 +31,27 @@ This document provides a realistic, code-verified audit of what is currently imp
 
 The following specific gaps exist between the current codebase and the canonical design in [**`docs/WORKFLOW.md`**](file:///C:/githubFiles/Barangay-Reporting-System-1/docs/WORKFLOW.md):
 
-### Gap 1: Status Enum Discrepancy
-- **In Code**: [`ReportStatus.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/app/Support/ReportStatus.php) and [`Report.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/app/Models/Report.php) now define 13 statuses (`on_hold` eliminated in Task 1; `out_of_scope` and `closed` remain pending Task 2).
-- **Target Design**: 12 statuses. `on_hold` is eliminated (done). `out_of_scope` and `closed` are unified into `no_action` (Task 2).
-- **Action Required**: Remove `OUT_OF_SCOPE` and `CLOSED` constants; add `NO_ACTION` and reason code constants (Task 2).
+### Gap 1: Status Enum Discrepancy [Resolved]
+- **Status**: Completed in Task 1 (`on_hold` removed) and Task 2 (`out_of_scope` & `closed` merged into `no_action`).
+- **In Code**: [`ReportStatus.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/app/Support/ReportStatus.php) and [`Report.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/app/Models/Report.php) now define the exact 12 canonical statuses and 5 reason code constants.
 
 ### Gap 2: State Machine Integrity & Public `canTransition()` Method
 - **In Code**: [`ReportStatusService`](file:///C:/githubFiles/Barangay-Reporting-System-1/app/Services/ReportStatusService.php) contains only an internal `private const ALLOWED` array checked during `transition()`.
-- **Target Design**: Expose a clean, public helper `canTransition(string $from, string $to): bool` to allow UI components and controllers to validate transitions before execution.
+- **Target Design**: Expose a clean, public helper `canTransition(string $from, string $to): bool` to allow UI components and controllers to validate transitions before execution (Task 3).
 
-### Gap 3: Database Schema & Migration for `no_action_reason`
-- **In Code**: `reports` table lacks a dedicated column for `no_action_reason`.
-- **Target Design**: Store `no_action_reason` in both an indexed column on `reports` (`reports.no_action_reason`) and within `status_logs` entries.
-- **Data Migration Required**:
-  - Convert existing `reports.status = 'out_of_scope'` $\rightarrow$ `'no_action'` (`no_action_reason = 'not_barangay_matter'`).
-  - Convert existing `reports.status = 'closed'` $\rightarrow$ `'no_action'` (`no_action_reason = 'cannot_resolve'`).
-  - Convert historical records in `status_logs` and `audit_logs`.
-  - *(Note: Historical `reports.status = 'on_hold'` $\rightarrow$ `'in_progress'` migration was completed in Task 1).*
+### Gap 3: Database Schema & Migration for `no_action_reason` [Resolved]
+- **Status**: Completed in Task 2 (`database/migrations/2026_11_19_000002_replace_out_of_scope_and_closed_with_no_action.php`).
+- **In Code**: Dedicated indexed column `no_action_reason` exists on `reports` and string column on `status_logs`. Historical data was migrated to `no_action` with respective reason codes.
 
-### Gap 4: Update Types & Progress Updates
-- **In Code**: `Report::UPDATE_TYPES` `'waiting_materials'` now routes to status `'in_progress'` (completed in Task 1). `'cannot_resolve'` still routes to `'closed'`.
-- **Target Design**: `'cannot_resolve'` routes to `'no_action'` with `reason: cannot_resolve` (Task 2).
+### Gap 4: Update Types & Progress Updates [Resolved]
+- **Status**: Completed in Task 1 (`waiting_materials` $\rightarrow$ `in_progress`) and Task 2 (`cannot_resolve` $\rightarrow$ `no_action` with `reason: cannot_resolve`).
 
-### Gap 5: UI Badges & Action Modals
-- **In Code**: [`status-badge.blade.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/views/components/status-badge.blade.php) and [`review-workflow.blade.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/views/admin/reports/review-workflow.blade.php) had `on_hold` removed in Task 1; still display badges and modals for `out_of_scope` and `closed`.
-- **Target Design**: Replace with a standardized `no_action` badge, reason code dropdown modal in review forms, and clear resident-facing reason text on [`resident/show.blade.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/views/resident/show.blade.php).
+### Gap 5: UI Badges & Action Modals [Resolved]
+- **Status**: Completed in Task 2.
+- **In Code**: [`status-badge.blade.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/views/components/status-badge.blade.php) renders `no_action`; [`review-workflow.blade.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/views/admin/reports/review-workflow.blade.php) has the `#no-action-modal` with reason code dropdown and required explanation; [`resident/show.blade.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/views/resident/show.blade.php) displays the No Action notice card.
 
 ### Gap 6: New Recovery & Direct Transitions
-- **In Code**: `merged` is terminal with zero outgoing transitions; `emergency_flagged` can only exit to `out_of_scope` or `under_review`.
-- **Target Design**:
-  - Add staff-only recovery: `merged -> under_review` (requires note).
+- **In Code**: `no_action -> in_progress` and `no_action -> reopened` are implemented in `ReportStatusService`.
+- **Target Design Remaining (Task 4)**:
+  - Add staff-only recovery: `merged -> under_review` (requires note and audit log).
   - Add staff-only internal emergency resolution: `emergency_flagged -> in_progress`.
-  - Add staff-only direct resumption: `no_action -> in_progress` and `no_action -> reopened`.

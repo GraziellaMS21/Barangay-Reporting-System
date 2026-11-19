@@ -18,7 +18,7 @@ class ReportStatus
 
     public const MERGED = 'merged';
 
-    public const OUT_OF_SCOPE = 'out_of_scope';
+    public const NO_ACTION = 'no_action';
 
     public const EMERGENCY_FLAGGED = 'emergency_flagged';
 
@@ -28,7 +28,26 @@ class ReportStatus
 
     public const REOPENED = 'reopened';
 
-    public const CLOSED = 'closed';
+    public const REASON_NOT_BARANGAY = 'not_barangay_matter';
+
+    public const REASON_EMERGENCY_REDIRECTED = 'emergency_redirected';
+
+    public const REASON_CANNOT_RESOLVE = 'cannot_resolve';
+
+    public const REASON_INVALID_REPORT = 'invalid_report';
+
+    public const REASON_RESIDENT_UNREACHABLE = 'resident_unreachable';
+
+    public static function noActionReasons(): array
+    {
+        return [
+            self::REASON_NOT_BARANGAY,
+            self::REASON_EMERGENCY_REDIRECTED,
+            self::REASON_CANNOT_RESOLVE,
+            self::REASON_INVALID_REPORT,
+            self::REASON_RESIDENT_UNREACHABLE,
+        ];
+    }
 
     public static function all(): array
     {
@@ -40,12 +59,11 @@ class ReportStatus
             self::RESOLVED,
             self::REFERRED,
             self::MERGED,
-            self::OUT_OF_SCOPE,
+            self::NO_ACTION,
             self::EMERGENCY_FLAGGED,
             self::NEEDS_INFO,
             self::AWAITING_CONFIRMATION,
             self::REOPENED,
-            self::CLOSED,
         ];
     }
 }

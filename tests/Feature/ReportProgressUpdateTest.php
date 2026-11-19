@@ -102,7 +102,7 @@ class ReportProgressUpdateTest extends TestCase
         $report->refresh();
         $this->assertSame('in_progress', $report->status);
 
-        // 3. Cannot be resolved -> closed
+        // 3. Cannot be resolved -> no_action
         $this->actingAs($this->staff)
             ->post(route('admin.reports.updates.store', $report), [
                 'update_type' => 'cannot_resolve',
@@ -113,7 +113,8 @@ class ReportProgressUpdateTest extends TestCase
             ->assertSessionHas('success');
 
         $report->refresh();
-        $this->assertSame('closed', $report->status);
+        $this->assertSame('no_action', $report->status);
+        $this->assertSame('cannot_resolve', $report->no_action_reason);
     }
 
     public function test_required_message_and_date_validation_on_progress_update(): void
@@ -187,9 +188,12 @@ class ReportProgressUpdateTest extends TestCase
             ->assertDontSee('Staff Member');
     }
 
-    public function test_staff_can_reopen_resolved_or_closed_report_with_reason(): void
+    public function test_staff_can_reopen_resolved_or_no_action_report_with_reason(): void
     {
-        $report = $this->createRoutedReport(['status' => 'closed']);
+        $report = $this->createRoutedReport([
+            'status' => 'no_action',
+            'no_action_reason' => 'cannot_resolve',
+        ]);
 
         // Missing reason fails validation
         $this->actingAs($this->staff)
@@ -208,9 +212,10 @@ class ReportProgressUpdateTest extends TestCase
 
         $report->refresh();
         $this->assertSame('in_progress', $report->status);
+        $this->assertNull($report->no_action_reason);
         $this->assertDatabaseHas('status_logs', [
             'report_id' => $report->id,
-            'from_status' => 'closed',
+            'from_status' => 'no_action',
             'to_status' => 'in_progress',
         ]);
     }

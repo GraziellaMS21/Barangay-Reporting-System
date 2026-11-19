@@ -43,9 +43,10 @@ class ReportQueueTest extends TestCase
             'tracking_code' => 'BRG-MERGED1',
             'status' => 'merged',
         ]);
-        $outOfScopeReport = Report::factory()->create([
+        $noActionReport = Report::factory()->create([
             'tracking_code' => 'BRG-SCOPE001',
-            'status' => 'out_of_scope',
+            'status' => 'no_action',
+            'no_action_reason' => 'not_barangay_matter',
         ]);
         $legacyEmergencyReport = Report::factory()->create([
             'tracking_code' => 'BRG-LEGACY1',
@@ -96,10 +97,10 @@ class ReportQueueTest extends TestCase
             ->assertOk()
             ->assertSee('Referred')
             ->assertSee('Merged')
-            ->assertSee('Out of Scope')
+            ->assertSee('No Action')
             ->assertSee($referredReport->tracking_code)
             ->assertSee($mergedReport->tracking_code)
-            ->assertSee($outOfScopeReport->tracking_code)
+            ->assertSee($noActionReport->tracking_code)
             ->assertDontSee($resolvedReport->tracking_code);
 
         $this->assertSame(3, $closedOtherResponse->viewData('reports')->total());

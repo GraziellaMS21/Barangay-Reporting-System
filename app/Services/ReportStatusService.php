@@ -15,20 +15,20 @@ class ReportStatusService
      * This is the single place status_logs rows are written.
      */
     private const ALLOWED = [
-        'submitted' => ['under_review', 'routed', 'needs_info', 'out_of_scope', 'referred', 'merged', 'emergency_flagged'],
-        'under_review' => ['routed', 'needs_info', 'out_of_scope', 'referred', 'merged', 'emergency_flagged'],
-        'reopened' => ['under_review', 'routed', 'in_progress', 'needs_info', 'out_of_scope', 'referred', 'merged', 'emergency_flagged'],
-        'routed' => ['in_progress', 'needs_info', 'referred', 'closed', 'awaiting_confirmation', 'resolved', 'emergency_flagged'],
-        'in_progress' => ['in_progress', 'needs_info', 'referred', 'closed', 'awaiting_confirmation', 'resolved', 'emergency_flagged'],
-        'needs_info' => ['under_review', 'routed', 'in_progress', 'needs_info', 'referred', 'closed', 'awaiting_confirmation', 'resolved', 'emergency_flagged'],
-        'awaiting_confirmation' => ['resolved', 'closed', 'in_progress', 'reopened', 'emergency_flagged'],
-        'emergency_flagged' => ['out_of_scope', 'under_review'],
+        'submitted' => ['under_review', 'routed', 'needs_info', 'no_action', 'referred', 'merged', 'emergency_flagged'],
+        'under_review' => ['routed', 'needs_info', 'no_action', 'referred', 'merged', 'emergency_flagged'],
+        'reopened' => ['under_review', 'routed', 'in_progress', 'needs_info', 'no_action', 'referred', 'merged', 'emergency_flagged'],
+        'routed' => ['in_progress', 'needs_info', 'referred', 'no_action', 'awaiting_confirmation', 'resolved', 'emergency_flagged'],
+        'in_progress' => ['in_progress', 'needs_info', 'referred', 'no_action', 'awaiting_confirmation', 'resolved', 'emergency_flagged'],
+        'needs_info' => ['under_review', 'routed', 'in_progress', 'needs_info', 'referred', 'no_action', 'awaiting_confirmation', 'resolved', 'emergency_flagged'],
+        'awaiting_confirmation' => ['resolved', 'no_action', 'in_progress', 'reopened', 'emergency_flagged'],
+        'emergency_flagged' => ['no_action', 'under_review'],
         // Referred reports stay open while the agency works; barangay staff may
-        // re-route internally, close out of scope, or resolve after the agency
+        // re-route internally, take no action, or resolve after the agency
         // reports the issue fixed.
-        'referred' => ['routed', 'in_progress', 'needs_info', 'out_of_scope', 'merged', 'resolved', 'closed'],
+        'referred' => ['routed', 'in_progress', 'needs_info', 'no_action', 'merged', 'resolved'],
         'resolved' => ['in_progress', 'reopened'],
-        'closed' => ['in_progress', 'reopened'],
+        'no_action' => ['in_progress', 'reopened'],
     ];
 
     public function transition(
@@ -42,10 +42,26 @@ class ReportStatusService
             throw new \InvalidArgumentException("Transition from {$report->status} to {$toStatus} is not allowed.");
         }
 
+        if ($toStatus === ReportStatus::NO_ACTION) {
+            $reason = $extraAttributes['no_action_reason'] ?? null;
+            if (! in_array($reason, ReportStatus::noActionReasons(), true)) {
+                throw new \InvalidArgumentException('A valid no_action_reason is required when transitioning to no_action.');
+            }
+            if (empty($note) || trim($note) === '') {
+                throw new \InvalidArgumentException('A note explaining the reason is required when transitioning to no_action.');
+            }
+        }
+
         return DB::transaction(function () use ($report, $toStatus, $note, $user, $extraAttributes) {
             $fromStatus = $report->status;
 
             $report->status = $toStatus;
+
+            if ($toStatus === ReportStatus::NO_ACTION) {
+                $report->no_action_reason = $extraAttributes['no_action_reason'];
+            } elseif ($report->no_action_reason !== null) {
+                $report->no_action_reason = null;
+            }
 
             if ($toStatus === ReportStatus::RESOLVED && ! $report->resolved_at) {
                 $report->resolved_at = now();
@@ -62,6 +78,7 @@ class ReportStatusService
                 'office_id' => $extraAttributes['office_id'] ?? $report->office_id,
                 'from_status' => $fromStatus,
                 'to_status' => $toStatus,
+                'no_action_reason' => $toStatus === ReportStatus::NO_ACTION ? $extraAttributes['no_action_reason'] : null,
                 'note' => $note,
             ], $extraAttributes);
 

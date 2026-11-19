@@ -36,6 +36,7 @@ class TrackController extends Controller
                 'office_id',
                 'purok_id',
                 'status',
+                'no_action_reason',
                 'reopened_count',
                 'resolved_at',
                 'resolution_confirmed_at',

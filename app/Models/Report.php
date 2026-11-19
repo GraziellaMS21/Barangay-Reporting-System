@@ -22,12 +22,19 @@ class Report extends Model
         'resolved' => 'Resolved',
         'referred' => 'Referred',
         'merged' => 'Merged',
-        'out_of_scope' => 'Out of Scope',
-        'closed' => 'Closed',
+        'no_action' => 'No Action',
         'emergency_flagged' => 'Emergency Flagged',
         'needs_info' => 'Needs Info',
         'awaiting_confirmation' => 'Awaiting Confirmation',
         'reopened' => 'Reopened',
+    ];
+
+    public const NO_ACTION_REASONS = [
+        'not_barangay_matter' => 'Not a barangay matter',
+        'emergency_redirected' => 'Emergency redirected to 911 / hotlines',
+        'cannot_resolve' => 'Cannot be resolved',
+        'invalid_report' => 'Invalid / Spam / Test report',
+        'resident_unreachable' => 'Resident unreachable',
     ];
 
     public const UPDATE_TYPES = [
@@ -63,7 +70,7 @@ class Report extends Model
         ],
         'cannot_resolve' => [
             'label' => 'Cannot be resolved',
-            'status' => 'closed',
+            'status' => 'no_action',
             'template' => 'This report cannot be resolved by the barangay at this time. Please see the explanation above.',
             'message_required' => true,
         ],
@@ -88,7 +95,7 @@ class Report extends Model
         ],
         'closed-other' => [
             'label' => 'Others',
-            'statuses' => ['referred', 'merged', 'out_of_scope', 'closed'],
+            'statuses' => ['referred', 'merged', 'no_action'],
         ],
     ];
 
@@ -99,20 +106,20 @@ class Report extends Model
         'needs_info',
         'awaiting_confirmation',
         'resolved',
-        'out_of_scope',
-        'closed',
+        'no_action',
     ];
 
     public const CLOSED_STATUSES = [
         'resolved',
-        'out_of_scope',
+        'no_action',
         'merged',
         'referred',
-        'closed',
     ];
 
     protected $fillable = [
         'tracking_code',
+        'status',
+        'no_action_reason',
         'description',
         'staff_description',
         'photo_mismatch',

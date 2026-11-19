@@ -384,7 +384,8 @@ class ReportPrivacyAndValidationTest extends TestCase
 
         $this->actingAs($staff)
             ->patch(route('admin.reports.status', $report), [
-                'status' => 'out_of_scope',
+                'status' => 'no_action',
+                'no_action_reason' => 'not_barangay_matter',
                 'note' => '',
             ])
             ->assertSessionHasErrors([
@@ -397,7 +398,7 @@ class ReportPrivacyAndValidationTest extends TestCase
         ]);
         $this->assertDatabaseMissing('status_logs', [
             'report_id' => $report->id,
-            'to_status' => 'out_of_scope',
+            'to_status' => 'no_action',
         ]);
     }
 

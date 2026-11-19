@@ -27,13 +27,8 @@
             'icon' => 'fa-circle-check',
             'class' => 'b-green',
         ],
-        'out_of_scope' => [
-            'label' => 'Out of Scope',
-            'icon' => 'fa-ban',
-            'class' => 'b-gray',
-        ],
-        'closed' => [
-            'label' => 'Closed',
+        'no_action' => [
+            'label' => 'No Action',
             'icon' => 'fa-circle-xmark',
             'class' => 'b-gray',
         ],

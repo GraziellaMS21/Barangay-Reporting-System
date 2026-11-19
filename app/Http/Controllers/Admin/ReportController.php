@@ -323,7 +323,7 @@ class ReportController extends Controller
         ]);
 
         $manualStatuses = $report->is_emergency
-            ? ['under_review', 'out_of_scope']
+            ? ['under_review', 'no_action']
             : Report::MANUAL_STATUSES;
 
         $categories = Category::query()
@@ -834,20 +834,26 @@ class ReportController extends Controller
         ReportStatusService $statusService
     ): RedirectResponse {
         $allowedStatuses = $report->is_emergency
-            ? ['under_review', 'out_of_scope']
+            ? ['under_review', 'no_action']
             : Report::MANUAL_STATUSES;
 
         $validated = $request->validate([
             'status' => ['required', Rule::in($allowedStatuses)],
             'note' => [
-                Rule::requiredIf(in_array($request->input('status'), ['out_of_scope', 'referred', 'merged'], true)),
+                Rule::requiredIf(in_array($request->input('status'), ['no_action', 'referred', 'merged'], true)),
                 'nullable',
                 'string',
                 'max:500',
             ],
+            'no_action_reason' => [
+                Rule::requiredIf($request->input('status') === 'no_action'),
+                'nullable',
+                Rule::in(ReportStatus::noActionReasons()),
+            ],
             'office_id' => ['nullable', 'exists:offices,id'],
         ], [
             'note.required' => 'A note is required for this status change.',
+            'no_action_reason.required' => 'A reason code is required when taking no action.',
         ]);
 
         DB::transaction(function () use ($report, $validated, $request, $routingService, $priorityService, $statusService) {
@@ -876,7 +882,12 @@ class ReportController extends Controller
                 $routingService->createReferral($report, $office, $request->user());
             }
 
-            $statusService->transition($report, $toStatus, $note, $request->user());
+            $extra = [];
+            if ($toStatus === ReportStatus::NO_ACTION) {
+                $extra['no_action_reason'] = $validated['no_action_reason'] ?? null;
+            }
+
+            $statusService->transition($report, $toStatus, $note, $request->user(), $extra);
         });
 
         return back()->with('success', 'Report status updated successfully.');
@@ -1163,18 +1174,23 @@ class ReportController extends Controller
                 }
             }
 
+            $extra = [
+                'update_type' => $validated['update_type'],
+                'expected_completion_date' => $expectedDate,
+                'visible_to_resident' => $visibleToResident,
+                'office_id' => $report->office_id,
+                'attachments' => $storedAttachments,
+            ];
+            if ($targetStatus === ReportStatus::NO_ACTION) {
+                $extra['no_action_reason'] = ReportStatus::REASON_CANNOT_RESOLVE;
+            }
+
             $statusService->transition(
                 $report,
                 $targetStatus,
                 $message,
                 $user,
-                [
-                    'update_type' => $validated['update_type'],
-                    'expected_completion_date' => $expectedDate,
-                    'visible_to_resident' => $visibleToResident,
-                    'office_id' => $report->office_id,
-                    'attachments' => $storedAttachments,
-                ]
+                $extra
             );
         });
 
@@ -1189,7 +1205,7 @@ class ReportController extends Controller
         $user = $request->user();
         abort_unless($user && in_array($user->role, ['admin', 'staff'], true), 403);
 
-        $allowedReopen = [ReportStatus::RESOLVED, ReportStatus::CLOSED, 'out_of_scope'];
+        $allowedReopen = [ReportStatus::RESOLVED, ReportStatus::NO_ACTION];
         abort_unless(in_array($report->status, $allowedReopen, true), 422);
 
         $validated = $request->validate([
@@ -1304,7 +1320,12 @@ class ReportController extends Controller
                         $this->createLegacyReferral($report, $office, $user, $routingService);
                     }
 
-                    $statusService->transition($report, $toStatus, $note, $user);
+                    $extra = [];
+                    if ($toStatus === ReportStatus::NO_ACTION) {
+                        $extra['no_action_reason'] = $request->input('no_action_reason', ReportStatus::REASON_CANNOT_RESOLVE);
+                    }
+
+                    $statusService->transition($report, $toStatus, $note, $user, $extra);
                 }
                 $changed++;
             } catch (\InvalidArgumentException) {

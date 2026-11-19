@@ -288,7 +288,7 @@ class StaffCaseManagementTest extends TestCase
             ->assertSee('Route and assign')
             ->assertSee('data-routing-map', false)
             ->assertSee('Mark duplicate')
-            ->assertSee('Out of scope')
+            ->assertSee('No action')
             ->assertSee('data-mode-banner', false);
     }
 

@@ -13,6 +13,7 @@ class StatusLog extends Model
         'office_id',
         'from_status',
         'to_status',
+        'no_action_reason',
         'update_type',
         'note',
         'expected_completion_date',

@@ -81,10 +81,9 @@
       'needs_info',
       'awaiting_confirmation',
       'resolved',
-      'closed',
       'referred',
       'merged',
-      'out_of_scope',
+      'no_action',
   ], true);
   $isRouteable = in_array($report->status, ['submitted', 'under_review', 'reopened'], true)
       && ! $emergencyActionOnly;
@@ -93,10 +92,10 @@
       'routed' => 1,
       'in_progress' => 2,
       'needs_info' => (($report->statusLogs->where('to_status', 'needs_info')->last()?->from_status) === 'in_progress' ? 2 : 1),
-      'awaiting_confirmation', 'resolved', 'closed', 'referred', 'merged', 'out_of_scope' => 3,
+      'awaiting_confirmation', 'resolved', 'referred', 'merged', 'no_action' => 3,
       default => 0,
   };
-  $isCompleted = in_array($report->status, ['resolved', 'closed'], true);
+  $isCompleted = in_array($report->status, ['resolved', 'no_action'], true);
   $oneLineSummary = \Illuminate\Support\Str::limit($report->description, 110);
   $priorityLabel = $report->urgency ?: 'not set';
   $googleMapsUrl = $report->lat !== null && $report->lng !== null
@@ -454,8 +453,8 @@
               <button type="button" class="review-button review-button-outline" data-open-dialog="duplicate-modal">
                 <i class="fa-solid fa-copy" aria-hidden="true"></i> Mark duplicate
               </button>
-              <button type="button" class="review-button review-button-outline" data-open-dialog="out-of-scope-modal">
-                <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i> Out of scope
+              <button type="button" class="review-button review-button-outline" data-open-dialog="no-action-modal">
+                <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i> No action
               </button>
             @endif
           </div>
@@ -966,26 +965,35 @@
         </form>
       </dialog>
 
-      <dialog id="out-of-scope-modal" class="review-modal">
+      <dialog id="no-action-modal" class="review-modal">
         <form method="POST" action="{{ route('admin.reports.status', $report) }}">
           @csrf
           @method('PATCH')
-          <input type="hidden" name="status" value="out_of_scope">
+          <input type="hidden" name="status" value="no_action">
           <header class="review-modal-header">
-            <strong><i class="fa-solid fa-circle-xmark" aria-hidden="true"></i> Out of scope</strong>
+            <strong><i class="fa-solid fa-circle-xmark" aria-hidden="true"></i> Take no action</strong>
             <button type="button" class="review-modal-close" data-close-modal aria-label="Close">&times;</button>
           </header>
           <div class="review-modal-body">
             <p class="review-field-hint">
-              Use only when no office can act on this (private dispute, spam, not a public concern).
+              Use when the barangay will take no further action (outside authority, spam, cannot resolve, or resident unreachable).
               If another government office should handle it, use <strong>Prepare referral</strong> in Route and assign.
             </p>
-            <label for="out-of-scope-note">Reason shown to the resident</label>
-            <textarea id="out-of-scope-note" name="note" rows="3" required maxlength="500" placeholder="Example: This is a private neighbour dispute that the barangay cannot act on."></textarea>
+            <div style="margin-bottom: 0.75rem;">
+              <label for="no-action-reason" style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 0.35rem;">Reason code</label>
+              <select id="no-action-reason" name="no_action_reason" required style="width: 100%; padding: 0.5rem; border: 1px solid var(--line); border-radius: 6px;">
+                <option value="">Select a reason code...</option>
+                @foreach(\App\Models\Report::NO_ACTION_REASONS as $code => $label)
+                  <option value="{{ $code }}">{{ $label }}</option>
+                @endforeach
+              </select>
+            </div>
+            <label for="no-action-note" style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 0.35rem;">Explanation shown to resident</label>
+            <textarea id="no-action-note" name="note" rows="3" required maxlength="500" placeholder="Provide a clear, respectful explanation for why no further action will be taken."></textarea>
           </div>
           <footer class="review-modal-footer">
             <button type="button" class="review-button review-button-outline" data-close-modal>Cancel</button>
-            <button type="submit" class="review-button review-button-primary">Mark out of scope</button>
+            <button type="submit" class="review-button review-button-primary">Confirm No Action</button>
           </footer>
         </form>
       </dialog>
@@ -1137,9 +1145,9 @@
               <button type="submit" class="review-button review-button-outline" data-submit-once>Close case</button>
             </form>
           @endif
-        @elseif(in_array($report->status, ['resolved', 'closed'], true))
+        @elseif(in_array($report->status, ['resolved', 'no_action'], true))
           <p class="review-next-summary">
-            This report has been {{ $report->status === 'closed' ? 'closed' : 'resolved' }}. If further work is needed, you can reopen it back to In Progress.
+            This report has been {{ $report->status === 'no_action' ? 'marked as no action' : 'resolved' }}. If further work is needed, you can reopen it back to In Progress.
           </p>
           <form method="POST" action="{{ route('admin.reports.reopen', $report) }}" class="review-reopen-form" data-prevent-double-submit>
             @csrf
@@ -1321,16 +1329,17 @@
               <form method="POST" action="{{ route('admin.reports.status', $report) }}">
                 @csrf
                 @method('PATCH')
-                <input type="hidden" name="status" value="out_of_scope">
+                <input type="hidden" name="status" value="no_action">
+                <input type="hidden" name="no_action_reason" value="cannot_resolve">
                 <input type="hidden" name="note" value="No agency can act on this report.">
-                <button type="submit" class="review-button review-button-outline">Mark out of scope</button>
+                <button type="submit" class="review-button review-button-outline">Take no action</button>
               </form>
             </div>
           @endif
         @elseif($report->status === 'merged')
           <p class="review-next-summary">This report was merged as a duplicate.</p>
         @else
-          <p class="review-next-summary">This report is out of scope.</p>
+          <p class="review-next-summary">No further action is being taken on this report.</p>
         @endif
       </div>
     </section>

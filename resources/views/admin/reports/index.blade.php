@@ -149,8 +149,17 @@
   </nav>
 @endif
 
-{{-- One compact filter row: search, purok, category, assignee, status. --}}
-<form method="GET" action="{{ route($queueRoute) }}" class="queue-filter-form">
+@php
+  $activeFilterCount = collect(['purok_id', 'category_id', 'assigned_to'])
+      ->filter(fn($k) => request()->filled($k) && request($k) !== 'all')
+      ->count();
+  if ($statusFilter !== null && $statusFilter !== 'all' && !in_array($currentStage, ['active', 'closed-other'], true)) {
+      $activeFilterCount++;
+  }
+@endphp
+
+{{-- Compact filter row: search bar with secondary filters in a popover drawer --}}
+<form method="GET" action="{{ route($queueRoute) }}" class="queue-filter-form mb-4">
   <input type="hidden" name="stage" value="{{ $currentStage }}">
   @if($statusFilter !== null && $statusFilter !== 'all')
     <input type="hidden" name="status" value="{{ $statusFilter }}">
@@ -159,67 +168,101 @@
     <input type="hidden" name="emergency" value="1">
   @endif
 
-  <div class="queue-filter-field grow">
-    <label for="q">Search</label>
-    <input id="q" type="search" name="q" value="{{ request('q') }}" placeholder="Tracking code or description">
-  </div>
-
-  <div class="queue-filter-field">
-    <label for="purok_id">Purok</label>
-    <select id="purok_id" name="purok_id">
-      <option value="">All puroks</option>
-      @foreach($puroks as $purok)
-        <option value="{{ $purok->id }}" @selected((string) request('purok_id') === (string) $purok->id)>
-          {{ $purok->name }}
-        </option>
-      @endforeach
-    </select>
-  </div>
-
-  <div class="queue-filter-field">
-    <label for="category_id">Category</label>
-    <select id="category_id" name="category_id">
-      <option value="">All categories</option>
-      @foreach($categories as $category)
-        <option value="{{ $category->id }}" @selected((string) request('category_id') === (string) $category->id)>
-          {{ $category->name }}
-        </option>
-      @endforeach
-    </select>
-  </div>
-
-  <div class="queue-filter-field">
-    <label for="queue-status-filter">Status</label>
-    <select id="queue-status-filter" name="status">
-      <option value="">All statuses</option>
-      @foreach($statusLabels as $statusKey => $statusLabel)
-        <option value="{{ $statusKey }}" @selected($statusFilter === $statusKey)>{{ $statusLabel }}</option>
-      @endforeach
-    </select>
-  </div>
-
-  @if(!$isMyCases)
-    <div class="queue-filter-field">
-      <label for="assigned_to">Assignee</label>
-      <select id="assigned_to" name="assigned_to">
-        <option value="">All assignees</option>
-        <option value="unassigned" @selected(request('assigned_to') === 'unassigned')>Unassigned</option>
-        @foreach($staffUsers as $user)
-          <option value="{{ $user->id }}" @selected((string) request('assigned_to') === (string) $user->id)>
-            {{ $user->name }}
-          </option>
-        @endforeach
-      </select>
+  <div class="flex items-center gap-2.5 flex-wrap w-full">
+    <div class="queue-filter-field grow min-w-[240px]" style="margin-bottom:0;">
+      <label for="q" class="sr-only">Search</label>
+      <div style="position:relative;width:100%;">
+        <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:0.75rem;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:0.85rem;" aria-hidden="true"></i>
+        <input id="q" type="search" name="q" value="{{ request('q') }}" placeholder="Tracking code or description" style="padding-left:2.2rem;width:100%;">
+      </div>
     </div>
-  @else
-    <input type="hidden" name="assigned_to" value="{{ auth()->id() }}">
-  @endif
 
-  <div class="queue-filter-actions">
-    <button type="submit" class="btn btn-navy btn-small">
-      <i class="fa-solid fa-filter" aria-hidden="true"></i> Filter
-    </button>
-    <a href="{{ route($queueRoute, $clearFilterParams) }}" class="queue-filter-clear">Clear</a>
+    <details class="queue-filters-drawer" style="position:relative;" @if($activeFilterCount > 0) open @endif>
+      <summary class="btn btn-outline btn-small" style="display:inline-flex;align-items:center;gap:0.4rem;cursor:pointer;list-style:none;">
+        <i class="fa-solid fa-sliders text-blue-600" aria-hidden="true"></i>
+        <span>Filters</span>
+        @if($activeFilterCount > 0)
+          <span style="background:var(--blue);color:#fff;border-radius:999px;padding:0.1rem 0.45rem;font-size:0.72rem;font-weight:700;">{{ $activeFilterCount }}</span>
+        @endif
+        <i class="fa-solid fa-chevron-down" style="font-size:0.7rem;color:#94a3b8;" aria-hidden="true"></i>
+      </summary>
+
+      <div class="card queue-filter-popover" style="position:absolute;right:0;top:calc(100% + 0.5rem);z-index:40;width:320px;padding:1.15rem;box-shadow:0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1);border:1px solid var(--line);border-radius:14px;background:#fff;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:0.5rem;margin-bottom:0.75rem;border-bottom:1px solid #f1f5f9;">
+          <strong style="font-size:0.88rem;color:var(--ink);">Secondary Filters</strong>
+          @if($activeFilterCount > 0)
+            <a href="{{ route($queueRoute, $clearFilterParams) }}" style="font-size:0.75rem;color:var(--blue);font-weight:600;">Clear all</a>
+          @endif
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:0.75rem;">
+          <div>
+            <label for="purok_id" style="display:block;font-size:0.78rem;font-weight:700;color:#475569;margin-bottom:0.25rem;">Purok</label>
+            <select id="purok_id" name="purok_id" style="width:100%;font-size:0.85rem;">
+              <option value="">All puroks</option>
+              @foreach($puroks as $purok)
+                <option value="{{ $purok->id }}" @selected((string) request('purok_id') === (string) $purok->id)>
+                  {{ $purok->name }}
+                </option>
+              @endforeach
+            </select>
+          </div>
+
+          <div>
+            <label for="category_id" style="display:block;font-size:0.78rem;font-weight:700;color:#475569;margin-bottom:0.25rem;">Category</label>
+            <select id="category_id" name="category_id" style="width:100%;font-size:0.85rem;">
+              <option value="">All categories</option>
+              @foreach($categories as $category)
+                <option value="{{ $category->id }}" @selected((string) request('category_id') === (string) $category->id)>
+                  {{ $category->name }}
+                </option>
+              @endforeach
+            </select>
+          </div>
+
+          <div>
+            <label for="queue-status-filter" style="display:block;font-size:0.78rem;font-weight:700;color:#475569;margin-bottom:0.25rem;">Status</label>
+            <select id="queue-status-filter" name="status" style="width:100%;font-size:0.85rem;">
+              <option value="">All statuses</option>
+              @foreach($statusLabels as $statusKey => $statusLabel)
+                <option value="{{ $statusKey }}" @selected($statusFilter === $statusKey)>{{ $statusLabel }}</option>
+              @endforeach
+            </select>
+          </div>
+
+          @if(!$isMyCases)
+            <div>
+              <label for="assigned_to" style="display:block;font-size:0.78rem;font-weight:700;color:#475569;margin-bottom:0.25rem;">Assignee</label>
+              <select id="assigned_to" name="assigned_to" style="width:100%;font-size:0.85rem;">
+                <option value="">All assignees</option>
+                <option value="unassigned" @selected(request('assigned_to') === 'unassigned')>Unassigned</option>
+                @foreach($staffUsers as $user)
+                  <option value="{{ $user->id }}" @selected((string) request('assigned_to') === (string) $user->id)>
+                    {{ $user->name }}
+                  </option>
+                @endforeach
+              </select>
+            </div>
+          @else
+            <input type="hidden" name="assigned_to" value="{{ auth()->id() }}">
+          @endif
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-top:1rem;padding-top:0.75rem;border-top:1px solid #f1f5f9;">
+          <a href="{{ route($queueRoute, $clearFilterParams) }}" class="queue-filter-clear" style="font-size:0.8rem;">Reset</a>
+          <button type="submit" class="btn btn-navy btn-small" style="padding:0.35rem 0.85rem;font-size:0.82rem;">
+            Apply
+          </button>
+        </div>
+      </div>
+    </details>
+
+    <div class="queue-filter-actions" style="margin-left:auto;">
+      <button type="submit" class="btn btn-navy btn-small">
+        <i class="fa-solid fa-filter" aria-hidden="true"></i> Filter
+      </button>
+      <a href="{{ route($queueRoute, $clearFilterParams) }}" class="queue-filter-clear">Clear</a>
+    </div>
   </div>
 </form>
 
@@ -265,17 +308,22 @@
         <th scope="col" style="width:2.25rem;">
           <input type="checkbox" class="table-checkbox" id="select-all-checkbox" aria-label="Select all reports">
         </th>
-        <th scope="col" style="width:16%;">Report</th>
-        <th scope="col" class="queue-col-category" style="width:8%;">Category</th>
-        <th scope="col" class="queue-col-reporter" style="width:9%;">Reporter</th>
-        <th scope="col" class="queue-col-purok" style="width:8%;">Purok</th>
-        <th scope="col" class="sortable" style="width:13%;">
+        <th scope="col" style="width:34%;">Incident &amp; Category</th>
+        <th scope="col" style="width:17%;">Location</th>
+        <th scope="col" class="sortable" style="width:20%;">
           <span class="th-status">
             <a href="{{ $statusSort['url'] }}">Status
               <span class="sort-indicator {{ $statusSort['active'] ? '' : 'idle' }}" aria-hidden="true">
                 {{ $statusSort['active'] ? ($statusSort['ascending'] ? '▲' : '▼') : '⇅' }}
               </span>
               @if($statusSort['active'])<span class="sr-only">(sorted {{ $statusSort['ascending'] ? 'ascending' : 'descending' }})</span>@endif
+            </a>
+            <span style="color:#cbd5e1;margin:0 0.2rem;">/</span>
+            <a href="{{ $urgencySort['url'] }}">Urgency
+              <span class="sort-indicator {{ $urgencySort['active'] ? '' : 'idle' }}" aria-hidden="true">
+                {{ $urgencySort['active'] ? ($urgencySort['ascending'] ? '▲' : '▼') : '⇅' }}
+              </span>
+              @if($urgencySort['active'])<span class="sr-only">(sorted {{ $urgencySort['ascending'] ? 'ascending' : 'descending' }})</span>@endif
             </a>
             <button type="button" class="status-legend-btn" data-legend-open
               aria-haspopup="dialog" title="What the statuses mean">
@@ -284,24 +332,15 @@
             </button>
           </span>
         </th>
-        <th scope="col" class="sortable queue-col-urgency" style="width:8%;">
-          <a href="{{ $urgencySort['url'] }}">Urgency
-            <span class="sort-indicator {{ $urgencySort['active'] ? '' : 'idle' }}" aria-hidden="true">
-              {{ $urgencySort['active'] ? ($urgencySort['ascending'] ? '▲' : '▼') : '⇅' }}
-            </span>
-            @if($urgencySort['active'])<span class="sr-only">(sorted {{ $urgencySort['ascending'] ? 'ascending' : 'descending' }})</span>@endif
-          </a>
-        </th>
-        <th scope="col" style="width:11%;">Assignee</th>
-        <th scope="col" class="sortable" style="width:11%;">
-          <a href="{{ $submittedSort['url'] }}">Submitted
+        <th scope="col" style="width:14%;">Assignee</th>
+        <th scope="col" class="sortable" style="width:15%;">
+          <a href="{{ $submittedSort['url'] }}">Submitted &amp; Action
             <span class="sort-indicator {{ $submittedSort['active'] ? '' : 'idle' }}" aria-hidden="true">
               {{ $submittedSort['active'] ? ($submittedSort['ascending'] ? '▲' : '▼') : '⇅' }}
             </span>
             @if($submittedSort['active'])<span class="sr-only">(sorted {{ $submittedSort['ascending'] ? 'ascending' : 'descending' }})</span>@endif
           </a>
         </th>
-        <th scope="col" style="width:8.5rem;">Actions</th>
       </tr>
     </thead>
     <tbody>
@@ -317,39 +356,34 @@
               class="report-checkbox table-checkbox" form="queue-bulk-form"
               aria-label="Select report {{ $report->tracking_code }}">
           </td>
-          <td data-label="Report">
+          <td data-label="Incident">
             <div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;">
-              <a href="{{ route('admin.reports.show', $report) }}" class="cell-report-code font-mono">{{ $report->tracking_code }}</a>
+              <a href="{{ route('admin.reports.show', $report) }}" class="cell-report-code font-mono font-bold text-blue-700">{{ $report->tracking_code }}</a>
               @if($isEmergency)
                 <span class="status-badge b-red" style="font-size:0.7rem;padding:0.1rem 0.45rem;">
                   <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Emergency
                 </span>
               @endif
+              @if($report->category)
+                <span class="dashboard-category-tag" style="font-size:0.72rem;">{{ $report->category->name }}</span>
+              @else
+                <span class="cell-muted" style="font-size:0.72rem;">No category</span>
+              @endif
             </div>
-            <p class="cell-report-desc">{{ $report->summary ?: $report->description }}</p>
+            <p class="cell-report-desc" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word;margin-top:0.25rem;color:#334155;font-size:0.83rem;line-height:1.4;">{{ $report->summary ?: $report->description }}</p>
           </td>
-          <td data-label="Category" class="queue-col-category">
-            @if($report->category)
-              {{ $report->category->name }}
-            @else
-              <span class="cell-muted">Not set</span>
+          <td data-label="Location">
+            <div style="font-weight:600;display:flex;align-items:center;gap:0.35rem;color:var(--ink);font-size:0.85rem;">
+              <i class="fa-solid fa-location-dot" style="color:var(--blue);font-size:0.75rem;" aria-hidden="true"></i>
+              <span>{{ $report->purok?->name ?? '—' }}</span>
+            </div>
+            @if($report->landmark)
+              <div class="cell-muted" style="font-size:0.75rem;margin-top:0.2rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;" title="{{ $report->landmark }}">
+                {{ $report->landmark }}
+              </div>
             @endif
           </td>
-          <td data-label="Reporter" class="queue-col-reporter">
-            @if($report->is_anonymous)
-              <span class="cell-muted"><i class="fa-solid fa-user-secret" aria-hidden="true"></i> Anonymous</span>
-            @else
-              <span title="Reporter details are on the report page"><i class="fa-solid fa-user" aria-hidden="true"></i> Resident</span>
-            @endif
-          </td>
-          <td data-label="Purok" class="queue-col-purok">
-            @if($report->purok)
-              {{ $report->purok->name }}
-            @else
-              <span class="cell-muted">—</span>
-            @endif
-          </td>
-          <td data-label="Status">
+          <td data-label="Status &amp; Urgency">
             <div style="display:inline-flex;align-items:center;gap:0.4rem;flex-wrap:wrap;">
               <x-status-badge :status="$report->status" />
               @if($report->due_at && $report->due_at->isPast() && !$isClosed)
@@ -362,13 +396,19 @@
                 <i class="fa-solid fa-arrow-rotate-left text-amber-600" title="Reopened" aria-label="Reopened"></i>
               @endif
             </div>
-          </td>
-          <td data-label="Urgency" class="queue-col-urgency">
-            @if($report->urgency)
-              {{ $report->urgency }}
-            @else
-              <span class="cell-muted">Not assigned</span>
-            @endif
+            <div style="display:flex;align-items:center;gap:0.35rem;margin-top:0.3rem;font-size:0.75rem;">
+              @php
+                $uColor = match(strtolower($report->urgency ?? '')) {
+                  'critical' => '#dc2626',
+                  'high' => '#d97706',
+                  'medium' => '#2563eb',
+                  'low' => '#64748b',
+                  default => '#94a3b8'
+                };
+              @endphp
+              <span style="display:inline-block;width:7px;height:7px;border-radius:999px;background:{{ $uColor }};" aria-hidden="true"></span>
+              <span style="font-weight:600;color:#334155;">{{ $report->urgency ?: 'Unassigned' }}</span>
+            </div>
           </td>
           <td data-label="Assignee">
             @if($report->assignee)
@@ -383,14 +423,13 @@
               </span>
             @endif
           </td>
-          <td data-label="Submitted" class="cell-submitted">
-            <time datetime="{{ $report->created_at->toIso8601String() }}">{{ $report->created_at->format('M d, Y · h:i A') }}</time>
-            <span class="cell-age">{{ $report->created_at->diffForHumans(null, true) }} ago</span>
-          </td>
-          <td data-label="Actions">
-            <div class="row-actions">
-              <a class="row-action-view" href="{{ route('admin.reports.show', $report) }}">
-                <i class="fa-solid fa-eye" aria-hidden="true"></i> View
+          <td data-label="Submitted &amp; Action" class="cell-submitted">
+            <div style="font-size:0.76rem;color:#64748b;margin-bottom:0.35rem;">
+              <span class="cell-age" style="font-weight:600;">{{ $report->created_at->diffForHumans(null, true) }} ago</span>
+            </div>
+            <div class="row-actions" style="display:flex;align-items:center;gap:0.35rem;">
+              <a class="btn btn-navy btn-small" style="padding:0.25rem 0.65rem;font-size:0.78rem;font-weight:700;" href="{{ route('admin.reports.show', $report) }}">
+                Review
               </a>
               <div class="kebab">
                 <button type="button" class="kebab-toggle" data-kebab-toggle
@@ -456,7 +495,7 @@
         </tr>
       @empty
         <tr>
-          <td colspan="10" class="table-empty" data-label="">
+          <td colspan="6" class="table-empty" data-label="">
             <i class="fa-regular fa-folder-open" aria-hidden="true"></i>
             <p>No reports match your filters.</p>
           </td>

@@ -3098,10 +3098,37 @@ h3 {
     --review-gold: #f5c542;
     --review-border: #d1d5db;
     --review-muted: #6b7280;
-    width: min(960px, 100%);
+    width: min(1380px, 100%);
     margin: 0 auto;
     padding-bottom: 2rem;
     color: #172033;
+}
+.review-split-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    align-items: start;
+}
+@media (min-width: 1024px) {
+    .review-split-grid {
+        grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    }
+    .review-col-decision {
+        position: sticky;
+        top: 1rem;
+        z-index: 10;
+    }
+}
+.review-history-tabs-nav {
+    display: flex;
+    gap: 0.5rem;
+    border-bottom: 1px solid var(--review-border);
+    padding: 0 1.25rem 0.5rem;
+}
+.review-tab-btn.is-active {
+    background: var(--review-blue) !important;
+    color: #ffffff !important;
+    border-color: var(--review-blue) !important;
 }
 .review-back-link {
     display: inline-flex;

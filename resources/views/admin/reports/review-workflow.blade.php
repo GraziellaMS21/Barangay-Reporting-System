@@ -219,8 +219,11 @@
     </section>
   @endif
 
-  <section class="review-workflow-card">
-    <details id="resident-report-card" class="review-collapsible" @if(! $isAfterRoute) open @endif>
+  <div class="review-split-grid grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+    {{-- Left Column (lg:col-span-7) — Evidence & History --}}
+    <div class="review-col-evidence lg:col-span-7 space-y-6" style="display:flex;flex-direction:column;gap:1.5rem;">
+      <section class="review-workflow-card">
+        <details id="resident-report-card" class="review-collapsible" @if(! $isAfterRoute) open @endif>
       <summary class="review-card-heading">
         <span class="review-card-number" aria-hidden="true">1</span>
         <span class="review-card-heading-copy">
@@ -331,7 +334,8 @@
             </div>
             <div>
               @if($report->lat !== null && $report->lng !== null)
-                <div id="report-location-map" class="review-location-map map-frame"
+                <div id="report-location-map" class="review-location-map map-frame z-0 isolate"
+                     style="position:relative;z-index:0;isolation:isolate;"
                      data-lat="{{ $report->lat }}" data-lng="{{ $report->lng }}"
                      role="img" aria-label="Map showing the reported location"></div>
               @else
@@ -378,8 +382,76 @@
     </section>
   @endif
 
+  {{-- Tabbed History & Internal Notes --}}
+  <section class="review-workflow-card review-history-tabs-card review-activity-card review-notes-card" data-history-tabs>
+    <div class="review-card-heading review-card-heading-static" style="padding-bottom:0.5rem;">
+      <span class="review-card-title">Case history &amp; notes</span>
+      <span class="review-card-instruction">Audit trail and internal notes</span>
+    </div>
+    
+    <div class="review-history-tabs-nav" style="display:flex;gap:0.5rem;border-bottom:1px solid var(--review-border,#e5e7eb);padding:0 1.25rem 0.5rem;">
+      <button type="button" class="btn btn-small review-tab-btn is-active" data-tab-btn="activity" style="font-size:0.82rem;font-weight:600;">
+        <i class="fa-solid fa-timeline" aria-hidden="true" style="margin-right:0.3rem;"></i> Activity ({{ count($activityEntries) }})
+      </button>
+      <button type="button" class="btn btn-small btn-outline review-tab-btn" data-tab-btn="notes" style="font-size:0.82rem;font-weight:600;">
+        <i class="fa-solid fa-note-sticky" aria-hidden="true" style="margin-right:0.3rem;"></i> Internal notes ({{ $report->internalNotes->count() }})
+      </button>
+    </div>
+
+    <div class="review-tab-pane" data-tab-pane="activity" style="padding:1.25rem;">
+      <ol class="review-activity-list">
+        @forelse($activityEntries as $activity)
+          <li>
+            <div class="review-activity-heading">
+              <strong>{{ $activity['title'] }}</strong>
+              <time datetime="{{ $activity['at']?->toIso8601String() }}">{{ $activity['at']?->format('M d, Y h:i A') }}</time>
+            </div>
+            @if($activity['user'])
+              <p class="review-activity-user">{{ $activity['user'] }}</p>
+            @endif
+            @if($activity['body'])
+              <p class="review-activity-body">{{ $activity['body'] }}</p>
+            @endif
+          </li>
+        @empty
+          <li class="review-activity-empty">No activity yet.</li>
+        @endforelse
+      </ol>
+    </div>
+
+    <div class="review-tab-pane" data-tab-pane="notes" style="padding:1.25rem;" hidden>
+      @unless($emergencyActionOnly)
+        <form method="POST" action="{{ route('admin.reports.internal-notes.store', $report) }}" class="review-note-form">
+          @csrf
+          <div class="review-form-field">
+            <label for="internal-note">Add an internal note</label>
+            <textarea id="internal-note" name="body" rows="3" maxlength="3000">{{ old('body') }}</textarea>
+          </div>
+          <button type="submit" class="review-button review-button-outline">Add note</button>
+        </form>
+      @endunless
+      @if($report->internalNotes->isNotEmpty())
+        <ul class="review-internal-notes" style="margin-top:1rem;">
+          @foreach($report->internalNotes->sortByDesc('created_at') as $note)
+            <li>
+              <div><strong>{{ $note->user?->name ?? 'Staff' }}</strong><time>{{ $note->created_at->format('M d, Y h:i A') }}</time></div>
+              <p>{{ $note->body }}</p>
+            </li>
+          @endforeach
+        </ul>
+      @else
+        <p class="text-muted" style="font-size:0.83rem;margin-top:0.75rem;">No internal notes added yet.</p>
+      @endif
+    </div>
+  </section>
+
+  </div> {{-- End review-col-evidence --}}
+
+  {{-- Right Column (lg:col-span-5) — Sticky Decision Panel --}}
+  <div class="review-col-decision lg:col-span-5 space-y-6" style="display:flex;flex-direction:column;gap:1.5rem;">
+
   @if(! $emergencyActionOnly)
-    <form id="review-form" method="POST" action="{{ route('admin.reports.review', $report) }}">
+    <form id="review-form" method="POST" action="{{ route('admin.reports.review', $report) }}" class="space-y-6" style="display:flex;flex-direction:column;gap:1.25rem;">
       @csrf
       @method('PATCH')
   @endif
@@ -1417,60 +1489,8 @@
     </section>
   @endif
 
-  <section class="review-workflow-card review-activity-card">
-    <div class="review-card-heading review-card-heading-static">
-      <span class="review-card-title">Activity</span>
-      <span class="review-card-instruction">Newest first.</span>
-    </div>
-    <div class="review-card-content">
-      <ol class="review-activity-list">
-        @forelse($activityEntries as $activity)
-          <li>
-            <div class="review-activity-heading">
-              <strong>{{ $activity['title'] }}</strong>
-              <time datetime="{{ $activity['at']?->toIso8601String() }}">{{ $activity['at']?->format('M d, Y h:i A') }}</time>
-            </div>
-            @if($activity['user'])
-              <p class="review-activity-user">{{ $activity['user'] }}</p>
-            @endif
-            @if($activity['body'])
-              <p class="review-activity-body">{{ $activity['body'] }}</p>
-            @endif
-          </li>
-        @empty
-          <li class="review-activity-empty">No activity yet.</li>
-        @endforelse
-      </ol>
-    </div>
-  </section>
-
-  <section class="review-workflow-card review-notes-card">
-    <div class="review-card-heading review-card-heading-static">
-      <span class="review-card-title">Internal notes</span>
-    </div>
-    <div class="review-card-content">
-      @unless($emergencyActionOnly)
-        <form method="POST" action="{{ route('admin.reports.internal-notes.store', $report) }}" class="review-note-form">
-          @csrf
-          <div class="review-form-field">
-            <label for="internal-note">Add an internal note</label>
-            <textarea id="internal-note" name="body" rows="3" maxlength="3000">{{ old('body') }}</textarea>
-          </div>
-          <button type="submit" class="review-button review-button-outline">Add note</button>
-        </form>
-      @endunless
-      @if($report->internalNotes->isNotEmpty())
-        <ul class="review-internal-notes">
-          @foreach($report->internalNotes->sortByDesc('created_at') as $note)
-            <li>
-              <div><strong>{{ $note->user?->name ?? 'Staff' }}</strong><time>{{ $note->created_at->format('M d, Y h:i A') }}</time></div>
-              <p>{{ $note->body }}</p>
-            </li>
-          @endforeach
-        </ul>
-      @endif
-    </div>
-  </section>
+  </div> {{-- End review-col-decision --}}
+  </div> {{-- End review-split-grid --}}
 </div>
 
 @push('scripts')
@@ -2252,6 +2272,24 @@
       ? routeButton?.disabled
       : referralSubmit?.disabled;
     if (submitterDisabled) event.preventDefault();
+  });
+
+  root.querySelectorAll('[data-history-tabs]').forEach((tabsCard) => {
+    const tabBtns = tabsCard.querySelectorAll('[data-tab-btn]');
+    const panels = tabsCard.querySelectorAll('[data-tab-pane]');
+    tabBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const target = btn.dataset.tabBtn;
+        tabBtns.forEach((b) => {
+          const active = b === btn;
+          b.classList.toggle('is-active', active);
+          b.classList.toggle('btn-outline', !active);
+        });
+        panels.forEach((p) => {
+          p.hidden = p.dataset.tabPane !== target;
+        });
+      });
+    });
   });
 
   updateGate();

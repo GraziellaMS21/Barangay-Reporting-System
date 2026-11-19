@@ -180,3 +180,30 @@ The following specific gaps exist between the current codebase and the canonical
   - **Referrals Table Enhancements**: Refined `REF-YYYY-NNNN` typography with monospace blue styling, secondary tracking code icon, agency badges, high-contrast status pills (`Follow-up overdue` in red warning pill, `Not sent` in amber pill), and highlighted overdue dates.
   - **Analytics & Charts Section**: Wrapped Chart.js canvases in clean white cards with consistent typography and min-height. Connected `<details class="dashboard-more-charts">` toggle listener in `app.js` to automatically trigger `chart.resize()` on all chart instances when expanded, preventing canvas distortion.
   - **Verification**: 5 targeted tests in `DashboardControllerTest.php` passing; full test suite 142 tests passing (1,122 assertions, 100% green); Vite asset compilation verified; Pint compliant.
+
+### Comprehensive Admin & Staff Pages UI/UX Redesign [Completed]
+- **Status**: Completed (2026-11-20)
+- **Delivered**:
+  - **Report Queue (`resources/views/admin/reports/index.blade.php`)**:
+    - Streamlined table from 9 sprawling columns down to 5 high-density, scannable columns:
+      1. *Incident & Category*: Monospace tracking code (`BRG-XXXXXX`), red emergency badge when applicable, 2-line clamped summary, and soft category badge.
+      2. *Location*: Purok with map pin icon and truncated landmark.
+      3. *Status & Urgency*: Status pill, urgency dot indicator, overdue/reopened modifiers, and sortable headers.
+      4. *Assignee*: Staff avatar initials chip, full staff name, or muted "Unassigned" badge.
+      5. *Submitted & Action*: Relative timestamp (`x ago`) stacked above primary "Review" CTA button and kebab action dropdown.
+    - Secondary filter popover drawer (`<details class="queue-filters-drawer">`) with active filter counter badge, keeping status tabs and search visible while decluttering secondary selectors.
+  - **Referrals & Routing Directory (`resources/views/admin/referrals/index.blade.php`)**:
+    - Segmented interactive navigation tabs (`[ All Active ]`, `[ Within barangay ]`, `[ External agencies ]`) with dynamic badges.
+    - High-contrast follow-up warning chips (red alert for overdue, amber clock for approaching deadlines) ensuring instant agency accountability.
+  - **Categories Manager (`resources/views/admin/settings/categories/index.blade.php`)**:
+    - Replaced dense administrative table with a responsive 3-column configuration card grid (`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4`).
+    - Clean visual hierarchy displaying category name, slug badge, active status pill, risk weight multiplier, default routing office, SLA resolution target, and an expandable question schema drawer.
+  - **Security Audit Log (`resources/views/admin/audit-log/index.blade.php`)**:
+    - Natural language activity descriptions summarizing overrides and configurations (e.g., *"Staff updated category #2"*).
+    - Status changes enhanced with directional arrow icons and direct links to case files. Collapsible `<details class="audit-raw-details"><summary>View raw JSON</summary>` retains complete technical audit history without visual clutter.
+  - **Report Review Workspace (`resources/views/admin/reports/review-workflow.blade.php`)**:
+    - Two-column split layout (`lg:grid-cols-12`):
+      - *Left Column (`lg:col-span-7`)*: Evidence & History combining resident report details, image previews, bounded Leaflet map (`z-0 isolate`), and a tabbed container uniting the **Activity Timeline** (`status_logs` + `info_requests`) and **Internal Notes** (`internal_notes`).
+      - *Right Column (`lg:col-span-5`)*: Sticky Decision Panel (`lg:sticky lg:top-4`) integrating Step 2 (AI Triage & 3-Way Comparison) and Step 3 (Routing & Assignment) with sticky submit action footers (`Confirm and route`).
+    - Enhanced comparison matrix displaying editable inputs, inline comparison badges (`Accepted`, `Edited`, `AI suggested`, `Resident`), gate hint indicators, and top-level "Accept All AI Suggestions" action.
+  - **Verification**: 142 tests passing across full PHPUnit suite (1,122 assertions, 100% green); Vite production build verified; Pint compliant.

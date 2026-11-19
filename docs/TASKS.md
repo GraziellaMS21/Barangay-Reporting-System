@@ -52,19 +52,14 @@ Ordered, outcome-driven tasks to bring the existing codebase into alignment with
 
 ---
 
-## Task 3: Add Public `canTransition()` Method to `ReportStatusService`
+## Task 3: Add Public `canTransition()` Method to `ReportStatusService` [Completed]
+- **Status**: Completed (2026-11-19)
 - **Goal**: Provide a clean public helper method to validate state transitions before invoking database mutations.
 - **Steps**:
-  1. In [`ReportStatusService.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/app/Services/ReportStatusService.php), implement:
-     ```php
-     public function canTransition(string $fromStatus, string $toStatus): bool
-     {
-         return in_array($toStatus, self::ALLOWED[$fromStatus] ?? [], true);
-     }
-     ```
-  2. Refactor `transition()` to use `$this->canTransition($report->status, $toStatus)`.
-  3. Add unit test coverage in `tests/Unit/ReportStatusServiceTest.php` testing valid, invalid, and self-transitions.
-- **Done When**: Controllers, Blade components, and tests can call `canTransition()` directly.
+  1. [x] In [`ReportStatusService.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/app/Services/ReportStatusService.php), implemented `canTransition(string $fromStatus, string $toStatus): bool`.
+  2. [x] Refactored `transition()` to use `$this->canTransition($report->status, $toStatus)`.
+  3. [x] Added unit test suite in [`tests/Unit/ReportStatusServiceTest.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/tests/Unit/ReportStatusServiceTest.php) testing valid, invalid, allowed self-transitions, and disallowed self-transitions (4 tests, 36 assertions).
+- **Verification**: `./vendor/bin/pint --test` passes, unit tests pass, and `canTransition()` is available across the system.
 
 ---
 

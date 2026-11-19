@@ -35,9 +35,9 @@ The following specific gaps exist between the current codebase and the canonical
 - **Status**: Completed in Task 1 (`on_hold` removed) and Task 2 (`out_of_scope` & `closed` merged into `no_action`).
 - **In Code**: [`ReportStatus.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/app/Support/ReportStatus.php) and [`Report.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/app/Models/Report.php) now define the exact 12 canonical statuses and 5 reason code constants.
 
-### Gap 2: State Machine Integrity & Public `canTransition()` Method
-- **In Code**: [`ReportStatusService`](file:///C:/githubFiles/Barangay-Reporting-System-1/app/Services/ReportStatusService.php) contains only an internal `private const ALLOWED` array checked during `transition()`.
-- **Target Design**: Expose a clean, public helper `canTransition(string $from, string $to): bool` to allow UI components and controllers to validate transitions before execution (Task 3).
+### Gap 2: State Machine Integrity & Public `canTransition()` Method [Resolved]
+- **Status**: Completed in Task 3.
+- **In Code**: [`ReportStatusService::canTransition(string $from, string $to): bool`](file:///C:/githubFiles/Barangay-Reporting-System-1/app/Services/ReportStatusService.php) is implemented, used internally by `transition()`, and covered by unit tests in [`tests/Unit/ReportStatusServiceTest.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/tests/Unit/ReportStatusServiceTest.php).
 
 ### Gap 3: Database Schema & Migration for `no_action_reason` [Resolved]
 - **Status**: Completed in Task 2 (`database/migrations/2026_11_19_000002_replace_out_of_scope_and_closed_with_no_action.php`).

@@ -89,7 +89,7 @@ php artisan config:clear             # Clear cached configuration
 
 - **Strict Typing**: Enforce explicit parameter and return types on all PHP methods. Use constructor property promotion (`public function __construct(public GeminiService $gemini) {}`).
 - **Layered Architecture**: Keep controllers thin. Route transitions through `ReportStatusService::transition()`, AI tasks to `GeminiService`, jurisdiction routing to `RoutingService`, and referrals to `ReferralService`.
-- **State Machine Integrity**: Status transitions must follow the canonical matrix in [**`docs/WORKFLOW.md`**](file:///C:/githubFiles/Barangay-Reporting-System-1/docs/WORKFLOW.md). In code, check `ReportStatusService::ALLOWED` directly until the public helper `canTransition(string $from, string $to): bool` is implemented (tracked in [`docs/TASKS.md`](file:///C:/githubFiles/Barangay-Reporting-System-1/docs/TASKS.md)).
+- **State Machine Integrity**: Status transitions must follow the canonical matrix in [**`docs/WORKFLOW.md`**](file:///C:/githubFiles/Barangay-Reporting-System-1/docs/WORKFLOW.md). Validate transitions using `ReportStatusService::canTransition(string $from, string $to): bool` before invoking state changes.
 - **Styling Tokens**: Adhere to core CSS design tokens (`var(--ink)`, `var(--blue)`, `var(--gold)`, `var(--red)`, `var(--line)`). Preserve hero and background markup structure in public views.
 - **Linting**: Run `./vendor/bin/pint` on modified PHP files before concluding tasks.
 

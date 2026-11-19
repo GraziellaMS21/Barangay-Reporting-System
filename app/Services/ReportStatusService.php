@@ -31,6 +31,11 @@ class ReportStatusService
         'no_action' => ['in_progress', 'reopened'],
     ];
 
+    public function canTransition(string $fromStatus, string $toStatus): bool
+    {
+        return in_array($toStatus, self::ALLOWED[$fromStatus] ?? [], true);
+    }
+
     public function transition(
         Report $report,
         string $toStatus,
@@ -38,7 +43,7 @@ class ReportStatusService
         ?User $user = null,
         array $extraAttributes = []
     ): Report {
-        if ($toStatus !== $report->status && ! in_array($toStatus, self::ALLOWED[$report->status] ?? [], true)) {
+        if (! $this->canTransition($report->status, $toStatus)) {
             throw new \InvalidArgumentException("Transition from {$report->status} to {$toStatus} is not allowed.");
         }
 

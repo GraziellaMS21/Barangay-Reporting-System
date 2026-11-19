@@ -35,7 +35,7 @@ class ReportController extends Controller
 
         $data = $request->validate([
             'report_type' => ['nullable', 'string', 'in:emergency,non_emergency'],
-            'category_id' => ['nullable', 'exists:categories,id'],
+            'category_id' => ['required', 'exists:categories,id'],
             'answers' => ['nullable', 'array'],
             'is_ongoing' => ['nullable', 'boolean'],
             'people_at_risk' => ['nullable', 'boolean'],
@@ -60,6 +60,7 @@ class ReportController extends Controller
                 'regex:/^(?:0[ -]*9|\\+[ -]*6[ -]*3[ -]*9)(?:[ -]*\\d){9}$/',
             ],
         ], [
+            'category_id.required' => 'Please choose a category for this report.',
             'reporter_name.string' => 'Please enter a valid name.',
             'reporter_name.max' => 'Name cannot be longer than 100 characters.',
             'reporter_contact.required' => 'Please enter a contact number so barangay staff can reach you.',
@@ -126,6 +127,17 @@ class ReportController extends Controller
         $reportType = $data['report_type'] ?? 'non_emergency';
         $isEmergency = $reportType === 'emergency';
         $consentAt = ($request->boolean('consent') || ! $request->has('has_consent_field')) ? now() : null;
+
+        // Server-side duplicate protection against rapid re-submits or double clicks
+        $recentDuplicate = Report::query()
+            ->where('description', $data['description'])
+            ->where('category_id', $data['category_id'])
+            ->where('created_at', '>=', now()->subSeconds(20))
+            ->first();
+
+        if ($recentDuplicate) {
+            return redirect()->route('reports.success', $recentDuplicate->tracking_code);
+        }
 
         $report = DB::transaction(function () use ($data, $photoPaths, $reportType, $isEmergency, $isAnonymous, $consentAt) {
             $report = Report::create([

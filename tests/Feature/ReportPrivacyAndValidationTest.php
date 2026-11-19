@@ -483,4 +483,68 @@ class ReportPrivacyAndValidationTest extends TestCase
         $this->get(route('admin.reports.photo', $reportWithoutPhoto))
             ->assertNotFound();
     }
+
+    public function test_report_submission_requires_category_id(): void
+    {
+        $this->post(route('reports.store'), [
+            'description' => 'A valid description of more than 10 characters.',
+            'landmark' => 'Near the basketball court',
+        ])
+            ->assertSessionHasErrors(['category_id' => 'Please choose a category for this report.']);
+
+        $this->assertDatabaseCount('reports', 0);
+    }
+
+    public function test_rapid_duplicate_report_submission_redirects_to_existing_report(): void
+    {
+        $category = Category::create([
+            'name' => 'Flooding',
+            'slug' => 'flooding',
+            'is_active' => true,
+            'risk_weight' => 2,
+            'sla_hours' => 24,
+        ]);
+
+        $payload = [
+            'description' => 'Duplicate issue description for flooding test.',
+            'category_id' => $category->id,
+            'landmark' => 'Near Purok 1 chapel',
+        ];
+
+        $firstResponse = $this->post(route('reports.store'), $payload);
+        $firstResponse->assertRedirect();
+
+        $this->assertDatabaseCount('reports', 1);
+        $firstReport = Report::first();
+
+        // Immediate duplicate submission within 20s
+        $secondResponse = $this->post(route('reports.store'), $payload);
+        $secondResponse->assertRedirect(route('reports.success', $firstReport->tracking_code));
+
+        $this->assertDatabaseCount('reports', 1);
+    }
+
+    public function test_resident_tracking_page_renders_equal_resolution_choices_and_accessible_rating(): void
+    {
+        $category = Category::create([
+            'name' => 'Road Hazard',
+            'slug' => 'road-hazard',
+            'is_active' => true,
+            'risk_weight' => 2,
+            'sla_hours' => 24,
+        ]);
+
+        $report = Report::factory()->create([
+            'category_id' => $category->id,
+            'status' => 'awaiting_confirmation',
+        ]);
+
+        $this->get(route('track.show', $report->tracking_code))
+            ->assertOk()
+            ->assertSee('Please verify: Is the problem actually fixed?')
+            ->assertSee('Yes, Issue is Fixed')
+            ->assertSee('No, Still Needs Work')
+            ->assertSee('role="radiogroup"', false)
+            ->assertSee('role="radio"', false);
+    }
 }

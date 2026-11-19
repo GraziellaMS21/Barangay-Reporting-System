@@ -265,6 +265,46 @@
     @endif
   </section>
 
+  <!-- WHAT HAPPENS NEXT GUIDANCE (for early & active statuses) -->
+  @if(in_array($report->status, ['submitted', 'under_review', 'routed', 'in_progress'], true))
+    <section class="track-card" style="border-left: 4px solid var(--blue); background: linear-gradient(to right, #eff6ff 0%, #ffffff 100%);">
+      <div style="display:flex;align-items:flex-start;gap:0.85rem;">
+        <div style="width:40px;height:40px;border-radius:10px;background:#dbeafe;display:grid;place-items:center;flex-shrink:0;">
+          <i class="fa-solid fa-clipboard-list" style="color:var(--blue);font-size:1.3rem;"></i>
+        </div>
+        <div style="flex:1;">
+          <h3 style="color:var(--ink);margin:0 0 0.35rem;font-size:1.1rem;font-weight:800;">
+            What happens next?
+          </h3>
+          @if($report->status === 'submitted')
+            <p style="margin:0 0 0.5rem;font-size:0.92rem;color:var(--tx);line-height:1.5;">
+              Your report has been received and is queued for triage. Barangay staff will review the submitted details, verify the location, and evaluate AI triage recommendations.
+            </p>
+          @elseif($report->status === 'under_review')
+            <p style="margin:0 0 0.5rem;font-size:0.92rem;color:var(--tx);line-height:1.5;">
+              Barangay staff are currently evaluating this report. They are confirming jurisdiction, checking equipment and crew availability, and preparing assignments.
+            </p>
+          @elseif($report->status === 'routed')
+            <p style="margin:0 0 0.5rem;font-size:0.92rem;color:var(--tx);line-height:1.5;">
+              This incident has been routed to <strong>{{ $report->office?->name ?? 'the assigned office' }}</strong>. Personnel are scheduled to conduct an on-site inspection or begin remediation.
+            </p>
+          @elseif($report->status === 'in_progress')
+            <p style="margin:0 0 0.5rem;font-size:0.92rem;color:var(--tx);line-height:1.5;">
+              Active field work or repairs are currently underway. Once the work is completed, staff will upload photo proof here for your confirmation.
+            </p>
+          @endif
+
+          @if($report->category?->sla_hours)
+            <div style="display:inline-flex;align-items:center;gap:0.4rem;background:#ffffff;border:1px solid #bfdbfe;border-radius:6px;padding:0.25rem 0.65rem;font-size:0.82rem;color:#1e40af;font-weight:600;margin-top:0.25rem;">
+              <i class="fa-regular fa-clock" style="color:var(--blue);" aria-hidden="true"></i>
+              <span>Target response time: within {{ $report->category->sla_hours }} hours for {{ $report->category->name }}.</span>
+            </div>
+          @endif
+        </div>
+      </div>
+    </section>
+  @endif
+
   <!-- 1. PENDING STAFF INFO REQUEST (Action Required) -->
   @if($pendingInfoRequest)
     <section class="track-card track-action-card">
@@ -409,81 +449,100 @@
             </div>
           @endif
 
-          <!-- Confirmation or Reopen Choice -->
+          <!-- Confirmation or Reopen Choice: Equal Choices -->
           @if(!$report->resolution_confirmed_at)
-            <div style="background:#ffffff;border:1.5px solid #86efac;border-radius:14px;padding:1.35rem;margin-top:1rem;box-shadow:0 2px 6px rgba(34,197,94,0.08);">
-              <h4 style="margin:0 0 0.4rem;color:var(--ink);font-size:1.05rem;font-weight:800;">
+            <div style="margin-top:1.25rem;">
+              <h4 style="margin:0 0 0.4rem;color:var(--ink);font-size:1.1rem;font-weight:800;">
                 <i class="fa-solid fa-clipboard-question" style="color:var(--blue);margin-right:0.35rem;"></i>
                 Please verify: Is the problem actually fixed?
               </h4>
               <p style="font-size:0.88rem;color:#64748b;margin-bottom:1.25rem;">
-                Barangay staff marked this report as resolved. Please confirm whether the issue in your area has been properly addressed to help us maintain high service quality.
+                Barangay staff marked this report as resolved. Please review the work proof above and choose whether to confirm or dispute the resolution.
               </p>
 
-              <!-- Option 1: Confirm Fixed & Rate -->
-              <form method="POST" action="{{ route('track.confirm', $report->tracking_code) }}" style="margin-bottom:1.25rem;">
-                @csrf
-                <div class="field" style="margin-bottom:0.85rem;">
-                  <label style="font-weight:700;font-size:0.95rem;display:block;margin-bottom:0.4rem;color:var(--ink);">
-                    Rate our service (1 to 5 stars):
-                  </label>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Option A: Confirm Fixed & Rate -->
+                <div style="background:#ffffff;border:2px solid #86efac;border-radius:14px;padding:1.25rem;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 2px 6px rgba(34,197,94,0.08);">
+                  <div>
+                    <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.65rem;">
+                      <div style="width:28px;height:28px;border-radius:50%;background:#dcfce7;color:#16a34a;display:grid;place-items:center;font-size:0.9rem;font-weight:800;">
+                        <i class="fa-solid fa-check"></i>
+                      </div>
+                      <strong style="color:#15803d;font-size:1rem;">Yes, Issue is Fixed</strong>
+                    </div>
+                    <p style="font-size:0.84rem;color:#64748b;margin:0 0 1rem;">
+                      Confirm that the work was completed satisfactorily and rate the response quality.
+                    </p>
 
-                  <input type="hidden" id="service-rating-input" name="rating" value="{{ old('rating', '') }}">
+                    <form method="POST" action="{{ route('track.confirm', $report->tracking_code) }}" id="confirm-fixed-form">
+                      @csrf
+                      <div class="field" style="margin-bottom:0.85rem;">
+                        <label style="font-weight:700;font-size:0.88rem;display:block;margin-bottom:0.35rem;color:var(--ink);" id="rating-label">
+                          Rate our service (1 to 5 stars):
+                        </label>
 
-                  <div id="service-star-container" onmouseleave="restoreRating()"
-                    style="display:inline-flex;align-items:center;gap:0.5rem;font-size:2.3rem;cursor:pointer;user-select:none;margin-bottom:0.35rem;">
-                    <span class="interactive-star rate-star" data-star="1" onclick="setSequentialRating(1)" onmouseenter="previewSequentialRating(1)" title="1 star">
-                      <i class="fa-solid fa-star"></i>
-                    </span>
-                    <span class="interactive-star rate-star" data-star="2" onclick="setSequentialRating(2)" onmouseenter="previewSequentialRating(2)" title="2 stars">
-                      <i class="fa-solid fa-star"></i>
-                    </span>
-                    <span class="interactive-star rate-star" data-star="3" onclick="setSequentialRating(3)" onmouseenter="previewSequentialRating(3)" title="3 stars">
-                      <i class="fa-solid fa-star"></i>
-                    </span>
-                    <span class="interactive-star rate-star" data-star="4" onclick="setSequentialRating(4)" onmouseenter="previewSequentialRating(4)" title="4 stars">
-                      <i class="fa-solid fa-star"></i>
-                    </span>
-                    <span class="interactive-star rate-star" data-star="5" onclick="setSequentialRating(5)" onmouseenter="previewSequentialRating(5)" title="5 stars">
-                      <i class="fa-solid fa-star"></i>
-                    </span>
+                        <input type="hidden" id="service-rating-input" name="rating" value="{{ old('rating', '') }}">
 
-                    <span id="rate-star-text" style="font-size:0.95rem;font-weight:700;color:#b45309;margin-left:0.65rem;"></span>
+                        <div id="service-star-container" role="radiogroup" aria-labelledby="rating-label" onmouseleave="restoreRating()"
+                          style="display:inline-flex;align-items:center;gap:0.25rem;font-size:2rem;user-select:none;margin-bottom:0.35rem;">
+                          @for($s = 1; $s <= 5; $s++)
+                            <button type="button" class="interactive-star rate-star" data-star="{{ $s }}"
+                              role="radio" aria-checked="false" aria-label="{{ $s }} star{{ $s > 1 ? 's' : '' }}" tabindex="0"
+                              onclick="setSequentialRating({{ $s }})" onmouseenter="previewSequentialRating({{ $s }})"
+                              onkeydown="handleStarKeyDown(event, {{ $s }})"
+                              style="background:none;border:none;padding:0.15rem;font-size:inherit;line-height:1;cursor:pointer;min-width:44px;min-height:44px;display:inline-grid;place-items:center;border-radius:8px;">
+                              <i class="fa-solid fa-star" aria-hidden="true"></i>
+                            </button>
+                          @endfor
+                        </div>
+                        <div id="rate-star-text" style="font-size:0.88rem;font-weight:700;color:#b45309;min-height:1.2rem;" aria-live="polite"></div>
+                      </div>
+
+                      <div class="field" style="margin-bottom:1rem;">
+                        <label for="confirm-comment" style="font-size:0.85rem;font-weight:700;color:var(--ink);">
+                          Optional Comment / Feedback:
+                        </label>
+                        <textarea id="confirm-comment" name="comment" rows="2"
+                          placeholder="Let us know how the barangay team did..."></textarea>
+                      </div>
+
+                      <button type="submit" class="btn btn-gold" style="width:100%;background:#16a34a;border-color:#16a34a;color:#ffffff;font-weight:800;min-height:44px;padding:0.65rem 1.25rem;box-shadow:0 4px 10px rgba(22,163,74,0.25);display:flex;align-items:center;justify-content:center;gap:0.5rem;">
+                        <i class="fa-solid fa-circle-check"></i> Yes, Confirm Problem is Fixed
+                      </button>
+                    </form>
                   </div>
                 </div>
 
-                <div class="field" style="margin-bottom:1rem;">
-                  <label for="confirm-comment" style="font-size:0.88rem;font-weight:700;color:var(--ink);">
-                    Optional Comment / Feedback:
-                  </label>
-                  <textarea id="confirm-comment" name="comment" rows="2"
-                    placeholder="Let us know how the barangay team did..."></textarea>
-                </div>
+                <!-- Option B: Reopen Case -->
+                <div style="background:#ffffff;border:2px solid #cbd5e1;border-radius:14px;padding:1.25rem;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 2px 6px rgba(0,0,0,0.04);">
+                  <div>
+                    <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.65rem;">
+                      <div style="width:28px;height:28px;border-radius:50%;background:#f1f5f9;color:var(--tx);display:grid;place-items:center;font-size:0.9rem;font-weight:800;">
+                        <i class="fa-solid fa-rotate-left"></i>
+                      </div>
+                      <strong style="color:var(--ink);font-size:1rem;">No, Still Needs Work</strong>
+                    </div>
+                    <p style="font-size:0.84rem;color:#64748b;margin:0 0 1rem;">
+                      If the issue was not solved or problem persists, tell staff what remains to be done.
+                    </p>
 
-                <button type="submit" class="btn btn-gold" style="background:#16a34a;border-color:#16a34a;color:#ffffff;font-weight:800;padding:0.65rem 1.35rem;box-shadow:0 4px 10px rgba(22,163,74,0.25);">
-                  <i class="fa-solid fa-circle-check"></i> Yes, Confirm Problem is Fixed
-                </button>
-              </form>
+                    <form method="POST" action="{{ route('track.reopen', $report->tracking_code) }}" id="reopen-case-form">
+                      @csrf
+                      <div class="field" style="margin-bottom:1rem;">
+                        <label for="reopen-reason-text" style="font-size:0.85rem;font-weight:700;color:var(--ink);display:block;margin-bottom:0.35rem;">
+                          Reason for Reopening: <span style="color:var(--red);">*</span>
+                        </label>
+                        <textarea id="reopen-reason-text" name="reason" rows="4" required minlength="10" maxlength="1000"
+                          placeholder="Explain what is still incomplete or why the issue has re-occurred (minimum 10 characters)..."></textarea>
+                        <p class="field-hint" style="margin-top:0.35rem;">A clear description helps officials dispatch the right team.</p>
+                      </div>
 
-              <hr style="border:0;border-top:1px dashed #cbd5e1;margin:1.35rem 0;">
-
-              <!-- Option 2: Reopen Case -->
-              <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:1rem 1.15rem;">
-                <p style="font-size:0.9rem;font-weight:800;color:#991b1b;margin:0 0 0.35rem;">
-                  <i class="fa-solid fa-circle-question"></i> Not satisfied or problem is still there?
-                </p>
-                <p style="font-size:0.82rem;color:#7f1d1d;margin:0 0 0.85rem;">
-                  If the problem has not been resolved or occurred again, let the team know why so they can dispatch further assistance.
-                </p>
-                <form method="POST" action="{{ route('track.reopen', $report->tracking_code) }}">
-                  @csrf
-                  <div class="field" style="margin-bottom:0.75rem;">
-                    <textarea name="reason" rows="2" required minlength="10" placeholder="Explain why the issue is not yet resolved (minimum 10 characters)..."></textarea>
+                      <button type="submit" class="btn btn-outline" style="width:100%;color:var(--red);border-color:var(--red);font-weight:700;min-height:44px;background:#ffffff;display:flex;align-items:center;justify-content:center;gap:0.5rem;">
+                        <i class="fa-solid fa-rotate-left"></i> No, Reopen This Case
+                      </button>
+                    </form>
                   </div>
-                  <button type="submit" class="btn btn-outline" style="color:var(--red);border-color:var(--red);font-weight:700;background:#ffffff;">
-                    <i class="fa-solid fa-rotate-left"></i> No, Reopen This Case
-                  </button>
-                </form>
+                </div>
               </div>
             </div>
           @else
@@ -689,6 +748,7 @@
           star.style.textShadow = 'none';
           star.style.transform = 'scale(1)';
         }
+        star.setAttribute('aria-checked', starNum === currentSelectedRating ? 'true' : 'false');
       });
 
       if (textEl) {
@@ -710,6 +770,25 @@
 
     window.restoreRating = function() {
       displayStarsInOrder(currentSelectedRating);
+    };
+
+    window.handleStarKeyDown = function(event, star) {
+      if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        var next = Math.min(5, star + 1);
+        window.setSequentialRating(next);
+        var targetBtn = document.querySelector('#service-star-container .rate-star[data-star="' + next + '"]');
+        if (targetBtn) targetBtn.focus();
+      } else if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
+        event.preventDefault();
+        var prev = Math.max(1, star - 1);
+        window.setSequentialRating(prev);
+        var targetBtn = document.querySelector('#service-star-container .rate-star[data-star="' + prev + '"]');
+        if (targetBtn) targetBtn.focus();
+      } else if (event.key === ' ' || event.key === 'Enter') {
+        event.preventDefault();
+        window.setSequentialRating(star);
+      }
     };
 
     if (currentSelectedRating > 0) {

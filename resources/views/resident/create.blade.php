@@ -539,7 +539,7 @@
       @csrf
       <input type="hidden" name="has_consent_field" value="1">
       <input type="hidden" name="report_type" id="report_type_input" value="non_emergency">
-      <input type="hidden" name="category_id" id="category_id_input" value="{{ old('category_id') }}">
+      <input type="hidden" name="category_id" id="category_id_input" value="{{ old('category_id') }}" required>
       <input type="hidden" name="lat" id="lat" value="{{ old('lat') }}">
       <input type="hidden" name="lng" id="lng" value="{{ old('lng') }}">
       <input type="hidden" name="is_ongoing" id="is_ongoing" value="{{ old('is_ongoing', 0) ? 1 : 0 }}">
@@ -549,7 +549,7 @@
       <div class="card-section-heading">
         <div class="card-section-icon"><i class="fa-solid fa-tags"></i></div>
         <h2 class="card-section-title">
-          <span data-i18n="choose_category">Choose a category</span> <span class="badge-optional" data-i18n="lbl_optional">(optional)</span>
+          <span data-i18n="choose_category">Choose a category</span> <span style="color:var(--red);" aria-hidden="true">*</span>
         </h2>
       </div>
 
@@ -567,7 +567,7 @@
             @elseif(in_array(strtolower($category->slug), ['other', 'others']) || in_array(strtolower($category->name), ['other', 'others'])) <i class="fa-solid fa-ellipsis"></i>
             @else <i class="fa-solid fa-circle-question"></i>
             @endif
-            <span>{{ $category->name }}</span>
+            <span class="cat-name-label" data-slug="{{ $category->slug }}" data-name-en="{{ $category->name }}">{{ $category->name }}</span>
           </button>
         @endforeach
       </div>
@@ -922,6 +922,25 @@
         const key = el.getAttribute('data-i18n');
         if (i18n[lang] && i18n[lang][key]) el.textContent = i18n[lang][key];
       });
+
+      const categoryNamesFil = {
+        'drainage': 'Kanal at Pagbaha',
+        'garbage': 'Basura at Kalinisan',
+        'road-damage': 'Sira sa Kalsada at Bangketa',
+        'streetlight': 'Ilaw sa Poste / Kuryente',
+        'flooding': 'Baha sa Komunidad',
+        'other': 'Iba pa',
+        'others': 'Iba pa'
+      };
+      document.querySelectorAll('.cat-name-label').forEach(el => {
+        const slug = (el.getAttribute('data-slug') || '').toLowerCase();
+        if (lang === 'fil' && categoryNamesFil[slug]) {
+          el.textContent = categoryNamesFil[slug];
+        } else {
+          el.textContent = el.getAttribute('data-name-en');
+        }
+      });
+
       try { localStorage.setItem('calarian_lang', lang); } catch (e) { }
       const selectedCat = document.getElementById('category_id_input').value;
       if (selectedCat) renderQuestions(parseInt(selectedCat, 10));
@@ -1181,6 +1200,31 @@
           recurringBtns[0].classList.toggle('active', recurringVal == '1');
           recurringBtns[1].classList.toggle('active', recurringVal == '0');
         }
+      }
+
+      // Submit button loading state & double-click protection
+      const reportForm = document.getElementById('report-form');
+      if (reportForm) {
+        let isSubmitting = false;
+        reportForm.addEventListener('submit', (e) => {
+          if (isSubmitting) {
+            e.preventDefault();
+            return;
+          }
+          const catVal = document.getElementById('category_id_input').value;
+          if (!catVal) {
+            const catWrap = document.querySelector('.cat-chips-wrap');
+            if (catWrap) catWrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+          }
+          isSubmitting = true;
+          const submitBtn = document.getElementById('btn-final-submit');
+          if (submitBtn) {
+            submitBtn.style.pointerEvents = 'none';
+            submitBtn.style.opacity = '0.85';
+            submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> <span>${currentLang === 'fil' ? 'Isinusumite...' : 'Submitting report...'}</span>`;
+          }
+        });
       }
     });
 

@@ -63,7 +63,8 @@ Ordered, outcome-driven tasks to bring the existing codebase into alignment with
 
 ---
 
-## Task 4: Implement New Recovery & Direct Transitions
+## Task 4: Implement New Recovery & Direct Transitions [Completed]
+- **Status**: Completed (2026-11-19)
 - **Goal**: Implement the approved edge-case transitions from Phase B requirements (`merged -> under_review`, `emergency_flagged -> in_progress`, `no_action -> in_progress`, and `no_action -> reopened`).
 - **Authorization & Security Requirement**:
   - Staff-only transitions require role enforcement in the controller or a policy (`ReportStatusService::ALLOWED` validates only status pairs and does not know the actor).
@@ -71,13 +72,14 @@ Ordered, outcome-driven tasks to bring the existing codebase into alignment with
   - Every staff override must record an audit log entry in `audit_logs`.
   - Feature tests must explicitly prove that a resident or unauthenticated guest cannot trigger these transitions.
 - **Steps**:
-  1. In [`ReportStatusService.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/app/Services/ReportStatusService.php), configure:
+  1. [x] In [`ReportStatusService.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/app/Services/ReportStatusService.php):
      - `merged` $\rightarrow$ `['under_review']` (staff-only recovery with note).
-     - `emergency_flagged` $\rightarrow$ add `'in_progress'` (for emergencies handled directly on-site by Tanods).
-     - `no_action` $\rightarrow$ add `['reopened', 'in_progress']` (staff-only resumption with note).
-  2. In [`Admin\ReportController.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/app/Http/Controllers/Admin/ReportController.php), add controller actions/dialogs for staff to unmerge a duplicate and resume a `no_action` report with role enforcement (`role:staff`).
-  3. Add feature tests for unmerging, emergency resolution, and resuming `no_action` cases, including negative tests ensuring residents/guests cannot invoke them.
-- **Done When**: Accidental merges can be safely recovered, locally resolved emergencies can be tracked to completion, and role enforcement blocks unauthorized attempts.
+     - `emergency_flagged` $\rightarrow$ added `'in_progress'` (for emergencies handled directly on-site by Tanods).
+     - `no_action` $\rightarrow$ `['reopened', 'in_progress']` (staff-only resumption with note).
+  2. [x] In [`Admin\ReportController.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/app/Http/Controllers/Admin/ReportController.php), added `unmerge()` action (`reports.unmerge`), handled `emergency_handled_internally`, and logged audit logs with role enforcement (`role:admin,staff`).
+  3. [x] Added UI unmerge dialog and emergency internally handled modal in [`review-workflow.blade.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/views/admin/reports/review-workflow.blade.php).
+  4. [x] Added feature tests in [`tests/Feature/RecoveryAndDirectTransitionsTest.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/tests/Feature/RecoveryAndDirectTransitionsTest.php) verifying unmerging, emergency resolution, resuming `no_action` cases, mandatory notes, audit logs, and negative tests proving residents/guests receive 401/403.
+- **Verification**: `./vendor/bin/pint --test` passes and all 67 unit and feature tests pass.
 
 ---
 

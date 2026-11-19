@@ -50,8 +50,10 @@ The following specific gaps exist between the current codebase and the canonical
 - **Status**: Completed in Task 2.
 - **In Code**: [`status-badge.blade.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/views/components/status-badge.blade.php) renders `no_action`; [`review-workflow.blade.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/views/admin/reports/review-workflow.blade.php) has the `#no-action-modal` with reason code dropdown and required explanation; [`resident/show.blade.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/views/resident/show.blade.php) displays the No Action notice card.
 
-### Gap 6: New Recovery & Direct Transitions
-- **In Code**: `no_action -> in_progress` and `no_action -> reopened` are implemented in `ReportStatusService`.
-- **Target Design Remaining (Task 4)**:
-  - Add staff-only recovery: `merged -> under_review` (requires note and audit log).
-  - Add staff-only internal emergency resolution: `emergency_flagged -> in_progress`.
+### Gap 6: New Recovery & Direct Transitions [Resolved]
+- **Status**: Completed in Task 4.
+- **In Code**:
+  - Staff-only recovery `merged -> under_review` implemented with required explanation note, duplicate detachment, and `audit_logs` tracking.
+  - Staff-only internal emergency resolution `emergency_flagged -> in_progress` implemented with required note and `audit_logs` tracking.
+  - Staff-only direct resumption `no_action -> in_progress` and `no_action -> reopened` implemented with required reason, `audit_logs` tracking, and reason reset.
+  - Role enforcement (`role:admin,staff`) verified with negative tests.

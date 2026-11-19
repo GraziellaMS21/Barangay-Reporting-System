@@ -22,11 +22,12 @@ class ReportStatusService
         'in_progress' => ['in_progress', 'needs_info', 'referred', 'no_action', 'awaiting_confirmation', 'resolved', 'emergency_flagged'],
         'needs_info' => ['under_review', 'routed', 'in_progress', 'needs_info', 'referred', 'no_action', 'awaiting_confirmation', 'resolved', 'emergency_flagged'],
         'awaiting_confirmation' => ['resolved', 'no_action', 'in_progress', 'reopened', 'emergency_flagged'],
-        'emergency_flagged' => ['no_action', 'under_review'],
+        'emergency_flagged' => ['no_action', 'under_review', 'in_progress'],
         // Referred reports stay open while the agency works; barangay staff may
         // re-route internally, take no action, or resolve after the agency
         // reports the issue fixed.
         'referred' => ['routed', 'in_progress', 'needs_info', 'no_action', 'merged', 'resolved'],
+        'merged' => ['under_review'],
         'resolved' => ['in_progress', 'reopened'],
         'no_action' => ['in_progress', 'reopened'],
     ];

@@ -323,7 +323,7 @@ class ReportController extends Controller
         ]);
 
         $manualStatuses = $report->is_emergency
-            ? ['under_review', 'no_action']
+            ? ['under_review', 'no_action', 'in_progress']
             : Report::MANUAL_STATUSES;
 
         $categories = Category::query()
@@ -804,6 +804,54 @@ class ReportController extends Controller
         return back()->with('success', 'Report marked as a duplicate.');
     }
 
+    public function unmerge(Request $request, Report $report, ReportStatusService $statusService): RedirectResponse
+    {
+        $reviewer = $request->user();
+        abort_unless($reviewer instanceof User && in_array($reviewer->role, ['admin', 'staff'], true), 403);
+        abort_unless($report->status === ReportStatus::MERGED, 422, 'Only merged reports can be unmerged.');
+
+        $validated = $request->validate([
+            'note' => ['required', 'string', 'min:5', 'max:500'],
+        ], [
+            'note.required' => 'An explanatory note is required to unmerge this report.',
+            'note.min' => 'The note must be at least 5 characters.',
+        ]);
+
+        DB::transaction(function () use ($report, $validated, $reviewer, $statusService): void {
+            $lockedReport = Report::query()->whereKey($report->id)->lockForUpdate()->firstOrFail();
+            $oldMergedIntoId = $lockedReport->merged_into_id;
+
+            DB::table('duplicate_suggestions')
+                ->where('report_id', $lockedReport->id)
+                ->where('decision', 'merged')
+                ->update([
+                    'decision' => 'unmerged',
+                    'updated_at' => now(),
+                ]);
+
+            $lockedReport->merged_into_id = null;
+            $lockedReport->save();
+
+            AuditLog::query()->create([
+                'user_id' => $reviewer->id,
+                'action' => 'unmerge_report',
+                'model' => Report::class,
+                'model_id' => $lockedReport->id,
+                'old_values' => ['status' => ReportStatus::MERGED, 'merged_into_id' => $oldMergedIntoId],
+                'new_values' => ['status' => ReportStatus::UNDER_REVIEW, 'merged_into_id' => null, 'note' => $validated['note']],
+            ]);
+
+            $statusService->transition(
+                $lockedReport,
+                ReportStatus::UNDER_REVIEW,
+                'Report unmerged by staff: '.$validated['note'],
+                $reviewer
+            );
+        });
+
+        return back()->with('success', 'Report unmerged and returned to review.');
+    }
+
     public function retryAiAnalysis(
         Report $report,
         GeminiService $geminiService
@@ -834,13 +882,16 @@ class ReportController extends Controller
         ReportStatusService $statusService
     ): RedirectResponse {
         $allowedStatuses = $report->is_emergency
-            ? ['under_review', 'no_action']
+            ? ['under_review', 'no_action', 'in_progress']
             : Report::MANUAL_STATUSES;
 
         $validated = $request->validate([
             'status' => ['required', Rule::in($allowedStatuses)],
             'note' => [
-                Rule::requiredIf(in_array($request->input('status'), ['no_action', 'referred', 'merged'], true)),
+                Rule::requiredIf(
+                    in_array($request->input('status'), ['no_action', 'referred', 'merged'], true)
+                    || ($report->is_emergency && $request->input('status') === 'in_progress')
+                ),
                 'nullable',
                 'string',
                 'max:500',
@@ -860,6 +911,17 @@ class ReportController extends Controller
             $toStatus = $validated['status'];
             $note = $validated['note'] ?? null;
             $officeId = $validated['office_id'] ?? null;
+
+            if ($report->is_emergency && $toStatus === 'in_progress') {
+                AuditLog::query()->create([
+                    'user_id' => $request->user()->id,
+                    'action' => 'emergency_handled_internally',
+                    'model' => Report::class,
+                    'model_id' => $report->id,
+                    'old_values' => ['status' => $report->status, 'is_emergency' => true],
+                    'new_values' => ['status' => 'in_progress', 'note' => $note],
+                ]);
+            }
 
             if ($report->is_emergency) {
                 $report->office_id = null;
@@ -1214,6 +1276,20 @@ class ReportController extends Controller
             'reason.required' => 'A reason is required to reopen this report.',
             'reason.min' => 'The reopen reason must be at least 5 characters.',
         ]);
+
+        $oldStatus = $report->status;
+        $oldReason = $report->no_action_reason;
+
+        if ($oldStatus === ReportStatus::NO_ACTION) {
+            AuditLog::query()->create([
+                'user_id' => $user->id,
+                'action' => 'resume_no_action_report',
+                'model' => Report::class,
+                'model_id' => $report->id,
+                'old_values' => ['status' => ReportStatus::NO_ACTION, 'no_action_reason' => $oldReason],
+                'new_values' => ['status' => ReportStatus::IN_PROGRESS, 'reason' => $validated['reason']],
+            ]);
+        }
 
         $statusService->transition(
             $report,

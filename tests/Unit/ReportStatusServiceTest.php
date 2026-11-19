@@ -45,6 +45,14 @@ class ReportStatusServiceTest extends TestCase
         // No action can be resumed by staff
         $this->assertTrue($this->service->canTransition(ReportStatus::NO_ACTION, ReportStatus::IN_PROGRESS));
         $this->assertTrue($this->service->canTransition(ReportStatus::NO_ACTION, ReportStatus::REOPENED));
+
+        // Merged can be recovered back to under_review
+        $this->assertTrue($this->service->canTransition(ReportStatus::MERGED, ReportStatus::UNDER_REVIEW));
+
+        // Emergency flagged can exit to no_action, under_review, or in_progress (locally handled)
+        $this->assertTrue($this->service->canTransition(ReportStatus::EMERGENCY_FLAGGED, ReportStatus::NO_ACTION));
+        $this->assertTrue($this->service->canTransition(ReportStatus::EMERGENCY_FLAGGED, ReportStatus::UNDER_REVIEW));
+        $this->assertTrue($this->service->canTransition(ReportStatus::EMERGENCY_FLAGGED, ReportStatus::IN_PROGRESS));
     }
 
     public function test_can_transition_returns_true_for_allowed_self_transitions(): void

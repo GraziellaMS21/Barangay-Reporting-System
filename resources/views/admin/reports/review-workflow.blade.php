@@ -186,6 +186,11 @@
             <button type="submit" class="review-button review-button-outline">Confirm emergency</button>
           </form>
         @endif
+        @if($report->is_emergency && $report->status === 'emergency_flagged')
+          <button type="button" class="review-button review-button-primary" data-open-dialog="emergency-handled-modal">
+            <i class="fa-solid fa-person-digging" aria-hidden="true"></i> Handle internally
+          </button>
+        @endif
         @if($canResolveEmergency)
           <form method="POST" action="{{ route('admin.reports.emergency', $report) }}">
             @csrf
@@ -1000,6 +1005,55 @@
     @endif
   @endif
 
+  @if($report->status === 'merged')
+    <dialog id="unmerge-modal" class="review-modal">
+      <form method="POST" action="{{ route('admin.reports.unmerge', $report) }}">
+        @csrf
+        @method('PATCH')
+        <header class="review-modal-header">
+          <strong><i class="fa-solid fa-code-merge" aria-hidden="true"></i> Unmerge report</strong>
+          <button type="button" class="review-modal-close" data-close-modal aria-label="Close">&times;</button>
+        </header>
+        <div class="review-modal-body">
+          <p class="review-field-hint">
+            This will detach the report from its duplicate parent and return it to <strong>Under Review</strong> status so it can be handled independently.
+          </p>
+          <label for="unmerge-note" style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 0.35rem;">Reason for unmerging</label>
+          <textarea id="unmerge-note" name="note" rows="3" required minlength="5" maxlength="500" placeholder="Explain why this report is not a duplicate and should be returned to review..."></textarea>
+        </div>
+        <footer class="review-modal-footer">
+          <button type="button" class="review-button review-button-outline" data-close-modal>Cancel</button>
+          <button type="submit" class="review-button review-button-primary">Confirm Unmerge</button>
+        </footer>
+      </form>
+    </dialog>
+  @endif
+
+  @if($report->is_emergency)
+    <dialog id="emergency-handled-modal" class="review-modal">
+      <form method="POST" action="{{ route('admin.reports.status', $report) }}">
+        @csrf
+        @method('PATCH')
+        <input type="hidden" name="status" value="in_progress">
+        <header class="review-modal-header">
+          <strong><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Emergency Handled by Barangay</strong>
+          <button type="button" class="review-modal-close" data-close-modal aria-label="Close">&times;</button>
+        </header>
+        <div class="review-modal-body">
+          <p class="review-field-hint">
+            Use when barangay tanods, emergency responders, or personnel directly attended to and addressed the emergency situation on-site. The report will transition to <strong>In Progress</strong> for ongoing tracking.
+          </p>
+          <label for="emergency-handled-note" style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 0.35rem;">Action taken note</label>
+          <textarea id="emergency-handled-note" name="note" rows="3" required minlength="5" maxlength="500" placeholder="Describe the immediate on-site response and current situation (e.g. Tanods responded and secured the area)..."></textarea>
+        </div>
+        <footer class="review-modal-footer">
+          <button type="button" class="review-button review-button-outline" data-close-modal>Cancel</button>
+          <button type="submit" class="review-button review-button-primary">Move to In Progress</button>
+        </footer>
+      </form>
+    </dialog>
+  @endif
+
   @if($isAfterRoute && ! $emergencyActionOnly)
     <section class="review-workflow-card">
       <div class="review-card-heading review-card-heading-static">
@@ -1338,6 +1392,11 @@
           @endif
         @elseif($report->status === 'merged')
           <p class="review-next-summary">This report was merged as a duplicate.</p>
+          <div class="review-actions-row" style="margin-top: 0.75rem;">
+            <button type="button" class="review-button review-button-outline" data-open-dialog="unmerge-modal">
+              <i class="fa-solid fa-code-merge" aria-hidden="true"></i> Unmerge report
+            </button>
+          </div>
         @else
           <p class="review-next-summary">No further action is being taken on this report.</p>
         @endif

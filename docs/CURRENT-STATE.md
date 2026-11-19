@@ -67,3 +67,16 @@ The following specific gaps exist between the current codebase and the canonical
 - **Routing**: All 103 routes verified cleanly via `php artisan route:list`.
 - **Status Cleanliness**: Zero orphaned status references (`on_hold`, `out_of_scope`, `closed`) remaining in application code, views, or routing.
 - **Parity**: Live codebase matches canonical target documentation in `docs/WORKFLOW.md`, `docs/DATABASE.md`, and `docs/API.md`.
+
+---
+
+## 4. UI/UX Refactor Progress
+
+### Batch 0: Staff Bugs and Leftover Wording [Completed]
+- **Status**: Completed (2026-11-19)
+- **Delivered**:
+  - **Queue Kebab Menu `no_action` Reason Code**: Added dynamic `no_action_reason` selection to row kebab status forms in [`index.blade.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/views/admin/reports/index.blade.php), ensuring reason code and explanation note are submitted together.
+  - **Comprehensive "Take No Action" Availability**: Updated [`review-workflow.blade.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/views/admin/reports/review-workflow.blade.php) so the action button and modal are available on all statuses where `ReportStatusService::canTransition($status, 'no_action')` allows it (`routed`, `in_progress`, `needs_info`, `awaiting_confirmation`, etc.).
+  - **Purged Leftover Legacy Wording**: Removed all user-facing "out of scope", "closed", and "on hold" phrases from `index.blade.php`, `review-workflow.blade.php`, `resident/show.blade.php`, and `Report.php` update templates.
+  - **Reopen Reason Validation**: Enforced minimum 10-character explanation (`min:10`) in [`TrackController.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/app/Http/Controllers/TrackController.php) and [`show.blade.php`](file:///C:/githubFiles/Barangay-Reporting-System-1/resources/views/resident/show.blade.php) for residents disputing case resolution.
+  - **Documentation Alignment**: Synchronized [`docs/DATABASE.md`](file:///C:/githubFiles/Barangay-Reporting-System-1/docs/DATABASE.md) and [`docs/API.md`](file:///C:/githubFiles/Barangay-Reporting-System-1/docs/API.md) to reflect active statuses, active endpoints, and payload schemas.

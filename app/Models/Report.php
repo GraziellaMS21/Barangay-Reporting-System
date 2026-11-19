@@ -53,7 +53,7 @@ class Report extends Model
         'waiting_materials' => [
             'label' => 'Waiting on materials/equipment',
             'status' => 'in_progress',
-            'template' => 'Work is temporarily on hold while waiting for required materials or equipment to arrive.',
+            'template' => 'Work is temporarily paused while waiting for required materials or equipment to arrive.',
             'message_required' => false,
         ],
         'needs_resident_input' => [

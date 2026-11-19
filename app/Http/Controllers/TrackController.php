@@ -148,10 +148,10 @@ class TrackController extends Controller
     public function reopen(Request $request, string $trackingCode): RedirectResponse
     {
         $data = $request->validate([
-            'reason' => ['required', 'string', 'min:5', 'max:1000'],
+            'reason' => ['required', 'string', 'min:10', 'max:1000'],
         ], [
             'reason.required' => 'Please explain why the issue is not yet resolved.',
-            'reason.min' => 'Explanation must be at least 5 characters.',
+            'reason.min' => 'Explanation must be at least 10 characters.',
         ]);
 
         $report = Report::where('tracking_code', $trackingCode)->firstOrFail();

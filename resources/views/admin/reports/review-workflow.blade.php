@@ -199,7 +199,7 @@
             <button type="submit" class="review-button review-button-outline">Not an emergency</button>
           </form>
         @else
-          <span class="review-field-hint">This report is closed; its emergency state cannot be changed here.</span>
+          <span class="review-field-hint">This report is in a final or non-actionable status; its emergency state cannot be changed here.</span>
         @endif
       </div>
     </section>
@@ -458,6 +458,8 @@
               <button type="button" class="review-button review-button-outline" data-open-dialog="duplicate-modal">
                 <i class="fa-solid fa-copy" aria-hidden="true"></i> Mark duplicate
               </button>
+            @endif
+            @if(app(\App\Services\ReportStatusService::class)->canTransition($report->status, \App\Support\ReportStatus::NO_ACTION))
               <button type="button" class="review-button review-button-outline" data-open-dialog="no-action-modal">
                 <i class="fa-solid fa-circle-xmark" aria-hidden="true"></i> No action
               </button>
@@ -969,7 +971,9 @@
           </footer>
         </form>
       </dialog>
+    @endif
 
+    @if(app(\App\Services\ReportStatusService::class)->canTransition($report->status, \App\Support\ReportStatus::NO_ACTION))
       <dialog id="no-action-modal" class="review-modal">
         <form method="POST" action="{{ route('admin.reports.status', $report) }}">
           @csrf

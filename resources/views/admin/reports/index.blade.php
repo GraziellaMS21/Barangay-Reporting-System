@@ -84,7 +84,7 @@
     'in_progress' => 'Work on the issue is underway.',
     'needs_info' => 'Waiting for the resident to answer staff questions.',
     'awaiting_confirmation' => 'Fix reported; waiting for the resident to confirm.',
-    'resolved' => 'The issue was fixed and the report is closed.',
+    'resolved' => 'The issue was fixed and verified.',
     'reopened' => 'The resident reported the same issue again.',
     'referred' => 'Forwarded to an external agency for action.',
     'merged' => 'Duplicate of another report; hidden from the queue.',
@@ -410,7 +410,13 @@
                         <option value="{{ $manualStatus }}" @disabled($manualStatus === $report->status)>{{ $statusLabels[$manualStatus] }}</option>
                       @endforeach
                     </select>
-                    <input type="text" name="note" maxlength="500" placeholder="Note (required for out of scope)">
+                    <select name="no_action_reason" class="kebab-reason-select" style="display:none;margin-top:0.35rem;width:100%;font-size:0.8rem;padding:0.35rem;border:1px solid var(--line);border-radius:6px;" aria-label="Reason code for no action">
+                      <option value="">Reason for no action…</option>
+                      @foreach(\App\Models\Report::NO_ACTION_REASONS as $reasonCode => $reasonLabel)
+                        <option value="{{ $reasonCode }}">{{ $reasonLabel }}</option>
+                      @endforeach
+                    </select>
+                    <input type="text" name="note" maxlength="500" placeholder="Note (required for no action)">
                     <button type="submit" class="kebab-item">
                       <i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> Apply status
                     </button>
@@ -542,6 +548,25 @@
 
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') closeKebabs();
+  });
+
+  // Reveal reason select and toggle required validation when no_action is chosen.
+  document.querySelectorAll('.kebab-status-select').forEach((select) => {
+    select.addEventListener('change', () => {
+      const form = select.closest('form');
+      const reasonSelect = form?.querySelector('.kebab-reason-select');
+      const noteInput = form?.querySelector('input[name="note"]');
+      if (reasonSelect) {
+        const isNoAction = select.value === 'no_action';
+        reasonSelect.style.display = isNoAction ? 'block' : 'none';
+        reasonSelect.required = isNoAction;
+        if (noteInput) {
+          noteInput.placeholder = isNoAction
+            ? 'Note (required for no action)'
+            : 'Note (optional)';
+        }
+      }
+    });
   });
 
   // Confirm dialogs for kebab forms (mark urgent).

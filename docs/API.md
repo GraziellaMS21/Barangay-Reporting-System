@@ -3,7 +3,7 @@
 Reference documentation for web endpoints, RESTful parameters, authentication middleware, and payload schemas in **Barangay-Reporting-System-1**.
 
 > [!NOTE]
-> Endpoints and request parameters marked as **`(planned, Task N)`** represent target refactoring items defined in [**`docs/TASKS.md`**](file:///C:/githubFiles/Barangay-Reporting-System-1/docs/TASKS.md) that do not yet exist in code. All other endpoints represent currently active and verified routes.
+> All endpoints and request parameters documented below reflect active, verified routes and contracts in the application.
 
 ---
 
@@ -72,7 +72,7 @@ Routing is modularized under `routes/` and registered via `routes/web.php`:
 
 ### `POST /track/{tracking_code}/reopen`
 - **Controller**: `TrackController@reopen`
-- **Payload**: `note` (string, required, max: 1000).
+- **Payload**: `reason` (string, required, min: 10, max: 1000).
 - **Description**: Resident disputes resolution; transitions report to `reopened`.
 
 ### `GET /map`
@@ -110,9 +110,9 @@ Protected by `auth` and `role:staff`.
 | `GET` | `/admin/reports` | `Admin\ReportController@index` | Main priority triage queue with filters and pagination. | Current |
 | `GET` | `/admin/reports/my-cases` | `Admin\ReportController@index` | Filtered queue showing only cases assigned to current user. | Current |
 | `GET` | `/admin/reports/{id}` | `Admin\ReportController@show` | 3-way comparative review page (Resident vs AI vs Final). | Current |
-| `POST` | `/admin/reports/{id}/review` | `Admin\ReportReviewController@saveReview` | Confirms review values and routes Mode A / Mode B. | Current *(transitioning to `no_action` with `no_action_reason`: **planned, Task 2**)* |
-| `POST` | `/admin/reports/{id}/status` | `Admin\ReportController@updateStatus` | Manual status transition with mandatory note. | Current *(transitioning to `no_action` with `no_action_reason`: **planned, Task 2**; resume from `no_action`: **planned, Task 4**)* |
-| `POST` | `/admin/reports/{id}/unmerge` | `Admin\ReportController@unmerge` | Unlinks accidental duplicate and returns report to `under_review`. | *(**planned, Task 4**)* |
+| `POST` | `/admin/reports/{id}/review` | `Admin\ReportReviewController@saveReview` | Confirms review values and routes Mode A / Mode B. | Current |
+| `POST` | `/admin/reports/{id}/status` | `Admin\ReportController@updateStatus` | Manual status transition with mandatory note and reason code for `no_action`. | Current |
+| `POST` | `/admin/reports/{id}/unmerge` | `Admin\ReportController@unmerge` | Unlinks accidental duplicate and returns report to `under_review`. | Current |
 | `POST` | `/admin/reports/{id}/info-request` | `Admin\ReportController@requestInfo` | Posts clarification inquiry (`needs_info`). | Current |
 | `POST` | `/admin/reports/{id}/proof-photos` | `Admin\ReportController@storeProofPhotos` | Uploads up to 5 multi-image resolution proofs. | Current |
 | `POST` | `/admin/reports/{id}/notes` | `Admin\ReportController@storeInternalNote` | Appends staff-only internal discussion note. | Current |

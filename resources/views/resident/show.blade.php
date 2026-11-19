@@ -344,7 +344,7 @@
         </div>
         <div style="flex:1;">
           <h3 style="color:#334155;margin:0 0 0.35rem;font-size:1.15rem;font-weight:800;">
-            Case Closed: No Further Action
+            No Further Action Taken
           </h3>
           <p style="margin:0 0 0.75rem;font-size:0.88rem;color:#64748b;">
             The barangay evaluated this report and concluded that no further action will be taken.
@@ -478,7 +478,7 @@
                 <form method="POST" action="{{ route('track.reopen', $report->tracking_code) }}">
                   @csrf
                   <div class="field" style="margin-bottom:0.75rem;">
-                    <textarea name="reason" rows="2" required placeholder="Explain why the issue is not yet resolved..."></textarea>
+                    <textarea name="reason" rows="2" required minlength="10" placeholder="Explain why the issue is not yet resolved (minimum 10 characters)..."></textarea>
                   </div>
                   <button type="submit" class="btn btn-outline" style="color:var(--red);border-color:var(--red);font-weight:700;background:#ffffff;">
                     <i class="fa-solid fa-rotate-left"></i> No, Reopen This Case

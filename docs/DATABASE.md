@@ -92,8 +92,8 @@ erDiagram
 - `resident_landmark` (string, nullable) — Original snapshot
 - `lat` (decimal 10,7, nullable)
 - `lng` (decimal 10,7, nullable)
-- `status` (string, indexed) — Current statuses in code: `submitted`, `under_review`, `routed`, `in_progress`, `on_hold`, `resolved`, `referred`, `merged`, `out_of_scope`, `closed`, `emergency_flagged`, `needs_info`, `awaiting_confirmation`, `reopened`. *(`no_action` replacing `out_of_scope` & `closed`, and removal of `on_hold`: **planned, Tasks 1 & 2**)*
-- `no_action_reason` (string, indexed, nullable) — *(**planned, Task 2**)*
+- `status` (string, indexed) — Canonical 12 statuses: `submitted`, `under_review`, `routed`, `in_progress`, `needs_info`, `awaiting_confirmation`, `resolved`, `reopened`, `emergency_flagged`, `referred`, `merged`, `no_action`.
+- `no_action_reason` (string, indexed, nullable) — Reason code for `no_action` (`not_barangay_matter`, `emergency_redirected`, `cannot_resolve`, `invalid_report`, `resident_unreachable`).
 - `urgency` (enum: `Low`, `Medium`, `High`, `Critical`, nullable)
 - `priority_score` (integer, default: 0, indexed)
 - `summary` (text, nullable)
@@ -146,7 +146,7 @@ erDiagram
 - `office_id` (foreignId `offices`, nullable)
 - `from_status` (string, nullable)
 - `to_status` (string)
-- `no_action_reason` (string, nullable) — *(**planned, Task 2**)*
+- `no_action_reason` (string, nullable) — Reason code recorded on transition to `no_action`
 - `note` (text, nullable)
 - `visible_to_resident` (boolean, default: true)
 - `created_at` (timestamp)

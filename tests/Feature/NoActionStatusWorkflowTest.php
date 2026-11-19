@@ -136,8 +136,25 @@ class NoActionStatusWorkflowTest extends TestCase
 
         $this->get(route('track.show', $report->tracking_code))
             ->assertOk()
-            ->assertSee('Case Closed: No Further Action')
+            ->assertSee('No Further Action Taken')
             ->assertSee('Not a barangay matter')
             ->assertSee('Issue is beyond barangay scope and must be addressed with private landowners.');
+    }
+
+    public function test_review_page_shows_no_action_button_wherever_can_transition_allows(): void
+    {
+        foreach ([ReportStatus::ROUTED, ReportStatus::IN_PROGRESS, ReportStatus::NEEDS_INFO] as $status) {
+            $report = Report::factory()->create([
+                'purok_id' => $this->purok->id,
+                'category_id' => $this->category->id,
+                'status' => $status,
+            ]);
+
+            $this->actingAs($this->staff)
+                ->get(route('admin.reports.show', $report))
+                ->assertOk()
+                ->assertSee('data-open-dialog="no-action-modal"', false)
+                ->assertSee('Take no action');
+        }
     }
 }

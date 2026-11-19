@@ -235,6 +235,25 @@ class ResidentReportingPhase9Test extends TestCase
         });
     }
 
+    public function test_resident_reopen_requires_minimum_ten_characters(): void
+    {
+        $report = Report::factory()->create([
+            'status' => 'awaiting_confirmation',
+            'tracking_code' => 'BRG-TST004',
+        ]);
+
+        $response = $this->from(route('track.show', $report->tracking_code))
+            ->post(route('track.reopen', $report->tracking_code), [
+                'reason' => 'Too short',
+            ]);
+
+        $response->assertRedirect(route('track.show', $report->tracking_code));
+        $response->assertSessionHasErrors(['reason']);
+
+        $report->refresh();
+        $this->assertEquals('awaiting_confirmation', $report->status);
+    }
+
     public function test_nearby_reports_api_returns_nearby_incidents(): void
     {
         $category = Category::firstOrFail();
@@ -248,7 +267,7 @@ class ResidentReportingPhase9Test extends TestCase
             'tracking_code' => 'BRG-NEARBY',
         ]);
 
-        $response = $this->getJson('/api/nearby-reports?lat=6.9215&lng=122.0791&category=' . $category->slug);
+        $response = $this->getJson('/api/nearby-reports?lat=6.9215&lng=122.0791&category='.$category->slug);
 
         $response->assertOk();
         $response->assertJsonFragment([
@@ -257,4 +276,3 @@ class ResidentReportingPhase9Test extends TestCase
         ]);
     }
 }
-

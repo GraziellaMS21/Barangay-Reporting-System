@@ -58,6 +58,7 @@ class SaveOfficeRequest extends FormRequest
                 Rule::exists('users', 'id')->where(fn ($query) => $query->whereIn('role', ['admin', 'staff'])->where('is_active', true)),
             ],
             'is_active' => ['sometimes', 'boolean'],
+            '_redirect_to' => ['nullable', 'string', 'max:500'],
         ];
     }
 

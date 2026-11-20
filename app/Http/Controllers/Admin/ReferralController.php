@@ -37,11 +37,25 @@ class ReferralController extends Controller
             'type' => ['nullable', Rule::in(['all', 'internal', 'external'])],
             'status' => ['nullable', Rule::in($allowedStatuses)],
             'office_id' => ['nullable', 'integer', Rule::exists('offices', 'id')],
+            'search' => ['nullable', 'string', 'max:100'],
         ]);
 
         $typeFilter = $validated['type'] ?? 'all';
         $statusFilter = $validated['status'] ?? 'all';
         $officeFilter = $validated['office_id'] ?? null;
+        $search = $validated['search'] ?? null;
+
+        $offices = Office::query()
+            ->with('defaultAssignee:id,name')
+            ->withCount(['reports', 'referrals', 'categories', 'routingRules'])
+            ->orderByDesc('is_active')
+            ->orderByDesc('is_internal')
+            ->orderBy('name')
+            ->get();
+
+        $selectedOffice = $officeFilter !== null
+            ? $offices->firstWhere('id', (int) $officeFilter)
+            : null;
 
         $items = collect();
 
@@ -49,7 +63,7 @@ class ReferralController extends Controller
         if ($typeFilter === 'all' || $typeFilter === 'external') {
             $referralQuery = Referral::query()
                 ->with([
-                    'report:id,tracking_code,status',
+                    'report.category:id,name',
                     'office:id,name,type,is_internal,is_external',
                     'followUpOwner:id,name',
                     'preparedBy:id,name',
@@ -64,6 +78,13 @@ class ReferralController extends Controller
                 $referralQuery->where('office_id', (int) $officeFilter);
             }
 
+            if ($search) {
+                $referralQuery->where(function ($q) use ($search) {
+                    $q->where('reference_no', 'like', "%{$search}%")
+                        ->orWhereHas('report', fn ($rq) => $rq->where('tracking_code', 'like', "%{$search}%")->orWhere('description', 'like', "%{$search}%"));
+                });
+            }
+
             foreach ($referralQuery->get() as $referral) {
                 $ownerName = $referral->followUpOwner?->name
                     ?? $referral->preparedBy?->name
@@ -76,7 +97,10 @@ class ReferralController extends Controller
                     'reference_no' => $referral->reference_no ?? 'Not assigned',
                     'tracking_code' => $referral->report?->tracking_code,
                     'type_label' => 'External',
+                    'office_id' => $referral->office_id,
                     'office_name' => $referral->office?->name ?? 'Unassigned',
+                    'category_name' => $referral->report?->category?->name ?? 'General',
+                    'urgency' => $referral->report?->urgency ?? 'Normal',
                     'status' => $referral->status,
                     'status_label' => Referral::STATUSES[$referral->status] ?? $referral->status,
                     'routed_or_sent_at' => $referral->sent_at,
@@ -95,6 +119,7 @@ class ReferralController extends Controller
         if ($typeFilter === 'all' || $typeFilter === 'internal') {
             $internalQuery = Report::query()
                 ->with([
+                    'category:id,name',
                     'office:id,name,type,is_internal,is_external',
                     'assignee:id,name',
                     'statusLogs' => fn ($q) => $q->where('to_status', 'routed')->latest('id'),
@@ -112,6 +137,13 @@ class ReferralController extends Controller
                 $internalQuery->where('office_id', (int) $officeFilter);
             }
 
+            if ($search) {
+                $internalQuery->where(function ($q) use ($search) {
+                    $q->where('tracking_code', 'like', "%{$search}%")
+                        ->orWhere('description', 'like', "%{$search}%");
+                });
+            }
+
             foreach ($internalQuery->get() as $report) {
                 $routedLog = $report->statusLogs->first();
                 $routedAt = $routedLog?->created_at ?? $report->reviewed_at ?? $report->created_at;
@@ -126,7 +158,10 @@ class ReferralController extends Controller
                     'reference_no' => $report->tracking_code,
                     'tracking_code' => $report->tracking_code,
                     'type_label' => 'Within barangay',
+                    'office_id' => $report->office_id,
                     'office_name' => $report->office?->name ?? 'Unassigned',
+                    'category_name' => $report->category?->name ?? 'General',
+                    'urgency' => $report->urgency ?? 'Normal',
                     'status' => $report->status,
                     'status_label' => Report::STATUSES[$report->status] ?? $report->status,
                     'routed_or_sent_at' => $routedAt,
@@ -152,11 +187,6 @@ class ReferralController extends Controller
             ['path' => $request->url(), 'query' => $request->query()]
         );
 
-        $offices = Office::query()
-            ->orderByDesc('is_internal')
-            ->orderBy('name')
-            ->get(['id', 'name', 'type', 'is_internal', 'is_external', 'is_active']);
-
         $statusOptions = [
             'External referrals' => Referral::STATUSES,
             'Within barangay reports' => [
@@ -169,13 +199,38 @@ class ReferralController extends Controller
             ],
         ];
 
+        // Compute overdue from the ACTUAL items collection so KPI and row badges always agree
+        $overdueCount = $items->filter(fn (array $row) => $row['is_overdue'] && $row['follow_up_at'])->count();
+
+        $metrics = [
+            'totalOffices' => $offices->count(),
+            'internalOffices' => $offices->where('is_internal', true)->count(),
+            'externalOffices' => $offices->where('is_external', true)->count(),
+            'activeInternalReports' => $items->where('kind', 'internal')->count(),
+            'activeExternalReferrals' => $items->where('kind', 'external')->count(),
+            'overdueCases' => $overdueCount,
+        ];
+
+        $staffUsers = User::query()
+            ->whereIn('role', ['admin', 'staff'])
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'role']);
+
+        $tab = $request->input('tab', 'referrals');
+
         return view('admin.referrals.index', compact(
             'referrals',
             'offices',
+            'selectedOffice',
             'typeFilter',
             'statusFilter',
             'officeFilter',
-            'statusOptions'
+            'search',
+            'statusOptions',
+            'metrics',
+            'staffUsers',
+            'tab'
         ));
     }
 

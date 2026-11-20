@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\AuditLog;
 use App\Models\Category;
 use App\Models\Office;
 use App\Models\Purok;
@@ -277,5 +276,151 @@ class ReferralsAndRoutingDirectoryTest extends TestCase
         $this->assertSame('routed', $newReport->status);
         $this->assertSame($activeOffice->id, $newReport->office_id);
         $this->assertNull($newReport->assigned_to);
+    }
+
+    public function test_referrals_and_routing_hub_displays_kpis_and_office_directory_cards(): void
+    {
+        Report::factory()->create([
+            'tracking_code' => 'BRG-INT99',
+            'purok_id' => $this->purok->id,
+            'category_id' => $this->category->id,
+            'office_id' => $this->internalOffice->id,
+            'assigned_to' => $this->ownerStaff->id,
+            'status' => 'in_progress',
+        ]);
+
+        $this->actingAs($this->admin)
+            ->get(route('admin.referrals.index'))
+            ->assertOk()
+            ->assertSee('Referrals &amp; Routing Directory', false)
+            ->assertSee('Destinations')
+            ->assertSee('Internal referrals')
+            ->assertSee('External referrals')
+            ->assertSee('Overdue')
+            ->assertSee('Add office or agency')
+            ->assertSee('Barangay Sanitation Office')
+            ->assertSee('City Engineering Office')
+            ->assertSee('1 case');
+    }
+
+    public function test_selecting_an_office_filters_reports_for_that_destination_and_shows_office_summary(): void
+    {
+        $internalReport = Report::factory()->create([
+            'tracking_code' => 'BRG-TARGET01',
+            'purok_id' => $this->purok->id,
+            'category_id' => $this->category->id,
+            'office_id' => $this->internalOffice->id,
+            'assigned_to' => $this->ownerStaff->id,
+            'status' => 'in_progress',
+        ]);
+
+        $externalReport = Report::factory()->create([
+            'tracking_code' => 'BRG-OTHER01',
+            'purok_id' => $this->purok->id,
+            'category_id' => $this->category->id,
+            'office_id' => $this->externalAgency->id,
+            'status' => 'referred',
+        ]);
+
+        Referral::create([
+            'report_id' => $externalReport->id,
+            'office_id' => $this->externalAgency->id,
+            'reference_no' => 'REF-TARGET02',
+            'referral_text' => 'City assistance requested.',
+            'status' => 'sent',
+            'sent_at' => now(),
+            'prepared_by' => $this->staff->id,
+        ]);
+
+        // Drill down into internalOffice
+        $response = $this->actingAs($this->staff)
+            ->get(route('admin.referrals.index', ['office_id' => $this->internalOffice->id]))
+            ->assertOk()
+            ->assertSee('Barangay Sanitation Office')
+            ->assertSee('BRG-TARGET01')
+            ->assertDontSee('REF-TARGET02');
+
+        // Clicking a report redirects directly to the review/show workspace
+        $this->actingAs($this->staff)
+            ->get(route('admin.reports.show', $internalReport))
+            ->assertOk()
+            ->assertSee('BRG-TARGET01');
+    }
+
+    public function test_admin_can_add_edit_toggle_and_delete_offices_with_redirect_back_to_hub(): void
+    {
+        $hubUrl = route('admin.referrals.index');
+
+        // 1. Add office from hub modal
+        $this->actingAs($this->admin)
+            ->post(route('admin.settings.offices.store'), [
+                'name' => 'Barangay Peace & Order Committee',
+                'type' => 'internal',
+                'description' => 'Security and conflict management.',
+                'contact_person' => 'Chief Tanod',
+                'contact_phone' => '09181112233',
+                'default_assignee_id' => $this->ownerStaff->id,
+                'is_active' => '1',
+                '_redirect_to' => $hubUrl,
+            ])
+            ->assertRedirect($hubUrl)
+            ->assertSessionHas('success', 'Office added.');
+
+        $office = Office::where('name', 'Barangay Peace & Order Committee')->firstOrFail();
+        $this->assertTrue($office->is_internal);
+
+        // 2. Edit office from hub modal
+        $this->actingAs($this->admin)
+            ->put(route('admin.settings.offices.update', $office), [
+                'name' => 'Barangay Peace & Public Safety',
+                'type' => 'internal',
+                'description' => 'Updated security description.',
+                'contact_person' => 'Senior Tanod',
+                'is_active' => '1',
+                '_redirect_to' => $hubUrl,
+            ])
+            ->assertRedirect($hubUrl)
+            ->assertSessionHas('success', 'Office updated.');
+
+        $this->assertSame('Barangay Peace & Public Safety', $office->fresh()->name);
+
+        // 3. Toggle active from hub card
+        $this->actingAs($this->admin)
+            ->patch(route('admin.settings.offices.toggle-active', $office), [
+                '_redirect_to' => $hubUrl,
+            ])
+            ->assertRedirect($hubUrl)
+            ->assertSessionHas('success');
+
+        $this->assertFalse($office->fresh()->is_active);
+
+        // 4. Delete office from hub (0 cases linked)
+        $this->actingAs($this->admin)
+            ->delete(route('admin.settings.offices.destroy', $office), [
+                '_redirect_to' => $hubUrl,
+            ])
+            ->assertRedirect($hubUrl)
+            ->assertSessionHas('success', 'Office deleted.');
+
+        $this->assertModelMissing($office);
+    }
+
+    public function test_delete_guard_blocks_deleting_office_with_active_cases(): void
+    {
+        Report::factory()->create([
+            'tracking_code' => 'BRG-BLOCK01',
+            'purok_id' => $this->purok->id,
+            'category_id' => $this->category->id,
+            'office_id' => $this->internalOffice->id,
+            'status' => 'routed',
+        ]);
+
+        $this->actingAs($this->admin)
+            ->delete(route('admin.settings.offices.destroy', $this->internalOffice), [
+                '_redirect_to' => route('admin.referrals.index'),
+            ])
+            ->assertSessionHasErrors('office');
+
+        $this->assertModelExists($this->internalOffice);
     }
 }

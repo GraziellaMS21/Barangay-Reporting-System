@@ -302,7 +302,7 @@ class ReferralService
             : 'Not available';
 
         $tokens = [
-            'reference_no' => $report->activeReferral?->reference_no ?? 'REF-'.now()->format('Y').'-____',
+            'reference_no' => $report->activeReferral?->reference_no ?? 'Assigned on send',
             'date' => now()->format('F j, Y'),
             'agency_name' => $office->name,
             'agency_head' => $office->contact_person ?? 'The Office Head',
@@ -310,7 +310,7 @@ class ReferralService
             'subject' => $subject ?? 'Referral of report '.$report->tracking_code.' ('.$categoryName.')',
             'tracking_code' => $report->tracking_code,
             'category' => $categoryName,
-            'priority' => $report->urgency ?? 'Unassigned',
+            'priority' => $report->urgency ?? 'Not set',
             'date_reported' => $report->created_at->format('M d, Y'),
             'location' => $location,
             'landmark' => $report->landmark !== null && $report->landmark !== '' ? $report->landmark : 'Not specified',
@@ -324,7 +324,13 @@ class ReferralService
             'barangay_contact' => $barangayContact,
         ];
 
-        return strtr((string) Setting::value('referral_letter_template', $this->defaultLetterTemplate()), $tokens);
+        $wrappedTokens = [];
+        foreach ($tokens as $key => $val) {
+            $wrappedTokens['{'.$key.'}'] = (string) $val;
+            $wrappedTokens[$key] = (string) $val;
+        }
+
+        return strtr((string) Setting::value('referral_letter_template', $this->defaultLetterTemplate()), $wrappedTokens);
     }
 
     public function defaultLetterTemplate(): string

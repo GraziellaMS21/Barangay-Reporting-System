@@ -403,7 +403,7 @@ class StaffCaseManagementTest extends TestCase
             ->assertSee('Confirm routing');
     }
 
-    public function test_review_page_triage_collapses_optional_fields_and_shows_kebab_menu(): void
+    public function test_review_page_triage_shows_fields_and_kebab_menu(): void
     {
         $report = Report::factory()->create([
             'status' => ReportStatus::UNDER_REVIEW,
@@ -414,7 +414,7 @@ class StaffCaseManagementTest extends TestCase
         $this->actingAs($this->staff)
             ->get(route('admin.reports.show', $report))
             ->assertOk()
-            ->assertSee('review-optional-details', false)
+            ->assertSee('review-triage-grid', false)
             ->assertSee('More actions')
             ->assertSee('Mark as duplicate')
             ->assertSee('Take no action')

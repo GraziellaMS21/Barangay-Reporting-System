@@ -68,6 +68,10 @@ class OfficeSettingsController extends Controller
             self::AUDITED_FIELDS
         );
 
+        if ($request->filled('_redirect_to')) {
+            return redirect($request->input('_redirect_to'))->with('success', 'Office added.');
+        }
+
         return redirect()->route('admin.settings.offices.index')->with('success', 'Office added.');
     }
 
@@ -82,6 +86,10 @@ class OfficeSettingsController extends Controller
             $request->user(),
             self::AUDITED_FIELDS
         );
+
+        if ($request->filled('_redirect_to')) {
+            return redirect($request->input('_redirect_to'))->with('success', 'Office updated.');
+        }
 
         return redirect()->route('admin.settings.offices.index')->with('success', 'Office updated.');
     }
@@ -101,6 +109,11 @@ class OfficeSettingsController extends Controller
             $request->user(),
             self::AUDITED_FIELDS
         );
+
+        if ($request->filled('_redirect_to')) {
+            return redirect($request->input('_redirect_to'))
+                ->with('success', $office->name.($newState ? ' activated.' : ' deactivated.'));
+        }
 
         return redirect()
             ->route('admin.settings.offices.index')
@@ -124,6 +137,10 @@ class OfficeSettingsController extends Controller
         }
 
         $settingsManagementService->delete($office, $request->user(), self::AUDITED_FIELDS);
+
+        if ($request->filled('_redirect_to')) {
+            return redirect($request->input('_redirect_to'))->with('success', 'Office deleted.');
+        }
 
         return redirect()->route('admin.settings.offices.index')->with('success', 'Office deleted.');
     }

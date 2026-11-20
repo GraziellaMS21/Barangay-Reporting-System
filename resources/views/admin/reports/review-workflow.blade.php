@@ -551,16 +551,11 @@
                   </button>
                 @endif
                 @if(!$report->is_emergency && !in_array($report->status, \App\Models\Report::CLOSED_STATUSES, true))
-                  <form method="POST" action="{{ route('admin.reports.emergency', $report) }}" data-confirm-submit="Flag this report as an emergency concern?">
-                    @csrf
-                    @method('PATCH')
-                    <input type="hidden" name="confirm" value="1">
-                    <button type="submit" class="kebab-item"
-                            style="display:flex;align-items:center;gap:0.5rem;width:100%;padding:0.5rem 0.85rem;font-size:0.82rem;text-align:left;border:none;background:transparent;cursor:pointer;color:#dc2626;">
-                      <i class="fa-solid fa-triangle-exclamation text-red-600" aria-hidden="true"></i>
-                      <span>Flag as emergency</span>
-                    </button>
-                  </form>
+                  <button type="submit" form="kebab-emergency-form" class="kebab-item"
+                          style="display:flex;align-items:center;gap:0.5rem;width:100%;padding:0.5rem 0.85rem;font-size:0.82rem;text-align:left;border:none;background:transparent;cursor:pointer;color:#dc2626;">
+                    <i class="fa-solid fa-triangle-exclamation text-red-600" aria-hidden="true"></i>
+                    <span>Flag as emergency</span>
+                  </button>
                 @endif
               </div>
             </div>
@@ -588,10 +583,9 @@
           @endif
         </p>
         @if($aiUnavailable && $report->ai_status === 'failed' && ! $emergencyActionOnly)
-          <form method="POST" action="{{ route('admin.reports.retry-ai', $report) }}" class="review-retry-form">
-            @csrf
-            <button type="submit" class="review-text-link">Retry AI analysis</button>
-          </form>
+          <div class="review-retry-form">
+            <button type="submit" form="review-retry-ai-form" class="review-text-link">Retry AI analysis</button>
+          </div>
         @endif
 
         <div class="review-triage-grid">
@@ -1231,24 +1225,23 @@
             <a href="{{ route('admin.reports.index') }}" class="btn btn-ghost btn-small text-xs py-2 px-3">Cancel</a>
             
             @if($isRouteable)
-              <button type="submit" name="intent" value="route" class="btn btn-gold btn-small text-xs font-bold py-2 px-4 flex items-center gap-1.5 shadow-sm" data-route-submit @if(!$ruleWithin) style="display:none;" @endif>
+              <button type="submit" form="review-form" name="intent" value="route" class="btn btn-gold btn-small text-xs font-bold py-2 px-4 flex items-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed" data-route-submit @if(!$ruleWithin) style="display:none;" @endif>
                 <i class="fa-solid fa-check" aria-hidden="true"></i>
                 <span>Confirm and route</span>
               </button>
             @endif
 
-            <button type="submit" name="intent" value="referral" class="btn btn-gold btn-small text-xs font-bold py-2 px-4 flex items-center gap-1.5 shadow-sm" data-referral-submit @if($ruleWithin) style="display:none;" @endif>
+            <button type="submit" form="review-form" name="intent" value="referral" class="btn btn-gold btn-small text-xs font-bold py-2 px-4 flex items-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed" data-referral-submit @if($ruleWithin) style="display:none;" @endif>
               <i class="fa-solid fa-paper-plane" aria-hidden="true"></i>
-              <span>Send referral</span>
+              <span>Prepare referral</span>
             </button>
           </div>
         </div>
 
         @if($isOverdue && ! $report->escalated_at)
-          <form method="POST" action="{{ route('admin.reports.escalate', $report) }}" class="review-escalate-form">
-            @csrf
-            <button type="submit" class="review-button review-button-outline">Escalate overdue report</button>
-          </form>
+          <div class="review-escalate-form">
+            <button type="submit" form="review-escalate-form" class="review-button review-button-outline">Escalate overdue report</button>
+          </div>
         @endif
       </div>
     </section>
@@ -1269,6 +1262,28 @@
 
   @if(! $emergencyActionOnly)
     </form>
+  @endif
+
+  {{-- Auxiliary action forms placed outside #review-form to avoid nested HTML form corruption --}}
+  @if(!$report->is_emergency && !in_array($report->status, \App\Models\Report::CLOSED_STATUSES, true))
+    <form id="kebab-emergency-form" method="POST" action="{{ route('admin.reports.emergency', $report) }}" data-confirm="Flag this report as an emergency concern?" class="hidden" style="display:none;">
+      @csrf
+      @method('PATCH')
+      <input type="hidden" name="confirm" value="1">
+    </form>
+  @endif
+
+  @if($aiUnavailable && $report->ai_status === 'failed' && ! $emergencyActionOnly)
+    <form id="review-retry-ai-form" method="POST" action="{{ route('admin.reports.retry-ai', $report) }}" class="hidden" style="display:none;">
+      @csrf
+    </form>
+  @endif
+
+  @if($isOverdue && ! $report->escalated_at)
+    <form id="review-escalate-form" method="POST" action="{{ route('admin.reports.escalate', $report) }}" class="hidden" style="display:none;">
+      @csrf
+    </form>
+  @endif
 
     @if(in_array($report->status, ['submitted', 'under_review', 'reopened'], true))
       <dialog id="duplicate-modal" class="review-modal">
@@ -1342,7 +1357,6 @@
         </form>
       </dialog>
     @endif
-  @endif
 
   @if($report->status === 'merged')
     <dialog id="unmerge-modal" class="review-modal">
@@ -2240,7 +2254,7 @@
       if (routeButton) routeButton.disabled = true;
       const missingAgency = !agencySelect?.value;
       if (referralSubmit) {
-        referralSubmit.disabled = remaining > 0 || missingCategory || missingUrgency || missingAgency;
+        referralSubmit.disabled = missingCategory || missingUrgency || missingAgency;
       }
       if (missingAgency) reasons.push('Choose an agency.');
     } else {
@@ -2248,11 +2262,23 @@
       const missingOffice = Boolean(routeButton && !officeSelect?.value);
       if (missingOffice) reasons.push('Choose an office.');
       if (routeButton) {
-        routeButton.disabled = remaining > 0 || missingCategory || missingUrgency || missingOffice;
+        routeButton.disabled = missingCategory || missingUrgency || missingOffice;
       }
     }
 
-    if (gateReason) gateReason.textContent = reasons.join(' ');
+    if (gateReason) {
+      if (reasons.length > 0) {
+        gateReason.innerHTML = `<i class="fa-solid fa-circle-exclamation text-amber-500 mr-1" aria-hidden="true"></i> <span>${reasons.join(' ')}</span>`;
+        gateReason.className = 'review-gate-hint text-xs ml-2 font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 inline-flex items-center';
+      } else {
+        gateReason.innerHTML = '<i class="fa-solid fa-check text-green-600 mr-1" aria-hidden="true"></i> <span>Ready</span>';
+        gateReason.className = 'review-gate-hint text-xs ml-2 font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded border border-green-200 inline-flex items-center';
+      }
+    }
+
+    const reasonText = reasons.join(' ');
+    if (routeButton) routeButton.title = routeButton.disabled ? reasonText : 'Confirm review and route report';
+    if (referralSubmit) referralSubmit.title = referralSubmit.disabled ? reasonText : 'Prepare and send referral to agency';
 
     const card2GateReason = root.querySelector('[data-gate-reason-card2]');
     if (card2GateReason) {
@@ -2725,11 +2751,18 @@
 
   form?.addEventListener('submit', (event) => {
     if (event.submitter?.value !== 'route' && event.submitter?.value !== 'referral') return;
+    // When staff confirms submission, mark any remaining review rows as confirmed
+    rows.forEach((row) => {
+      row.dataset.reviewed = 'true';
+    });
     updateGate();
     const submitterDisabled = event.submitter.value === 'route'
       ? routeButton?.disabled
       : referralSubmit?.disabled;
-    if (submitterDisabled) event.preventDefault();
+    if (submitterDisabled) {
+      event.preventDefault();
+      return;
+    }
   });
 
   root.querySelectorAll('[data-history-tabs]').forEach((tabsCard) => {

@@ -134,3 +134,105 @@ Protected by `auth` and `role:admin`.
 | `GET` | `/admin/settings/priority-weights`| `Admin\SettingController@priorityWeights` | Adjust numerical weights ($w_1 \dots w_5$) for priority scoring. | Current |
 | `GET` | `/admin/audit-log` | `Admin\AuditLogController@index` | Immutable security audit trail of staff overrides and setting changes. | Current |
 | `GET` | `/admin/reports/export` | `Admin\ReportController@exportCsv` | Streamed CSV download of reports matching queue filters. | Current |
+
+---
+
+## 6. Phase 0 Route Partitions & Endpoints
+
+### A. Setup Wizard (`routes/setup.php`)
+Guest / Admin setup route group with `web` middleware.
+
+| Method | URI | Controller Action | Middleware / Access | Purpose |
+| :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/setup` | `SetupController@show` | `web` | 5-step interactive onboarding wizard. |
+| `POST` | `/setup/step/{step}` | `SetupController@saveStep` | `web` | Validate & save specific setup step. |
+| `POST` | `/setup/complete` | `SetupController@complete` | `web` | Finalize setup wizard & redirect to login. |
+
+### B. Settings Module (`routes/settings.php`)
+Protected by `auth`, `role:staff`, `permission:settings.manage` (or specific permission).
+
+| Method | URI | Controller Action | Middleware / Permission | Purpose |
+| :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/admin/settings/general` | `SettingsController@editGeneral` | `permission:settings.manage` | Core barangay identity & hall location. |
+| `PUT` | `/admin/settings/general` | `SettingsController@updateGeneral` | `permission:settings.manage` | Update general barangay settings. |
+| `GET` | `/admin/fiscal-years` | `FiscalYearController@index` | `permission:fiscal_year.manage` | Fiscal year management list. |
+| `POST` | `/admin/fiscal-years` | `FiscalYearController@store` | `permission:fiscal_year.manage` | Create new fiscal year. |
+| `POST` | `/admin/fiscal-years/{id}/activate` | `FiscalYearController@activate` | `permission:fiscal_year.manage` | Set active fiscal year. |
+| `POST` | `/admin/fiscal-years/{id}/lock` | `FiscalYearController@lock` | `permission:fiscal_year.manage` | Lock closed fiscal year (immutable). |
+| `POST` | `/admin/fiscal-years/switch-view` | `FiscalYearController@switchView` | `auth` | Set session viewing fiscal year. |
+| `GET` | `/admin/settings/numbering` | `NumberingController@edit` | `permission:settings.manage` | Configure numbering format masks. |
+| `PUT` | `/admin/settings/numbering` | `NumberingController@update` | `permission:settings.manage` | Update numbering schemes. |
+| `GET` | `/admin/settings/templates` | `TemplateController@index` | `permission:templates.manage` | Manage official response templates. |
+| `GET` | `/admin/settings/case-types` | `CaseTypeController@index` | `permission:settings.manage` | Configure Katarungang Pambarangay case categories. |
+| `GET` | `/admin/settings/case-fields` | `CaseFieldConfigController@index` | `permission:settings.manage` | Configure dynamic case and party form fields. |
+| `GET` | `/admin/settings/escalation-destinations` | `EscalationDestinationController@index` | `permission:settings.manage` | Manage court/prosecutor escalation venues. |
+| `GET` | `/admin/settings/agencies` | `AgencyManagementController@index` | `permission:agencies.manage` | Manage registered external partner agencies. |
+| `GET` | `/admin/settings/backups` | `BackupController@index` | `permission:backups.manage` | Database backup management & export. |
+
+### C. People & User Management (`routes/people.php`)
+Protected by `auth`, `role:staff`, `permission:personnel.manage` or `permission:users.manage`.
+
+| Method | URI | Controller Action | Middleware / Permission | Purpose |
+| :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/admin/personnel` | `PersonnelController@index` | `permission:personnel.manage` | Directory of barangay officials & tanods. |
+| `GET` | `/admin/positions` | `PositionController@index` | `permission:personnel.manage` | Manage barangay positions and codes. |
+| `GET` | `/admin/signatories` | `SignatoryController@edit` | `permission:personnel.manage` | Assign document signatories by position. |
+| `PUT` | `/admin/signatories` | `SignatoryController@update` | `permission:personnel.manage` | Update document signatory roles. |
+| `GET` | `/admin/users` | `UserController@index` | `permission:users.manage` | Manage staff accounts and permissions. |
+| `GET` | `/admin/users/{id}/permissions` | `UserController@editPermissions` | `permission:users.manage` | Edit granular user permission checkboxes. |
+| `PUT` | `/admin/users/{id}/permissions` | `UserController@updatePermissions` | `permission:users.manage` | Sync permissions / apply permission preset. |
+
+### D. Reports Center (`routes/reports_center.php`)
+Protected by `auth`, `role:staff`, `permission:reports_center.view` or `reports_center.export`.
+
+| Method | URI | Controller Action | Middleware / Permission | Purpose |
+| :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/admin/reports-center` | `ReportsCenterController@index` | `permission:reports_center.view` | Report catalog and pre-built templates. |
+| `GET` | `/admin/reports-center/{key}` | `ReportsCenterController@show` | `permission:reports_center.view` | Run report parameters and live table preview. |
+| `POST` | `/admin/reports-center/{key}/export` | `ReportsCenterController@export` | `permission:reports_center.export` | Export report to PDF, Excel, or CSV. |
+| `GET` | `/admin/reports-center/generated/{id}` | `ReportsCenterController@download` | `permission:reports_center.view` | Download previously generated report artifact. |
+
+### E. Case Management & Intake (`routes/cases.php`)
+Protected by `auth`, `role:staff`, `permission:cases.view`.
+
+| Method | URI | Controller Action | Middleware / Permission | Purpose |
+| :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/admin/cases` | `CaseController@index` | `permission:cases.view` | Docketed cases list with status filters. |
+| `GET` | `/admin/cases/create` | `CaseController@create` | `permission:cases.create` | New dispute blotter filing form. |
+| `POST` | `/admin/cases` | `CaseController@store` | `permission:cases.create` | Persist dispute complaint and docket number. |
+| `GET` | `/admin/cases/{id}` | `CaseController@show` | `permission:cases.view` | Case detail, parties, hearing schedule, and logs. |
+| `GET` | `/admin/cases/{id}/edit` | `CaseController@edit` | `permission:cases.edit` | Edit complaint narrative and metadata. |
+| `PUT` | `/admin/cases/{id}` | `CaseController@update` | `permission:cases.edit` | Update case details. |
+| `GET` | `/admin/parties` | `PartyController@index` | `permission:cases.view` | Master party directory (complainants/respondents). |
+| `GET` | `/admin/parties/{id}` | `PartyController@show` | `permission:cases.view` | Party profile, residency status, and case history. |
+| `GET` | `/admin/secretary` | `SecretaryDashboardController@index` | `permission:cases.view` | Barangay Secretary blotter & hearing overview. |
+
+### F. Case Procedural Actions (`routes/case_actions.php`)
+Protected by `auth`, `role:staff`.
+
+| Method | URI | Controller Action | Middleware / Permission | Purpose |
+| :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/admin/cases/{id}/summons/create` | `SummonsController@create` | `permission:cases.summons` | Form to generate summons 1, 2, or 3. |
+| `POST` | `/admin/cases/{id}/summons` | `SummonsController@store` | `permission:cases.summons` | Issue and print formal summons notice. |
+| `GET` | `/admin/hearings` | `HearingController@index` | `permission:cases.summons` | Calendar & roster of conciliation hearings. |
+| `POST` | `/admin/cases/{id}/hearings` | `HearingController@store` | `permission:cases.summons` | Schedule mediation hearing proceeding. |
+| `GET` | `/admin/cases/{id}/escalate` | `CaseEscalationController@create` | `permission:cases.escalate` | Certificate to File Action (CFA) / Court referral form. |
+| `POST` | `/admin/cases/{id}/escalate` | `CaseEscalationController@store` | `permission:cases.escalate` | Certify case to court or higher agency. |
+| `POST` | `/admin/cases/{id}/settle` | `CaseController@settle` | `permission:cases.edit` | Record amicable settlement agreement terms. |
+| `POST` | `/admin/cases/{id}/notes` | `CaseNoteController@store` | `permission:cases.view` | Append investigation or hearing notes. |
+
+### G. External Agency Portal (`routes/agency.php`)
+Protected by `auth`, `role:agency`, `agency.active`.
+
+| Method | URI | Controller Action | Middleware / Access | Purpose |
+| :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/agency/register` | `AgencyRegistrationController@create` | `guest` / `auth` | Self-service registration for outside agencies. |
+| `POST` | `/agency/register` | `AgencyRegistrationController@store` | `guest` / `auth` | Submit credentials and official agency ID proof. |
+| `GET` | `/agency/pending` | `AgencyRegistrationController@pending` | `auth` | Awaiting admin account approval landing page. |
+| `GET` | `/agency/referrals` | `AgencyReferralController@index` | `role:agency, agency.active` | Outside agency referral inbox. |
+| `GET` | `/agency/referrals/{id}` | `AgencyReferralController@show` | `role:agency, agency.active` | Referral case file & documentation packet. |
+| `POST` | `/agency/referrals/{id}/accept` | `AgencyReferralController@accept` | `role:agency, agency.active` | Agency acknowledgment of referred case. |
+| `POST` | `/agency/referrals/{id}/updates` | `AgencyReferralController@postUpdate` | `role:agency, agency.active` | Agency progress milestone or resolution update. |
+| `GET` | `/agency/team` | `AgencyTeamController@index` | `role:agency, agency.active` | Team roster (Office Admin only). |
+| `POST` | `/agency/team/invite` | `AgencyTeamController@invite` | `role:agency, agency.active` | Invite agency officer colleague. |
+

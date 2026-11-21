@@ -242,7 +242,295 @@ erDiagram
 
 ---
 
-## 3. JSON Field Schemas
+## 3. Phase 0 Foundation Tables
+
+### `fiscal_years`
+- `id` (bigint unsigned, PK)
+- `year` (integer, unique)
+- `label` (string)
+- `starts_on` (date)
+- `ends_on` (date)
+- `status` (enum: `active`, `inactive`, `closed`, `locked`, default: `inactive`)
+- `is_locked` (boolean, default: false)
+- `closed_at` (timestamp, nullable)
+- `closed_by` (foreignId -> users, nullable)
+- `close_note` (text, nullable)
+- `timestamps`
+
+### `number_sequences`
+- `id` (bigint unsigned, PK)
+- `fiscal_year_id` (foreignId -> fiscal_years, cascade)
+- `type` (string, indexed) — e.g. `case`, `referral`, `summons`
+- `last_number` (integer unsigned, default: 0)
+- `timestamps`
+- Unique: `['fiscal_year_id', 'type']`
+
+### `positions`
+- `id` (bigint unsigned, PK)
+- `name` (string)
+- `code` (string, unique) — e.g. `punong_barangay`, `barangay_secretary`
+- `sort_order` (integer, default: 0)
+- `is_signatory_default` (boolean, default: false)
+- `is_confirmed` (boolean, default: false)
+- `source_question` (string, nullable)
+- `timestamps`
+
+### `personnel`
+- `id` (bigint unsigned, PK)
+- `user_id` (foreignId -> users, nullable)
+- `position_id` (foreignId -> positions)
+- `full_name` (string)
+- `contact_number` (string, nullable)
+- `email` (string, nullable)
+- `term_start` (date, nullable)
+- `term_end` (date, nullable)
+- `is_signatory` (boolean, default: false)
+- `signature_path` (string, nullable)
+- `is_active` (boolean, default: true)
+- `notes` (text, nullable)
+- `timestamps`
+
+### `signatory_assignments`
+- `id` (bigint unsigned, PK)
+- `document_type` (string, indexed) — e.g. `summons`, `referral_letter`, `case_endorsement`, `settlement_agreement`
+- `role_label` (string) — e.g. `Prepared by`, `Approved by`, `Presided by`
+- `position_id` (foreignId -> positions)
+- `sort_order` (integer, default: 0)
+- `is_confirmed` (boolean, default: false)
+- `source_question` (string, nullable)
+- `timestamps`
+
+### `permissions` & `permission_user`
+- `permissions`:
+  - `id` (bigint unsigned, PK)
+  - `slug` (string, unique) — e.g. `cases.view`, `settings.manage`
+  - `label` (string)
+  - `group` (string)
+  - `timestamps`
+- `permission_user`:
+  - `permission_id` (foreignId -> permissions, cascade)
+  - `user_id` (foreignId -> users, cascade)
+  - PK: `['permission_id', 'user_id']`
+
+### `report_templates` & `generated_reports`
+- `report_templates`:
+  - `id` (bigint unsigned, PK)
+  - `key` (string, unique)
+  - `title` (string)
+  - `description` (text, nullable)
+  - `source` (string) — e.g. `cases`, `referrals`, `reports`
+  - `columns` (json)
+  - `filters` (json, nullable)
+  - `orientation` (enum: `portrait`, `landscape`, default: `portrait`)
+  - `signatory_document_type` (string, nullable)
+  - `is_active` (boolean, default: true)
+  - `is_confirmed` (boolean, default: false)
+  - `timestamps`
+- `generated_reports`:
+  - `id` (bigint unsigned, PK)
+  - `report_template_id` (foreignId -> report_templates, cascade)
+  - `fiscal_year_id` (foreignId -> fiscal_years, cascade)
+  - `title` (string)
+  - `format` (enum: `pdf`, `xlsx`, `csv`)
+  - `file_path` (string)
+  - `parameters` (json, nullable)
+  - `generated_by` (foreignId -> users)
+  - `timestamps`
+
+### `agency_registrations` & `agency_invitations`
+- `agency_registrations`:
+  - `id` (bigint unsigned, PK)
+  - `user_id` (foreignId -> users, cascade)
+  - `office_id` (foreignId -> offices, nullOnDelete, nullable)
+  - `agency_name_claimed` (string)
+  - `position_title` (string)
+  - `contact_number` (string)
+  - `id_document_path` (string)
+  - `status` (enum: `pending`, `approved`, `rejected`, `suspended`, default: `pending`)
+  - `is_office_admin` (boolean, default: false)
+  - `reviewed_by` (foreignId -> users, nullable)
+  - `reviewed_at` (timestamp, nullable)
+  - `decision_note` (text, nullable)
+  - `timestamps`
+- `agency_invitations`:
+  - `id` (bigint unsigned, PK)
+  - `office_id` (foreignId -> offices, cascade)
+  - `email` (string)
+  - `token_hash` (string, unique)
+  - `invited_by` (foreignId -> users)
+  - `expires_at` (timestamp)
+  - `accepted_at` (timestamp, nullable)
+  - `timestamps`
+
+### `case_types`
+- `id` (bigint unsigned, PK)
+- `name` (string)
+- `slug` (string, unique)
+- `description` (text, nullable)
+- `sort_order` (integer, default: 0)
+- `is_active` (boolean, default: true)
+- `is_confirmed` (boolean, default: false)
+- `source_question` (string, nullable)
+- `timestamps`
+
+### `parties`
+- `id` (bigint unsigned, PK)
+- `full_name` (string, indexed)
+- `alias` (string, nullable)
+- `birth_date` (date, nullable)
+- `sex` (enum: `male`, `female`, `other`, nullable)
+- `civil_status` (string, nullable)
+- `occupation` (string, nullable)
+- `contact_number` (string, nullable)
+- `email` (string, nullable)
+- `address_line` (string, nullable)
+- `purok_id` (foreignId -> puroks, nullOnDelete, nullable)
+- `home_barangay` (string, default: `Calarian`)
+- `home_city` (string, default: `Zamboanga City`)
+- `residency_status` (enum: `resident`, `non_resident`, `transient`, `unverified`, default: `unverified`)
+- `residency_basis` (string, nullable)
+- `residency_verified_by` (foreignId -> users, nullable)
+- `residency_verified_at` (timestamp, nullable)
+- `id_type` (string, nullable)
+- `id_number` (string, nullable)
+- `extra` (json, nullable)
+- `timestamps`
+
+### `cases` (`BarangayCase`)
+- `id` (bigint unsigned, PK)
+- `case_number` (string, unique) — e.g. `CASE-2026-00001`
+- `fiscal_year_id` (foreignId -> fiscal_years)
+- `case_type_id` (foreignId -> case_types)
+- `source` (enum: `direct`, `report_escalation`, default: `direct`)
+- `source_report_id` (foreignId -> reports, nullOnDelete, nullable)
+- `title` (string)
+- `narrative` (text)
+- `filed_on` (date)
+- `incident_date` (date, nullable)
+- `incident_location` (string, nullable)
+- `purok_id` (foreignId -> puroks, nullOnDelete, nullable)
+- `status` (string, indexed, default: `filed`)
+- `encoded_by` (foreignId -> users)
+- `assigned_to` (foreignId -> users, nullOnDelete, nullable)
+- `settled_on` (date, nullable)
+- `settlement_terms` (text, nullable)
+- `outcome_note` (text, nullable)
+- `is_confidential` (boolean, default: false)
+- `timestamps`
+
+### `case_parties`
+- `id` (bigint unsigned, PK)
+- `case_id` (foreignId -> cases, cascade)
+- `party_id` (foreignId -> parties, cascade)
+- `role` (enum: `complainant`, `respondent`, `witness`, `representative`)
+- `residency_at_filing` (string, default: `resident`)
+- `representative_name` (string, nullable)
+- `notes` (text, nullable)
+- `timestamps`
+- Unique: `['case_id', 'party_id', 'role']`
+
+### `case_status_logs`
+- `id` (bigint unsigned, PK)
+- `case_id` (foreignId -> cases, cascade)
+- `user_id` (foreignId -> users, nullOnDelete, nullable)
+- `from_status` (string, nullable)
+- `to_status` (string)
+- `note` (text, nullable)
+- `created_at` (timestamp)
+
+### `case_notes`
+- `id` (bigint unsigned, PK)
+- `case_id` (foreignId -> cases, cascade)
+- `user_id` (foreignId -> users, cascade)
+- `type` (enum: `internal`, `investigation`, `hearing_summary`, default: `internal`)
+- `body` (text)
+- `timestamps`
+
+### `case_field_configs`
+- `id` (bigint unsigned, PK)
+- `entity` (enum: `case`, `party`)
+- `field_key` (string)
+- `label` (string)
+- `is_required` (boolean, default: false)
+- `is_visible` (boolean, default: true)
+- `applies_to` (string, default: `all`)
+- `sort_order` (integer, default: 0)
+- `is_confirmed` (boolean, default: false)
+- `source_question` (string, nullable)
+- `timestamps`
+- Unique: `['entity', 'field_key']`
+
+### `summons`
+- `id` (bigint unsigned, PK)
+- `case_id` (foreignId -> cases, cascade)
+- `respondent_case_party_id` (foreignId -> case_parties, cascade)
+- `sequence_no` (integer unsigned) — 1, 2, or 3
+- `summons_number` (string, unique)
+- `issued_on` (date)
+- `issued_by` (foreignId -> users)
+- `hearing_at` (datetime)
+- `venue` (string)
+- `served_by_personnel_id` (foreignId -> personnel, nullable)
+- `served_on` (date, nullable)
+- `service_result` (enum: `pending`, `served_personal`, `served_substituted`, `refused`, `unserved`, default: `pending`)
+- `attendance` (enum: `pending`, `appeared`, `failed_to_appear`, default: `pending`)
+- `remarks` (text, nullable)
+- `voided_at` (timestamp, nullable)
+- `void_note` (text, nullable)
+- `override_note` (text, nullable)
+- `timestamps`
+
+### `hearings`
+- `id` (bigint unsigned, PK)
+- `case_id` (foreignId -> cases, cascade)
+- `summons_id` (foreignId -> summons, nullOnDelete, nullable)
+- `scheduled_at` (datetime)
+- `venue` (string)
+- `presided_by_personnel_id` (foreignId -> personnel, nullable)
+- `status` (enum: `scheduled`, `in_progress`, `concluded`, `rescheduled`, `cancelled`, default: `scheduled`)
+- `outcome_note` (text, nullable)
+- `timestamps`
+
+### `escalation_destinations`
+- `id` (bigint unsigned, PK)
+- `name` (string)
+- `description` (text, nullable)
+- `contact_person` (string, nullable)
+- `contact_email` (string, nullable)
+- `contact_phone` (string, nullable)
+- `address` (text, nullable)
+- `sort_order` (integer, default: 0)
+- `is_active` (boolean, default: true)
+- `is_confirmed` (boolean, default: false)
+- `source_question` (string, nullable)
+- `timestamps`
+
+### `case_escalations`
+- `id` (bigint unsigned, PK)
+- `case_id` (foreignId -> cases, cascade)
+- `escalation_destination_id` (foreignId -> escalation_destinations)
+- `escalated_by` (foreignId -> users)
+- `decided_by_personnel_id` (foreignId -> personnel, nullable)
+- `reason` (text)
+- `override_note` (text, nullable)
+- `summons_count_at_time` (integer unsigned, default: 0)
+- `referral_id` (foreignId -> referrals, nullOnDelete, nullable)
+- `escalated_at` (timestamp)
+- `timestamps`
+
+### Fiscal Year Binding on Reports & Referrals
+- `reports.fiscal_year_id` (foreignId -> fiscal_years, nullable)
+- `referrals.fiscal_year_id` (foreignId -> fiscal_years, nullable)
+
+### Placeholder Configuration Pattern
+All baseline configurable records (`settings`, `positions`, `signatory_assignments`, `case_types`, `case_field_configs`, `escalation_destinations`, `report_templates`) include:
+- `is_confirmed` (boolean, default: false)
+- `source_question` (string, nullable)
+This enables the 5-step interactive setup wizard (`/setup`) to audit, highlight, and confirm municipality-specific configurations.
+
+---
+
+## 4. JSON Field Schemas
 
 ### `categories.question_schema`
 ```json

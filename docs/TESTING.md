@@ -23,7 +23,22 @@ php artisan test --filter=test_staff_can_assign_report_to_office
 
 # Clear cached config prior to running tests
 php artisan config:clear
+
+# Phase 0 Onboarding & Demo Commands
+php artisan app:empty                # Wipe DB & seed required baseline placeholders for /setup testing
+php artisan app:demo                 # Wipe DB & seed full demo dataset with active FY, cases & accounts
 ```
+
+### Test Credentials (from `php artisan app:demo`):
+- **Admin**: `admin@calarian.gov.ph` / `password123`
+- **Staff (Full)**: `staff@calarian.gov.ph` / `password123`
+- **Encoder (Clerk)**: `clerk@calarian.gov.ph` / `password123`
+- **Agency (CSWDO)**: `cswdo@zamboanga.gov.ph` / `password123`
+
+### Testing with Fiscal Years & Seeders
+- In `tests/TestCase.php`, `completeSetup()` runs automatically by default, creating an active fiscal year for the current year.
+- To test cold-start installation workflows, invoke `$this->withoutSetup()` in your test method, which disables completion flags and triggers `/setup` redirection checks.
+- For idempotent seed testing, run `php artisan test tests/Feature/SeederTest.php`.
 
 ---
 

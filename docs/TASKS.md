@@ -92,3 +92,36 @@ Ordered, outcome-driven tasks to bring the existing codebase into alignment with
   3. [x] Run `php artisan route:list` to verify route bindings (all 103 routes clean).
   4. [x] Perform a text search across the codebase to ensure zero orphaned status strings remain (purged `out_of_scope` reference in `routes/engine.php` in favor of `Report::CLOSED_STATUSES`).
 - **Done When**: Test suite is 100% green, Pint is clean, and docs in `docs/` reflect the exact code state.
+
+---
+
+## Task 6: Phase 0 — Foundation & Infrastructure [Completed]
+- **Status**: Completed (2026-11-22)
+- **Branch**: `feature/phase0-foundation`
+- **Goal**: Implement complete foundation layer across schema, services, middleware, route stubs, navigation, shared UI components, and test harness without building feature screens beyond stubs.
+- **Implemented Scope**:
+  1. [x] **Dependencies**: `barryvdh/laravel-dompdf` (^3.1), `openspout/openspout` (^5.15).
+  2. [x] **Database Migrations**: 6 sequential migrations establishing 19 new tables, foreign keys, and indexes.
+  3. [x] **Models & Factories**: 20 new Eloquent models with typed casts, relations, and corresponding factories; `HasConfirmation` and `BelongsToFiscalYear` concerns.
+  4. [x] **Core Services**: `SettingsService` (with `setting()` helper), `FiscalYearService`, `FiscalYearContext`, `FiscalYearGuard`, `NumberingService`, `PermissionService`, `AuditLogger`, `PersonnelService`, and stubs for future workstreams.
+  5. [x] **Middleware & Gates**: `SetupCompleted`, `CheckPermission`, `EnsurePasswordChanged`, `EnsureAgencyActive`, and updated `EnsureRole` with testing harness extensions (`actingAsAdmin`, `actingAsStaff`, `actingAsEncoder`, `actingAsAgency`).
+  6. [x] **Routes & Controller Stubs**: 7 route files (`routes/setup.php`, `settings.php`, `people.php`, `reports_center.php`, `cases.php`, `case_actions.php`, `agency.php`) with 35 new routes returning structured stub views.
+  7. [x] **Navigation & Shared UI Components**: `config/navigation.php`, updated `layouts/admin.blade.php`, `layouts/agency.blade.php`, `layouts/print.blade.php`, and 11 Blade components in `resources/views/components/ui/` with interactive showcase at `/admin/_ui`.
+  8. [x] **Seeders & Commands**: `RequiredDataSeeder` (all placeholders unconfirmed), `DemoDataSeeder` (active FY, realistic Calarian cases, demo accounts), `app:empty`, and `app:demo`.
+  9. [x] **Configuration & Presets**: `config/features.php`, `config/documents.php`, `config/permission_presets.php`, and staff preset migration.
+  10. [x] **Verification**: All 184 tests pass (1,374 assertions), Pint is 100% clean.
+
+---
+
+## Upcoming Team Workstreams (Ready to Start)
+
+All workstreams branch from `feature/phase0-foundation` or develop on designated feature branches as specified in `docs/TEAM_WORKSTREAMS.md`:
+
+| Workstream | Scope / Objective | Status | Target Branch |
+| :--- | :--- | :--- | :--- |
+| **WS1: Setup Wizard & Administration** | Complete 5-step interactive wizard at `/setup`, position/signatory management, fiscal year lifecycle UI, numbering configuration, general settings. | **READY TO START** | `feature/ws1-setup-admin` |
+| **WS2: Reports Center & Analytics** | Report generation engine (PDF via DomPDF, Excel/CSV via OpenSpout), template runner, signatory block integration, DILG/KP compliance exports. | **READY TO START** | `feature/ws2-reports-center` |
+| **WS3: Case Module (Blotter & Conciliation)** | Case filing, party profiles & residency tracking, 3-summons issuance limit, hearing scheduler, amicable settlement repudiation, court escalation (CFA). | **READY TO START** | `feature/ws3-case-module` |
+| **WS4: External Partner Agency Portal** | Agency registration & admin approval flow, external referral inbox, acceptance, progress milestone updates, agency team management. | **READY TO START** | `feature/ws4-agency-portal` |
+| **WS5: Navigation, Polish & Integration** | Global cross-entity search bar, year switcher dropdown persistence, pending placeholder audit badges, mobile responsiveness audit. | **READY TO START** | `feature/ws5-navigation-polish` |
+

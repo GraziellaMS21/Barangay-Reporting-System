@@ -160,3 +160,53 @@ When an incident falls outside barangay authority (Mode B), the system routes it
   - Follow-up owner (defaults to the staff member who prepared the referral).
 - **Resident Privacy During Referral**: The resident tracking page displays only the recipient agency name, transmission status, and public notes (`visible_to_resident = true`). Staff names, official email addresses, and internal notes are never exposed.
 - **SLA Clock Effect**: When a report transitions to `referred`, the internal barangay SLA clock stops (`Closed` for barangay SLA) while the external agency handles the matter. If the external agency cannot remediate, staff transition the case to `no_action` with reason `not_barangay_matter` or re-route internally.
+
+---
+
+## 8. Case Lifecycle (DRAFT - Katarungang Pambarangay)
+
+> [!IMPORTANT]
+> **Independent State Machine**: The Barangay Case lifecycle operates entirely independently from the public incident report lifecycle. Cases originate either via direct walk-in complaints filed at the barangay hall or via escalation of an existing civil report.
+>
+> All case statuses below are marked as **`(Draft - subject to WS3 implementation)`**.
+
+```mermaid
+stateDiagram-v2
+    [*] --> filed: Direct Complaint / Escalated Report
+    
+    filed --> in_mediation: Summons 1 Issued
+    filed --> dismissed: Out of KP Jurisdiction / Lack of Merit
+    filed --> withdrawn: Complainant Withdraws
+    
+    in_mediation --> agreement_drafted: Parties Reach Consensus
+    in_mediation --> in_mediation: Summons 2 or 3 Re-issued
+    in_mediation --> escalated: CFA Issued (3 Failed Appearances / Impasse)
+    in_mediation --> dismissed: Lack of Interest
+    
+    agreement_drafted --> settled: 10-Day Repudiation Period Lapses
+    agreement_drafted --> repudiated: Party Files Repudiation Sworn Statement
+    
+    repudiated --> hearing_pending: New Conciliation Scheduled
+    hearing_pending --> settled: New Settlement Reached
+    hearing_pending --> escalated: CFA Issued to Court
+    
+    settled --> [*]
+    escalated --> [*]
+    dismissed --> [*]
+    withdrawn --> [*]
+```
+
+### Case Status Reference Matrix (Draft)
+
+| Status Slug | Label | Stage Meaning | Next Allowed Statuses |
+| :--- | :--- | :--- | :--- |
+| `filed` | Filed | Complaint docketed with initial case number. | `in_mediation`, `dismissed`, `withdrawn` |
+| `in_mediation` | In Mediation | Summons issued; conciliation proceedings active before PB/Lupon. | `agreement_drafted`, `escalated`, `dismissed` |
+| `agreement_drafted` | Agreement Drafted | Terms signed; 10-day statutory repudiation window running. | `settled`, `repudiated` |
+| `settled` | Settled | Final amicable settlement agreement executed and binding. | Terminal (Execution Phase) |
+| `repudiated` | Repudiated | Settlement repudiated by a party within statutory 10-day window. | `hearing_pending`, `escalated` |
+| `hearing_pending` | Hearing Pending | Follow-up Lupon conciliation session scheduled after repudiation. | `settled`, `escalated` |
+| `escalated` | Escalated | Certificate to File Action (CFA) issued to court / prosecutor / PNP. | Terminal |
+| `dismissed` | Dismissed | Case dismissed for lack of jurisdiction, interest, or prescription. | Terminal |
+| `withdrawn` | Withdrawn | Case dropped voluntarily by complainant. | Terminal |
+

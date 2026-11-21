@@ -12,7 +12,10 @@ Core Principle: *"The AI suggests, the rules route, the officials decide."*
 
 Traditional incident reporting in barangays relies on physical walk-ins to the barangay hall, phone calls to personal mobile numbers, or unorganized group chats. This leads to lost requests, no accountability, lack of status visibility for residents, and difficulty triaging critical issues vs. routine maintenance.
 
-The system provides a lightweight, mobile-responsive web platform where residents can submit civic concerns without friction, while barangay officials receive AI-assisted triage with human-in-the-loop review, automated SLA tracking, and structured external agency referrals.
+The system provides a lightweight, mobile-responsive web platform where residents can submit civic concerns without friction, while barangay officials receive AI-assisted triage with human-in-the-loop review, automated SLA tracking, structured external agency referrals via a dedicated Partner Agency Portal, and formal Katarungang Pambarangay case blotter/conciliation management.
+
+> [!NOTE]
+> **Active Scope**: Incident reporting, external agency referrals with Partner Agency Portal, and Katarungang Pambarangay dispute conciliation cases are fully in scope. Voice calls, softphone, and cellular SMS broadcasts remain deferred.
 
 ---
 
@@ -22,7 +25,9 @@ The system provides a lightweight, mobile-responsive web platform where resident
 | :--- | :--- | :--- | :--- |
 | **Resident** | **None** (guest, tracking code `BRG-XXXXXX`) | Submit a report; see emergency contacts; track status and public timeline; answer staff clarification questions; confirm or reopen resolution and rate 1–5 stars; view the limited public transparency map. | See personal identification or full details of other residents' reports. |
 | **Staff** | Yes (`staff`) | Review the priority queue; view 3-way comparative triage (Resident vs. AI vs. Final); edit and confirm values; route internally or refer upward; handle emergencies and duplicates; assign personnel; request clarifications; propose resolution with proof photos. | Let AI output become final without manual staff review; auto-close or auto-resolve cases. |
+| **Case Encoder / Lupon Clerk** | Yes (`staff`, preset `case_encoder`) | File and docket community cases; record party profiles; schedule hearings; generate summonses; view non-confidential dispute cases. | Access confidential domestic/juvenile cases or modify system settings and backups. |
 | **Captain / Administrator** | Yes (`admin`) | Everything Staff can do, plus manage users, categories (risk weights, default office, response times, question schemas), offices, routing rules, emergency contacts, sensitive places, priority weights, response templates; view dashboard analytics and security audit log; export CSV. | Bypass audit logging for overrides or setting changes. |
+| **Agency User** | Yes (`agency`) | View assigned external referrals in Partner Portal; accept referrals; download endorsement packets; post progress and resolution updates; manage agency team. | Access internal barangay reports, public submission queues, or confidential blotter cases. |
 | **AI Service (Google Gemini)** | N/A (external API) | Suggest category, urgency rating, executive summary, photo description, photo mismatch alert, emergency flags, duplicate candidates; generate aggregate dashboard insights. | Route, merge, close, resolve, modify final records, or contact police directly. |
 
 ---

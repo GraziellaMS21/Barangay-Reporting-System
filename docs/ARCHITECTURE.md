@@ -63,10 +63,52 @@ The application follows a **Modular Monolithic MVC Pattern** built on Laravel 13
 | **`DuplicateService`** | `app/Services/DuplicateService.php` | Performs Haversine distance calculations (100–150m) and text similarity comparisons against open reports. |
 | **`HotspotService`** | `app/Services/HotspotService.php` | Groups coordinates into geospatial grid clusters to identify high-density incident locations. |
 | **`NotificationService`** | `app/Services/NotificationService.php` | Wraps mail dispatches in robust exception handling and logs delivery status to `notification_logs`. |
+| **`SettingsService`** | `app/Services/SettingsService.php` | Dynamic typed configuration store, cached key lookups, and setup placeholder confirmation auditing. |
+| **`FiscalYearService`** | `app/Services/FiscalYearService.php` | Fiscal year lifecycle, active year resolution, boundary enforcement, and annual transition management. |
+| **`FiscalYearContext`** | `app/Services/FiscalYearContext.php` | Session-scoped viewing year context for multi-year review, archival auditing, and global filters. |
+| **`FiscalYearGuard`** | `app/Services/FiscalYearGuard.php` | Security gate preventing mutations on records belonging to locked/closed fiscal years. |
+| **`NumberingService`** | `app/Services/NumberingService.php` | Format mask compiler (`CASE-{YEAR}-{SEQ:5}`) and atomic database-locked sequence generator. |
+| **`PermissionService`** | `app/Services/PermissionService.php` | Granular permission registry, user syncing, and role preset application (`staff_full`, `case_encoder`, etc.). |
+| **`AuditLogger`** | `app/Services/AuditLogger.php` | Centralized audit logger recording administrative overrides, setting adjustments, and security events. |
+| **`PersonnelService`** | `app/Services/PersonnelService.php` | Official roster management, term tracking, signatory eligibility, and deactivation safeguards. |
+| **`SignatoryResolver`** | `app/Services/SignatoryResolver.php` | Document signatory resolution mapping document types to active position holders. |
+| **`CaseStatusService`** | `app/Services/CaseStatusService.php` | State transition machine for Katarungang Pambarangay dispute conciliation cases. |
+| **`SummonsCounterService`** | `app/Services/SummonsCounterService.php` | Tracking sequential summons issuance and enforcing statutory thresholds before court escalation. |
+| **`OverdueService`** | `app/Services/OverdueService.php` | SLA calculation identifying overdue reports, hearings, and pending external referrals. |
+| **`GlobalSearchService`** | `app/Services/GlobalSearchService.php` | Cross-entity universal search indexing reports, cases, parties, and referrals. |
 
 ---
 
-## 3. End-to-End Data Flow
+## 3. Fiscal Year Context, Guard & Numbering Pipeline
+
+### Fiscal Year Context & Guard
+The application enforces strict annual fiscal year isolation:
+- **`FiscalYearService::forNewRecord()`**: Attaches the currently active fiscal year to every new report, case, or referral.
+- **`FiscalYearContext`**: Allows staff to switch viewing context via the `<x-year-switcher />` component without altering the default active year.
+- **`FiscalYearGuard::assertWritable()`**: Rejects edits to finalized records in locked fiscal years, throwing `FiscalYearLocked`.
+
+### Atomic Numbering Pipeline
+Numbering sequences are tracked in `number_sequences` with a composite unique key `['fiscal_year_id', 'type']`:
+1. `NumberingService::next($type, $fiscalYear)` parses format masks (e.g. `CASE-{YEAR}-{SEQ:5}`, `REF-{YEAR}-{SEQ:4}`, `SUM-{YEAR}-{SEQ:4}`).
+2. Uses `lockForUpdate()` within an atomic database transaction.
+3. Automatically rolls sequence numbering back to 1 when a new fiscal year starts.
+
+---
+
+## 4. Role, Permission & Preset Architecture
+
+Security is layered across three tiers:
+1. **Roles**: High-level actor classification (`admin`, `staff`, `agency`).
+2. **Granular Permissions**: 18 slugs covering discrete capabilities (e.g. `cases.view`, `cases.summons`, `settings.manage`, `reports_center.export`).
+3. **Role Presets**: Pre-configured permission bundles defined in `config/permission_presets.php`:
+   - `staff_full`: Complete staff operational rights across cases, reports, and referrals.
+   - `case_encoder`: Lupon clerk role restricted to dispute case docketing and summons issuance.
+   - `reports_analyst`: Read-only reporting and dashboard analytics access.
+4. **Admin Exemption**: Users with role `admin` implicitly satisfy all permission checks via `User::hasPermission()`.
+
+---
+
+## 5. End-to-End Data Flow
 
 ```mermaid
 sequenceDiagram

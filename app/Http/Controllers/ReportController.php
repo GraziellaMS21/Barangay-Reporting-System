@@ -142,7 +142,7 @@ class ReportController extends Controller
 
         $report = DB::transaction(function () use ($data, $photoPaths, $reportType, $isEmergency, $isAnonymous, $consentAt) {
             $fiscalYear = app(FiscalYearService::class)->forNewRecord();
-            $fiscalYear = app(\App\Services\FiscalYearService::class)->forNewRecord();
+            $fiscalYear = app(FiscalYearService::class)->forNewRecord();
             $report = Report::create([
                 'fiscal_year_id' => $fiscalYear->id,
                 'tracking_code' => Report::generateTrackingCode(),

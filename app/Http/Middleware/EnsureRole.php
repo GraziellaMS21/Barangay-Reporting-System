@@ -17,7 +17,25 @@ class EnsureRole
     {
         $user = $request->user();
 
-        if (! $user || ! $user->is_active || ! in_array($user->role, $roles, true)) {
+        if (! $user || ! $user->is_active) {
+            abort(403, 'Unauthorized.');
+        }
+
+        $allowedRoles = [];
+        foreach ($roles as $roleGroup) {
+            foreach (explode(',', $roleGroup) as $r) {
+                $r = trim($r);
+                if ($r === 'staff') {
+                    // role:staff admits staff and admin, never agency
+                    $allowedRoles[] = 'staff';
+                    $allowedRoles[] = 'admin';
+                } else {
+                    $allowedRoles[] = $r;
+                }
+            }
+        }
+
+        if (! in_array($user->role, array_unique($allowedRoles), true)) {
             abort(403, 'Unauthorized.');
         }
 

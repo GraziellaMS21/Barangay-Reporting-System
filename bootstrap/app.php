@@ -1,6 +1,10 @@
 <?php
 
+use App\Http\Middleware\CheckPermission;
+use App\Http\Middleware\EnsureAgencyActive;
+use App\Http\Middleware\EnsurePasswordChanged;
 use App\Http\Middleware\EnsureRole;
+use App\Http\Middleware\SetupCompleted;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -15,8 +19,25 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->redirectGuestsTo('/login');
         $middleware->redirectUsersTo('/admin');
+
+        $middleware->web(append: [
+            SetupCompleted::class,
+        ]);
+
+        $middleware->web(append: [
+            SetupCompleted::class,
+        ]);
+
         $middleware->alias([
             'role' => EnsureRole::class,
+            'setup.complete' => SetupCompleted::class,
+            'permission' => CheckPermission::class,
+            'password.changed' => EnsurePasswordChanged::class,
+            'agency.active' => EnsureAgencyActive::class,
+            'setup.complete' => SetupCompleted::class,
+            'permission' => CheckPermission::class,
+            'password.changed' => EnsurePasswordChanged::class,
+            'agency.active' => EnsureAgencyActive::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

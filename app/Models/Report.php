@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToFiscalYear;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -12,7 +13,7 @@ use Illuminate\Support\Str;
 
 class Report extends Model
 {
-    use HasFactory;
+    use BelongsToFiscalYear, HasFactory;
 
     public const STATUSES = [
         'submitted' => 'Submitted',
@@ -152,6 +153,7 @@ class Report extends Model
     ];
 
     protected $fillable = [
+        'fiscal_year_id',
         'tracking_code',
         'status',
         'no_action_reason',

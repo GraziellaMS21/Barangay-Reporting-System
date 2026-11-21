@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToFiscalYear;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Referral extends Model
 {
+    use BelongsToFiscalYear;
+
     public const STATUSES = [
         'prepared' => 'Prepared',
         'sent' => 'Sent',
@@ -39,6 +42,7 @@ class Referral extends Model
     public const UPDATE_TARGET_STATUSES = ['acknowledged', 'action_taken'];
 
     protected $fillable = [
+        'fiscal_year_id',
         'report_id',
         'office_id',
         'reference_no',

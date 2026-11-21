@@ -8,6 +8,7 @@ use App\Models\EmergencyContact;
 use App\Models\Purok;
 use App\Models\Report;
 use App\Models\StatusLog;
+use App\Services\FiscalYearService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -140,7 +141,10 @@ class ReportController extends Controller
         }
 
         $report = DB::transaction(function () use ($data, $photoPaths, $reportType, $isEmergency, $isAnonymous, $consentAt) {
+            $fiscalYear = app(FiscalYearService::class)->forNewRecord();
+            $fiscalYear = app(\App\Services\FiscalYearService::class)->forNewRecord();
             $report = Report::create([
+                'fiscal_year_id' => $fiscalYear->id,
                 'tracking_code' => Report::generateTrackingCode(),
                 'report_type' => $reportType,
                 'category_id' => $data['category_id'] ?? null,

@@ -4,12 +4,15 @@ namespace App\Services;
 
 use App\Mail\ReferralUpdateMail;
 use App\Models\AuditLog;
+use App\Models\BarangayCase;
+use App\Models\EscalationDestination;
 use App\Models\Office;
 use App\Models\Referral;
 use App\Models\ReferralUpdate;
 use App\Models\Report;
 use App\Models\Setting;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -55,7 +58,9 @@ class ReferralService
             $ownerId = $followUpOwnerId ?? $user?->id;
 
             if ($referral === null) {
+                $fy = $lockedReport->fiscalYear ?? app(FiscalYearService::class)->active();
                 $referral = Referral::query()->create([
+                    'fiscal_year_id' => $fy?->id,
                     'report_id' => $lockedReport->id,
                     'office_id' => $office->id,
                     'reference_no' => $this->generateReferenceNo(),
@@ -251,28 +256,28 @@ class ReferralService
         return $referral->refresh();
     }
 
-    /** REF-YYYY-NNNN, unique, sequential per year. */
+    /** REF-YYYY-NNNN, unique, sequential per year via NumberingService. */
     public function generateReferenceNo(): string
     {
-        $year = now()->format('Y');
-        $prefix = 'REF-'.$year.'-';
+        return app(NumberingService::class)->next('referral');
+    }
 
-        return DB::transaction(function () use ($prefix): string {
-            $lastNo = Referral::query()
-                ->where('reference_no', 'like', $prefix.'%')
-                ->orderByDesc('reference_no')
-                ->lockForUpdate()
-                ->value('reference_no');
+    /**
+     * STUB: Referrals with follow_up_at <= today and status not closed.
+     *
+     * @return Collection<int, Referral>
+     */
+    public function dueForFollowUp(): Collection
+    {
+        return new Collection;
+    }
 
-            $sequence = $lastNo !== null ? (int) substr($lastNo, -4) : 0;
-
-            do {
-                $sequence++;
-                $referenceNo = $prefix.str_pad((string) $sequence, 4, '0', STR_PAD_LEFT);
-            } while (Referral::query()->where('reference_no', $referenceNo)->exists());
-
-            return $referenceNo;
-        });
+    /**
+     * STUB: WS5 completes case-to-referral handoff.
+     */
+    public function createFromCase(BarangayCase $case, EscalationDestination $destination, User $by): Referral
+    {
+        throw new \LogicException('Not implemented (WS5)');
     }
 
     /**

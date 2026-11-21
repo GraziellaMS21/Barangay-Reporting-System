@@ -557,6 +557,7 @@
                     <span>Flag as emergency</span>
                   </button>
                 @endif
+                @includeIf('admin.cases.partials.convert-button', ['report' => $report])
               </div>
             </div>
           </div>

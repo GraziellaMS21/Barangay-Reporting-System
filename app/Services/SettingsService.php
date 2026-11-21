@@ -60,13 +60,20 @@ class SettingsService
         $this->audit->log($by, 'setting.updated', $setting, ['value' => $oldValue], ['value' => $storedValue]);
     }
 
-    public function confirm(string $key, User $by): void
+    public function setMany(array $settings, ?User $by = null): void
+    {
+        foreach ($settings as $key => $value) {
+            $this->set($key, $value, $by);
+        }
+    }
+
+    public function confirm(string $key, ?User $by = null): void
     {
         $setting = Setting::where('key', $key)->first();
         if ($setting) {
             $setting->update([
                 'is_confirmed' => true,
-                'confirmed_by' => $by->id,
+                'confirmed_by' => $by?->id,
                 'confirmed_at' => now(),
             ]);
 

@@ -97,3 +97,21 @@ Use this step-by-step walkthrough for thesis defenses, official client demonstra
     - Log in as Captain (`admin@barangay.test`).
     - Adjust category SLA hours and priority weights under `/admin/settings`.
     - Open `/admin/audit-log` to demonstrate the immutable security log recording every staff override and setting modification.
+
+---
+
+## 4. Manual Multi-Device UI Checklist
+
+Before submitting pull requests or concluding workstream tasks, every developer and coding agent must manually inspect views at three target viewport widths: **375 px (Mobile)**, **768 px (Tablet)**, and **1280 px (Desktop)** per [**`docs/UI_UX_SPEC.md`**](file:///c:/githubFiles/Barangay-Reporting-System-1/docs/UI_UX_SPEC.md):
+
+### Viewport Verification Grid
+
+| Check Item | 375 px (Mobile) | 768 px (Tablet) | 1280 px (Desktop) |
+| :--- | :--- | :--- | :--- |
+| **No Horizontal Page Scroll** | Canvas strictly fits; zero `overflow-x` page scroll. | Canvas fits; zero page scroll. | Canvas fits centered up to 1280 px max. |
+| **Primary Action Placement** | Stacks to 100% full width on top of secondary/cancel. | Right-aligned in header/footer rows. | Rightmost button in all action clusters. |
+| **Table Layout & Scrolling** | Card container scrolls horizontally; first column pins sticky. | Table fits or scrolls cleanly; no wrapped IDs. | Fixed column widths matching spec exactly. |
+| **Form Layout & Sticky Footers** | Single column; sticky footer never covers last input. | Single column; 2-col short inputs only. | Single column max 720 px (or 2-col short grids). |
+| **Modals & Overlays** | Max 90vw / 90vh; interior content scrolls gracefully. | Centered 480 px (sm) or 640 px (md). | Centered; focus traps to first input; Esc closes. |
+| **Touch Targets & Focus** | Minimum 44 px tap targets on all buttons and inputs. | Standard 40 px control heights. | Visible 2 px blue focus rings on tab navigation. |
+| **Color & Contrast** | Badges use both icon/text and color; 4.5:1 contrast. | 4.5:1 contrast on `#FFFFFF` / `#F8FAFC`. | 4.5:1 contrast verified across all states. |

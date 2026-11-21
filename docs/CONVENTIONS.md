@@ -40,6 +40,8 @@ Standardized development conventions for **Barangay-Reporting-System-1**.
   - `--red`: Emergency alert and danger accent (`#b91c1c` / `#dc2626`).
   - `--green`: Verified resolution accent (`#15803d` / `#16a34a`).
   - `--line`: Subtle border divider (`#e2e8f0` / `#cbd5e1`).
+  - Surface & Tabular Tokens: Page background `#F8FAFC`, card background `#FFFFFF`, muted text `#64748B`, table header background `#EEF2FF`, row hover `#F1F5F9`.
+- **UI/UX Specification**: All page wireframes, layout patterns (A through H), button hierarchy, table column widths, and component definitions must strictly follow [**`docs/UI_UX_SPEC.md`**](file:///c:/githubFiles/Barangay-Reporting-System-1/docs/UI_UX_SPEC.md).
 - **Icons**: Use FontAwesome Free 7 classes (`fa-solid fa-paper-plane`, `fa-solid fa-triangle-exclamation`).
 - **Mobile First**: All resident-facing views must render cleanly down to a $375\text{px}$ viewport width without horizontal scroll.
 - **Security & CSRF**: Every form must include `@csrf`. Use `{{ $var }}` blade escaping for untrusted user inputs.

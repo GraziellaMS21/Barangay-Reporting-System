@@ -117,6 +117,7 @@ These are the only places two workstreams touch. Each side codes against the **s
 
 **Ready checklist (member, before telling the lead)**
 - [ ] Only files in my owned paths changed (list any exceptions and who approved)
+- [ ] Screens match `docs/UI_UX_SPEC.md` (layout, button placement, table columns)
 - [ ] Tests added in my test folder; full suite green
 - [ ] Pint clean
 - [ ] My branch is up to date with `main` and pushed
@@ -131,6 +132,7 @@ These are the only places two workstreams touch. Each side codes against the **s
 
 **Review checklist (lead, before each merge)**
 - [ ] Only files in the member's owned paths changed
+- [ ] Screens match `docs/UI_UX_SPEC.md` (layout, button placement, table columns)
 - [ ] Tests added in their test folder; full suite green
 - [ ] Pint clean
 - [ ] Every create, update, delete, approval, and status change writes an audit log through `AuditLogger`
@@ -165,6 +167,8 @@ Each brief can be handed to that member's AI assistant as-is, after this header:
 ---
 
 ### WS1: Setup, Fiscal Year, Settings (Lead)
+
+UI reference: `docs/UI_UX_SPEC.md` section 4 (WS1, pages 4.1 to 4.9)
 
 **Goal:** answer the adviser's "the system is empty" criticism. A fresh install guides the administrator through setup, then the system runs scoped to the active fiscal year, with every unconfirmed assumption visible.
 
@@ -209,6 +213,8 @@ Wizard happy path and each validation; resume after refresh; `/setup` closed aft
 
 ### WS2: People, Access, Reports Center
 
+UI reference: `docs/UI_UX_SPEC.md` section 4 (WS2, pages 4.10 to 4.20)
+
 **Goal:** the registry of employees and signatories, per-employee access control, and the official reports generator with signature blocks.
 
 #### 2.1 Positions (`/admin/positions`)
@@ -242,6 +248,8 @@ Personnel CRUD and term logic; deactivation cascades to login; resolver returns 
 ---
 
 ### WS3: Cases, intake and parties
+
+UI reference: `docs/UI_UX_SPEC.md` section 4 (WS3, pages 4.21 to 4.25)
 
 **Goal:** a staff-encoded case file (blotter) with reusable person records, residency tagging, and the case lifecycle. Does **not** include summons, hearings, or escalation (WS4).
 
@@ -285,6 +293,8 @@ Validation per `case_field_configs`; person search; duplicate guard; resident ta
 
 ### WS4: Cases, summons, hearings, escalation
 
+UI reference: `docs/UI_UX_SPEC.md` section 4 (WS4, pages 4.26 to 4.30)
+
 **Goal:** track summons per case, flag eligibility after the configured limit, record hearings and outcomes, and let an official escalate a case with a documented decision.
 
 > You start day one against the Phase 0 skeleton and the demo cases. You own everything in `admin/case-actions/`.
@@ -316,6 +326,8 @@ Counter math (voided excluded, limit from setting, scope of statuses); issuing w
 ---
 
 ### WS5: Agency accounts and referral updates
+
+UI reference: `docs/UI_UX_SPEC.md` section 4 (WS5, pages 4.31 to 4.38)
 
 **Goal:** let outside agencies (such as the police) register, be approved by an administrator, and see and update only the referrals addressed to them.
 

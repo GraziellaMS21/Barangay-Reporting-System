@@ -66,6 +66,7 @@ class RouteStubsTest extends TestCase
         $this->get('/admin/hearings')->assertOk();
         $this->get('/admin/secretary')->assertOk();
         $this->get('/admin/agencies')->assertOk();
+        $this->get('/admin/_ui')->assertOk();
     }
 
     public function test_staff_without_permissions_is_forbidden_on_admin_settings(): void

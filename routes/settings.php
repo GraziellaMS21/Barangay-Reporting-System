@@ -16,6 +16,8 @@ Route::middleware(['auth'])->group(function () {
 });
 
 Route::middleware(['auth', 'role:staff'])->group(function () {
+    Route::get('/admin/_ui', fn () => view('admin.ui-guide'))->name('admin.ui');
+
     Route::get('/admin/search', [GlobalSearchController::class, 'search'])
         ->middleware('throttle:30,1')
         ->name('admin.search');

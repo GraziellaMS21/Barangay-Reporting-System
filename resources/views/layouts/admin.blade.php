@@ -19,59 +19,48 @@
         </span>
       </a>
       <nav class="staff-nav" aria-label="Staff navigation">
-        <a href="{{ route('admin.dashboard') }}" @class(['active' => request()->routeIs('admin.dashboard')]) title="{{ auth()->user()->isAdmin() ? 'Admin Dashboard' : 'Staff Dashboard' }}">
-          <i class="fa-solid fa-gauge-high" aria-hidden="true"></i>
-          <span class="nav-label">{{ auth()->user()->isAdmin() ? 'Admin Dashboard' : 'Staff Dashboard' }}</span>
-        </a>
-        <a href="{{ route('admin.reports.index') }}" @class(['active' => request()->routeIs('admin.reports.index')]) title="Report queue">
-          <i class="fa-solid fa-inbox" aria-hidden="true"></i>
-          <span class="nav-label">Report queue</span>
-        </a>
-        <a href="{{ route('admin.reports.my-cases') }}" @class(['active' => request()->routeIs('admin.reports.my-cases')]) title="My cases">
-          <i class="fa-solid fa-user-check" aria-hidden="true"></i>
-          <span class="nav-label">My cases</span>
-        </a>
-        <a href="{{ route('admin.map') }}" @class(['active' => request()->routeIs('admin.map')]) title="Staff map">
-          <i class="fa-solid fa-map-location-dot" aria-hidden="true"></i>
-          <span class="nav-label">Staff map</span>
-        </a>
-        <a href="{{ route('admin.referrals.index') }}" @class(['active' => request()->routeIs('admin.referrals.index')]) title="Referrals and routing">
-          <i class="fa-solid fa-clipboard-list" aria-hidden="true"></i>
-          <span class="nav-label">Referrals and routing</span>
-        </a>
-        <a href="{{ route('reports.create') }}" title="Resident site">
+        @php
+          $adminNav = config('navigation.admin', []);
+          $unconfirmedCount = 0;
+          try {
+              $unconfirmedCount = app(\App\Services\SettingsService::class)->unconfirmed()->count();
+          } catch (\Throwable) {}
+        @endphp
+
+        @foreach($adminNav as $section)
+          @php
+            $visibleItems = collect($section['items'] ?? [])->filter(function ($item) {
+              return empty($item['permission']) || auth()->user()->hasPermission($item['permission']);
+            });
+          @endphp
+
+          @if($visibleItems->isNotEmpty())
+            @if(!empty($section['section']))
+              <div class="staff-nav-heading">
+                <span class="nav-heading-text">{{ $section['section'] }}</span>
+              </div>
+            @endif
+
+            @foreach($visibleItems as $item)
+              @php
+                $isActive = !empty($item['active_pattern']) && request()->routeIs($item['active_pattern']);
+              @endphp
+              <a href="{{ route($item['route']) }}" @class(['active' => $isActive]) title="{{ $item['label'] }}">
+                <i class="{{ $item['icon'] }}" aria-hidden="true"></i>
+                <span class="nav-label">{{ $item['label'] }}</span>
+              </a>
+            @endforeach
+          @endif
+        @endforeach
+
+        <div class="staff-nav-heading">
+          <span class="nav-heading-text">External</span>
+        </div>
+        <a href="{{ route('reports.create') }}" title="Resident site" target="_blank">
           <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
           <span class="nav-label">Resident site</span>
         </a>
-        @if(auth()->user()->isAdmin())
-          <div class="staff-nav-heading">
-            <span class="nav-heading-text">Administration</span>
-          </div>
-          <a href="{{ route('admin.settings.index') }}" title="Settings"
-            @class(['active' => request()->routeIs(
-              'admin.settings.index',
-              'admin.settings.priority*',
-              'admin.settings.emergency-alert-emails.*',
-              'admin.settings.categories.*',
-              'admin.settings.offices.*',
-              'admin.settings.routing-rules.*',
-              'admin.settings.sensitive-places.*',
-              'admin.settings.users.*'
-            )])>
-            <i class="fa-solid fa-gear" aria-hidden="true"></i>
-            <span class="nav-label">Settings</span>
-          </a>
-          <a href="{{ route('admin.settings.emergency-contacts.index') }}" title="Emergency Contacts"
-            @class(['active' => request()->routeIs('admin.settings.emergency-contacts.*')])>
-            <i class="fa-solid fa-phone" aria-hidden="true"></i>
-            <span class="nav-label">Emergency Contacts</span>
-          </a>
-          <a href="{{ route('admin.audit-log.index') }}" title="Audit log"
-            @class(['active' => request()->routeIs('admin.audit-log.*')])>
-            <i class="fa-solid fa-clipboard-check" aria-hidden="true"></i>
-            <span class="nav-label">Audit log</span>
-          </a>
-        @endif
+
         <form method="POST" action="{{ route('logout') }}">
           @csrf
           <button type="submit" title="Log out">
@@ -101,14 +90,21 @@
           <h1>@yield('page-heading', 'Staff dashboard')</h1>
           <p>Barangay Calarian · Report management</p>
         </div>
-        <div class="staff-user">
-          <span class="staff-avatar" aria-hidden="true">{{ str(auth()->user()->name)->substr(0, 1)->upper() }}</span>
-          <span class="staff-user-name">
-            <strong>{{ auth()->user()->name }}</strong>
-            <span class="role-badge {{ auth()->user()->isAdmin() ? 'role-admin' : 'role-staff' }}">
-              {{ auth()->user()->isAdmin() ? 'Admin' : 'Staff' }}
+        <div class="staff-header-actions flex items-center gap-3">
+          <x-ui.global-search />
+          <x-year-switcher />
+          @if($unconfirmedCount > 0)
+            <x-ui.pending-badge :count="$unconfirmedCount" />
+          @endif
+          <div class="staff-user">
+            <span class="staff-avatar" aria-hidden="true">{{ str(auth()->user()->name)->substr(0, 1)->upper() }}</span>
+            <span class="staff-user-name">
+              <strong>{{ auth()->user()->name }}</strong>
+              <span class="role-badge {{ auth()->user()->isAdmin() ? 'role-admin' : 'role-staff' }}">
+                {{ auth()->user()->isAdmin() ? 'Admin' : 'Staff' }}
+              </span>
             </span>
-          </span>
+          </div>
         </div>
       </header>
 

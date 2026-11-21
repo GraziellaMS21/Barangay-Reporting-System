@@ -128,8 +128,15 @@ return [
             ],
         ],
         [
-            'section' => 'Settings',
+            'section' => 'Administration',
             'items' => [
+                [
+                    'label' => 'Emergency Contacts',
+                    'route' => 'admin.settings.emergency-contacts.index',
+                    'icon' => 'fa-solid fa-phone',
+                    'permission' => 'settings.manage',
+                    'active_pattern' => 'admin.settings.emergency-contacts.*',
+                ],
                 [
                     'label' => 'General Settings',
                     'route' => 'admin.settings.general.edit',

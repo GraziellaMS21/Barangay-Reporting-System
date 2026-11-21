@@ -15,7 +15,7 @@
         <x-brand-seal />
         <span class="sidebar-brand-text">
           <strong>Calarian Reports</strong>
-          <small>{{ auth()->user()->isAdmin() ? 'Admin dashboard' : 'Staff dashboard' }}</small>
+          <small>{{ auth()->user()->isAdmin() ? 'Admin Dashboard' : 'Staff Dashboard' }}</small>
         </span>
       </a>
       <nav class="staff-nav" aria-label="Staff navigation">

@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
             OfficeSeeder::class,
             RoutingRuleSeeder::class,
             SettingSeeder::class,
+            RequiredDataSeeder::class,
             UserSeeder::class,
             DemoReportSeeder::class,
             CategoryQuestionSeeder::class,

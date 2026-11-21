@@ -53,6 +53,12 @@ Recorded as part of **Step 0: Discovery** for the foundation roadmap in `docs/PH
 
 ---
 
-## 7. Configuration
+## 7. Existing Settings & Response Templates Tables
+- `settings`: Exists in `2026_11_03_040000_phase_4_to_7_support_tables.php` with `id`, `key`, `value`, `timestamps`. Phase 0 migration will alter this table to add `type`, `group`, `label`, `description`, `is_confirmed`, `confirmed_by`, `confirmed_at`, and `source_question`.
+- `response_templates`: Exists in `2026_11_10_000001_phase8_foundation.php` with `id`, `name`, `status`, `category_id`, `body`, `is_active`, `timestamps`. Phase 0 migration will alter this table to add `title`, `kind`, and `created_by`.
+
+---
+
+## 8. Configuration
 - `config/reports.php`: Contains `referrals.follow_up_days` (default 7), proof photo limits, status options, and channels.
 - **Phase 0 Contract**: Move dynamic settings into `settings` table as outlined in `docs/PLACEHOLDERS.md` while maintaining fallback defaults.

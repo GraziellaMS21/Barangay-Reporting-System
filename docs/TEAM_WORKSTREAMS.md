@@ -97,15 +97,41 @@ These are the only places two workstreams touch. Each side codes against the **s
 ## 4. Git and merge rules
 
 - Branches: `feature/ws1-setup`, `feature/ws2-people-reports`, `feature/ws3-cases`, `feature/ws4-case-actions`, `feature/ws5-agency`. Branch from `main` **after** Phase 0 is merged.
-- `main` is protected. Merge by pull request only, **at least one other member reviews**.
-- Small pull requests (one page or one feature each). Rebase on `main` at least once a day.
-- Before each PR: `php artisan test`, `./vendor/bin/pint --test`, no edits outside your owned paths (the PR template checklist below enforces this).
-- **Merge order if two PRs conflict:** WS1, WS2, WS3, WS4, WS5.
-- Integration sprint: after each WS merges its main features, the lead runs the full demo script and files bugs per WS.
+- Each member pushes **only to their own branch**. Never push to another member's branch.
+- **Members never merge into `main`, never push to `main`, and do not open pull requests.** Only the lead checks and merges branches into `main`.
+- The lead restricts pushes to `main` in GitHub (Settings, Branches, branch protection rule) so that only the lead can push to it.
+- Commit small and often, with the workstream prefix in the message (for example, `WS2: add personnel list page`). Push at least once a day.
+- Members merge `main` into their own branch at least once a day to stay current. If there is a conflict, stop and tell the lead.
+- Before telling the lead a feature is ready: `php artisan test`, `./vendor/bin/pint --test`, no edits outside your owned paths (the ready checklist below).
+- **Merge order if two branches conflict:** WS1, WS2, WS3, WS4, WS5.
+- After each merge, the lead tells everyone to merge `main` into their branch.
+- Integration sprint: after each WS has its main features merged, the lead runs the full demo script and files bugs per WS.
 
-**PR checklist (copy into every PR)**
+**Member workflow**
+1. Start from the latest `main`: `git checkout main`, `git pull origin main`.
+2. Create your branch once: `git checkout -b feature/ws{n}-...`, then `git push -u origin feature/ws{n}-...`.
+3. Check where you are before coding: `git branch --show-current` (it must never show `main`).
+4. Work, then `git add .`, `git commit -m "WS{n}: ..."`, `git push`.
+5. Update from `main`: `git checkout main`, `git pull origin main`, `git checkout feature/ws{n}-...`, `git merge main`, `git push`.
+6. When a feature is done, run the ready checklist, then message the lead with your branch name and what is ready.
+
+**Ready checklist (member, before telling the lead)**
 - [ ] Only files in my owned paths changed (list any exceptions and who approved)
 - [ ] Tests added in my test folder; full suite green
+- [ ] Pint clean
+- [ ] My branch is up to date with `main` and pushed
+
+**Lead's review and merge steps**
+1. `git fetch origin`, `git checkout feature/ws{n}-...`, `git pull`.
+2. Run `php artisan test` and `./vendor/bin/pint --test`.
+3. Run `git diff main --name-only` and confirm only the member's owned paths changed.
+4. Go through the review checklist below.
+5. If it passes: `git checkout main`, `git pull origin main`, `git merge --no-ff feature/ws{n}-...`, `git push origin main`.
+6. If it fails: tell the member what to fix. They fix it on their branch and push again, and the lead re-checks.
+
+**Review checklist (lead, before each merge)**
+- [ ] Only files in the member's owned paths changed
+- [ ] Tests added in their test folder; full suite green
 - [ ] Pint clean
 - [ ] Every create, update, delete, approval, and status change writes an audit log through `AuditLogger`
 - [ ] Every placeholder value is read from settings or seed tables, not hardcoded

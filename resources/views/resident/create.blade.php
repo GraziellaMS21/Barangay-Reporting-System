@@ -744,10 +744,10 @@
           <div class="card-section-icon"><i class="fa-solid fa-map-location-dot"></i></div>
           <h2 class="card-section-title" data-i18n="where_is_it">Where is it?</h2>
         </div>
-        <button type="button" id="btn-quick-locate" class="btn btn-outline" style="min-height:38px;padding:0.35rem 0.85rem;font-size:0.82rem;font-weight:700;border-radius:999px;display:inline-flex;align-items:center;gap:0.4rem;">
+        <!-- <button type="button" id="btn-quick-locate" class="btn btn-outline" style="min-height:38px;padding:0.35rem 0.85rem;font-size:0.82rem;font-weight:700;border-radius:999px;display:inline-flex;align-items:center;gap:0.4rem;">
           <i class="fa-solid fa-crosshairs" style="color:var(--blue);"></i>
           <span data-i18n="btn_quick_locate">Use GPS</span>
-        </button>
+        </button> -->
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4" style="margin-bottom:1.5rem;">

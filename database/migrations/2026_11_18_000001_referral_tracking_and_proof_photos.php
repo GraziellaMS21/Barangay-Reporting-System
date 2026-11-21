@@ -4,6 +4,7 @@ use App\Models\Referral;
 use App\Models\ResolutionProof;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -62,7 +63,7 @@ return new class extends Migration
             ->whereNotNull('photo_path')
             ->get()
             ->each(function (ResolutionProof $proof): void {
-                \Illuminate\Support\Facades\DB::table('report_proof_photos')->insertOrIgnore([
+                DB::table('report_proof_photos')->insertOrIgnore([
                     'report_id' => $proof->report_id,
                     'path' => $proof->photo_path,
                     'uploaded_by' => $proof->user_id,

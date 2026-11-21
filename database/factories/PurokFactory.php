@@ -15,7 +15,7 @@ class PurokFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => 'Purok ' . fake()->unique()->numberBetween(1, 1000),
+            'name' => 'Purok '.fake()->unique()->numberBetween(1, 1000),
         ];
     }
 }

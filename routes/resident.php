@@ -1,4 +1,5 @@
 <?php
+
 // Resident routes
 use App\Http\Controllers\MapController;
 use App\Http\Controllers\ReportController;

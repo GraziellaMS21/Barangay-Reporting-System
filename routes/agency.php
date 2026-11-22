@@ -43,6 +43,7 @@ Route::middleware(['auth'])->group(function () {
 
 // Agency portal
 Route::middleware(['auth', 'role:agency', 'agency.active'])->prefix('agency')->name('agency.')->group(function () {
+    Route::get('/', fn () => redirect()->route('agency.referrals.index'));
     Route::get('/referrals', [AgencyReferralController::class, 'index'])->name('referrals.index');
     Route::get('/referrals/{referral}', [AgencyReferralController::class, 'show'])->name('referrals.show');
     Route::post('/referrals/{referral}', [AgencyReferralController::class, 'update'])->name('referrals.update');

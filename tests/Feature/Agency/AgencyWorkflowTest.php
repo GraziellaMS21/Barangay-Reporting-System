@@ -191,4 +191,51 @@ class AgencyWorkflowTest extends TestCase
         $actionResponse->assertRedirect(route('agency.referrals.show', $referral));
         $this->assertDatabaseHas('referrals', ['id' => $referral->id, 'status' => 'action_taken']);
     }
+
+    public function test_agency_login_redirects_to_agency_portal(): void
+    {
+        $office = Office::create(['name' => 'CSWDO Zamboanga', 'type' => 'external', 'is_external' => true, 'is_active' => true]);
+        $user = User::factory()->create([
+            'email' => 'cswdo@agency.gov.ph',
+            'password' => bcrypt('password123'),
+            'role' => 'agency',
+            'office_id' => $office->id,
+            'is_active' => true,
+            'email_verified_at' => now(),
+        ]);
+        AgencyRegistration::factory()->create([
+            'user_id' => $user->id,
+            'office_id' => $office->id,
+            'status' => 'approved',
+        ]);
+
+        // Even if session has url.intended set to /admin, agency user must redirect to agency portal
+        $response = $this->withSession(['url.intended' => 'http://localhost/admin'])->post(route('login'), [
+            'email' => 'cswdo@agency.gov.ph',
+            'password' => 'password123',
+        ]);
+
+        $response->assertRedirect(route('agency.referrals.index'));
+    }
+
+    public function test_inactive_agency_user_login_shows_pending_message(): void
+    {
+        $office = Office::create(['name' => 'CSWDO Zamboanga', 'type' => 'external', 'is_external' => true, 'is_active' => true]);
+        $user = User::factory()->create([
+            'email' => 'cswdo-pending@agency.gov.ph',
+            'password' => bcrypt('password123'),
+            'role' => 'agency',
+            'office_id' => $office->id,
+            'is_active' => false,
+            'email_verified_at' => now(),
+        ]);
+
+        $response = $this->post(route('login'), [
+            'email' => 'cswdo-pending@agency.gov.ph',
+            'password' => 'password123',
+        ]);
+
+        $response->assertSessionHasErrors('email');
+        $this->assertGuest();
+    }
 }

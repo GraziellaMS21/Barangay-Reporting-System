@@ -8,9 +8,9 @@
     <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600 text-white shadow-lg mb-4">
       <i class="fa-solid fa-user-plus text-2xl"></i>
     </div>
-    <h1 class="text-2xl font-bold tracking-tight text-slate-900">Join {{ $invitation->office->name }}</h1>
-    <p class="text-sm text-slate-600 mt-2">
-      You have been invited by <strong>{{ $invitation->inviter?->name }}</strong> to join the agency portal team for <strong>{{ $invitation->office->name }}</strong>.
+    <h1 class="text-2xl font-bold tracking-tight" style="color: #ffffff;">Join {{ $invitation->office->name }}</h1>
+    <p class="text-sm mt-2" style="color: #dbe5ff;">
+      You have been invited by <strong style="color: #ffffff;">{{ $invitation->inviter?->name }}</strong> to join the agency portal team for <strong style="color: #ffffff;">{{ $invitation->office->name }}</strong>.
     </p>
   </div>
 

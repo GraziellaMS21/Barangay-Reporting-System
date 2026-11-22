@@ -8,9 +8,9 @@
     <i class="fa-solid fa-clock text-3xl"></i>
   </div>
 
-  <h1 class="text-2xl font-bold tracking-tight text-slate-900">Access Request Submitted</h1>
-  <p class="text-sm text-slate-600 mt-3 leading-relaxed">
-    Thank you for registering. Your agency account request is currently <strong>pending review and verification</strong> by the Barangay Secretary.
+  <h1 class="text-2xl font-bold tracking-tight" style="color: #ffffff;">Access Request Submitted</h1>
+  <p class="text-sm mt-3 leading-relaxed" style="color: #dbe5ff;">
+    Thank you for registering. Your agency account request is currently <strong style="color: #ffffff;">pending review and verification</strong> by the Barangay Secretary.
   </p>
 
   <div class="mt-8 p-6 bg-white rounded-2xl border border-slate-200 shadow-sm text-left space-y-4">

@@ -23,7 +23,7 @@ class StoreReportUpdateRequest extends FormRequest
             return true;
         }
 
-        if ($user->role === 'staff') {
+        if ($user->role === 'staff' || $user->role === 'personnel') {
             /** @var Report|null $report */
             $report = $this->route('report');
             if ($report && isset($user->office_id) && $user->office_id && $report->office_id) {

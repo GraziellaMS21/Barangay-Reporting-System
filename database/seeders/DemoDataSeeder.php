@@ -77,11 +77,11 @@ class DemoDataSeeder extends Seeder
             ]
         );
 
-        // Staff (staff_full preset)
+        // Secretary / Staff (staff_full preset)
         $staff = User::updateOrCreate(
             ['email' => 'staff@calarian.gov.ph'],
             [
-                'name' => 'Maria Clara Delos Santos (Sec)',
+                'name' => 'Maria Clara Delos Santos (Secretary)',
                 'password' => $defaultPassword,
                 'role' => 'staff',
                 'is_active' => true,
@@ -89,6 +89,19 @@ class DemoDataSeeder extends Seeder
             ]
         );
         $permissionService->applyPreset($staff, 'staff_full');
+
+        // Barangay Personnel Account
+        $personnelUser = User::updateOrCreate(
+            ['email' => 'personnel@calarian.gov.ph'],
+            [
+                'name' => 'Barangay Personnel',
+                'password' => $defaultPassword,
+                'role' => 'personnel',
+                'is_active' => true,
+                'must_change_password' => false,
+            ]
+        );
+        $permissionService->applyPreset($personnelUser, 'staff_full');
 
         // Encoder (case_encoder preset)
         $encoder = User::updateOrCreate(

@@ -39,12 +39,12 @@ class UserSettingsController extends Controller
         $attributes = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email:rfc', 'max:255', Rule::unique('users', 'email')],
-            'role' => ['required', Rule::in(['staff', 'admin'])],
+            'role' => ['required', Rule::in(['staff', 'personnel', 'admin'])],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ], [
             'name.required' => 'Enter the staff member\'s name.',
             'email.unique' => 'A user with this email address already exists.',
-            'role.in' => 'Choose either staff or administrator access.',
+            'role.in' => 'Choose personnel, staff, or administrator access.',
             'password.confirmed' => 'The password confirmation does not match.',
             'password.min' => 'The password must be at least 8 characters.',
         ]);
@@ -62,12 +62,12 @@ class UserSettingsController extends Controller
         $attributes = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email:rfc', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
-            'role' => ['required', Rule::in(['staff', 'admin'])],
+            'role' => ['required', Rule::in(['staff', 'personnel', 'admin'])],
             'is_active' => ['required', 'boolean'],
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
         ], [
             'email.unique' => 'A user with this email address already exists.',
-            'role.in' => 'Choose either staff or administrator access.',
+            'role.in' => 'Choose personnel, staff, or administrator access.',
             'password.confirmed' => 'The password confirmation does not match.',
             'password.min' => 'The password must be at least 8 characters.',
         ]);

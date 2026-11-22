@@ -55,12 +55,36 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function isStaff(): bool
     {
-        return $this->role === 'staff' || $this->role === 'admin';
+        return $this->role === 'staff' || $this->role === 'personnel' || $this->role === 'admin';
+    }
+
+    public function isPersonnel(): bool
+    {
+        return $this->role === 'personnel' || $this->role === 'staff' || $this->personnel()->exists();
     }
 
     public function isAgency(): bool
     {
         return $this->role === 'agency';
+    }
+
+    public function isSecretary(): bool
+    {
+        if ($this->relationLoaded('personnel') && $this->personnel?->position?->code === 'barangay_secretary') {
+            return true;
+        }
+
+        if ($this->personnel()->whereHas('position', fn ($q) => $q->where('code', 'barangay_secretary'))->exists()) {
+            return true;
+        }
+
+        $email = strtolower($this->email ?? '');
+        $name = strtolower($this->name ?? '');
+
+        return str_contains($email, 'secretary')
+            || str_contains($email, 'staff@calarian.gov.ph')
+            || str_contains($name, '(sec')
+            || str_contains($name, 'secretary');
     }
 
     public function hasPermission(string $slug): bool

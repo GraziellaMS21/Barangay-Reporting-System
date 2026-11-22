@@ -101,6 +101,11 @@ class Referral extends Model
         return $this->hasMany(ReferralUpdate::class)->latest('occurred_at')->latest('id');
     }
 
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(ReferralAttachment::class);
+    }
+
     public function isOpen(): bool
     {
         return $this->status !== 'closed';

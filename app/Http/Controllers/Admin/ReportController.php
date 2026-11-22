@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreReportUpdateRequest;
 use App\Models\AuditLog;
 use App\Models\Category;
+use App\Models\FiscalYear;
 use App\Models\Office;
 use App\Models\Purok;
 use App\Models\Report;
@@ -101,6 +102,8 @@ class ReportController extends Controller
             ->get(['id', 'name', 'role']);
 
         $isMyCases = $request->routeIs('admin.reports.my-cases');
+        $fiscalYears = FiscalYear::orderByDesc('year')->get();
+        $yearFilter = $validated['year'] ?? null;
 
         return view('admin.reports.index', compact(
             'reports',
@@ -117,7 +120,9 @@ class ReportController extends Controller
             'statusFilter',
             'assignedToFilter',
             'emergencyOnly',
-            'isMyCases'
+            'isMyCases',
+            'fiscalYears',
+            'yearFilter'
         ));
     }
 
@@ -132,6 +137,7 @@ class ReportController extends Controller
             'category_id' => ['nullable', 'integer', Rule::exists('categories', 'id')],
             'assigned_to' => ['nullable', 'string'],
             'overdue' => ['nullable', Rule::in(['0', '1'])],
+            'year' => ['nullable', 'string', 'max:10'],
             'q' => ['nullable', 'string', 'max:255'],
             // Whitelisted sorting; unknown values silently fall back to the
             // default order inside applyQueueOrder instead of erroring.
@@ -222,6 +228,10 @@ class ReportController extends Controller
                 $sub->where('tracking_code', 'like', "%{$term}%")
                     ->orWhere('description', 'like', "%{$term}%");
             });
+        }
+
+        if (isset($validated['year']) && $validated['year'] !== 'all' && $validated['year'] !== '') {
+            $query->whereHas('fiscalYear', fn ($fyQuery) => $fyQuery->where('year', (int) $validated['year']));
         }
 
         return $query;

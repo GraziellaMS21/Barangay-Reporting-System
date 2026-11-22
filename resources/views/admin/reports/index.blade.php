@@ -10,7 +10,7 @@
 
 @php
   $preservedFilters = request()->only([
-    'q', 'purok_id', 'category_id', 'assigned_to', 'status', 'emergency', 'sort', 'direction', 'pin',
+    'q', 'purok_id', 'category_id', 'assigned_to', 'status', 'emergency', 'sort', 'direction', 'pin', 'year',
   ]);
 
   // Base params every tab / header link keeps so filters survive navigation.
@@ -52,7 +52,7 @@
   $urgencySort = $sortLink('urgency');
 
   $exportParams = $clearFilterParams;
-  foreach (['q', 'purok_id', 'category_id', 'assigned_to', 'sort', 'direction', 'pin'] as $exportKey) {
+  foreach (['q', 'purok_id', 'category_id', 'assigned_to', 'sort', 'direction', 'pin', 'year'] as $exportKey) {
       if (request()->filled($exportKey)) {
           $exportParams[$exportKey] = request($exportKey);
       }
@@ -169,7 +169,7 @@
 @endif
 
 @php
-  $activeFilterCount = collect(['purok_id', 'category_id', 'assigned_to'])
+  $activeFilterCount = collect(['purok_id', 'category_id', 'assigned_to', 'year'])
       ->filter(fn($k) => request()->filled($k) && request($k) !== 'all')
       ->count();
   if ($statusFilter !== null && $statusFilter !== 'all' && !in_array($currentStage, ['active', 'closed-other'], true)) {
@@ -264,6 +264,20 @@
             </div>
           @else
             <input type="hidden" name="assigned_to" value="{{ auth()->id() }}">
+          @endif
+
+          @if(!empty($fiscalYears) && $fiscalYears->isNotEmpty())
+            <div>
+              <label for="queue-year-filter" style="display:block;font-size:0.78rem;font-weight:700;color:#475569;margin-bottom:0.25rem;">Fiscal Year</label>
+              <select id="queue-year-filter" name="year" style="width:100%;font-size:0.85rem;">
+                <option value="">All years</option>
+                @foreach($fiscalYears as $fy)
+                  <option value="{{ $fy->year }}" @selected((string) request('year') === (string) $fy->year)>
+                    {{ $fy->label ?? 'FY ' . $fy->year }}
+                  </option>
+                @endforeach
+              </select>
+            </div>
           @endif
         </div>
 

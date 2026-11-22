@@ -3,11 +3,15 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\BarangayCase;
 use App\Models\DuplicateSuggestion;
 use App\Models\Referral;
 use App\Models\Report;
 use App\Services\DashboardAnalyticsService;
 use App\Services\DashboardInsightsService;
+use App\Services\OverdueService;
+use App\Support\CaseStatus;
+use Illuminate\Support\Carbon;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
@@ -88,6 +92,42 @@ class DashboardController extends Controller
             ) ?: [],
         ]);
 
+        $casesEnabled = (bool) setting('cases.enabled', true);
+        $caseMetrics = null;
+
+        if ($casesEnabled) {
+            $openCasesCount = BarangayCase::whereIn('status', [CaseStatus::FILED, CaseStatus::IN_MEDIATION, CaseStatus::IN_CONCILIATION])->count();
+            $filedCount = BarangayCase::where('status', CaseStatus::FILED)->count();
+            $settledCount = BarangayCase::where('status', CaseStatus::SETTLED)->count();
+            $escalatedCount = BarangayCase::where('status', CaseStatus::ESCALATED)->count();
+
+            $settledCases = BarangayCase::where('status', CaseStatus::SETTLED)
+                ->whereNotNull('filed_on')
+                ->whereNotNull('settled_on')
+                ->get(['filed_on', 'settled_on']);
+
+            $avgDaysToSettle = $settledCases->isEmpty()
+                ? 0
+                : round($settledCases->avg(fn ($c) => abs(Carbon::parse($c->filed_on)->diffInDays(Carbon::parse($c->settled_on)))), 1);
+
+            $overdueCount = 0;
+            $overdueService = app(OverdueService::class);
+            foreach (BarangayCase::whereIn('status', [CaseStatus::IN_MEDIATION, CaseStatus::IN_CONCILIATION])->get() as $c) {
+                if ($overdueService->forCase($c)['is_overdue']) {
+                    $overdueCount++;
+                }
+            }
+
+            $caseMetrics = [
+                'open_cases' => $openCasesCount,
+                'cases_filed' => $filedCount,
+                'cases_settled' => $settledCount,
+                'ready_for_next' => $escalatedCount,
+                'avg_days_to_settle' => $avgDaysToSettle,
+                'overdue_cases' => $overdueCount,
+            ];
+        }
+
         return view('admin.dashboard', compact(
             'counts',
             'chartData',
@@ -96,7 +136,9 @@ class DashboardController extends Controller
             'pendingDuplicateCount',
             'pendingReferralCount',
             'pendingReferrals',
-            'dashboardInsights'
+            'dashboardInsights',
+            'casesEnabled',
+            'caseMetrics'
         ));
     }
 }

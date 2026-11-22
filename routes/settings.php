@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\BackupController;
+use App\Http\Controllers\Admin\CalendarController;
 use App\Http\Controllers\Admin\FiscalYearController;
 use App\Http\Controllers\Admin\GeneralSettingsController;
 use App\Http\Controllers\Admin\GlobalSearchController;
@@ -45,10 +46,19 @@ Route::middleware(['auth', 'role:staff'])->group(function () {
         Route::put('/', [NumberingController::class, 'update'])->name('put');
     });
 
+    // Calendar Holidays
+    Route::middleware(['permission:settings.manage'])->prefix('admin/settings/calendar')->name('admin.calendar.')->group(function () {
+        Route::get('/', [CalendarController::class, 'index'])->name('index');
+        Route::post('/', [CalendarController::class, 'store'])->name('store');
+        Route::delete('/{date}', [CalendarController::class, 'destroy'])->name('destroy');
+    });
+
     // Pending confirmations
     Route::middleware(['permission:settings.manage'])->prefix('admin/settings/pending')->name('admin.pending.')->group(function () {
         Route::get('/', [PendingConfirmationController::class, 'index'])->name('index');
         Route::post('/confirm', [PendingConfirmationController::class, 'confirm'])->name('confirm');
+        Route::post('/confirm-group', [PendingConfirmationController::class, 'confirmGroup'])->name('confirm-group');
+        Route::get('/export', [PendingConfirmationController::class, 'exportCsv'])->name('export');
     });
 
     // Response templates
@@ -56,6 +66,7 @@ Route::middleware(['auth', 'role:staff'])->group(function () {
         Route::get('/', [TemplateController::class, 'index'])->name('index');
         Route::get('/create', [TemplateController::class, 'create'])->name('create');
         Route::post('/', [TemplateController::class, 'store'])->name('store');
+        Route::get('/json', [TemplateController::class, 'json'])->name('json');
         Route::get('/{template}/edit', [TemplateController::class, 'edit'])->name('edit');
         Route::put('/{template}', [TemplateController::class, 'update'])->name('update');
         Route::patch('/{template}', [TemplateController::class, 'update'])->name('patch');

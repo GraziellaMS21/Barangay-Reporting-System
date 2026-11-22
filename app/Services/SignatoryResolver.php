@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\BarangayCase;
 use Carbon\CarbonInterface;
 
 class SignatoryResolver
@@ -13,7 +14,7 @@ class SignatoryResolver
      *
      * @return array<int, array{label: string, name: string, position: string, signature_path: ?string}>
      */
-    public function forDocument(string $documentType, ?CarbonInterface $asOf = null): array
+    public function forDocument(string $documentType, ?CarbonInterface $asOf = null, ?BarangayCase $case = null): array
     {
         return [];
     }

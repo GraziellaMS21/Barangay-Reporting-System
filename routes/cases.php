@@ -32,6 +32,7 @@ Route::middleware(['auth', 'role:staff'])->prefix('admin')->name('admin.')->grou
             Route::get('/{party}/edit', [PartyController::class, 'edit'])->name('edit');
             Route::put('/{party}', [PartyController::class, 'update'])->name('update');
             Route::patch('/{party}', [PartyController::class, 'update'])->name('patch');
+            Route::post('/{party}/verify-residency', [PartyController::class, 'verifyResidency'])->name('verify-residency');
             Route::get('/{party}/merge', [PartyController::class, 'mergeCreate'])->name('merge.create');
             Route::post('/{party}/merge', [PartyController::class, 'mergeStore'])->name('merge.store');
         });
@@ -46,7 +47,9 @@ Route::middleware(['auth', 'role:staff'])->prefix('admin')->name('admin.')->grou
 
         Route::middleware(['permission:cases.view'])->group(function () {
             Route::get('/', [CaseController::class, 'index'])->name('index');
+            Route::get('/export/csv', [CaseController::class, 'exportCsv'])->name('export-csv');
             Route::get('/{case}', [CaseController::class, 'show'])->name('show');
+            Route::get('/{case}/print', [CaseController::class, 'print'])->name('print');
         });
 
         Route::middleware(['permission:cases.edit'])->group(function () {

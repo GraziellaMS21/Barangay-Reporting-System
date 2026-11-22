@@ -34,6 +34,8 @@ class Party extends Model
         'id_type',
         'id_number',
         'extra',
+        'merged_into_id',
+        'merged_at',
     ];
 
     protected function casts(): array
@@ -41,6 +43,7 @@ class Party extends Model
         return [
             'birth_date' => 'date',
             'residency_verified_at' => 'datetime',
+            'merged_at' => 'datetime',
             'extra' => 'array',
         ];
     }
@@ -58,6 +61,21 @@ class Party extends Model
     public function caseParties(): HasMany
     {
         return $this->hasMany(CaseParty::class);
+    }
+
+    public function mergedInto(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'merged_into_id');
+    }
+
+    public function mergedParties(): HasMany
+    {
+        return $this->hasMany(self::class, 'merged_into_id');
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->whereNull('merged_into_id');
     }
 
     public function cases(): BelongsToMany

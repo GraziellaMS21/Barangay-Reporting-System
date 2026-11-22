@@ -2,7 +2,9 @@
 
 > **Branch**: `feature/phase0-foundation`  
 > **Status**: Completed & Verified (184 tests passing, Pint compliant)  
-> **Target Audience**: Workstream Owners (WS1 through WS5), Software Engineering Team Group 3, Western Mindanao State University
+> **Target Audience**: Workstream Owners (WS1 through WS6), Software Engineering Team Group 3, Western Mindanao State University
+>
+> **Corrected in Revision 2 (2026-11-22).** Counts now match the inventory in this file, section 6 now follows `TEAM_WORKSTREAMS.md`, and the obsolete 3-summons rule is removed. Items marked **[V]** still need a check in the repo. See `REVISION_2.md` section 4.
 
 ---
 
@@ -12,10 +14,10 @@ Phase 0 establishes the common foundational layer for the Barangay Problem Repor
 
 Per the lead-only mandate:
 - **Zero feature screens** were built beyond structured stubs.
-- **19 database tables** were created with relationships, foreign keys, and indexes across 6 migrations.
-- **20 Eloquent models** were created with factories, casts, and traits (`BelongsToFiscalYear`, `HasConfirmation`).
+- **22 database tables** (21 plus the `permission_user` pivot, per the inventory below) were created with relationships, foreign keys, and indexes across 6 migrations. **[V]** confirm against the migrations.
+- **21 Eloquent models** were created with factories, casts, and traits (`BelongsToFiscalYear`, `HasConfirmation`).
 - **Core services** (Settings, Fiscal Years, Numbering, Permissions, Audit Logging, Personnel) were fully implemented, and stubs for downstream workstreams were registered.
-- **7 modular route files** and **35 stub routes** were registered with middleware gates.
+- **7 modular route files** were created. The route map in section 3 lists **55** stub endpoints (the earlier text said 35). Many routes named in the workstream briefs are not in that table; see `REVISION_2.md` section 4.1. **[V]** `php artisan route:list`.
 - **Dynamic navigation** and **11 shared UI Blade components** were created with an interactive showcase at `/admin/_ui`.
 - **Baseline commands** (`php artisan app:empty`, `php artisan app:demo`) and idempotently seedable placeholders (`RequiredDataSeeder`, `DemoDataSeeder`) were verified.
 - **All 149 existing regression tests** remain 100% green; 35 new unit and feature tests bring the test suite to **184 passing tests**.
@@ -53,9 +55,9 @@ Per the lead-only mandate:
 | | `app/Models/CaseStatusLog.php` | Immutable case status transition audit logs. |
 | | `app/Models/CaseNote.php` | Internal investigation and hearing notes. |
 | | `app/Models/CaseFieldConfig.php` | Dynamic form field configuration for cases and parties. |
-| | `app/Models/Summons.php` | Summons 1, 2, and 3 issuance and service records. |
+| | `app/Models/Summons.php` | Summons issuance and service records (no fixed limit; the barangay counts days, not summons). |
 | | `app/Models/Hearing.php` | Conciliation hearing sessions before PB or Lupon. |
-| | `app/Models/EscalationDestination.php` | Venues for Certificate to File Action (MTCC, Prosecutor, PNP, CSWDO). |
+| | `app/Models/EscalationDestination.php` | Venues for Certificate to File Action (seeded MTCC, Prosecutor, PNP, CSWDO; the secretary named police, prosecutor and court, so CSWDO is unconfirmed). No `office_id` yet (added in Revision 2). |
 | | `app/Models/CaseEscalation.php` | Formal escalation and referral records for cases. |
 | **Services** | `app/Services/SettingsService.php` | Configuration store, typed getters, and placeholder audit confirmation. |
 | | `app/helpers.php` | Global helper `setting($key, $default = null)`. |
@@ -68,7 +70,7 @@ Per the lead-only mandate:
 | | `app/Services/PersonnelService.php` | Official creation and deactivation safeguards. |
 | | `app/Services/SignatoryResolver.php` | *(Stub)* Document signatory resolver. |
 | | `app/Services/CaseStatusService.php` | *(Stub)* Case state machine transitions. |
-| | `app/Services/SummonsCounterService.php` | *(Stub)* Sequential summons counter. |
+| | `app/Services/SummonsCounterService.php` | *(Stub)* Summons count for display only; no limit (Revision 2). |
 | | `app/Services/OverdueService.php` | *(Stub)* Cross-entity overdue SLA calculator. |
 | | `app/Services/GlobalSearchService.php` | *(Stub)* Universal search engine. |
 | **Middleware** | `app/Http/Middleware/SetupCompleted.php` | Redirects to `/setup` if setup incomplete; protects `/setup` once complete. |
@@ -102,7 +104,9 @@ Per the lead-only mandate:
 
 ---
 
-## 3. Complete Route Map (35 Stub Endpoints)
+## 3. Route Map as Reported by Phase 0 (55 Stub Endpoints)
+
+> **[V]** This table was written from the plan, not generated. Regenerate it with `php artisan route:list --json` and save the result as `docs/ROUTES.snapshot.json`. Built route names stay as they are; the briefs' names differ in a few places (`REVISION_2.md` section 4.1).
 
 | Method | URL | Route Name | Middleware | Controller Action | Target View |
 | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -219,28 +223,17 @@ php artisan test
 
 ---
 
-## 6. Workstream Ownership & Boundaries Guide
+## 6. Workstream Ownership & Boundaries Guide (corrected)
 
-Per `docs/TEAM_WORKSTREAMS.md`:
+The source of truth is `docs/TEAM_WORKSTREAMS.md`, with changes in `docs/REVISION_2.md`. The earlier version of this section assigned the workstreams differently and mentioned a 3-summons rule; both were wrong.
 
-### Workstream 1: Setup Wizard & Administration (WS1)
-- **Files Owned**: `resources/views/setup/`, `app/Http/Controllers/SetupController.php`, `app/Http/Controllers/Admin/SettingsController.php`, `app/Http/Controllers/Admin/FiscalYearController.php`, `app/Http/Controllers/Admin/NumberingController.php`, `app/Http/Controllers/Admin/PositionController.php`, `app/Http/Controllers/Admin/SignatoryController.php`, `app/Http/Controllers/Admin/UserController.php`.
-- **Do Not Touch**: Case tables, Report Queue triage controllers, or Agency Portal routes.
+| WS | Area | Controllers | Views | Implements |
+| :--- | :--- | :--- | :--- | :--- |
+| WS1 (lead) | Setup wizard, fiscal years, settings, global search, case KPIs, backups | `Setup`, `Admin/Settings` | `setup`, `admin/settings` | `GlobalSearchService`, backup commands |
+| WS2 | Personnel, positions, signatories, users and permissions, Reports Center | `Admin/People`, `Admin/ReportsCenter` | `admin/personnel`, `admin/positions`, `admin/signatories`, `admin/users`, `admin/reports-center`, `account` | `SignatoryResolver`, `PersonnelService::deactivate`, report builders |
+| WS3 | Case intake, parties, party merge, convert report to case | `Admin/Cases` | `admin/cases`, `admin/parties` | `CaseStatusService`, `PartyMatchingService`, case duplicate check |
+| WS4 | Summons, hearings, settlement, escalation and CFA, secretary dashboard, deadlines | `Admin/CaseActions` | `admin/case-actions` | `SummonsCounterService` (count only), `OverdueService`, working-day helper use |
+| WS5 | Agency accounts and portal, referral updates, agency team | `Agency`, `Admin/Agencies` | `agency`, `admin/agencies` | `ReferralService` additions, `Admin\ReferralController` (owned entirely) |
+| WS6 (stretch) | Legacy import of old records | `Admin/Imports` | `admin/imports` | `LegacyImportService` |
 
-### Workstream 2: Reports Center & Analytics (WS2)
-- **Files Owned**: `app/Http/Controllers/Admin/ReportsCenterController.php`, `resources/views/admin/reports-center/`, PDF export templates using `barryvdh/laravel-dompdf`, Excel/CSV exports using `openspout/openspout`.
-- **Do Not Touch**: Core status machine (`ReportStatusService`), resident submission forms.
-
-### Workstream 3: Case Module — Blotter & Conciliation (WS3)
-- **Files Owned**: `app/Http/Controllers/Admin/CaseController.php`, `PartyController.php`, `SummonsController.php`, `HearingController.php`, `CaseEscalationController.php`, `SecretaryDashboardController.php`, `resources/views/admin/cases/`.
-- **Implement**: `CaseStatusService`, `SummonsCounterService`, 3-summons threshold rule before escalation.
-- **Do Not Touch**: Resident reporting routes or existing `reports` table schema.
-
-### Workstream 4: Partner Agency Portal (WS4)
-- **Files Owned**: `app/Http/Controllers/Agency/`, `resources/views/agency/`, `app/Http/Middleware/EnsureAgencyActive.php`.
-- **Implement**: Agency registration approval, referral acceptance, progress updates syncing back to barangay referral log.
-- **Do Not Touch**: Internal staff case triage logic or administrative user management.
-
-### Workstream 5: Navigation, Polish & Global Integration (WS5)
-- **Files Owned**: `app/Services/GlobalSearchService.php`, `resources/views/components/ui/global-search.blade.php`, mobile responsiveness refinements across all views.
-- **Do Not Touch**: Business logic services or database migrations.
+**Everyone:** Phase 0 files (services, config, layouts, UI components, migrations `2026_11_22_0001*`) are read-only; request changes through the lead. Never change a service signature without approval. Put workstream notes in `docs/modules/ws{n}-*.md`. Controller class paths in the route table above may differ from these folder conventions **[V]**; move nothing without the lead.

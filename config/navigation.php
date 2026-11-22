@@ -106,6 +106,13 @@ return [
                     'permission' => 'users.manage',
                     'active_pattern' => 'admin.users.*',
                 ],
+                [
+                    'label' => 'Partner Agencies',
+                    'route' => 'admin.agencies.index',
+                    'icon' => 'fa-solid fa-building-shield',
+                    'permission' => 'agencies.manage',
+                    'active_pattern' => 'admin.agencies.*',
+                ],
             ],
         ],
         [
@@ -185,13 +192,6 @@ return [
                     'icon' => 'fa-solid fa-share-from-square',
                     'permission' => 'settings.manage',
                     'active_pattern' => 'admin.escalation-destinations.*',
-                ],
-                [
-                    'label' => 'Partner Agencies',
-                    'route' => 'admin.agencies.index',
-                    'icon' => 'fa-solid fa-building-shield',
-                    'permission' => 'agencies.manage',
-                    'active_pattern' => 'admin.agencies.*',
                 ],
                 [
                     'label' => 'Backups',

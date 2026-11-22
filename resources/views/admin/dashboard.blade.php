@@ -50,6 +50,27 @@
   </div>
 @endif
 
+@if(!empty($casesEnabled) && !empty($caseMetrics))
+{{-- Case Docket KPIs (Katarungang Pambarangay) --}}
+<section class="mb-6" aria-label="Katarungang Pambarangay Case Metrics">
+  <div class="flex items-center justify-between mb-3">
+    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
+      <i class="fa-solid fa-scale-balanced text-blue-600"></i>
+      <span>Katarungang Pambarangay & Blotter Docket</span>
+    </h3>
+    <span class="text-xs text-slate-400">Statutory 15 working days tracking</span>
+  </div>
+  <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4">
+    <x-ui.kpi-card title="Open Cases" :value="$caseMetrics['open_cases']" color="blue" icon="fa-solid fa-folder-open" />
+    <x-ui.kpi-card title="Newly Filed" :value="$caseMetrics['cases_filed']" color="slate" icon="fa-solid fa-file-circle-plus" />
+    <x-ui.kpi-card title="Settled" :value="$caseMetrics['cases_settled']" color="green" icon="fa-solid fa-handshake" />
+    <x-ui.kpi-card title="Escalated / CFA" :value="$caseMetrics['ready_for_next']" color="amber" icon="fa-solid fa-gavel" />
+    <x-ui.kpi-card title="Avg Days to Settle" :value="$caseMetrics['avg_days_to_settle']" color="blue" icon="fa-solid fa-clock" subtitle="Days" />
+    <x-ui.kpi-card title="Overdue Cases" :value="$caseMetrics['overdue_cases']" :color="$caseMetrics['overdue_cases'] > 0 ? 'red' : 'green'" icon="fa-solid fa-calendar-xmark" />
+  </div>
+</section>
+@endif
+
 {{-- 1. KPI Row (4 Cards, DASH Style, Responsive Grid) --}}
 <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-6" aria-label="Operational metrics">
   

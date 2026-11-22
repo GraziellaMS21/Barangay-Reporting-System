@@ -40,8 +40,12 @@ erDiagram
 - `name` (string)
 - `email` (string, unique)
 - `password` (string, hashed)
-- `role` (enum: `admin`, `staff`, default: `staff`)
+- `role` (string(20): `admin`, `staff`, `agency`; default: `staff`)
 - `is_active` (boolean, default: true)
+- `office_id` (foreignId `offices`, nullable) — agency users (Phase 0)
+- `must_change_password` (boolean, default: false) — Phase 0
+- `last_login_at` (timestamp, nullable) — Phase 0
+- `email_verified_at` (timestamp, nullable) — agency users must verify (Phase 0 plan; verify in repo)
 - `timestamps`
 
 ### `puroks`
@@ -171,7 +175,7 @@ erDiagram
 - `prepared_by` (foreignId `users`, nullable)
 - `follow_up_owner_id` (foreignId `users`, nullable)
 - `sent_at` (timestamp, nullable)
-- `follow_up_at` (timestamp, nullable) — Default `sent_at + 7 days`
+- `follow_up_at` (timestamp, nullable) — Default `sent_at + referral.follow_up_days` (3 days, Secretary Q12; was 7)
 - `timestamps`
 
 ### `info_requests`
@@ -464,7 +468,7 @@ erDiagram
 - `id` (bigint unsigned, PK)
 - `case_id` (foreignId -> cases, cascade)
 - `respondent_case_party_id` (foreignId -> case_parties, cascade)
-- `sequence_no` (integer unsigned) — 1, 2, or 3
+- `sequence_no` (integer unsigned) — 1, 2, 3 ... (no limit; Revision 2)
 - `summons_number` (string, unique)
 - `issued_on` (date)
 - `issued_by` (foreignId -> users)
@@ -472,7 +476,7 @@ erDiagram
 - `venue` (string)
 - `served_by_personnel_id` (foreignId -> personnel, nullable)
 - `served_on` (date, nullable)
-- `service_result` (enum: `pending`, `served_personal`, `served_substituted`, `refused`, `unserved`, default: `pending`)
+- `service_result` (enum: `pending`, `served_personal`, `served_substituted`, `refused`, `unserved`, default: `pending`) — **to be changed (Revision 2) to `pending`, `received`, `refused`, `not_found`, `other`** to match the secretary's wording (Q21)
 - `attendance` (enum: `pending`, `appeared`, `failed_to_appear`, default: `pending`)
 - `remarks` (text, nullable)
 - `voided_at` (timestamp, nullable)
@@ -559,3 +563,32 @@ This enables the 5-step interactive setup wizard (`/setup`) to audit, highlight,
   "Dirty stagnant runoff overflowing onto sidewalk"
 ]
 ```
+
+---
+
+## 5. Planned Schema Changes (Revision 2, not yet migrated)
+
+Applied by the lead as migrations `2026_11_23_0002NN_` before workstreams branch (`docs/TASKS.md` Task 7 / `REVISION_2.md` section 8.2), and by WS6 later.
+
+| Table | Planned Column / Schema Change | Target Type & Rules | Task Alignment |
+| :--- | :--- | :--- | :--- |
+| `summons` | `service_result` | `string(20)` (`pending`, `received`, `refused`, `not_found`, `other`) | (planned, Task 7) |
+| `cases` | `record_type` | `string(20) default 'complaint'` (`blotter`, `complaint`) | (planned, Task 7) |
+| `cases` | `complaint_started_on` | `date, nullable` (start date for mediation clock) | (planned, Task 7) |
+| `cases` | `endorsed_to_pangkat_on` | `date, nullable` (start date for conciliation clock) | (planned, Task 7) |
+| `cases` | `conciliation_extension_days` | `unsigned tinyint, default 0` (max 15) | (planned, Task 7) |
+| `cases` | `pangkat_chairman_personnel_id` | `foreignId personnel, nullable` | (planned, Task 7) |
+| `cases` | `settlement_amount` | `decimal(12,2), nullable` | (planned, Task 7) |
+| `case_types` | `is_confidential_default` | `boolean, default false` (pre-ticks for BCPC/VAWC) | (planned, Task 7) |
+| `case_types` | `uses_kp_timeline` | `boolean, default true` (false for non-KP types) | (planned, Task 7) |
+| `case_escalations` | `requested_by_case_party_id` | `foreignId case_parties, nullable` | (planned, Task 7) |
+| `case_escalations` | `requested_on` | `date, nullable` | (planned, Task 7) |
+| `case_escalations` | `cfa_number` | `string(60), nullable` | (planned, Task 7) |
+| `case_escalations` | `signed_by_personnel_id` | `foreignId personnel, nullable` (Pangkat Chairman) | (planned, Task 7) |
+| `escalation_destinations` | `office_id` | `foreignId offices, nullable` | (planned, Task 7) |
+| `referral_attachments` (new) | `id, referral_id fk cascade, label, path, uploaded_by fk, timestamps` | Table on private disk | (planned, Task 7) |
+| `cases` | `import_batch_id` | `foreignId import_batches, nullable` | (planned, WS6) |
+| `import_batches` (new) | `id, user_id, filename, status, mapping json, stats json, timestamps` | Table for legacy import | (planned, WS6) |
+| `import_rows` (new) | `id, batch_id, row_number, raw json, mapped json, status, errors json, case_id, timestamps` | Table for row-level import | (planned, WS6) |
+
+Party `age` and `reason_in_barangay` are stored in existing `parties.extra` JSON (no migration required).

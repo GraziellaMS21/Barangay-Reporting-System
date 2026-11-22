@@ -76,14 +76,17 @@
             <i class="fa-solid fa-landmark text-blue-600"></i> Designated Partner Office
             <small style="font-weight: 500; color: var(--mut);">(optional)</small>
           </label>
-          <select id="office_id" name="office_id">
-            <option value="">Select recognized partner office (if listed)</option>
-            @foreach($offices as $office)
-              <option value="{{ $office->id }}" @selected(old('office_id') == $office->id)>
-                {{ $office->name }}
-              </option>
-            @endforeach
-          </select>
+          <div class="custom-select-wrap">
+            <select id="office_id" name="office_id">
+              <option value="">Select recognized partner office (if listed)</option>
+              @foreach($offices as $office)
+                <option value="{{ $office->id }}" @selected(old('office_id') == $office->id)>
+                  {{ $office->name }}
+                </option>
+              @endforeach
+            </select>
+            <i class="fa-solid fa-chevron-down select-chevron" aria-hidden="true"></i>
+          </div>
           <p class="field-hint">If your office is not listed in the options above, leave it unselected.</p>
         </div>
 
@@ -331,6 +334,60 @@
     margin-top: 1.75rem;
     padding-top: 1.25rem;
     border-top: 1.5px solid var(--line);
+  }
+
+  /* Custom Modern Dropdown Styling */
+  .custom-select-wrap {
+    position: relative;
+    display: block;
+    width: 100%;
+  }
+
+  .custom-select-wrap select {
+    width: 100%;
+    min-height: 48px;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-color: #fff;
+    border: 1.5px solid var(--line);
+    border-radius: 12px;
+    padding: 0.75rem 2.75rem 0.75rem 1rem;
+    color: var(--tx);
+    font: inherit;
+    font-size: 0.92rem;
+    font-weight: 500;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgb(11 31 75 / 4%);
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+  }
+
+  .custom-select-wrap select:hover {
+    border-color: #94a3b8;
+    background-color: #fafbfc;
+  }
+
+  .custom-select-wrap select:focus {
+    border-color: var(--blue);
+    background-color: #fff;
+    outline: 3px solid rgb(36 86 214 / 14%);
+    box-shadow: 0 0 0 1px var(--blue);
+  }
+
+  .custom-select-wrap .select-chevron {
+    position: absolute;
+    right: 1.1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    color: #64748b;
+    font-size: 0.82rem;
+    transition: transform 0.2s ease, color 0.2s ease;
+  }
+
+  .custom-select-wrap:focus-within .select-chevron {
+    color: var(--blue);
+    transform: translateY(-50%) rotate(180deg);
   }
 </style>
 @endpush

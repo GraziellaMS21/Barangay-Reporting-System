@@ -747,7 +747,8 @@ h3 {
 .field textarea,
 .filter-form input,
 .filter-form select,
-.login-form input {
+.login-form input,
+.login-form select {
     width: 100%;
     min-height: 48px;
     border: 1.5px solid var(--line);
@@ -768,7 +769,8 @@ h3 {
 .field textarea:focus,
 .filter-form input:focus,
 .filter-form select:focus,
-.login-form input:focus {
+.login-form input:focus,
+.login-form select:focus {
     border-color: var(--blue);
     outline: 3px solid rgb(36 86 214 / 13%);
 }

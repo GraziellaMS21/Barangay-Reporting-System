@@ -14,9 +14,13 @@ class CaseEscalation extends Model
 
     protected $fillable = [
         'case_id',
+        'requested_by_case_party_id',
+        'requested_on',
         'escalation_destination_id',
         'escalated_by',
         'decided_by_personnel_id',
+        'cfa_number',
+        'signed_by_personnel_id',
         'reason',
         'override_note',
         'summons_count_at_time',
@@ -27,6 +31,7 @@ class CaseEscalation extends Model
     protected function casts(): array
     {
         return [
+            'requested_on' => 'date',
             'summons_count_at_time' => 'integer',
             'escalated_at' => 'datetime',
         ];
@@ -50,6 +55,16 @@ class CaseEscalation extends Model
     public function decidedBy(): BelongsTo
     {
         return $this->belongsTo(Personnel::class, 'decided_by_personnel_id');
+    }
+
+    public function requestedByParty(): BelongsTo
+    {
+        return $this->belongsTo(CaseParty::class, 'requested_by_case_party_id');
+    }
+
+    public function signedByPersonnel(): BelongsTo
+    {
+        return $this->belongsTo(Personnel::class, 'signed_by_personnel_id');
     }
 
     public function referral(): BelongsTo

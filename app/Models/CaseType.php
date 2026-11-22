@@ -18,6 +18,8 @@ class CaseType extends Model
         'slug',
         'description',
         'sort_order',
+        'is_confidential_default',
+        'uses_kp_timeline',
         'is_active',
         'is_confirmed',
     ];
@@ -26,6 +28,8 @@ class CaseType extends Model
     {
         return [
             'sort_order' => 'integer',
+            'is_confidential_default' => 'boolean',
+            'uses_kp_timeline' => 'boolean',
             'is_active' => 'boolean',
             'is_confirmed' => 'boolean',
         ];

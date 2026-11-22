@@ -13,7 +13,7 @@ return [
 
     // Referral tracking (beyond barangay authority).
     'referrals' => [
-        'follow_up_days' => 7,
+        'follow_up_days' => 3,
         'sent_via_options' => ['email', 'hand_delivered', 'phone'],
         'statuses' => ['prepared', 'sent', 'acknowledged', 'action_taken', 'closed'],
         'outcomes' => ['resolved', 'declined', 'no_response'],

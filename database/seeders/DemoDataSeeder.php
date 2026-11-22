@@ -158,6 +158,11 @@ class DemoDataSeeder extends Seeder
             ['name' => 'Barangay Secretary', 'sort_order' => 2, 'is_signatory_default' => true, 'is_confirmed' => true]
         );
 
+        $luponPosition = Position::firstOrCreate(
+            ['code' => 'lupon_member'],
+            ['name' => 'Lupon Member / Conciliator', 'sort_order' => 3, 'is_signatory_default' => false, 'is_confirmed' => true]
+        );
+
         $tanodPosition = Position::firstOrCreate(
             ['code' => 'barangay_tanod'],
             ['name' => 'Barangay Tanod / Peace Officer', 'sort_order' => 4, 'is_signatory_default' => false, 'is_confirmed' => true]
@@ -197,6 +202,31 @@ class DemoDataSeeder extends Seeder
                 'term_start' => now()->subYear()->toDateString(),
                 'term_end' => now()->addYear()->toDateString(),
                 'is_signatory' => false,
+                'is_active' => true,
+            ]
+        );
+
+        $luponPersonnel = Personnel::updateOrCreate(
+            ['position_id' => $luponPosition->id, 'full_name' => 'Juana Reyes'],
+            [
+                'user_id' => $encoder->id,
+                'contact_number' => '0919-444-5566',
+                'email' => 'clerk@calarian.gov.ph',
+                'term_start' => now()->subYear()->toDateString(),
+                'term_end' => now()->addYear()->toDateString(),
+                'is_signatory' => false,
+                'is_active' => true,
+            ]
+        );
+
+        $pangkatPersonnel = Personnel::updateOrCreate(
+            ['position_id' => $luponPosition->id, 'full_name' => 'Hon. Alberto C. Mendoza (Pangkat Chairman)'],
+            [
+                'contact_number' => '0919-777-8899',
+                'email' => 'pangkat.mendoza@calarian.gov.ph',
+                'term_start' => now()->subYear()->toDateString(),
+                'term_end' => now()->addYear()->toDateString(),
+                'is_signatory' => true,
                 'is_active' => true,
             ]
         );
@@ -292,11 +322,13 @@ class DemoDataSeeder extends Seeder
             [
                 'fiscal_year_id' => $fiscalYear->id,
                 'case_type_id' => $caseTypeNoise?->id,
+                'record_type' => 'complaint',
                 'source' => 'direct',
                 'title' => 'Ramos vs. Bautista - Excessive Late Night Videoke',
                 'narrative' => 'Respondent repeatedly operates commercial sound amplification and videoke past 10:00 PM on weeknights despite neighborhood reminders.',
-                'filed_on' => now()->subDays(12)->toDateString(),
-                'incident_date' => now()->subDays(14)->toDateString(),
+                'filed_on' => now()->subDays(14)->toDateString(),
+                'complaint_started_on' => now()->subDays(14)->toDateString(),
+                'incident_date' => now()->subDays(16)->toDateString(),
                 'incident_location' => 'Jasmin Lane, Purok 2, Calarian',
                 'purok_id' => $purokId,
                 'status' => CaseStatus::IN_MEDIATION,
@@ -466,5 +498,44 @@ class DemoDataSeeder extends Seeder
                 ]
             );
         }
+
+        // Case 5: Blotter Record (Incident Documentation)
+        $partyBlotter = Party::firstOrCreate(
+            ['full_name' => 'Elena S. Ramos'],
+            [
+                'contact_number' => '0917-555-0501',
+                'address_line' => '55 Bougainvillea St., Purok 1',
+                'home_barangay' => 'Calarian',
+                'home_city' => 'Zamboanga City',
+                'residency_status' => 'resident',
+                'purok_id' => $purokId,
+            ]
+        );
+
+        $case5 = BarangayCase::updateOrCreate(
+            ['case_number' => 'BLOT-2026-00001'],
+            [
+                'fiscal_year_id' => $fiscalYear->id,
+                'case_type_id' => $caseTypeNoise?->id,
+                'record_type' => 'blotter',
+                'source' => 'walk_in',
+                'title' => 'Blotter Report - Lost Government Identification Cards',
+                'narrative' => 'Resident reported loss of PhilHealth ID and UMID card while commuting along Normal Road. Logged for police/agency record purposes.',
+                'filed_on' => now()->subDays(2)->toDateString(),
+                'incident_date' => now()->subDays(2)->toDateString(),
+                'incident_location' => 'Normal Road, Calarian',
+                'purok_id' => $purokId,
+                'status' => CaseStatus::FILED,
+                'encoded_by' => $encoder->id,
+                'assigned_to' => $staff->id,
+                'outcome_note' => 'Blotter certification issued upon resident request.',
+                'is_confidential' => false,
+            ]
+        );
+
+        CaseParty::updateOrCreate(
+            ['case_id' => $case5->id, 'party_id' => $partyBlotter->id],
+            ['role' => 'complainant', 'residency_at_filing' => 'resident']
+        );
     }
 }

@@ -106,7 +106,7 @@ class ReferralService
         $via = in_array($sentVia, array_keys(Referral::SENT_VIA), true) ? $sentVia : null;
         $followUpDate = $followUpAt
             ? Carbon::parse($followUpAt)
-            : $sentDate->copy()->addDays((int) Setting::value('referral_follow_up_days', config('reports.referrals.follow_up_days', 7)));
+            : $sentDate->copy()->addDays((int) (setting('referral.follow_up_days') ?? Setting::value('referral_follow_up_days') ?? config('reports.referrals.follow_up_days', 3)));
 
         DB::transaction(function () use ($referral, $user, $sentDate, $via, $followUpDate): void {
             $referral->update([

@@ -10,12 +10,24 @@ use App\Models\Position;
 use App\Models\ReportTemplate;
 use App\Models\Setting;
 use App\Models\SignatoryAssignment;
+use App\Services\PriorityService;
 use Illuminate\Database\Seeder;
 
 class RequiredDataSeeder extends Seeder
 {
     public function run(): void
     {
+        // 0. Base reference seeders in dependency order
+        $this->call([
+            PurokSeeder::class,
+            CategorySeeder::class,
+            CategoryQuestionSeeder::class,
+            OfficeSeeder::class,
+            RoutingRuleSeeder::class,
+            EmergencyContactSeeder::class,
+            ResponseTemplateSeeder::class,
+        ]);
+
         // 1. All permissions
         $permissions = [
             ['slug' => 'settings.manage', 'label' => 'Manage Settings', 'group' => 'settings'],
@@ -206,10 +218,36 @@ class RequiredDataSeeder extends Seeder
                 'source_question' => 'Q27: Enable case module?',
                 'is_confirmed' => false,
             ],
+            [
+                'key' => 'records.lookback_years',
+                'value' => '4',
+                'type' => 'integer',
+                'group' => 'fiscal_year',
+                'label' => 'Historical Record Lookback Years',
+                'description' => 'Number of past record years staff search and import from legacy files.',
+                'source_question' => 'Q8',
+                'is_confirmed' => false,
+            ],
         ];
 
         foreach ($settings as $s) {
             Setting::firstOrCreate(['key' => $s['key']], $s);
+        }
+
+        // Priority weights (is_confirmed = false)
+        foreach (PriorityService::DEFAULT_WEIGHTS as $key => $value) {
+            Setting::firstOrCreate(
+                ['key' => 'priority.'.$key],
+                [
+                    'value' => (string) $value,
+                    'type' => 'integer',
+                    'group' => 'priority',
+                    'label' => ucwords(str_replace('_', ' ', $key)).' Priority Weight',
+                    'description' => 'Weight used in calculating report priority score.',
+                    'source_question' => 'Settings',
+                    'is_confirmed' => false,
+                ]
+            );
         }
 
         // 3. Positions (is_confirmed = false)

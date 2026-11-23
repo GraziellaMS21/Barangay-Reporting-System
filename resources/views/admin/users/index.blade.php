@@ -75,8 +75,10 @@
         <tr class="hover:bg-slate-50">
             <td class="px-4 py-3 font-semibold text-slate-900">
                 {{ $u->name }}
-                @if($u->personnel)
-                    <div class="text-xs font-normal text-slate-500">{{ $u->personnel->position?->name }}</div>
+                @if($u->role === 'agency')
+                    <div class="text-xs font-normal text-purple-700">{{ $u->office?->name ?? 'External Agency' }}</div>
+                @elseif($u->personnel?->position)
+                    <div class="text-xs font-normal text-slate-500">{{ $u->personnel->position->name }}</div>
                 @endif
             </td>
             <td class="px-4 py-3 text-slate-700">{{ $u->email }}</td>

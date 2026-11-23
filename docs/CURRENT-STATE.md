@@ -209,3 +209,14 @@ The following specific gaps exist between the current codebase and the canonical
       - *Right Column (`lg:col-span-5`)*: Sticky Decision Panel (`lg:sticky lg:top-4`) integrating Step 2 (AI Triage & 3-Way Comparison) and Step 3 (Routing & Assignment) with sticky submit action footers (`Confirm and route`).
     - Enhanced comparison matrix displaying editable inputs, inline comparison badges (`Accepted`, `Edited`, `AI suggested`, `Resident`), gate hint indicators, and top-level "Accept All AI Suggestions" action.
   - **Verification**: 142 tests passing across full PHPUnit suite (1,122 assertions, 100% green); Vite production build verified; Pint compliant.
+
+### Users, Roles, Positions & Seeders Rework [Completed]
+- **Status**: Completed (2026-11-24)
+- **Delivered**:
+  - **Canonical Role Enforcement**: Restricted `users.role` strictly to `admin`, `staff`, and `agency` (`personnel` deprecated and removed as a role). Data migration `2026_12_02_000001_migrate_personnel_role_to_staff.php` converted legacy personnel users to staff with `reports_center.view`.
+  - **Single Source of Truth for Position and Office**: `User::position()` implemented via `hasOneThrough` linking `personnel.user_id` and `personnel.position_id`. `users.office_id` enforces external office assignment for `agency` users and is null for admin/staff.
+  - **Permission Presets**: Added `case_reviewer` preset (`cases.view_confidential`, `reports.view`, etc.) for Kagawad Peace & Order.
+  - **Seeders Consolidation**: Deleted empty/redundant seeders (`AdminSeeder`, `EngineSeeder`, `UserSeeder`, `SettingSeeder`, `StaffSeeder`, `ResidentSeeder`). Orchestrated baseline reference data via `RequiredDataSeeder` (calls `PurokSeeder`, `CategorySeeder`, `CategoryQuestionSeeder`, `OfficeSeeder`, `RoutingRuleSeeder`, `EmergencyContactSeeder`, `ResponseTemplateSeeder`). `DatabaseSeeder` calls only `RequiredDataSeeder` (0 users, 0 reports seeded in production).
+  - **Realistic Demo Environment**: `DemoDataSeeder` seeds all canonical accounts (`admin@`, `secretary@`, `staff@`, `clerk@`, `reviewer@`, `cswdo@` with `password123`), sets up active FY 2026, advances number sequences to prevent collision, and invokes `DemoReportSeeder`.
+  - **User Management UI**: Positioned Role dropdown at top of form with dynamic field visibility for Office, Position, and Permission Preset. Index table displays user Position and Agency Office badges.
+  - **Verification**: Feature test suite `UserRolePositionReworkTest.php` passing 100% (8 tests, 46 assertions); `SeederTest.php`, `AppCommandsTest.php`, and `UsersAndPermissionsTest.php` passing cleanly; Pint code style compliant.

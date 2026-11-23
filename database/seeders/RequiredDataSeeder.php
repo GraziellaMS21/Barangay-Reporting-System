@@ -24,6 +24,7 @@ class RequiredDataSeeder extends Seeder
             ['slug' => 'backups.manage', 'label' => 'Manage Backups', 'group' => 'settings'],
             ['slug' => 'personnel.manage', 'label' => 'Manage Personnel & Positions', 'group' => 'personnel'],
             ['slug' => 'users.manage', 'label' => 'Manage User Accounts', 'group' => 'users'],
+            ['slug' => 'reports.view', 'label' => 'View Resident Reports Queue', 'group' => 'reports'],
             ['slug' => 'reports_center.view', 'label' => 'View Reports Center', 'group' => 'reports_center'],
             ['slug' => 'reports_center.export', 'label' => 'Export Reports', 'group' => 'reports_center'],
             ['slug' => 'cases.view', 'label' => 'View Barangay Cases', 'group' => 'cases'],
@@ -217,6 +218,7 @@ class RequiredDataSeeder extends Seeder
             ['name' => 'Barangay Secretary', 'code' => 'barangay_secretary', 'sort_order' => 2, 'is_signatory_default' => true, 'is_confirmed' => false],
             ['name' => 'Lupon Member / Conciliator', 'code' => 'lupon_member', 'sort_order' => 3, 'is_signatory_default' => false, 'is_confirmed' => false],
             ['name' => 'Barangay Tanod / Peace Officer', 'code' => 'barangay_tanod', 'sort_order' => 4, 'is_signatory_default' => false, 'is_confirmed' => false],
+            ['name' => 'Barangay Kagawad (Peace & Order)', 'code' => 'kagawad_peace_order', 'sort_order' => 5, 'is_signatory_default' => false, 'is_confirmed' => false],
         ];
 
         foreach ($positions as $pos) {

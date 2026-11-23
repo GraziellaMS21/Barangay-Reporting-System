@@ -50,6 +50,7 @@ return [
             'permissions' => [
                 'cases.view',
                 'cases.view_confidential',
+                'reports.view',
                 'reports_center.view',
                 'dashboard.view',
             ],

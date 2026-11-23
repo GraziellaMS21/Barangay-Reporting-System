@@ -25,6 +25,8 @@ This document provides a realistic, code-verified audit of what is currently imp
 | **Phase 11: Rules & AI Engine** | **Done** | Inline review comparison, timeout handling (30s), fallback models, `/api/nearby-reports` endpoint. |
 | **Phase 12: Admin & Notifications** | **Done** | `NotificationService`, transaction mail dispatch (`ReportReceived`, `ReportStatusChanged`, `EmergencyAlert`), CSV export. |
 
+| **Foundation (Phase 0)** | **Done** | Case module, agency portal, Reports Center and setup foundations: 22 migrated tables, 21 models, core services, permission middleware, config-driven navigation, 11 UI components, `app:empty` and `app:demo`. Stubs remain for workstreams. See `docs/FOUNDATION_HANDOFF.md`. Test suite: 184 tests, 1,374 assertions. |
+| **Revision 2 alignment** | **Planned** | Schema and seed changes from the Secretary's answers (`docs/REVISION_2.md` section 8). |
 ---
 
 ## 2. Verified Code Gaps (Target Design vs. Codebase)

@@ -148,7 +148,7 @@ class OfficeSettingsController extends Controller
     private function activeStaffUsers()
     {
         return User::query()
-            ->whereIn('role', ['admin', 'staff'])
+            ->whereIn('role', ['admin', 'staff', 'personnel'])
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name', 'role']);

@@ -8,6 +8,8 @@ class CaseStatus
 
     public const IN_MEDIATION = 'in_mediation';
 
+    public const IN_CONCILIATION = 'in_conciliation';
+
     public const SETTLED = 'settled';
 
     public const UNSETTLED = 'unsettled';
@@ -26,6 +28,7 @@ class CaseStatus
         return [
             self::FILED,
             self::IN_MEDIATION,
+            self::IN_CONCILIATION,
             self::SETTLED,
             self::UNSETTLED,
             self::ESCALATED,
@@ -42,6 +45,7 @@ class CaseStatus
         return [
             self::FILED => 'Filed',
             self::IN_MEDIATION => 'In Mediation',
+            self::IN_CONCILIATION => 'In Conciliation',
             self::SETTLED => 'Settled',
             self::UNSETTLED => 'Unsettled',
             self::ESCALATED => 'Escalated',

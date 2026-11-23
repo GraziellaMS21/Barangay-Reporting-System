@@ -15,7 +15,7 @@ All additions are labelled **Source: New (adviser feedback)** and are subject to
 | UR-11 | Captain / Administrator | The administrator should be able to set up the system on first launch: barangay profile, active fiscal year, staff list, and access for each employee. |
 | UR-12 | Captain / Administrator | The administrator should be able to keep a record of barangay employees and official signatories, with their positions and terms of office. |
 | UR-13 | Barangay Staff | Staff should be able to record a case with its complainants and respondents, and tag each person as a resident, non-resident, or unverified. |
-| UR-14 | Barangay Staff | Staff should be able to issue summons, see how many were issued for a case, and be told when the case is eligible to be escalated. |
+| UR-14 | Barangay Staff | Staff should be able to issue sequential summons, track 15-working-day conciliation deadlines, and let complainants initiate case escalation when conciliation fails. |
 | UR-15 | External Agency | An agency (for example the police) should be able to register, be approved by the administrator, and view and update only the referrals sent to it. |
 | UR-16 | Captain / Administrator | The administrator should be able to generate reports for any fiscal year, in the barangay's formats, with the correct signatories. |
 | UR-17 | Captain / Administrator | The administrator should be able to close a fiscal year so that its finished records are locked. |
@@ -30,14 +30,15 @@ Add a line to the source-column key: **New** = requirement added after adviser f
 | SR-17 | UR-11 | The system shall require one active fiscal year and stamp every new report, referral, and case with it. |
 | SR-18 | UR-12 | The system shall keep a registry of personnel with position, term of office, signatory status, and active or inactive status, without deleting former employees. |
 | SR-19 | UR-10, UR-11 | The system shall let the administrator give each employee individual permissions, in addition to the Staff and Administrator roles. |
-| SR-20 | UR-13 | The system shall record a case with a case type, narrative, and one or more complainants, respondents, and witnesses, each tagged resident, non-resident, or unverified. |
-| SR-21 | UR-13 | The system shall store each person once, warn about a possible duplicate before creating a new person, and show every case the person is in. |
-| SR-22 | UR-14 | The system shall record each summons with its number, date, hearing time, service result, and attendance, count the non-voided summons per case, and flag the case as eligible for escalation when the count reaches the configured limit. The system shall never escalate a case on its own. |
-| SR-23 | UR-14 | The system shall record each escalation with its destination, the official who decided, the reason, and, when the limit was not reached, an override note. |
-| SR-24 | UR-15 | The system shall let an external agency register with an identity document, and shall keep the account inactive until an administrator approves it. |
-| SR-25 | UR-15 | The system shall show an approved agency only the referrals addressed to its own office. |
+| SR-20 | UR-13 | The system shall record a case with a record type (blotter-only or formal complaint), case type, narrative, and one or more complainants, respondents, and witnesses, each tagged resident, non-resident, transient, or unverified. |
+| SR-21 | UR-13 | The system shall store each person once, warn about possible duplicate persons and cases before saving, and show every case the person is in. |
+| SR-22 | UR-14 | The system shall record each summons with its sequential number, date, hearing time, service result, and attendance, counting summons for information only without an artificial cutoff limit, and calculate conciliation deadlines based on 15 working days excluding weekends and official holidays. The system shall never transition case status automatically. |
+| SR-23 | UR-14 | The system shall record case escalation upon complainant request with destination agency, request date, reason, and printable Certification to File Action (CFA) signed by the Pangkat Chairman, displaying an advisory warning if 15 working days have not elapsed without blocking officials. |
+| SR-24 | UR-15 | The system shall let an external agency register with an identity document or official endorsement letter, and shall keep the account inactive until an administrator approves it. |
+| SR-25 | UR-15 | The system shall show an approved agency only the referrals addressed to its own office and allow downloading case attachments. |
 | SR-26 | UR-16 | The system shall produce reports that can be filtered by fiscal year and exported as PDF or Excel, with a signatory block taken from the personnel registry. |
 | SR-27 | UR-17 | The system shall let the administrator close a fiscal year with a recorded note, after which finished records of that year cannot be edited. |
+| SR-28 | UR-11 | The system shall provide a bulk import mechanism for historical Excel and CSV files spanning past record years, validating rows against duplicates and supporting batch rollback without altering active sequence numbers. |
 
 ### 1.3 Section C: Functional Requirements (append)
 
@@ -49,16 +50,17 @@ Add a line to the source-column key: **New** = requirement added after adviser f
 | FR-26 | The system shall provide a registry of positions, personnel, and signatories, and shall use the signatory in force on the document date on every printed letter and report. | New |
 | FR-27 | The system shall provide user management with per-employee permissions, account deactivation, temporary passwords, and forced password change on first login. | New |
 | FR-28 | The system shall show every setting or data item that has not yet been confirmed by the barangay and let the administrator confirm it. | New |
-| FR-29 | The system shall let staff create, edit, assign, and change the status of cases, with a recorded note for every status change. | New |
+| FR-29 | The system shall let staff create, edit, assign, and change the status of cases (blotter or formal complaint), with a recorded note for every status change, and allow upgrading blotters to formal complaints. | New |
 | FR-30 | The system shall provide a person directory with duplicate warnings, residency tagging with the basis for it, and the ability to merge duplicate persons. | New |
-| FR-31 | The system shall record summons per case, show a summons counter, and print a summons. | New |
+| FR-31 | The system shall record sequential summons per case, display a working-day deadline countdown panel (with due-soon and overdue indicators), and print official summons notices. | New |
 | FR-32 | The system shall provide a hearing schedule with today's hearings and let staff record hearing outcomes. | New |
-| FR-33 | The system shall let staff record a settlement and escalate a case, producing an endorsement letter and, optionally, a referral to the receiving office. | New |
+| FR-33 | The system shall let staff record an amicable settlement with terms, amount, and signed agreement upload, and let staff record complainant-initiated escalation, generating a Certification to File Action (CFA) signed by the Pangkat Chairman and dispatching an external agency referral with attachments. | New |
 | FR-34 | The system shall provide agency registration, email verification, administrator approval, rejection, suspension, and reinstatement. | New |
 | FR-35 | The system shall provide an agency portal where agency users acknowledge, update, decline, and close the referrals sent to them and send messages to the barangay. | New |
-| FR-36 | The system shall provide a Reports Center with seven standard reports, a history of generated reports, and PDF, Excel, and print output. | New |
-| FR-37 | The system shall provide a secretary dashboard (hearings, summons awaiting service, cases eligible to escalate, overdue cases, referrals awaiting follow-up) and a global search by tracking code, referral number, case number, and person name. | New |
+| FR-36 | The system shall provide a Reports Center with standard DILG/KP reports (yearly accomplishment, monthly case summary, purok-problem matrix), a history of generated reports, and PDF, Excel, and print output. | New |
+| FR-37 | The system shall provide a secretary dashboard (today's hearings, upcoming hearings, summons awaiting service, cases near deadline, overdue cases, referrals awaiting follow-up) and a global search across all fiscal years by tracking code, referral number, case number, and person name. | New |
 | FR-38 | The system shall make a daily backup and let the administrator download it. | New |
+| FR-39 | The system shall provide an Excel and CSV bulk import wizard (upload, column mapping, validation preview, chunked commit, batch rollback) for historical records across past fiscal years without AI involvement. | New |
 
 **Edits to existing rows**
 - **FR-06:** replace "email residents ... and email officials" scope note with: "Notifications are sent by email only; SMS is deferred."

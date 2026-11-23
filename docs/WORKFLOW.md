@@ -1,10 +1,10 @@
 # Lifecycle, Statuses & State Machine Workflow
 
-> **Canonical Source of Truth**: This document is the single authoritative source of truth for the report lifecycle, status definitions, allowed state transitions, and SLA behavior in the Barangay Problem Reporting and Management System. Any changes to system statuses must be updated here first.
+> **Canonical Source of Truth**: This document is the single authoritative source of truth for the incident report lifecycle, the external referral lifecycle, and the barangay case lifecycle, including status definitions, allowed state transitions, SLA behavior, and statutory caveats in the Barangay Problem Reporting and Management System. Any changes to system statuses must be updated here first.
 
 ---
 
-## 1. Lifecycle Stages
+## 1. Lifecycle Stages (Incident Reports)
 
 1. **Intake**: Resident submits a report via the single-card form and receives an immediate unique tracking code (`BRG-XXXXXX`). The report is persisted immediately in status `submitted`. Submissions never hang waiting for external APIs.
 2. **AI Triage (Background)**: An asynchronous listener invokes `GeminiService::analyze()`. Extracted data (suggested category, urgency, executive summary, photo audit, emergency flags) is saved to `report_ai_results`. If Gemini times out (30s) or fails, the report remains fully actionable with `ai_status = failed`.
@@ -21,7 +21,7 @@
 
 ---
 
-## 2. Status Directory (12 Target Statuses)
+## 2. Status Directory (Incident Reports - 12 Target Statuses)
 
 | Status | Meaning | Who Acts Next | Resident Sees | SLA Clock |
 | :--- | :--- | :--- | :--- | :--- |
@@ -44,7 +44,7 @@
 
 ---
 
-## 3. Canonical Transition Table
+## 3. Canonical Transition Table (Incident Reports)
 
 | From Status | Allowed Target Statuses | Notes & Constraints |
 | :--- | :--- | :--- |
@@ -80,7 +80,7 @@ Every transition to `no_action` requires both a **standard reason code** and a *
 
 ---
 
-## 5. State Machine Diagram
+## 5. State Machine Diagram (Incident Reports)
 
 ```mermaid
 stateDiagram-v2
@@ -150,45 +150,61 @@ $$\text{Priority Score} = (\text{Urgency Points} \times w_1) + (\text{Category R
 
 When an incident falls outside barangay authority (Mode B), the system routes it to the external referral workflow:
 
-- **Referral Sequence Format**: Each referral receives a unique tracking number in the format `REF-YYYY-NNNN` (e.g. `REF-2026-0001`).
-- **Default Follow-Up Interval**: Automatically scheduled for `sent_at + 7 days` (configured in `config/reports.php`).
+- **Referral Sequence Format**: Each referral receives a unique tracking number in the format `REF-YYYY-NNNN` (e.g. `REF-2026-0001`), where `YYYY` is the active fiscal year [D].
+- **Default Follow-Up Interval**: Automatically scheduled for `sent_at + referral.follow_up_days` (default **3 days** per Barangay Secretary answer [A Q12], configured in dynamic settings `referral.follow_up_days` with fallback to `config/reports.php`).
 - **Formal Letter Structure**: A printable formal endorsement letter is generated with:
   - Official Barangay Calarian seal and institutional header.
   - Date and unique `REF-YYYY-NNNN` identifier.
   - Recipient external agency/utility office and designated contact.
   - Incident narrative, geo-coordinates, purok, and nearest landmark.
   - Follow-up owner (defaults to the staff member who prepared the referral).
+  - Signature block generated dynamically via `SignatoryResolver::forDocument('referral_letter')` [D]. Left blank if unresolved.
+  - Watermark: Renders a visible **`DRAFT`** watermark while unconfirmed by officials.
 - **Resident Privacy During Referral**: The resident tracking page displays only the recipient agency name, transmission status, and public notes (`visible_to_resident = true`). Staff names, official email addresses, and internal notes are never exposed.
 - **SLA Clock Effect**: When a report transitions to `referred`, the internal barangay SLA clock stops (`Closed` for barangay SLA) while the external agency handles the matter. If the external agency cannot remediate, staff transition the case to `no_action` with reason `not_barangay_matter` or re-route internally.
 
 ---
 
-## 8. Case Lifecycle (DRAFT - Katarungang Pambarangay)
+## 8. Barangay Case Lifecycle (Katarungang Pambarangay & Blotter)
+
+> [!WARNING]
+> Statutory timelines have not been verified against the Katarungang Pambarangay rules. All deadline calculations reflect the Secretary's administrative working guidelines [A Q20, Q25].
 
 > [!IMPORTANT]
-> **Independent State Machine**: The Barangay Case lifecycle operates entirely independently from the public incident report lifecycle. Cases originate either via direct walk-in complaints filed at the barangay hall or via escalation of an existing civil report.
->
-> All case statuses below are marked as **`(Draft - subject to WS3 implementation)`**.
+> **Independent State Machine & Core Governance Mandate**:
+> 1. The Barangay Case lifecycle operates entirely independently from the public incident report lifecycle. Cases originate either via direct walk-in complaints or blotter entries recorded at the barangay hall (`source = 'direct'`), or via administrative escalation of an existing civil report (`source = 'report_escalation'`).
+> 2. **"The AI suggests, the rules route, the officials decide."** Neither summons issuance, hearing attendance, deadline expiration, nor Certificate to File Action (CFA) generation ever triggers an automatic status transition. All status changes require explicit action by authorized personnel.
+
+### 8.1 State Machine Diagram (Cases)
 
 ```mermaid
 stateDiagram-v2
-    [*] --> filed: Direct Complaint / Escalated Report
+    [*] --> filed: Direct Intake / Report Conversion
     
-    filed --> in_mediation: Summons 1 Issued
-    filed --> dismissed: Out of KP Jurisdiction / Lack of Merit
+    filed --> in_mediation: Mediation Initiated (PB Summons)
+    filed --> dismissed: Lack of Jurisdiction / Non-Appearance
     filed --> withdrawn: Complainant Withdraws
     
-    in_mediation --> agreement_drafted: Parties Reach Consensus
-    in_mediation --> in_mediation: Summons 2 or 3 Re-issued
-    in_mediation --> escalated: CFA Issued (3 Failed Appearances / Impasse)
-    in_mediation --> dismissed: Lack of Interest
+    in_mediation --> in_conciliation: Endorsed to Pangkat ng Tagapagkasundo
+    in_mediation --> settled: Amicable Settlement Reached
+    in_mediation --> unsettled: Mediation Failed / Impasse
+    in_mediation --> escalated: Complainant Requests CFA & Endorsement
+    in_mediation --> dismissed: Dismissed by PB
+    in_mediation --> withdrawn: Complainant Withdraws
     
-    agreement_drafted --> settled: 10-Day Repudiation Period Lapses
-    agreement_drafted --> repudiated: Party Files Repudiation Sworn Statement
+    in_conciliation --> settled: Amicable Settlement Reached
+    in_conciliation --> unsettled: Conciliation Period Lapsed
+    in_conciliation --> escalated: Complainant Requests CFA & Endorsement
+    in_conciliation --> dismissed: Dismissed by Pangkat
+    in_conciliation --> withdrawn: Complainant Withdraws
     
-    repudiated --> hearing_pending: New Conciliation Scheduled
-    hearing_pending --> settled: New Settlement Reached
-    hearing_pending --> escalated: CFA Issued to Court
+    unsettled --> escalated: Complainant Requests CFA & Endorsement
+    unsettled --> in_conciliation: Re-referred to Pangkat (Staff Action)
+    
+    settled --> in_mediation: Reopened by Staff (Violation of Terms, Note Required)
+    escalated --> in_mediation: Reopened by Staff (Procedural Defect, Note Required)
+    dismissed --> filed: Reopened by Staff (Reinstatement, Note Required)
+    withdrawn --> filed: Reopened by Staff (Reinstatement, Note Required)
     
     settled --> [*]
     escalated --> [*]
@@ -196,17 +212,190 @@ stateDiagram-v2
     withdrawn --> [*]
 ```
 
-### Case Status Reference Matrix (Draft)
+### 8.2 Lifecycle Stages & Statutory Deadlines
 
-| Status Slug | Label | Stage Meaning | Next Allowed Statuses |
+1. **Intake & Docketing (`filed`)**:
+   - Case is recorded with record type `blotter` or `complaint` [A Q18].
+   - Docket number format: `{MM}-{SEQ:3}-{YEAR}` [A Q9] (e.g., `11-001-2026`).
+   - Blotter-only records stay at `filed` indefinitely without summons, hearings, or deadline countdowns, until upgraded to a formal complaint.
+2. **Mediation Stage (`in_mediation`)**:
+   - Presided over by the Punong Barangay (PB).
+   - Mediation clock: **15 working days** [A Q25] starting from `complaint_started_on` [P] (or `filed_on`).
+   - Summons are issued and hearings scheduled. Summons are counted for **information only** (no 3-summons cap or automated cutoff) [A Q20].
+   - If agreement is reached, transitions to `settled`. If unresolved within 15 working days, official endorses case to Pangkat.
+3. **Conciliation Stage (`in_conciliation`)**:
+   - Presided over by the Pangkat ng Tagapagkasundo.
+   - Conciliation clock: **15 working days** [A Q25] starting from `endorsed_to_pangkat_on`.
+   - Conciliation extension: One extension of up to 15 working days (max 30 working days total conciliation) may be granted by the Pangkat [A Q25].
+4. **Resolution or Impasse (`settled` / `unsettled`)**:
+   - `settled`: Terms recorded, signed settlement uploaded, executed.
+   - `unsettled`: Mediation/conciliation elapsed without settlement. Complainant may request escalation.
+5. **Escalation & Endorsement (`escalated`)**:
+   - Complainant decides whether and when to escalate [A Q23].
+   - Official issues Certification to File Action (CFA) signed by the Pangkat Chairman [A Q5] (or PB if mediation stage).
+   - Case is endorsed to court, prosecutor, or PNP [A Q18].
+   - Case papers and attachments are dispatched to agency via `ReferralService::createFromCase` [A Q29, P].
+
+### 8.3 Case Status Directory
+
+| Status Slug | Label | Stage Meaning | Next Allowed Statuses | SLA / Deadline Clock |
+| :--- | :--- | :--- | :--- | :--- |
+| **`filed`** | Filed | Docketed case awaiting initial action. Blotter entries rest here. | `in_mediation`, `dismissed`, `withdrawn` | Inactive for blotter; Active for complaint |
+| **`in_mediation`** | In Mediation | Under active mediation before Punong Barangay. Summons and hearings issued. | `in_conciliation`, `settled`, `unsettled`, `escalated`, `dismissed`, `withdrawn` | **15 working days** |
+| **`in_conciliation`** | In Conciliation | Under conciliation before Pangkat ng Tagapagkasundo. | `settled`, `unsettled`, `escalated`, `dismissed`, `withdrawn` | **15 working days** (+15d ext) |
+| **`settled`** | Settled | Amicable settlement signed and binding. Terminal. | `in_mediation` (Reopened by staff with note) | **Closed** |
+| **`unsettled`** | Unsettled | Proceedings concluded without consensus. Awaiting complainant decision. | `escalated`, `in_conciliation` | **Closed** (Awaiting action) |
+| **`escalated`** | Escalated | CFA issued; case endorsed to PNP, Prosecutor, or Court. Terminal. | `in_mediation` (Reopened by staff with note) | **Closed** |
+| **`dismissed`** | Dismissed | Dismissed for lack of interest, lack of jurisdiction, or non-appearance. Terminal. | `filed` (Reopened by staff with note) | **Closed** |
+| **`withdrawn`** | Withdrawn | Complainant submitted voluntary withdrawal. Terminal. | `filed` (Reopened by staff with note) | **Closed** |
+
+### 8.4 Special Case Types & Timeline Exemptions
+
+- Case types with `uses_kp_timeline = false` (e.g. administrative matters, urgent child protection referrals) do not run the 15-working-day mediation clock [P].
+- Case types with `is_confidential_default = true` (e.g. BCPC, VAWC matters) automatically pre-tick the `is_confidential` flag during intake [A Q7, C6].
+
+### 8.5 Working Days & Deadline Calculation Rules
+
+- Deadlines use the `App\Support\WorkingDays` calculation engine [D].
+- Excludes Saturdays, Sundays, and official non-working holidays loaded dynamically from setting `calendar.holidays` [D].
+- Warning indicators:
+  - **Normal**: "Day X of 15" (slate badge).
+  - **Due soon**: 3 or fewer working days remaining (gold badge `cases.deadline_warning_days = 3`).
+  - **Overdue**: Working day count exceeded (red badge "Overdue X d").
+  - **Ready for next step**: Impasse reached or deadline passed without settlement (slate badge).
+
+### 8.6 Summons & Hearing Governance
+
+- **Summons Counting**: Summons are numbered sequentially for administrative tracking (`sequence_no`), but there is **no maximum summons limit** [A Q20]. The system does not lock or force status changes based on summons count.
+- **Service Results**: Built values: `served_personal`, `served_substituted`, `refused`, `unserved`. Target normalized values: `pending`, `received`, `refused`, `not_found`, `other` [A Q21, R10].
+- **Hearing Outcomes**: Attendance recorded as `appeared`, `failed_to_appear`, or `pending`. Hearing status tracked as `scheduled`, `in_progress`, `concluded`, `rescheduled`, `cancelled` [R11].
+- **Voiding**: Any issued summons may be voided by authorized staff only with a **mandatory written explanation note**. Voiding decrements active summons display and logs an audit entry.
+
+### 8.7 Intake Flow & Docketing Rules
+
+1. **Record Type Selection**: Staff selects **Blotter-only** (`blotter`) or **Formal Complaint** (`complaint`) as the first input field [A Q18, C3].
+2. **Party Search & Verification**: Staff searches existing persons by name or contact before creating new parties. Residency status is verified using Barangay ID, household list, government ID, or Purok leader confirmation [A Q16].
+3. **Duplicate Warnings**:
+   - **Person duplicates**: Matches on normalized name and contact number display existing person cards.
+   - **Case duplicates**: Matches where both complainant and respondent match an existing open case within 30 days trigger a prominent warning: "Case #XX-XXX already filed between these parties on YYYY-MM-DD. Open existing or save anyway?" [A Q2, C8]. Staff decide whether to proceed.
+4. **Docket Numbering**: Formatted as `{MM}-{SEQ:3}-{YEAR}` (e.g. `11-001-2026`) via `NumberingService::next('case', $fiscalYear)`. Sequence resets every fiscal year [A Q9].
+5. **Confidentiality**: Pre-ticked if case type defaults to confidential [A Q7]. Stamped with active fiscal year.
+6. **Transaction**: Intake persists case, parties, initial narrative, and audit log in a single atomic database transaction.
+
+### 8.8 Report to Case Conversion
+
+- A civil incident report in `under_review` or `routed` may be converted to a case by staff with permission `cases.create`.
+- **Status Independence**: The report and the resulting case maintain distinct, decoupled lifecycles. The report transitions to `routed` or `no_action` (`reason: converted_to_case`), while the new case starts at `filed`.
+- **Cross-links**: `reports.case_id` and `cases.source_report_id` record the reciprocal relationship.
+- **Privacy & PII**: Reporter details are not automatically copied to case parties without explicit staff confirmation, protecting resident anonymity where requested.
+
+### 8.9 Settlement Agreement Capture
+
+- Accessible via the **Record Settlement** action when status is `in_mediation` or `in_conciliation`.
+- Required fields:
+  - `settled_on`: Date agreement was signed [A Q24].
+  - `terms`: Detailed narrative of agreed stipulations [A Q24].
+  - `settlement_amount`: Optional monetary settlement figure (decimal 12,2).
+  - `agreement_file`: Signed amicable settlement agreement PDF/image upload (stored on private disk).
+- Personnel recording: Authorized staff member or Punong Barangay.
+- Execution: `CaseStatusService::transition($case, 'settled', $note, $user)`.
+
+### 8.10 Escalation & CFA Generation Flow
+
+1. **Trigger**: Complainant formally requests escalation after failed conciliation or mediation impasse [A Q22, Q23].
+2. **Form Data**: Destination agency (PNP, Prosecutor, MTCC), Complainant requesting, Request date, Reason code, and Pangkat Chairman signatory.
+3. **Validation**: If mediation or conciliation deadline has not elapsed, system shows a soft advisory warning ("15 working days not yet completed. Proceed anyway?"). Officials decide.
+4. **Printables**: Generates printable Certification to File Action (CFA) signed by Pangkat Chairman [A Q5] and Endorsement Letter signed by Punong Barangay.
+5. **Agency Handoff**: If `case_referral_handoff` feature flag is active, calls `ReferralService::createFromCase()`, creating an external referral with case documents attached for agency portal pickup [A Q29, C7].
+
+### 8.11 Canonical Case Transition Matrix
+
+| From Status | Allowed Target Statuses | Required Permission Slug | Note / Input Required | Audit Log Written |
+| :--- | :--- | :--- | :--- | :--- |
+| **`filed`** | `in_mediation` | `cases.summons` | Summons date & hearing schedule | Yes (`case.mediated`) |
+| **`filed`** | `dismissed` | `cases.edit` | Mandatory dismissal reason | Yes (`case.dismissed`) |
+| **`filed`** | `withdrawn` | `cases.edit` | Signed withdrawal notice / note | Yes (`case.withdrawn`) |
+| **`in_mediation`** | `in_conciliation` | `cases.edit` | Pangkat endorsement date | Yes (`case.conciliated`) |
+| **`in_mediation`** | `settled` | `cases.edit` | Settlement terms, date, signed PDF | Yes (`case.settled`) |
+| **`in_mediation`** | `unsettled` | `cases.edit` | Reason for mediation impasse | Yes (`case.unsettled`) |
+| **`in_mediation`** | `escalated` | `cases.escalate` | CFA details, destination, complainant | Yes (`case.escalated`) |
+| **`in_mediation`** | `dismissed` | `cases.edit` | Mandatory dismissal reason | Yes (`case.dismissed`) |
+| **`in_mediation`** | `withdrawn` | `cases.edit` | Complainant withdrawal note | Yes (`case.withdrawn`) |
+| **`in_conciliation`**| `settled` | `cases.edit` | Settlement terms, date, signed PDF | Yes (`case.settled`) |
+| **`in_conciliation`**| `unsettled` | `cases.edit` | Conciliation impasse note | Yes (`case.unsettled`) |
+| **`in_conciliation`**| `escalated` | `cases.escalate` | CFA details, destination, complainant | Yes (`case.escalated`) |
+| **`in_conciliation`**| `dismissed` | `cases.edit` | Dismissal reason | Yes (`case.dismissed`) |
+| **`in_conciliation`**| `withdrawn` | `cases.edit` | Complainant withdrawal note | Yes (`case.withdrawn`) |
+| **`unsettled`** | `escalated` | `cases.escalate` | CFA details, destination, complainant | Yes (`case.escalated`) |
+| **`unsettled`** | `in_conciliation` | `cases.edit` | Re-referral to Pangkat explanation | Yes (`case.reconciliated`)|
+| **`settled`** | `in_mediation` | `cases.edit` | Mandatory reopening note (breach) | Yes (`case.reopened`) |
+| **`escalated`** | `in_mediation` | `cases.edit` | Mandatory reopening note (defect) | Yes (`case.reopened`) |
+| **`dismissed`** | `filed` | `cases.edit` | Mandatory reinstatement explanation | Yes (`case.reinstated`)|
+| **`withdrawn`** | `filed` | `cases.edit` | Mandatory reinstatement explanation | Yes (`case.reinstated`)|
+
+### 8.12 Confirmation Status Table
+
+| Item / Rule | Status | Source Tag | Caveat / Note |
 | :--- | :--- | :--- | :--- |
-| `filed` | Filed | Complaint docketed with initial case number. | `in_mediation`, `dismissed`, `withdrawn` |
-| `in_mediation` | In Mediation | Summons issued; conciliation proceedings active before PB/Lupon. | `agreement_drafted`, `escalated`, `dismissed` |
-| `agreement_drafted` | Agreement Drafted | Terms signed; 10-day statutory repudiation window running. | `settled`, `repudiated` |
-| `settled` | Settled | Final amicable settlement agreement executed and binding. | Terminal (Execution Phase) |
-| `repudiated` | Repudiated | Settlement repudiated by a party within statutory 10-day window. | `hearing_pending`, `escalated` |
-| `hearing_pending` | Hearing Pending | Follow-up Lupon conciliation session scheduled after repudiation. | `settled`, `escalated` |
-| `escalated` | Escalated | Certificate to File Action (CFA) issued to court / prosecutor / PNP. | Terminal |
-| `dismissed` | Dismissed | Case dismissed for lack of jurisdiction, interest, or prescription. | Terminal |
-| `withdrawn` | Withdrawn | Case dropped voluntarily by complainant. | Terminal |
+| 15 working days mediation | Confirmed by Secretary | **[A Q20, Q25]** | Statutory timelines have not been verified against Katarungang Pambarangay rules. |
+| 15 working days conciliation | Confirmed by Secretary | **[A Q25]** | Statutory timelines have not been verified against Katarungang Pambarangay rules. |
+| Conciliation extension max 15d | Confirmed by Secretary | **[A Q25]** | "Another 15 to 30 days" per Secretary. |
+| Complainant requests CFA | Confirmed by Secretary | **[A Q22, Q23]** | Complainant chooses whether to escalate. |
+| Pangkat Chairman signs CFA | Confirmed by Secretary | **[A Q5]** | Verified against official signatory practices. |
+| Docket format `{MM}-{SEQ:3}-{YEAR}` | Confirmed by Secretary | **[A Q9]** | Sequence resets each calendar fiscal year. |
+| Summons count is info-only | Confirmed by Secretary | **[A Q20]** | No automatic cutoff after 3 summons. |
+| Mediation clock start date | Proposal | **[P]** | Proposed: `complaint_started_on` date (defaults to `filed_on`). |
+| Non-KP cases skip clock | Proposal | **[P]** | `case_types.uses_kp_timeline = false`. |
+| Pangkat Chairman per case | Follow-up Question | **[P]** | Follow-up question for Secretary tomorrow. |
 
+### 8.13 Code Alignment (`App\Support\CaseStatus`)
+
+| Status in Section 8.3 | In `CaseStatus` (Built) | Target Constant in Phase 0.5 | Note |
+| :--- | :--- | :--- | :--- |
+| `filed` | `CaseStatus::FILED` | `CaseStatus::FILED = 'filed'` | Matches built code. |
+| `in_mediation` | `CaseStatus::IN_MEDIATION` | `CaseStatus::IN_MEDIATION = 'in_mediation'` | Matches built code. |
+| `in_conciliation`| **Missing** | `CaseStatus::IN_CONCILIATION = 'in_conciliation'` | To be added in Phase 0.5 migration/code. |
+| `settled` | `CaseStatus::SETTLED` | `CaseStatus::SETTLED = 'settled'` | Matches built code. |
+| `unsettled` | `CaseStatus::UNSETTLED` | `CaseStatus::UNSETTLED = 'unsettled'` | Matches built code. |
+| `escalated` | `CaseStatus::ESCALATED` | `CaseStatus::ESCALATED = 'escalated'` | Matches built code. |
+| `dismissed` | `CaseStatus::DISMISSED` | `CaseStatus::DISMISSED = 'dismissed'` | Matches built code. |
+| `withdrawn` | `CaseStatus::WITHDRAWN` | `CaseStatus::WITHDRAWN = 'withdrawn'` | Matches built code. |
+
+---
+
+## 9. Referral Lifecycle (External Agency Portal)
+
+External referrals dispatched to partner agencies (PNP, CSWDO, City Engineer, Utilities) follow a dedicated lifecycle tracked in `referrals` and `referral_updates`:
+
+```mermaid
+stateDiagram-v2
+    [*] --> prepared: Referral Drafted by Staff
+    prepared --> sent: Letter Generated & Transmitted
+    sent --> acknowledged: Agency Confirms Receipt / Accesses Portal
+    acknowledged --> action_taken: Agency Logs Action / Resolution Update
+    action_taken --> closed: Final Remediated or Endorsed
+    sent --> closed: Closed Without Action / Inactive
+```
+
+1. **`prepared`**: Referral created by staff from report review Mode B or case escalation. Tracking number `REF-YYYY-NNNN` reserved.
+2. **`sent`**: Letter finalized, signed via `SignatoryResolver`, and transmitted via agency email / portal. Follow-up reminder scheduled for `sent_at + 3 days` [A Q12].
+3. **`acknowledged`**: Partner agency logs into portal (`/agency/referrals/{id}`), views case/report details, and downloads case papers [A Q29].
+4. **`action_taken`**: Agency posts progress notes or remediation milestones via `agency.referrals.updates.store` [A Q29].
+5. **`closed`**: Work completed or referred back to barangay. Handled in consultation with barangay staff.
+
+---
+
+## 10. Fiscal Year Effects & Boundary Rules
+
+1. **Finalized Definition**: A fiscal year corresponds to one calendar year (January 1 to December 31) [A Q8].
+2. **Locked Year Immutability (`FiscalYearGuard`)**:
+   - When a fiscal year is set to `status = 'locked'` or `is_locked = true`, all records associated with that fiscal year become strictly immutable.
+   - Any attempt to update, transition status, delete, or add summons/hearings/updates to a locked year's case or report throws `FiscalYearLockedException` and is aborted by `FiscalYearGuard`.
+3. **Roll-over Mechanics**:
+   - The Barangay Secretary or Admin activates the new fiscal year via `/admin/fiscal-years`.
+   - Only one fiscal year may have `status = 'active'` at any given time.
+   - Ongoing cases in `in_mediation` or `in_conciliation` remain open and editable in their originating fiscal year until concluded, but do not block the activation of the new fiscal year.
+4. **Numbering Sequence Restart**:
+   - `NumberingService` resets sequence numbers to `001` at the commencement of each fiscal year.
+   - Sequence uniqueness is scoped strictly to `(fiscal_year_id, type)`.
+   - Imported historical records (WS6) retain their original docket numbers and do not consume active fiscal year sequences.

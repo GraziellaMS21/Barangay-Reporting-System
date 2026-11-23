@@ -26,6 +26,15 @@ class UserSeeder extends Seeder
         );
 
         User::updateOrCreate(
+            ['email' => 'personnel@barangay.test'],
+            [
+                'name' => 'Barangay Personnel',
+                'password' => $defaultPassword,
+                'role' => 'personnel',
+            ]
+        );
+
+        User::updateOrCreate(
             ['email' => 'staff@barangay.test'],
             [
                 'name' => 'Barangay Staff',

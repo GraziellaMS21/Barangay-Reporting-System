@@ -62,3 +62,27 @@ Recorded as part of **Step 0: Discovery** for the foundation roadmap in `docs/PH
 ## 8. Configuration
 - `config/reports.php`: Contains `referrals.follow_up_days` (default 7), proof photo limits, status options, and channels.
 - **Phase 0 Contract**: Move dynamic settings into `settings` table as outlined in `docs/PLACEHOLDERS.md` while maintaining fallback defaults.
+
+---
+
+## 9. Verification round 2 (2026-11-22) [D, V]
+
+Conducted to reconcile `docs/REVISION_2.md` claims against the actual repository code and database schema.
+
+### Git and Filesystem Verification
+Verification confirmed that `WORKFLOW.md`, `SPEC_ADDENDUM.md`, and `TEAM_WORKSTREAMS.md` were **not actually patched** on disk or in git history prior to this verification round, despite `REVISION_2.md` lines 12–15 stating they were patched. They remained at their previous revisions and must be updated directly as part of this documentation round.
+
+### Repository Inspection Findings
+
+| # | Inspection Item | Repository / Database Fact Found [V] | Affected Documents |
+| :--- | :--- | :--- | :--- |
+| 1 | **Route snapshot** | Exact route count is **244 registered routes**. Snapshot exported to `docs/ROUTES.snapshot.json`. The handoff table documented 55 stub routes; the full application has 244 total routes including public, resident, auth, staff, admin, and engine APIs. | `docs/API.md`, `docs/TEAM_WORKSTREAMS.md`, `docs/FOUNDATION_HANDOFF.md` |
+| 2 | **Table & Model counts** | **53 database tables** in total schema (including pivots, sessions, cache, jobs). **44 Eloquent models** exist in `app/Models/` (21 models created in Phase 0 + 23 baseline models). | `docs/DATABASE.md`, `docs/FOUNDATION_HANDOFF.md` |
+| 3 | **Altered tables & `referral_updates`** | `settings` table gained `type`, `group`, `label`, `description`, `is_confirmed`, `confirmed_by`, `confirmed_at`, `source_question`. `response_templates` table gained `title`, `kind`, `created_by`. `referral_updates` exists from migration `2026_11_18_000001_referral_tracking_and_proof_photos.php` and was reused without duplication. | `docs/DATABASE.md`, `docs/FOUNDATION_HANDOFF.md` |
+| 4 | **`App\Support\CaseStatus` constants** | `CaseStatus` currently defines 7 constants: `FILED = 'filed'`, `IN_MEDIATION = 'in_mediation'`, `SETTLED = 'settled'`, `UNSETTLED = 'unsettled'`, `ESCALATED = 'escalated'`, `DISMISSED = 'dismissed'`, `WITHDRAWN = 'withdrawn'`. `IN_CONCILIATION` is **not yet in code** (planned for Phase 0.5 alignment). | `docs/WORKFLOW.md`, `docs/SPEC_ADDENDUM.md`, `docs/TEAM_WORKSTREAMS.md` |
+| 5 | **Permission Presets** | `config/permission_presets.php` defines 3 presets: `staff_full` (16 permissions), `case_encoder` (5 permissions), `reports_analyst` (3 permissions). `case_reviewer` does not exist yet in code (planned for Phase 0.5). Exactly 18 permission slugs are seeded. | `docs/TEAM_WORKSTREAMS.md`, `docs/ARCHITECTURE.md` |
+| 6 | **Schema column types & values** | `summons.service_result` is varchar default `'pending'`; `summons.attendance` is varchar default `'pending'`; `summons.sequence_no` (int) and `override_note` (text, nullable) exist. `cases.source` default is `'walk_in'`; `cases.is_confidential` default is `0`. `fiscal_years.status` has values `'active'`, `'inactive'`, `'closed'`, `'locked'`. `number_sequences` has unique key (`fiscal_year_id`, `type`). `parties.residency_status` has 4 values (`resident`, `non_resident`, `transient`, `unverified`). | `docs/SPEC_ADDENDUM.md`, `docs/DATABASE.md`, `docs/WORKFLOW.md` |
+| 7 | **Existing 7-day follow-up tests** | Two tests in `tests/Feature/ReferralAndProofWorkflowTest.php` assert 7 days: `test_referral_can_be_created_with_generated_reference_number` and `test_referral_service_creates_referral_with_proper_defaults`. These will need updating when `referral.follow_up_days` default shifts to 3 days in code. | `docs/TESTING.md`, `docs/WORKFLOW.md` |
+| 8 | **Seeded baseline counts** | Categories: 6 (`infrastructure`, `sanitation`, `security`, `administrative`, `environmental`, `health`). Routing rules: 6. Offices: 6. Positions: 4 (`punong_barangay`, `barangay_secretary`, `lupon_member`, `barangay_tanod`). Case types: 6. Escalation destinations: 4 (`MTCC`, `City Prosecutor Office`, `PNP Station 8`, `CSWDO`). Permissions: 18 slugs. | `docs/PLACEHOLDERS.md`, `docs/FOUNDATION_HANDOFF.md` |
+| 9 | **Demo credentials** | Demo accounts from `DemoDataSeeder.php`: `admin@calarian.gov.ph`, `staff@calarian.gov.ph`, `clerk@calarian.gov.ph`, `cswdo@zamboanga.gov.ph` (all password `password123`). Legacy seeders also contain `admin@barangay.test` and `staff@barangay.test` (`password`). | `docs/TESTING.md`, `docs/FOUNDATION_HANDOFF.md` |
+| 10 | **SPEC_ADDENDUM Section 11 items** | `BarangayCase::visibleTo()` scope exists on model. Private disk configured in `config/filesystems.php`. Mail keys present in `.env.example`. `ReferralService::dueForFollowUp()` implemented. `<x-ui.global-search>` Blade component exists. Seeded response templates and privacy notice present. `fiscal_year_id` stamping implemented in `ReportController@store`. `User` does not yet implement `MustVerifyEmail`. | `docs/SPEC_ADDENDUM.md`, `docs/TASKS.md` |

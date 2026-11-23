@@ -357,8 +357,8 @@ class ReferralAndProofWorkflowTest extends TestCase
         $this->assertSame('sent', $referral->status);
         $this->assertTrue($referral->sent_at->isToday());
         $this->assertSame('email', $referral->sent_via);
-        // follow_up_at = sent_at + referral_follow_up_days (default 7 from config).
-        $this->assertTrue($referral->follow_up_at->equalTo($referral->sent_at->copy()->addDays(7)));
+        // follow_up_at = sent_at + referral_follow_up_days (default 3 from config / settings).
+        $this->assertTrue($referral->follow_up_at->equalTo($referral->sent_at->copy()->addDays(3)));
 
         Mail::assertSent(ReferralUpdateMail::class, 1);
 
@@ -384,7 +384,7 @@ class ReferralAndProofWorkflowTest extends TestCase
             'status' => 'sent',
             'sent_at' => now()->subDay(),
             'sent_via' => 'email',
-            'follow_up_at' => now()->addDays(7),
+            'follow_up_at' => now()->addDays(3),
             'prepared_by' => $this->staff->id,
         ]);
 

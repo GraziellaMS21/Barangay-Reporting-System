@@ -184,9 +184,9 @@ Used for: Barangay Case show page, Agency detail view, External Referral managem
 | [Overview]   [Parties (2)]   [Summons (1)]   [Hearings (1)]   [Notes]|
 +---------------------------------------------------+------------------+
 | Main Column (2/3 width)                           | Side Column (1/3)|
-| Section Card: Case Information                    | Summons Counter  |
-| Narrative, dates, assigned mediator...            | [=== 2 of 3 ===] |
-|                                                   |                  |
+| Section Card: Case Information                    | Deadline Panel   |
+| Narrative, dates, assigned mediator...            | [=== Day 8/15 ==]|
+|                                                   | 7 days remain    |
 | Section Card: Recent Proceedings                  | Confidentiality  |
 | Hearing schedules and service confirmations...    | [ Public Case  ] |
 +---------------------------------------------------+------------------+
@@ -790,7 +790,7 @@ Used for: Official Summons, Case Endorsements, Referral Letters, Amicable Settle
   | Complainant(s) | 17% | Left | Truncated primary complainant names. |
   | Respondent(s) | 17% | Left | Truncated primary respondent names. |
   | Status | 9% | Left | Case status pill badge (Pattern A). |
-  | Summons | 8% | Center | Counter pill (gold at 1 rem; red "Eligible" at 3; red "Overdue" when late). |
+  | Summons / Deadline | 8% | Center | Deadline state ("Day X of 15", gold near deadline, red overdue, grey ready for next step) and plain summons count. |
   | Assigned | 9% | Left | Assigned mediator / clerk name. |
   | Actions | 6% | Right | View and Edit icon actions. |
   *(Columns sum: 12 + 9 + 13 + 17 + 17 + 9 + 8 + 9 + 6 = 100%)*
@@ -877,9 +877,17 @@ Used for: Official Summons, Case Endorsements, Referral Letters, Amicable Settle
 ---
 
 #### 4.25 Secretary Dashboard
-- **ID & Route**: `WS3-P05` | `GET /admin/secretary` (`admin.secretary`) | **Pattern G** | **Owner: WS3**
-- **Sections in Order**: Page Header with FY indicator -> 6 KPI Cards -> 2 Split Action List Widgets (Hearings Today, Overdue Summonses).
-- **KPI Metrics**: 1. Active Mediation Cases, 2. Hearings Scheduled Today, 3. Summonses Awaiting Service, 4. Eligible for Court Escalation (CFA), 5. Settled Cases This Month, 6. Repudiation Window Open.
+- **ID & Route**: `WS4-P00` | `GET /admin/secretary` (`admin.secretary`) | **Pattern G** | **Owner: WS4**
+- **Sections in Order**: Page Header with FY indicator -> 8 Reminder KPI Cards -> 2 Split Action List Widgets (Hearings Today, Referrals Awaiting Follow-Up).
+- **KPI Metrics** (Operational reminders per Q27):
+  1. Hearings Scheduled Today
+  2. Upcoming Hearings (Next 7 Days)
+  3. Summonses Awaiting Service Record
+  4. Cases Near Deadline (Due Soon, <= 3 working days left)
+  5. Overdue Cases (`OverdueService`, working days exceeded without settlement)
+  6. Ready for Next Step (Mediation/conciliation concluded without consensus, ready for CFA or conciliation referral)
+  7. Referrals Awaiting Follow-Up (Sent > 3 days ago per Q12)
+  8. High-Priority Open Problem Reports (Emergency or Critical)
 
 ---
 
@@ -890,16 +898,16 @@ Used for: Official Summons, Case Endorsements, Referral Letters, Amicable Settle
 - **ASCII Wireframe**:
 ```text
 +----------------------------------------------------------------------+
-| Breadcrumbs: Home / Cases / CASE-2026-00001                          |
-| CASE-2026-00001: Dela Cruz vs. Penduko                [Issue Summons]
+| Breadcrumbs: Home / Cases / 11-001-2026                              |
+| 11-001-2026: Dela Cruz vs. Penduko                    [Issue Summons]
 | FY 2026 · Boundary Dispute · Filed Nov 17, 2026 · Status: [In Mediation]|
 +----------------------------------------------------------------------+
 | [Overview]  [Parties (2)]  [Summons (1)]  [Hearings]  [Escalation]   |
 +---------------------------------------------------+------------------+
 | Main Tab View (2/3 width)                         | Side Cards (1/3) |
-| (Summons Tab Selected)                            | Summons Progress |
-| Summons Counter: 1 of 3 issued                    | [=== 1/3 ======] |
-|                                                   | 2 summons remain |
+| (Summons Tab Selected)                            | Deadline Panel   |
+| Sequential Summons (No artificial limit)          | [=== Day 8/15 =] |
+|                                                   | 7 days remain    |
 | Seq No.  Respondent  Issued   Hearing   Service   |                  |
 | ------------------------------------------------- | Confidentiality  |
 | 1   001  P. Penduko  Nov 18   Nov 25    [Served]  | [ Standard Pub ] |
@@ -911,32 +919,32 @@ Used for: Official Summons, Case Endorsements, Referral Letters, Amicable Settle
 - **Action Cluster**:
   | Label | Variant | Position | Rule |
   | :--- | :--- | :--- | :--- |
-  | `Print Endorsement` | Secondary | Header right-left | Generates endorsement packet PDF. |
-  | `Issue Summons` | Primary (`--blue`) | Header rightmost | Enabled when summons count < 3 and not settled. |
+  | `Print Summary` | Secondary | Header right-left | Generates case summary PDF. |
+  | `Issue Summons` | Primary (`--blue`) | Header rightmost | Enabled when case is active and not settled. |
   | `More Actions...` | Ghost Dropdown | Beside primary | Settlement agreement, Mark Dismissed, Void. |
 - **Summons Tab Table Columns**:
   | Column | Width % | Align | Notes |
   | :--- | :--- | :--- | :--- |
-  | Seq | 6% | Left | Sequential number (`1`, `2`, `3`). |
+  | Seq | 6% | Left | Sequential number (`1`, `2`, `3`...). |
   | Number | 14% | Left | Formatted ID (`SUM-2026-0001`). |
   | Respondent | 20% | Left | Respondent party name. |
   | Issued | 12% | Left | Issuance date `YYYY-MM-DD`. |
   | Hearing | 16% | Left | Hearing timestamp. |
-  | Service | 12% | Left | Service result badge (`Served`, `Unserved`). |
+  | Service | 12% | Left | Service result badge (`Received`, `Refused`, `Not Found`). |
   | Attendance | 12% | Left | Attendance badge (`Appeared`, `Failed`). |
-  | Actions | 8% | Right | Print notice, Void action. |
+  | Actions | 8% | Right | Print notice, Void action (requires note). |
   *(Columns sum: 6 + 14 + 20 + 12 + 16 + 12 + 12 + 8 = 100%. Voided rows display with line-through styling).*
 
 ---
 
 #### 4.27 Issue Summons Form
-- **ID & Route**: `WS4-P02` | `GET /admin/cases/{id}/summons/create` (`admin.summons.create`) | **Pattern B** | **Owner: WS4**
-- **Sections in Order**: Title Row -> Summons Metadata Card (Respondent selection, sequence number display, hearing date/time, venue) -> Serving Officer Card (Assigned Tanod) -> Sticky Footer Bar.
+- **ID & Route**: `WS4-P02` | `GET /admin/cases/{id}/summons/create` (`admin.cases.summons.create`) | **Pattern B** | **Owner: WS4**
+- **Sections in Order**: Title Row -> Summons Metadata Card (Respondent selection, sequence number preview, hearing date/time, venue) -> Serving Officer Card (Assigned Tanod) -> Sticky Footer Bar.
 - **Buttons Table**:
   | Label | Variant | Position | Rule |
   | :--- | :--- | :--- | :--- |
   | `Cancel` | Ghost | Sticky footer left | Returns to case show view. |
-  | `Issue & Print Summons` | Primary (`--blue`) | Sticky footer rightmost | Validates hearing date and generates summons. |
+  | `Issue & Print Summons` | Primary (`--blue`) | Sticky footer rightmost | Validates hearing date and generates sequential summons. |
 
 ---
 
@@ -962,23 +970,23 @@ Used for: Official Summons, Case Endorsements, Referral Letters, Amicable Settle
 
 #### 4.29 Case Escalation & Certificate to File Action (CFA)
 - **ID & Route**: `WS4-P04` | `GET /admin/cases/{id}/escalate` (`admin.cases.escalate.create`) | **Pattern B / Modal F** | **Owner: WS4**
-- **Sections in Order**: Title Row -> Statutory Eligibility Warning Card -> Destination Venue Card -> Deciding Official Card -> Mandatory Override Note Card (Required if escalating prior to 3 summonses) -> Documentation Packet Checkboxes -> Sticky Footer Bar.
+- **Sections in Order**: Title Row -> Complainant Request Card (complainant selector, request date) -> Destination Agency Card (PNP, Prosecutor, Court) -> Advisory Deadline Notice Card (soft advisory warning if within 15 working days; does not block) -> Pangkat Chairman Signatory Card -> Documentation Packet Checkboxes (CFA, Endorsement Letter, Case Summary) -> Sticky Footer Bar.
 - **Buttons Table**:
   | Label | Variant | Position | Rule |
   | :--- | :--- | :--- | :--- |
   | `Cancel` | Ghost | Sticky footer left | Dismisses escalation. |
-  | `Certify & Issue CFA` | Red Outline Primary | Sticky footer rightmost | Transitions case to `escalated` and generates CFA. |
+  | `Certify & Issue CFA` | Red Outline Primary | Sticky footer rightmost | Transitions case to `escalated` and generates CFA signed by Pangkat Chairman. |
 
 ---
 
 #### 4.30 Amicable Settlement Agreement
 - **ID & Route**: `WS4-P05` | `POST /admin/cases/{id}/settle` (`admin.cases.settle`) | **Pattern F (Medium Modal)** | **Owner: WS4**
-- **Modal Content**: Title "Record Amicable Settlement Agreement", agreed terms textarea with live character counter, payment/performance due dates, 10-day repudiation window disclosure notice.
+- **Modal Content**: Title "Record Amicable Settlement Agreement", settled on date, agreed terms textarea with live character counter, optional monetary settlement amount (decimal), signed agreement document upload (PDF/JPG/PNG, max 5 MB, stored on private disk).
 - **Buttons Table**:
   | Label | Variant | Position | Rule |
   | :--- | :--- | :--- | :--- |
   | `Cancel` | Ghost | Modal footer left | Closes dialog without changes. |
-  | `Confirm Settlement Agreement` | Primary (`--blue`) | Modal footer rightmost | Sets status to `agreement_drafted` and starts repudiation clock. |
+  | `Confirm Settlement Agreement` | Primary (`--blue`) | Modal footer rightmost | Calls `CaseStatusService::transition` to `settled`. |
 
 ---
 
@@ -1108,18 +1116,30 @@ Used for: Official Summons, Case Endorsements, Referral Letters, Amicable Settle
 
 ---
 
+### Workstream 6: Historical Excel/CSV Import (WS6, Stretch)
+
+#### 4.39 Legacy Import Wizard
+- **ID & Route**: `WS6-P01` | `GET /admin/imports/create`, `/admin/imports/{id}/map`, `/admin/imports/{id}/preview` | **Pattern D / Pattern B Variant** | **Owner: WS6**
+- **Sections in Order**:
+  1. **Upload Card**: File drag-and-drop (Excel/CSV, max 10 MB, stored on private disk), download link for blank Excel template, target fiscal year selector.
+  2. **Column Mapping Card**: Interactive mapper (Source column -> Target system field: Case No, Filed Date, Case Type, Complainant Full Name, Address, Respondent Full Name, Narrative, Status), save mapping template option.
+  3. **Validation & Preview Card**: Summary tiles (Total rows, Valid, Warnings, Conflicts/Duplicates), paginated table with error pills and duplicate party/case flags.
+  4. **Commit & Rollback Bar**: Primary button **Commit Batch** (chunked background execution, retains original case numbers), secondary **Roll Back Entire Batch** button.
+
+---
+
 ### Shared & Existing Screens
 
-#### 4.39 Global Search Results
-- **ID & Route**: `SHR-P01` | `GET /admin/search` (`admin.search`) | **Owner: WS5**
+#### 4.40 Global Search Results
+- **ID & Route**: `SHR-P01` | `GET /admin/search` (`admin.search`) | **Owner: WS1**
 - **Layout**: Stack of 4 cards partitioned by entity: **Problem Reports**, **External Referrals**, **Barangay Cases**, **People & Parties**.
-- **Group Rules**: Max 5 search results per group; "See all N results ->" link at top-right of each card.
+- **Group Rules**: Multi-year cross-search [A Q8, C10]; max 5 search results per group with fiscal year badges; "See all N results ->" link at top-right of each card.
 
-#### 4.40 Error Pages (403 Forbidden & 404 Not Found)
+#### 4.41 Error Pages (403 Forbidden & 404 Not Found)
 - **ID & Route**: `SHR-P02` | `403` & `404` views | **Pattern D Variant** | **Owner: WS1 / Shared**
 - **Layout**: Centered card, width 480 px, status code illustration, brief plain-language explanation, **PRIMARY "Return to Dashboard" button**.
 
-#### 4.41 Existing Resident Pages (Preserved)
+#### 4.42 Existing Resident Pages (Preserved)
 - **ID & Routes**:
   - `GET /` (`reports.create`): Single-card incident reporting form.
   - `GET /track/{tracking_code}` (`reports.track`): Resident public tracking & verification timeline.
@@ -1144,9 +1164,9 @@ Used for: Official Summons, Case Endorsements, Referral Letters, Amicable Settle
 | `<x-ui.pending-badge>`| `count` | Amber pill (`bg-amber-100 text-amber-900 border-amber-300`) | Static | Renders in topbar to alert administrators of unconfirmed placeholder configurations. |
 | `<x-ui.draft-watermark>`| None | Diagonal 12% opacity grey | Print / PDF | Watermark rendering across documents when template or signatories are unconfirmed. |
 | `<x-year-switcher>` | None | Dropdown select | Session-bound | Swaps session viewing context across all fiscal-year scoped models. |
-| `<x-ui.global-search>` | `placeholder` | Max width 480 px | Collapsed, expanded, searching | Topbar search bar indexing cases, reports, parties, and referrals. |
+| `<x-ui.global-search>` | `placeholder` | Max width 480 px | Collapsed, expanded, searching | Topbar search bar indexing cases, reports, parties, and referrals across all years. |
 | `<x-ui.person-finder>` | `name`, `entity`, `selected` | Default autocomplete | Empty, searching, selected | 56 px autocomplete row showing full name, age, residency badge, and selection tags. |
-| `<x-ui.counter-card>` | `current`, `max`, `label` | Green, amber (at limit - 1), red (eligible / overdue) | Dynamic | Visual meter indicating summonses issued towards statutory escalation threshold. |
+| `<x-ui.deadline-panel>`| `daysElapsed`, `totalDays`, `rule` | Slate (normal), gold (due soon <=3d), red (overdue), grey (ready for next step) | Dynamic | Visual meter indicating working day progress towards statutory mediation/conciliation deadlines. |
 | `<x-ui.kpi-card>` | `title`, `value`, `icon`, `url`, `trend` | Standard dashboard card | Static | Standardized executive dashboard tile with bottom-left drilldown link. |
 | `<x-ui.signatory-block>`| `documentType`, `incumbents` | 2 or 3 equal columns | Draft, verified | Letterhead signature block printing blank rules when signatories are unconfirmed. |
 | `<x-ui.tab-bar>` | `tabs` (array), `active` | Underline border style | Active, inactive | Segmented tab strip highlighting active section with 2 px blue bottom border. |
@@ -1188,4 +1208,4 @@ This section highlights intentional differences between the existing application
 | **Agency Portal Layout** | `layouts/agency.blade.php` has a left sidebar navigation like admin. | Topbar-only navigation (64 px) with centered content area (max width 1080 px). | Differentiates external agency portal from internal municipal back-office and simplifies navigation. |
 | **Card Border Radius** | Several existing templates use `rounded-2xl` (16 px) or `rounded-xl` (12 px). | Standardizes on `rounded-lg` (8 px) for cards, inputs, buttons, and modals. | Professional GovTech aesthetic; matches institutional municipal forms. |
 | **Topbar Header** | Header combines page title and action buttons inside topbar. | Standardizes topbar for global tools (search, year switcher, account menu); page title moves to `<x-ui.page-header>`. | Prevents header clipping when long titles collide with header action clusters. |
-| **Case Show Skeleton** | Case detail view was generated as a bare tab placeholder in Step 6. | Formalized into Pattern C with a 2/3 main column and 1/3 side column (Summons Counter & Confidentiality cards). | Provides immediate visual context and progress tracking for Katarungang Pambarangay conciliation. |
+| **Case Show Skeleton** | Case detail view was generated as a bare tab placeholder in Step 6. | Formalized into Pattern C with a 2/3 main column and 1/3 side column (Deadline Panel & Confidentiality cards). | Provides immediate visual context and progress tracking for Katarungang Pambarangay conciliation. |

@@ -174,3 +174,104 @@
 - **Decision**: Adopt dual storage: add `reports.no_action_reason` (indexed nullable string) and `status_logs.no_action_reason` (nullable string).
 - **Rationale**: Enables fast SQL filtering, queue grouping, and CSV export without string parsing, while preserving an immutable history if the report is reopened and subsequently re-closed with a different reason.
 - **Consequences**: Migrations and `ReportStatusService::transition()` will accept and populate `no_action_reason` across both tables.
+
+
+---
+
+## Revision 2 Decisions & Architectural Changes (2026-11-22)
+
+### Decision 58 (D1): Lupon Members Receive System Accounts
+- **Status**: Accepted
+- **Date**: 2026-11-22
+- **Context**: The Barangay Secretary clarified in Question 15 that both the Barangay Secretary and Lupon members record walk-in complaints at the barangay hall.
+- **Decision**: Grant Lupon members system logins under position `lupon_member` and permission preset `case_encoder`.
+- **Rationale**: Enables direct digital intake of disputes and recording of service results without administrative bottleneck.
+- **Consequences**: Preset grants `cases.view`, `cases.create`, `cases.edit`, `cases.summons`, and `dashboard.view`. Lupon members do not receive `cases.view_confidential` unless they were the recording encoder.
+
+### Decision 59 (D2): Historical Excel/CSV File Import Included as Stretch Workstream (WS6)
+- **Status**: Accepted
+- **Date**: 2026-11-22
+- **Context**: The barangay currently maintains past records in logbooks, Excel/Word documents, and a legacy computer program across the last 4 record years (Question 1, 8).
+- **Decision**: Introduce Workstream 6 (WS6, stretch) to provide a bulk import wizard for Excel and CSV files.
+- **Rationale**: Prevents data loss during migration to the new web system and meets the Secretary's priority to search past cases.
+- **Consequences**: Strictly no AI or OCR on uploaded files (protects party PII). Blank downloadable template provided; chunked commit with complete batch rollback capability.
+
+### Decision 60 (D3): Foundation Documentation Reconciled to Built Phase 0 Implementation
+- **Status**: Accepted
+- **Date**: 2026-11-22
+- **Context**: Phase 0 completed with 22 tables, 21 models, and 244 registered routes, differing from early planning sketches.
+- **Decision**: Update all documentation to reflect the actual verified code, database schema, and test suite.
+
+### Decision 61 (D4): Official Blank Forms Collection Protocol
+- **Status**: Accepted
+- **Date**: 2026-11-22
+- **Context**: The Secretary offered official physical forms (complaint, summons, settlement, CFA, DILG reports).
+- **Decision**: All draft printables and response templates display `<x-ui.draft-watermark>` and unconfirmed badges until physical forms are collected and values confirmed.
+
+### Decision 62 (D5): Case Module Scope Kept Switchable via Feature Flag
+- **Status**: Accepted
+- **Date**: 2026-11-22
+- **Context**: Clarification with the academic adviser regarding whether disputes and conciliation are required alongside public reporting.
+- **Decision**: Keep `cases.enabled` as the master configuration switch.
+- **Rationale**: Secretary answers (Q15–Q27) prove disputes are central to barangay daily operations, while the switch protects thesis scope if needed.
+
+### Decision 63 (C1): Working-Day Countdown Replaces Artificial 3-Summons Limit
+- **Status**: Accepted
+- **Date**: 2026-11-22
+- **Context**: The Secretary clarified that summonses are not limited to 3; rather, mediation is bounded by 15 working days (Q20, Q25).
+- **Decision**: Remove the 3-summons cap and override note. Implement working-day tracking via `App\Support\WorkingDays` and `calendar.holidays`.
+- **Rationale**: Aligns system behavior with Katarungang Pambarangay administrative practice while maintaining advisory deadlines.
+
+### Decision 64 (C2): Complainant Escalation Authority and Pangkat Chairman CFA Signatory
+- **Status**: Accepted
+- **Date**: 2026-11-22
+- **Context**: The complainant decides whether and when to escalate upon impasse (Q22, Q23), and the Pangkat Chairman signs the Certificate to File Action (Q5).
+- **Decision**: Escalation requires selecting the requesting complainant. System shows a soft warning if 15 working days have not elapsed, but does not block. CFA printable resolves Pangkat Chairman signatory.
+
+### Decision 65 (C3): Two Distinct Case Record Types: Blotter-Only vs Formal Complaint
+- **Status**: Accepted
+- **Date**: 2026-11-22
+- **Context**: Walk-ins include both informational/record-only blotter entries and formal disputes requiring conciliation (Q18).
+- **Decision**: Add `cases.record_type` (`blotter` or `complaint`). Blotter entries stay at `filed` without summons, hearings, or deadlines, and can be converted to formal complaints.
+
+### Decision 66 (C4): Case Docket Numbering Format `{MM}-{SEQ:3}-{YEAR}`
+- **Status**: Accepted
+- **Date**: 2026-11-22
+- **Context**: Secretary confirmed case numbers follow `month-case number (001)-year` and restart each year (Q9).
+- **Decision**: Add `{MM}` token to `NumberingService`. Format defaults to `{MM}-{SEQ:3}-{YEAR}` (e.g. `11-001-2026`).
+
+### Decision 67 (C5): External Referral Follow-Up Interval Set to 3 Days
+- **Status**: Accepted
+- **Date**: 2026-11-22
+- **Context**: Secretary stated external agency follow-ups occur after 3 days (Q12).
+- **Decision**: Update `referral.follow_up_days` default from 7 to 3 days in dynamic settings and `config/reports.php`.
+
+### Decision 68 (C6): Sensitive Case Types Pre-Tick Confidentiality
+- **Status**: Accepted
+- **Date**: 2026-11-22
+- **Context**: BCPC (child protection) and VAWC cases require restricted access (Q7, Q19).
+- **Decision**: Add `case_types.is_confidential_default`. When selected during intake, the case automatically pre-ticks `is_confidential = true`.
+
+### Decision 69 (C7): Escalated Cases Dispatched to Agencies as Referrals with Attachments
+- **Status**: Accepted
+- **Date**: 2026-11-22
+- **Context**: Partner agencies (PNP, CSWDO) need to receive case documents upon endorsement (Q29).
+- **Decision**: Agencies access only the referral portal. Escalated cases generate an external referral carrying downloadable case documents stored in `referral_attachments` on the private disk.
+
+### Decision 70 (C8): Alignment of Reports Center with Mandatory DILG Submissions
+- **Status**: Accepted
+- **Date**: 2026-11-22
+- **Context**: Secretary identified specific mandatory reports: yearly KP Accomplishment to DILG, monthly summary by case type to DILG, and problem frequency by purok (Q32, Q33, Q34).
+- **Decision**: Prioritize `kp_accomplishment` (yearly), `case_summary` (monthly), and `purok_category_matrix` with paper print layout as the default action (`reports.default_format = print`).
+
+### Decision 71 (C9): Trimmed Party Intake Form
+- **Status**: Accepted
+- **Date**: 2026-11-22
+- **Context**: Secretary listed essential party information (full name, alias, age/birth date, contact, complete address, residency verification) while other fields are rarely collected (Q16, Q17).
+- **Decision**: Streamline party form to essential fields. Store secondary attributes (age, reason for visit) in `parties.extra` JSON.
+
+### Decision 72 (C10): System Backups and Cross-Year Global Search Guaranteed Deliverables
+- **Status**: Accepted
+- **Date**: 2026-11-22
+- **Context**: Finding old records and preventing data loss were identified by the Secretary as paramount operational priorities (Q2, Q34).
+- **Decision**: Elevate automated daily backups (`app:backup`) and multi-year global search (`admin.search`) to guaranteed core deliverables in WS1.

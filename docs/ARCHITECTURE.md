@@ -67,15 +67,17 @@ The application follows a **Modular Monolithic MVC Pattern** built on Laravel 13
 | **`FiscalYearService`** | `app/Services/FiscalYearService.php` | Fiscal year lifecycle, active year resolution, boundary enforcement, and annual transition management. |
 | **`FiscalYearContext`** | `app/Services/FiscalYearContext.php` | Session-scoped viewing year context for multi-year review, archival auditing, and global filters. |
 | **`FiscalYearGuard`** | `app/Services/FiscalYearGuard.php` | Security gate preventing mutations on records belonging to locked/closed fiscal years. |
-| **`NumberingService`** | `app/Services/NumberingService.php` | Format mask compiler (`CASE-{YEAR}-{SEQ:5}`) and atomic database-locked sequence generator. |
+| **`NumberingService`** | `app/Services/NumberingService.php` | Format mask compiler (tokens `{YEAR}`, `{YY}`, `{MM}`, `{SEQ:n}`; default case format `{MM}-{SEQ:3}-{YEAR}`) and atomic database-locked sequence generator. |
 | **`PermissionService`** | `app/Services/PermissionService.php` | Granular permission registry, user syncing, and role preset application (`staff_full`, `case_encoder`, etc.). |
 | **`AuditLogger`** | `app/Services/AuditLogger.php` | Centralized audit logger recording administrative overrides, setting adjustments, and security events. |
 | **`PersonnelService`** | `app/Services/PersonnelService.php` | Official roster management, term tracking, signatory eligibility, and deactivation safeguards. |
 | **`SignatoryResolver`** | `app/Services/SignatoryResolver.php` | Document signatory resolution mapping document types to active position holders. |
 | **`CaseStatusService`** | `app/Services/CaseStatusService.php` | State transition machine for Katarungang Pambarangay dispute conciliation cases. |
-| **`SummonsCounterService`** | `app/Services/SummonsCounterService.php` | Tracking sequential summons issuance and enforcing statutory thresholds before court escalation. |
-| **`OverdueService`** | `app/Services/OverdueService.php` | SLA calculation identifying overdue reports, hearings, and pending external referrals. |
+| **`SummonsCounterService`** | `app/Services/SummonsCounterService.php` | Counts non-voided summons per case for display only. No threshold is enforced: the barangay counts days, not summons (Secretary Q20). Deadlines are handled by `OverdueService`. |
+| **`OverdueService`** | `app/Services/OverdueService.php` | SLA calculation identifying overdue reports and pending external referrals, plus case mediation and conciliation deadlines in working days (`App\Support\WorkingDays`). |
 | **`GlobalSearchService`** | `app/Services/GlobalSearchService.php` | Cross-entity universal search indexing reports, cases, parties, and referrals. |
+
+> **Planned services (Revision 2):** `WorkingDays` (helper), `PartyMatchingService` and a case duplicate check (WS3), `LegacyImportService` (WS6, stretch). See `REVISION_2.md`.
 
 ---
 
@@ -89,7 +91,7 @@ The application enforces strict annual fiscal year isolation:
 
 ### Atomic Numbering Pipeline
 Numbering sequences are tracked in `number_sequences` with a composite unique key `['fiscal_year_id', 'type']`:
-1. `NumberingService::next($type, $fiscalYear)` parses format masks (e.g. `CASE-{YEAR}-{SEQ:5}`, `REF-{YEAR}-{SEQ:4}`, `SUM-{YEAR}-{SEQ:4}`).
+1. `NumberingService::next($type, $fiscalYear)` parses format masks (e.g. `{MM}-{SEQ:3}-{YEAR}` for cases and blotter entries, `REF-{YEAR}-{SEQ:4}`, `SUM-{YEAR}-{SEQ:4}`).
 2. Uses `lockForUpdate()` within an atomic database transaction.
 3. Automatically rolls sequence numbering back to 1 when a new fiscal year starts.
 
@@ -99,11 +101,12 @@ Numbering sequences are tracked in `number_sequences` with a composite unique ke
 
 Security is layered across three tiers:
 1. **Roles**: High-level actor classification (`admin`, `staff`, `agency`).
-2. **Granular Permissions**: 18 slugs covering discrete capabilities (e.g. `cases.view`, `cases.summons`, `settings.manage`, `reports_center.export`).
+2. **Granular Permissions**: 18 slugs currently built in Phase 0 (target 22 plus `imports.manage` in Phase 0.5/Revision 2) covering discrete capabilities (e.g. `cases.view`, `cases.summons`, `settings.manage`, `reports_center.export`).
 3. **Role Presets**: Pre-configured permission bundles defined in `config/permission_presets.php`:
    - `staff_full`: Complete staff operational rights across cases, reports, and referrals.
    - `case_encoder`: Lupon clerk role restricted to dispute case docketing and summons issuance.
    - `reports_analyst`: Read-only reporting and dashboard analytics access.
+   - `case_reviewer` (Revision 2): view all cases including confidential ones, plus reports; for the Kagawad (Peace & Order), kagawads on minors' cases and the VAW focal person.
 4. **Admin Exemption**: Users with role `admin` implicitly satisfy all permission checks via `User::hasPermission()`.
 
 ---
@@ -154,7 +157,7 @@ sequenceDiagram
 
 ---
 
-## 4. Trust Boundaries & AI Operational Limits
+## 6. Trust Boundaries & AI Operational Limits
 
 1. **Strict Advisory Mandate**: The AI is completely isolated from binding state modifications. It has zero authority to execute database writes to final columns on `reports`, transition statuses, merge duplicates, or close reports.
 2. **Human-in-the-Loop Review Gate**: Staff must explicitly review and confirm category and urgency before routing an incident. AI values are rendered with clear visual badges (`AI Suggested`, `Matches`, `Differs`).
@@ -162,7 +165,7 @@ sequenceDiagram
 
 ---
 
-## 5. Security & Network Architecture
+## 7. Security & Network Architecture
 
 - **Session Authentication**: Staff and Administrator access is guarded by Laravel's built-in session authentication and `role` middleware (`EnsureRole:staff` or `EnsureRole:admin`).
 - **Throttling & Abuse Prevention**:

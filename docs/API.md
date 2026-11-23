@@ -3,7 +3,7 @@
 Reference documentation for web endpoints, RESTful parameters, authentication middleware, and payload schemas in **Barangay-Reporting-System-1**.
 
 > [!NOTE]
-> All endpoints and request parameters documented below reflect active, verified routes and contracts in the application.
+> All endpoints documented below reflect active and foundation routes registered in the application (244 routes total, snapshotted in `docs/ROUTES.snapshot.json`). Foundation endpoints built in Phase 0 are marked with their workstream owner and implementation status (`Built` vs `Stub / In Progress`).
 
 ---
 
@@ -14,13 +14,23 @@ Routing is modularized under `routes/` and registered via `routes/web.php`:
 - `routes/engine.php`: API utilities (e.g. nearby reports Haversine calculation).
 - `routes/staff.php`: Authenticated staff queue, review cards, assignments, and updates.
 - `routes/admin.php`: Administrative settings, user management, and security audit logs.
+- `routes/setup.php`: Onboarding setup wizard (WS1).
+- `routes/settings.php`: Dynamic settings, fiscal years, templates, backups, and search (WS1).
+- `routes/people.php`: Personnel, positions, signatories, and user access (WS2).
+- `routes/reports_center.php`: Reports catalog, parameter filters, and exports (WS2).
+- `routes/cases.php`: Dispute intake, blotter entries, party profiles, and duplicates (WS3).
+- `routes/case_actions.php`: Summons, conciliation hearings, deadlines, and CFA escalations (WS4).
+- `routes/agency.php`: Outside agency registrations, portal inbox, and referral updates (WS5).
+- `routes/imports.php`: Historical Excel/CSV bulk import wizard (WS6, Stretch).
 
 | Middleware | Target Audience | Behavior on Unauthenticated Access |
 | :--- | :--- | :--- |
 | `web` (default) | Public / Resident | Open guest access; CSRF validation on POST. |
-| `auth` | Staff / Admin | Redirects unauthenticated requests to `/login`. |
+| `auth` | Staff / Admin / Agency | Redirects unauthenticated requests to `/login`. |
 | `role:staff` | Staff / Admin | Permits both `staff` and `admin` roles; rejects others with HTTP 403. |
 | `role:admin` | Admin Only | Restricts to `admin` role (Barangay Captain/System Admin); rejects staff with HTTP 403. |
+| `role:agency` | Agency Portal | Restricts to `agency` role; requires `agency.active` and verified email. |
+| `permission:{slug}` | Granular Access | Enforces specific permission slug from `permissions` table; rejects with HTTP 403. |
 
 ---
 
@@ -28,10 +38,12 @@ Routing is modularized under `routes/` and registered via `routes/web.php`:
 
 ### `GET /`
 - **Controller**: `ReportController@create`
+- **Status**: Built
 - **Description**: Renders the resident single-card incident reporting interface.
 
 ### `POST /report`
 - **Controller**: `ReportController@store`
+- **Status**: Built
 - **Middleware**: `throttle:10,1`
 - **Payload**:
   - `category_id` (integer, required, exists in `categories`)
@@ -54,29 +66,35 @@ Routing is modularized under `routes/` and registered via `routes/web.php`:
 
 ### `GET /report/success/{tracking_code}`
 - **Controller**: `ReportController@success`
+- **Status**: Built
 - **Description**: Displays confirmation card with the generated `BRG-XXXXXX` tracking code.
 
 ### `GET /track/{tracking_code?}`
 - **Controller**: `TrackController@show`
+- **Status**: Built
 - **Description**: Public incident progression tracker, official timeline, and feedback forms.
 
 ### `POST /track/{tracking_code}/clarification`
 - **Controller**: `TrackController@replyClarification`
+- **Status**: Built
 - **Payload**: `response` (string, required, max: 2000).
 - **Description**: Resident response to a staff `needs_info` inquiry.
 
 ### `POST /track/{tracking_code}/confirm`
 - **Controller**: `TrackController@confirmResolution`
+- **Status**: Built
 - **Payload**: `rating` (integer, 1–5, optional), `comment` (string, optional).
 - **Description**: Resident verifies work is completed; transitions report from `awaiting_confirmation` $\rightarrow$ `resolved`.
 
 ### `POST /track/{tracking_code}/reopen`
 - **Controller**: `TrackController@reopen`
+- **Status**: Built
 - **Payload**: `reason` (string, required, min: 10, max: 1000).
 - **Description**: Resident disputes resolution; transitions report to `reopened`.
 
 ### `GET /map`
 - **Controller**: `MapController@index`
+- **Status**: Built
 - **Description**: Public transparency map showing active public reports (emergencies strictly excluded).
 
 ---
@@ -84,20 +102,10 @@ Routing is modularized under `routes/` and registered via `routes/web.php`:
 ## 3. Engine & Utility Routes (`routes/engine.php`)
 
 ### `GET /api/nearby-reports`
+- **Controller**: `NearbyReportController@index`
+- **Status**: Built
 - **Parameters**: `lat` (float, required), `lng` (float, required), `category_id` or `category` (optional).
 - **Description**: Calculates Haversine distance and returns open incidents within $300\text{m}$.
-- **Response Format**:
-  ```json
-  [
-    {
-      "tracking_code": "BRG-AB12CD",
-      "category": "Drainage",
-      "status": "In Progress",
-      "distance_m": 85,
-      "created_at": "2 hours ago"
-    }
-  ]
-  ```
 
 ---
 
@@ -105,19 +113,20 @@ Routing is modularized under `routes/` and registered via `routes/web.php`:
 
 Protected by `auth` and `role:staff`.
 
-| Method | URI | Controller Action | Purpose | Status / Notes |
-| :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/admin/reports` | `Admin\ReportController@index` | Main priority triage queue with filters and pagination. | Current |
-| `GET` | `/admin/reports/my-cases` | `Admin\ReportController@index` | Filtered queue showing only cases assigned to current user. | Current |
-| `GET` | `/admin/reports/{id}` | `Admin\ReportController@show` | 3-way comparative review page (Resident vs AI vs Final). | Current |
-| `POST` | `/admin/reports/{id}/review` | `Admin\ReportReviewController@saveReview` | Confirms review values and routes Mode A / Mode B. | Current |
-| `POST` | `/admin/reports/{id}/status` | `Admin\ReportController@updateStatus` | Manual status transition with mandatory note and reason code for `no_action`. | Current |
-| `POST` | `/admin/reports/{id}/unmerge` | `Admin\ReportController@unmerge` | Unlinks accidental duplicate and returns report to `under_review`. | Current |
-| `POST` | `/admin/reports/{id}/info-request` | `Admin\ReportController@requestInfo` | Posts clarification inquiry (`needs_info`). | Current |
-| `POST` | `/admin/reports/{id}/proof-photos` | `Admin\ReportController@storeProofPhotos` | Uploads up to 5 multi-image resolution proofs. | Current |
-| `POST` | `/admin/reports/{id}/notes` | `Admin\ReportController@storeInternalNote` | Appends staff-only internal discussion note. | Current |
-| `GET` | `/admin/referrals` | `Admin\ReferralController@index` | Unified directory for internal dispatch and external agency referrals. | Current |
-| `GET` | `/admin/referrals/{id}/letter` | `Admin\ReferralController@letter` | Printable formal agency endorsement letter. | Current |
+| Method | URI | Controller Action | Purpose | Status | Owner |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/admin/reports` | `Admin\ReportController@index` | Main priority triage queue with filters and pagination. | Built | Baseline / WS1 (Year filter) |
+| `GET` | `/admin/reports/my-cases` | `Admin\ReportController@index` | Filtered queue showing only cases assigned to current user. | Built | Baseline |
+| `GET` | `/admin/reports/{id}` | `Admin\ReportController@show` | 3-way comparative review page (Resident vs AI vs Final). | Built | Baseline |
+| `POST` | `/admin/reports/{id}/review` | `Admin\ReportReviewController@saveReview` | Confirms review values and routes Mode A / Mode B. | Built | Baseline |
+| `POST` | `/admin/reports/{id}/status` | `Admin\ReportController@updateStatus` | Manual status transition with mandatory note and reason code for `no_action`. | Built | Baseline |
+| `POST` | `/admin/reports/{id}/unmerge` | `Admin\ReportController@unmerge` | Unlinks accidental duplicate and returns report to `under_review`. | Built | Baseline |
+| `POST` | `/admin/reports/{id}/info-request` | `Admin\ReportController@requestInfo` | Posts clarification inquiry (`needs_info`). | Built | Baseline |
+| `POST` | `/admin/reports/{id}/proof-photos` | `Admin\ReportController@storeProofPhotos` | Uploads up to 5 multi-image resolution proofs. | Built | Baseline |
+| `POST` | `/admin/reports/{id}/notes` | `Admin\ReportController@storeInternalNote` | Appends staff-only internal discussion note. | Built | Baseline |
+| `GET` | `/admin/referrals` | `Admin\ReferralController@index` | Unified directory for internal dispatch and external agency referrals. | Built | WS5 |
+| `GET` | `/admin/referrals/{id}` | `Admin\ReferralController@show` | Referral details, letter, and external agency tracking. | Built | WS5 |
+| `GET` | `/admin/referrals/{id}/letter` | `Admin\ReferralController@letter` | Printable formal agency endorsement letter. | Built | WS5 |
 
 ---
 
@@ -125,114 +134,141 @@ Protected by `auth` and `role:staff`.
 
 Protected by `auth` and `role:admin`.
 
-| Method | URI | Controller Action | Purpose | Status / Notes |
-| :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/admin/dashboard` | `Admin\DashboardController@index` | KPI metrics, category breakdowns, and AI insights. | Current |
-| `GET` | `/admin/settings/categories` | `Admin\CategoryController@index` | Manage categories, question builder, and SLA hours. | Current |
-| `GET` | `/admin/settings/offices` | `Admin\OfficeController@index` | Manage internal committees and external agencies. | Current |
-| `GET` | `/admin/settings/routing-rules` | `Admin\RoutingRuleController@index` | Jurisdiction routing matrix and Mode A/B rules. | Current |
-| `GET` | `/admin/settings/priority-weights`| `Admin\SettingController@priorityWeights` | Adjust numerical weights ($w_1 \dots w_5$) for priority scoring. | Current |
-| `GET` | `/admin/audit-log` | `Admin\AuditLogController@index` | Immutable security audit trail of staff overrides and setting changes. | Current |
-| `GET` | `/admin/reports/export` | `Admin\ReportController@exportCsv` | Streamed CSV download of reports matching queue filters. | Current |
+| Method | URI | Controller Action | Purpose | Status | Owner |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/admin/dashboard` | `Admin\DashboardController@index` | KPI metrics, category breakdowns, and AI insights. | Built | Baseline / WS1 |
+| `GET` | `/admin/settings/categories` | `Admin\CategoryController@index` | Manage categories, question builder, and SLA hours. | Built | Baseline |
+| `GET` | `/admin/settings/offices` | `Admin\OfficeController@index` | Manage internal committees and external agencies. | Built | Baseline |
+| `GET` | `/admin/settings/routing-rules` | `Admin\RoutingRuleController@index` | Jurisdiction routing matrix and Mode A/B rules. | Built | Baseline |
+| `GET` | `/admin/settings/priority-weights`| `Admin\SettingController@priorityWeights` | Adjust numerical weights for priority scoring. | Built | Baseline |
+| `GET` | `/admin/audit-log` | `Admin\AuditLogController@index` | Immutable security audit trail of staff actions and settings. | Built | Baseline |
+| `GET` | `/admin/reports/export` | `Admin\ReportController@exportCsv` | Streamed CSV download of reports matching queue filters. | Built | Baseline / WS1 |
 
 ---
 
-## 6. Phase 0 Route Partitions & Endpoints
+## 6. Workstream Route Partitions
 
-### A. Setup Wizard (`routes/setup.php`)
-Guest / Admin setup route group with `web` middleware.
+### A. Setup & System Wizard (`routes/setup.php` — WS1)
+Guest / Initial Admin setup route group with `web` middleware.
 
-| Method | URI | Controller Action | Middleware / Access | Purpose |
-| :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/setup` | `SetupController@show` | `web` | 5-step interactive onboarding wizard. |
-| `POST` | `/setup/step/{step}` | `SetupController@saveStep` | `web` | Validate & save specific setup step. |
-| `POST` | `/setup/complete` | `SetupController@complete` | `web` | Finalize setup wizard & redirect to login. |
+| Method | URI | Route Name | Middleware / Permission | Purpose | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/setup` | `setup.show` | `web` | 7-step interactive onboarding wizard. | Stub |
+| `POST` | `/setup/step/{step}` | `setup.step` | `web` | Validate & save specific setup step. | Stub |
+| `POST` | `/setup/complete` | `setup.complete` | `web` | Finalize setup wizard & redirect to login. | Stub |
 
-### B. Settings Module (`routes/settings.php`)
-Protected by `auth`, `role:staff`, `permission:settings.manage` (or specific permission).
+### B. Settings, Fiscal Years, Calendar & Backups (`routes/settings.php` — WS1)
+Protected by `auth`, `role:staff`, and granular permissions.
 
-| Method | URI | Controller Action | Middleware / Permission | Purpose |
-| :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/admin/settings/general` | `SettingsController@editGeneral` | `permission:settings.manage` | Core barangay identity & hall location. |
-| `PUT` | `/admin/settings/general` | `SettingsController@updateGeneral` | `permission:settings.manage` | Update general barangay settings. |
-| `GET` | `/admin/fiscal-years` | `FiscalYearController@index` | `permission:fiscal_year.manage` | Fiscal year management list. |
-| `POST` | `/admin/fiscal-years` | `FiscalYearController@store` | `permission:fiscal_year.manage` | Create new fiscal year. |
-| `POST` | `/admin/fiscal-years/{id}/activate` | `FiscalYearController@activate` | `permission:fiscal_year.manage` | Set active fiscal year. |
-| `POST` | `/admin/fiscal-years/{id}/lock` | `FiscalYearController@lock` | `permission:fiscal_year.manage` | Lock closed fiscal year (immutable). |
-| `POST` | `/admin/fiscal-years/switch-view` | `FiscalYearController@switchView` | `auth` | Set session viewing fiscal year. |
-| `GET` | `/admin/settings/numbering` | `NumberingController@edit` | `permission:settings.manage` | Configure numbering format masks. |
-| `PUT` | `/admin/settings/numbering` | `NumberingController@update` | `permission:settings.manage` | Update numbering schemes. |
-| `GET` | `/admin/settings/templates` | `TemplateController@index` | `permission:templates.manage` | Manage official response templates. |
-| `GET` | `/admin/settings/case-types` | `CaseTypeController@index` | `permission:settings.manage` | Configure Katarungang Pambarangay case categories. |
-| `GET` | `/admin/settings/case-fields` | `CaseFieldConfigController@index` | `permission:settings.manage` | Configure dynamic case and party form fields. |
-| `GET` | `/admin/settings/escalation-destinations` | `EscalationDestinationController@index` | `permission:settings.manage` | Manage court/prosecutor escalation venues. |
-| `GET` | `/admin/settings/agencies` | `AgencyManagementController@index` | `permission:agencies.manage` | Manage registered external partner agencies. |
-| `GET` | `/admin/settings/backups` | `BackupController@index` | `permission:backups.manage` | Database backup management & export. |
+| Method | URI | Route Name | Middleware / Permission | Purpose | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/admin/settings/general` | `admin.settings.general.edit` | `permission:settings.manage` | Core barangay profile & switches. | Stub |
+| `PUT` | `/admin/settings/general` | `admin.settings.general.update` | `permission:settings.manage` | Update general barangay settings. | Stub |
+| `GET` | `/admin/fiscal-years` | `admin.fiscal-years.index` | `permission:fiscal_year.manage` | Fiscal year management list. | Stub |
+| `POST` | `/admin/fiscal-years` | `admin.fiscal-years.store` | `permission:fiscal_year.manage` | Create new fiscal year. | Stub |
+| `POST` | `/admin/fiscal-years/{id}/activate` | `admin.fiscal-years.activate` | `permission:fiscal_year.manage` | Set active fiscal year. | Stub |
+| `POST` | `/admin/fiscal-years/{id}/lock` | `admin.fiscal-years.lock` | `permission:fiscal_year.manage` | Lock closed fiscal year (immutable). | Stub |
+| `POST` | `/admin/fiscal-years/switch-view` | `admin.fiscal-years.switch-view` | `auth` | Set session viewing fiscal year. | Built |
+| `GET` | `/admin/settings/numbering` | `admin.numbering.edit` | `permission:settings.manage` | Numbering scheme formats ({MM}-{SEQ:3}-{YEAR}). | Stub |
+| `PUT` | `/admin/settings/numbering` | `admin.numbering.update` | `permission:settings.manage` | Update numbering formats. | Stub |
+| `GET` | `/admin/settings/calendar` | `admin.settings.calendar.index` | `permission:settings.manage` | Manage holidays for working days engine. | Planned |
+| `GET` | `/admin/settings/pending` | `admin.pending.index` | `permission:settings.manage` | Unconfirmed assumptions register. | Planned |
+| `POST` | `/admin/settings/pending/{id}/confirm` | `admin.pending.confirm` | `permission:settings.manage` | Confirm placeholder value. | Planned |
+| `GET` | `/admin/settings/templates` | `admin.templates.index` | `permission:templates.manage` | Response templates catalog. | Stub |
+| `GET` | `/admin/settings/case-types` | `admin.case-types.index` | `permission:settings.manage` | KP case categories and timeline flags. | Stub |
+| `GET` | `/admin/settings/case-fields` | `admin.case-fields.index` | `permission:settings.manage` | Configure dynamic form fields. | Stub |
+| `GET` | `/admin/settings/escalation-destinations` | `admin.escalation-destinations.index` | `permission:settings.manage` | Manage court/prosecutor destinations. | Stub |
+| `GET` | `/admin/settings/backups` | `admin.backups.index` | `permission:backups.manage` | Database backup management & export. | Stub |
+| `POST` | `/admin/settings/backups/run` | `admin.backups.run` | `permission:backups.manage` | Trigger immediate system backup. | Planned |
+| `GET` | `/admin/settings/backups/{file}` | `admin.backups.download` | `permission:backups.manage` | Download private backup archive. | Planned |
+| `GET` | `/admin/search` | `admin.search` | `auth`, `role:staff`, `throttle:30,1` | Multi-year global search. | Planned |
 
-### C. People & User Management (`routes/people.php`)
-Protected by `auth`, `role:staff`, `permission:personnel.manage` or `permission:users.manage`.
+### C. People, Personnel & Reports Center (`routes/people.php`, `routes/reports_center.php` — WS2)
+Protected by `auth`, `role:staff`, and granular permissions.
 
-| Method | URI | Controller Action | Middleware / Permission | Purpose |
-| :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/admin/personnel` | `PersonnelController@index` | `permission:personnel.manage` | Directory of barangay officials & tanods. |
-| `GET` | `/admin/positions` | `PositionController@index` | `permission:personnel.manage` | Manage barangay positions and codes. |
-| `GET` | `/admin/signatories` | `SignatoryController@edit` | `permission:personnel.manage` | Assign document signatories by position. |
-| `PUT` | `/admin/signatories` | `SignatoryController@update` | `permission:personnel.manage` | Update document signatory roles. |
-| `GET` | `/admin/users` | `UserController@index` | `permission:users.manage` | Manage staff accounts and permissions. |
-| `GET` | `/admin/users/{id}/permissions` | `UserController@editPermissions` | `permission:users.manage` | Edit granular user permission checkboxes. |
-| `PUT` | `/admin/users/{id}/permissions` | `UserController@updatePermissions` | `permission:users.manage` | Sync permissions / apply permission preset. |
+| Method | URI | Route Name | Middleware / Permission | Purpose | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/admin/personnel` | `admin.personnel.index` | `permission:personnel.manage` | Directory of officials, tanods & Lupon. | Stub |
+| `GET` | `/admin/positions` | `admin.positions.index` | `permission:personnel.manage` | Manage barangay positions & codes. | Stub |
+| `GET` | `/admin/signatories` | `admin.signatories.edit` | `permission:personnel.manage` | Document signatory matrix. | Stub |
+| `PUT` | `/admin/signatories` | `admin.signatories.update` | `permission:personnel.manage` | Update document signatory roles. | Stub |
+| `GET` | `/admin/users` | `admin.users.index` | `permission:users.manage` | Manage staff accounts and presets. | Stub |
+| `GET` | `/admin/users/{id}/permissions` | `admin.users.permissions.edit` | `permission:users.manage` | Edit granular user permission checkboxes. | Stub |
+| `PUT` | `/admin/users/{id}/permissions` | `admin.users.permissions.update` | `permission:users.manage` | Apply permission preset or custom list. | Stub |
+| `GET` | `/admin/reports-center` | `admin.reports-center.index` | `permission:reports_center.view` | Report templates catalog (DILG/KP). | Stub |
+| `GET` | `/admin/reports-center/{key}` | `admin.reports-center.show` | `permission:reports_center.view` | Report parameter form and table preview. | Stub |
+| `POST` | `/admin/reports-center/{key}/export` | `admin.reports-center.export` | `permission:reports_center.export` | Export report to PDF, Excel, or Print. | Stub |
+| `GET` | `/admin/reports-center/generated/{id}` | `admin.reports-center.download` | `permission:reports_center.view` | Download previously generated report. | Stub |
 
-### D. Reports Center (`routes/reports_center.php`)
-Protected by `auth`, `role:staff`, `permission:reports_center.view` or `reports_center.export`.
+### D. Case Intake & Party Management (`routes/cases.php` — WS3)
+Protected by `auth`, `role:staff`, and `permission:cases.view`.
 
-| Method | URI | Controller Action | Middleware / Permission | Purpose |
-| :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/admin/reports-center` | `ReportsCenterController@index` | `permission:reports_center.view` | Report catalog and pre-built templates. |
-| `GET` | `/admin/reports-center/{key}` | `ReportsCenterController@show` | `permission:reports_center.view` | Run report parameters and live table preview. |
-| `POST` | `/admin/reports-center/{key}/export` | `ReportsCenterController@export` | `permission:reports_center.export` | Export report to PDF, Excel, or CSV. |
-| `GET` | `/admin/reports-center/generated/{id}` | `ReportsCenterController@download` | `permission:reports_center.view` | Download previously generated report artifact. |
+| Method | URI | Route Name | Middleware / Permission | Purpose | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/admin/cases` | `admin.cases.index` | `permission:cases.view` | Case list with deadline badges and filters. | Stub |
+| `GET` | `/admin/cases/create` | `admin.cases.create` | `permission:cases.create` | Blotter vs Complaint intake form. | Stub |
+| `POST` | `/admin/cases` | `admin.cases.store` | `permission:cases.create` | Persist case with duplicate warnings. | Stub |
+| `GET` | `/admin/cases/{id}` | `admin.cases.show` | `permission:cases.view` | Case dossier, parties, notes, timeline. | Stub |
+| `GET` | `/admin/cases/{id}/edit` | `admin.cases.edit` | `permission:cases.edit` | Edit complaint narrative and metadata. | Stub |
+| `PUT` | `/admin/cases/{id}` | `admin.cases.update` | `permission:cases.edit` | Update case details. | Stub |
+| `GET` | `/admin/parties` | `admin.parties.index` | `permission:cases.view` | Master party directory. | Stub |
+| `GET` | `/admin/parties/{id}` | `admin.parties.show` | `permission:cases.view` | Party profile and case history. | Stub |
+| `GET` | `/admin/parties/{party}/merge` | `admin.parties.merge.create` | `permission:cases.edit` | Side-by-side party merge preview. | Planned |
+| `POST` | `/admin/parties/{party}/merge` | `admin.parties.merge.store` | `permission:cases.edit` | Commit party record merge. | Planned |
+| `POST` | `/admin/reports/{id}/convert-to-case`| `admin.reports.convert-to-case` | `permission:cases.create` | Prefill dispute intake from report. | Planned |
 
-### E. Case Management & Intake (`routes/cases.php`)
-Protected by `auth`, `role:staff`, `permission:cases.view`.
+### E. Case Procedural Actions & Deadlines (`routes/case_actions.php` — WS4)
+Protected by `auth`, `role:staff`, and procedural permissions.
 
-| Method | URI | Controller Action | Middleware / Permission | Purpose |
-| :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/admin/cases` | `CaseController@index` | `permission:cases.view` | Docketed cases list with status filters. |
-| `GET` | `/admin/cases/create` | `CaseController@create` | `permission:cases.create` | New dispute blotter filing form. |
-| `POST` | `/admin/cases` | `CaseController@store` | `permission:cases.create` | Persist dispute complaint and docket number. |
-| `GET` | `/admin/cases/{id}` | `CaseController@show` | `permission:cases.view` | Case detail, parties, hearing schedule, and logs. |
-| `GET` | `/admin/cases/{id}/edit` | `CaseController@edit` | `permission:cases.edit` | Edit complaint narrative and metadata. |
-| `PUT` | `/admin/cases/{id}` | `CaseController@update` | `permission:cases.edit` | Update case details. |
-| `GET` | `/admin/parties` | `PartyController@index` | `permission:cases.view` | Master party directory (complainants/respondents). |
-| `GET` | `/admin/parties/{id}` | `PartyController@show` | `permission:cases.view` | Party profile, residency status, and case history. |
-| `GET` | `/admin/secretary` | `SecretaryDashboardController@index` | `permission:cases.view` | Barangay Secretary blotter & hearing overview. |
+| Method | URI | Route Name | Middleware / Permission | Purpose | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/admin/secretary` | `admin.secretary` | `permission:cases.view` | Secretary operational reminders dashboard. | Stub |
+| `GET` | `/admin/hearings` | `admin.hearings.index` | `permission:cases.summons` | Hearing schedule calendar & upcoming roster.| Stub |
+| `GET` | `/admin/cases/{id}/summons/create` | `admin.cases.summons.create` | `permission:cases.summons` | Form to generate sequential summons. | Stub |
+| `POST` | `/admin/cases/{id}/summons` | `admin.cases.summons.store` | `permission:cases.summons` | Issue sequential summons. | Stub |
+| `GET` | `/admin/cases/{id}/summons/{s}/print` | `admin.cases.summons.print` | `permission:cases.summons` | Printable summons with signature block. | Planned |
+| `POST` | `/admin/cases/{id}/summons/{s}/void` | `admin.cases.summons.void` | `permission:cases.summons` | Void summons with mandatory note. | Planned |
+| `POST` | `/admin/cases/{id}/summons/{s}/service` | `admin.cases.summons.service` | `permission:cases.summons` | Record summons service result. | Planned |
+| `POST` | `/admin/cases/{id}/summons/{s}/attendance`| `admin.cases.summons.attendance`| `permission:cases.summons` | Record party attendance at hearing. | Planned |
+| `POST` | `/admin/cases/{id}/hearings` | `admin.cases.hearings.store` | `permission:cases.summons` | Schedule conciliation hearing. | Stub |
+| `POST` | `/admin/hearings/{h}/outcome` | `admin.cases.hearings.outcome` | `permission:cases.summons` | Record hearing outcome proceedings. | Planned |
+| `POST` | `/admin/cases/{id}/settle` | `admin.cases.settle` | `permission:cases.edit` | Record settlement terms & agreement upload. | Built |
+| `GET` | `/admin/cases/{id}/escalate` | `admin.cases.escalate.create` | `permission:cases.escalate` | CFA / Court escalation form. | Built |
+| `POST` | `/admin/cases/{id}/escalate` | `admin.cases.escalate.store` | `permission:cases.escalate` | Certify case & issue CFA. | Built |
+| `GET` | `/admin/cases/{id}/escalate/letter` | `admin.cases.escalate.letter` | `permission:cases.escalate` | Printable CFA & endorsement letter. | Planned |
+| `POST` | `/admin/cases/{id}/notes` | `admin.cases.notes.store` | `permission:cases.view` | Append investigation or hearing notes. | Built |
 
-### F. Case Procedural Actions (`routes/case_actions.php`)
-Protected by `auth`, `role:staff`.
+### F. External Agency Portal & Referrals (`routes/agency.php` — WS5)
+Protected by `auth`, `role:agency`, `agency.active` (or `agencies.manage` on admin side).
 
-| Method | URI | Controller Action | Middleware / Permission | Purpose |
-| :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/admin/cases/{id}/summons/create` | `SummonsController@create` | `permission:cases.summons` | Form to generate summons 1, 2, or 3. |
-| `POST` | `/admin/cases/{id}/summons` | `SummonsController@store` | `permission:cases.summons` | Issue and print formal summons notice. |
-| `GET` | `/admin/hearings` | `HearingController@index` | `permission:cases.summons` | Calendar & roster of conciliation hearings. |
-| `POST` | `/admin/cases/{id}/hearings` | `HearingController@store` | `permission:cases.summons` | Schedule mediation hearing proceeding. |
-| `GET` | `/admin/cases/{id}/escalate` | `CaseEscalationController@create` | `permission:cases.escalate` | Certificate to File Action (CFA) / Court referral form. |
-| `POST` | `/admin/cases/{id}/escalate` | `CaseEscalationController@store` | `permission:cases.escalate` | Certify case to court or higher agency. |
-| `POST` | `/admin/cases/{id}/settle` | `CaseController@settle` | `permission:cases.edit` | Record amicable settlement agreement terms. |
-| `POST` | `/admin/cases/{id}/notes` | `CaseNoteController@store` | `permission:cases.view` | Append investigation or hearing notes. |
+| Method | URI | Route Name | Middleware / Permission | Purpose | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/agency/register` | `agency.register` | `guest`, `throttle:5,1` | Agency registration with ID/letter upload. | Stub |
+| `POST` | `/agency/register` | `agency.register.store` | `guest`, `throttle:5,1` | Submit credentials and official agency proof. | Stub |
+| `GET` | `/agency/pending` | `agency.pending` | `auth` | Awaiting admin account approval landing page.| Stub |
+| `GET` | `/agency/referrals` | `agency.referrals.index` | `role:agency, agency.active` | Outside agency referral inbox. | Stub |
+| `GET` | `/agency/referrals/{id}` | `agency.referrals.show` | `role:agency, agency.active` | Referral case dossier & paper attachments. | Stub |
+| `POST` | `/agency/referrals/{id}/accept` | `agency.referrals.accept` | `role:agency, agency.active` | Agency acknowledgment of referred case. | Built |
+| `POST` | `/agency/referrals/{id}/updates` | `agency.referrals.updates.store`| `role:agency, agency.active` | Agency progress milestone or resolution update. | Built |
+| `POST` | `/agency/referrals/{id}/message` | `agency.referrals.message` | `role:agency, agency.active` | Send direct message to barangay staff. | Planned |
+| `GET` | `/agency/team` | `agency.team.index` | `role:agency, agency.active` | Agency office team roster (Office Admin). | Stub |
+| `POST` | `/agency/team/invite` | `agency.team.invite` | `role:agency, agency.active` | Send invite link to agency colleague. | Stub |
+| `GET` | `/agency/invite/{token}` | `agency.invite.show` | `public`, `throttle:5,1` | Invited agency colleague registration form. | Planned |
+| `POST` | `/agency/invite/{token}` | `agency.invite.accept` | `public`, `throttle:5,1` | Complete invited registration. | Planned |
+| `GET` | `/admin/agencies` | `admin.agencies.index` | `permission:agencies.manage` | Admin review list of partner agency requests.| Stub |
+| `GET` | `/admin/agencies/{id}/document` | `admin.agencies.document` | `permission:agencies.manage` | Stream private ID/letter proof document. | Planned |
+| `POST` | `/admin/referrals/{id}/send` | `admin.referrals.send` | `permission:referrals.manage` | Transmit prepared referral to agency portal. | Planned |
 
-### G. External Agency Portal (`routes/agency.php`)
-Protected by `auth`, `role:agency`, `agency.active`.
+### G. Legacy File Import (`routes/imports.php` — WS6, Stretch)
+Protected by `auth`, `role:staff`, `permission:imports.manage`.
 
-| Method | URI | Controller Action | Middleware / Access | Purpose |
-| :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/agency/register` | `AgencyRegistrationController@create` | `guest` / `auth` | Self-service registration for outside agencies. |
-| `POST` | `/agency/register` | `AgencyRegistrationController@store` | `guest` / `auth` | Submit credentials and official agency ID proof. |
-| `GET` | `/agency/pending` | `AgencyRegistrationController@pending` | `auth` | Awaiting admin account approval landing page. |
-| `GET` | `/agency/referrals` | `AgencyReferralController@index` | `role:agency, agency.active` | Outside agency referral inbox. |
-| `GET` | `/agency/referrals/{id}` | `AgencyReferralController@show` | `role:agency, agency.active` | Referral case file & documentation packet. |
-| `POST` | `/agency/referrals/{id}/accept` | `AgencyReferralController@accept` | `role:agency, agency.active` | Agency acknowledgment of referred case. |
-| `POST` | `/agency/referrals/{id}/updates` | `AgencyReferralController@postUpdate` | `role:agency, agency.active` | Agency progress milestone or resolution update. |
-| `GET` | `/agency/team` | `AgencyTeamController@index` | `role:agency, agency.active` | Team roster (Office Admin only). |
-| `POST` | `/agency/team/invite` | `AgencyTeamController@invite` | `role:agency, agency.active` | Invite agency officer colleague. |
-
+| Method | URI | Route Name | Middleware / Permission | Purpose | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/admin/imports` | `admin.imports.index` | `permission:imports.manage` | Batch history of Excel/CSV imports. | Planned |
+| `GET` | `/admin/imports/create` | `admin.imports.create` | `permission:imports.manage` | Upload file and download blank template. | Planned |
+| `POST` | `/admin/imports` | `admin.imports.store` | `permission:imports.manage` | Store file on private disk & create batch. | Planned |
+| `GET` | `/admin/imports/{id}/map` | `admin.imports.map` | `permission:imports.manage` | Interactive column mapping screen. | Planned |
+| `POST` | `/admin/imports/{id}/map` | `admin.imports.save-map` | `permission:imports.manage` | Save column mapping & validate sample. | Planned |
+| `GET` | `/admin/imports/{id}/preview` | `admin.imports.preview` | `permission:imports.manage` | Preview parsed rows and duplicate warnings. | Planned |
+| `POST` | `/admin/imports/{id}/commit` | `admin.imports.commit` | `permission:imports.manage` | Commit rows in chunks (original case numbers). | Planned |
+| `POST` | `/admin/imports/{id}/rollback` | `admin.imports.rollback` | `permission:imports.manage` | Roll back committed batch completely. | Planned |

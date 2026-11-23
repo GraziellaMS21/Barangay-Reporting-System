@@ -1,5 +1,9 @@
 # PHASE 0: FOUNDATION TASK (give this whole file to the AI assistant)
 
+> **STATUS (2026-11-22): EXECUTED. Historical brief. Do not run it again.**
+> Phase 0 was completed on `feature/phase0-foundation` (184 tests passing). What was actually built is in `FOUNDATION_HANDOFF.md`, `FOUNDATION_DISCOVERY.md` and `DATABASE.md` section 3. Where this brief and the built code differ, the code wins. The differences and the changes caused by the Secretary's answers are listed in `REVISION_2.md` section 4.
+> **Rules in this file that are now obsolete:** the 3-summons limit and `SummonsCounterService` eligibility (Step 4, section 9), the `escalation_decider_position` setting, the `never` numbering reset, the `referral_officer` and `viewer` presets, the 7-day referral follow-up, and the demo accounts under `@barangay.test`.
+
 > **Who runs this:** the team lead only, on branch `feature/phase0-foundation`.
 > **Why it exists:** four teammates will build features in parallel afterwards. They can only avoid overlapping if the shared pieces (database schema, settings, permissions, numbering, routes, layout, UI components, seeders, test helpers) already exist and are agreed. This task builds exactly that, plus empty "stub" pages for everything the team will build.
 > **Rule:** build structure and contracts. Do **not** build the feature screens that belong to the workstreams listed in `docs/TEAM_WORKSTREAMS.md`.
@@ -249,6 +253,8 @@ Run and report:
 ---
 
 ## 9. Draft case lifecycle (for the docs and for `CaseStatus`)
+
+> **SUPERSEDED (2026-11-22):** the lifecycle is now in `WORKFLOW.md` section 8 (adds `in_conciliation`, 15 working day clocks, CFA at escalation, no summons rule). The table below is kept only as the Phase 0 record.
 
 > Draft only. The real mediation stages come from the secretary's answers (Q21 to Q27). Statuses are code, but this table is expected to change.
 

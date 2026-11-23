@@ -58,6 +58,7 @@ class NumberingService
         $default = match ($type) {
             'referral' => 'REF-{YEAR}-{SEQ:4}',
             'case' => 'CASE-{YEAR}-{SEQ:5}',
+            'blotter' => '{MM}-{SEQ:3}-{YEAR}',
             'summons' => 'SUM-{YEAR}-{SEQ:4}',
             default => strtoupper($type).'-{YEAR}-{SEQ:4}',
         };
@@ -65,12 +66,29 @@ class NumberingService
         return (string) $this->settings->get("numbering.{$type}.format", $default);
     }
 
-    protected function formatNumber(string $format, FiscalYear $fy, int $number): string
+    public function isValidFormat(string $format): bool
+    {
+        if (! preg_match('/\{SEQ:([1-8])\}/', $format)) {
+            return false;
+        }
+
+        // Must not contain invalid characters
+        $stripped = preg_replace('/\{(YEAR|YY|MM|SEQ:[1-8])\}/', '', $format);
+
+        return preg_match('/^[a-zA-Z0-9_\-\.\/]*$/', $stripped) === 1;
+    }
+
+    protected function formatNumber(string $format, FiscalYear $fy, int $number, ?string $date = null): string
     {
         $year = (string) $fy->year;
         $yy = substr($year, -2);
+        $month = $date ? date('m', strtotime($date)) : now()->format('m');
 
-        $formatted = str_replace(['{YEAR}', '{YY}'], [$year, $yy], $format);
+        $formatted = str_replace(
+            ['{YEAR}', '{YY}', '{MM}'],
+            [$year, $yy, $month],
+            $format
+        );
 
         if (preg_match('/\{SEQ:(\d+)\}/', $formatted, $matches)) {
             $digits = (int) $matches[1];

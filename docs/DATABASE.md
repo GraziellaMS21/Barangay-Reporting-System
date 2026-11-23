@@ -40,13 +40,18 @@ erDiagram
 - `name` (string)
 - `email` (string, unique)
 - `password` (string, hashed)
-- `role` (string(20): `admin`, `staff`, `agency`; default: `staff`)
+- `role` (string(20): `admin`, `staff`, `agency`; default: `staff`) — coarse access tier ONLY. `personnel` is NOT a role.
+- `office_id` (foreignId `offices`, nullable) — required for `agency` users (points to an external office with `is_external = true`); null for `admin` and `staff`.
 - `is_active` (boolean, default: true)
-- `office_id` (foreignId `offices`, nullable) — agency users (Phase 0)
-- `must_change_password` (boolean, default: false) — Phase 0
-- `last_login_at` (timestamp, nullable) — Phase 0
-- `email_verified_at` (timestamp, nullable) — agency users must verify (Phase 0 plan; verify in repo)
+- `must_change_password` (boolean, default: false)
+- `last_login_at` (timestamp, nullable)
+- `email_verified_at` (timestamp, nullable) — required for active agency portal access.
 - `timestamps`
+
+> **Note on Position and Access Control**:
+> - `Position` is **never** stored directly on `users` as `position_id` to prevent dual-source-of-truth drift. Instead, `User::position()` is a `hasOneThrough(Position::class, Personnel::class, 'user_id', 'id', 'id', 'position_id')` relationship through the assignable `personnel` record.
+> - Barangay positions (e.g. `punong_barangay`, `barangay_secretary`, `lupon_member`, `barangay_tanod`, `kagawad_peace_order`) do not dictate permissions on their own. Permissions derive strictly from `role` (where `admin` has all permissions) plus permission presets (`staff_full`, `case_encoder`, `case_reviewer`, `reports_analyst`) or explicit user permissions.
+> - Agency users do not have a position or permission preset; their access is scoped strictly to external referrals assigned to their `office_id`.
 
 ### `puroks`
 - `id` (bigint unsigned, PK)

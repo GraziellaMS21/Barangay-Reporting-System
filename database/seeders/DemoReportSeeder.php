@@ -212,33 +212,32 @@ class DemoReportSeeder extends Seeder
             );
 
             if (! $report->referrals()->exists()) {
+                $sentAt = in_array($demoReferral['status'], ['sent', 'acknowledged'], true)
+                    ? now()->subDays($demoReferral['days_ago'])
+                    : null;
+
                 $referral = Referral::create([
                     'report_id' => $report->id,
                     'office_id' => $agencyId,
-                    'authority_mode' => 'beyond',
+                    'reference_no' => $referralService->generateReferenceNo(),
+                    'referral_text' => $demoReferral['letter'],
                     'status' => $demoReferral['status'],
-                    'referral_letter' => $demoReferral['letter'],
-                    'referred_by' => $staff?->id,
+                    'sent_at' => $sentAt,
+                    'sent_via' => $sentAt ? 'email' : null,
+                    'follow_up_at' => $sentAt ? $sentAt->copy()->addDays(3) : null,
+                    'prepared_by' => $staff?->id,
                     'follow_up_owner_id' => $staff?->id,
-                    'sent_at' => in_array($demoReferral['status'], ['sent', 'acknowledged'], true)
-                        ? now()->subDays($demoReferral['days_ago'])
-                        : null,
-                    'follow_up_at' => $referralService->calculateFollowUpDate(now()->subDays($demoReferral['days_ago'])),
-                    'follow_up_notes' => $demoReferral['status'] === 'sent' && $demoReferral['days_ago'] >= 7
-                        ? 'Follow-up overdue per 7-day threshold.'
-                        : null,
                 ]);
 
                 foreach ($demoReferral['updates'] ?? [] as $update) {
                     $referral->updates()->create([
                         'user_id' => $staff?->id,
-                        'message' => $update['note'],
+                        'note' => $update['note'],
+                        'channel' => 'other',
                         'occurred_at' => now()->subDays($update['days_ago']),
                         'visible_to_resident' => true,
                     ]);
                 }
-
-                $referral->update(['status' => $demoReferral['status']]);
             }
         }
     }

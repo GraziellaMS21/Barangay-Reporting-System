@@ -78,6 +78,7 @@ class DemoDataSeeder extends Seeder
                 'password' => $defaultPassword,
                 'role' => UserRole::ADMIN,
                 'is_active' => true,
+                'email_verified_at' => now(),
                 'must_change_password' => false,
             ]
         );
@@ -90,6 +91,7 @@ class DemoDataSeeder extends Seeder
                 'password' => $defaultPassword,
                 'role' => UserRole::ADMIN,
                 'is_active' => true,
+                'email_verified_at' => now(),
                 'must_change_password' => false,
             ]
         );
@@ -102,6 +104,7 @@ class DemoDataSeeder extends Seeder
                 'password' => $defaultPassword,
                 'role' => UserRole::STAFF,
                 'is_active' => true,
+                'email_verified_at' => now(),
                 'must_change_password' => false,
             ]
         );
@@ -115,6 +118,7 @@ class DemoDataSeeder extends Seeder
                 'password' => $defaultPassword,
                 'role' => UserRole::STAFF,
                 'is_active' => true,
+                'email_verified_at' => now(),
                 'must_change_password' => false,
             ]
         );
@@ -128,6 +132,7 @@ class DemoDataSeeder extends Seeder
                 'password' => $defaultPassword,
                 'role' => UserRole::STAFF,
                 'is_active' => true,
+                'email_verified_at' => now(),
                 'must_change_password' => false,
             ]
         );
@@ -159,6 +164,7 @@ class DemoDataSeeder extends Seeder
                 'role' => UserRole::AGENCY,
                 'office_id' => $cswdoOffice->id,
                 'is_active' => true,
+                'email_verified_at' => now(),
                 'must_change_password' => false,
             ]
         );

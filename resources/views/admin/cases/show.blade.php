@@ -49,6 +49,12 @@
                 <h2 class="text-base font-semibold text-slate-900">Summons & Conciliation</h2>
                 @include('admin.case-actions.partials.summons-tab')
                 @include('admin.case-actions.partials.hearings-tab')
+                @include('admin.case-actions.partials.feature-placeholder', [
+                    'id' => 'settlement-workflow-placeholder',
+                    'heading' => 'Settlement record',
+                    'message' => 'Recording settlement terms or attaching a signed agreement is not available yet.',
+                    'note' => 'No settlement information is saved and the case status is not changed.',
+                ])
                 @include('admin.case-actions.partials.escalation-tab')
             </div>
         </div>
@@ -69,6 +75,13 @@
                     <span class="font-medium text-slate-900">{{ ucfirst(str_replace('_', ' ', $case->source)) }}</span>
                 </div>
             </div>
+
+            @include('admin.case-actions.partials.feature-placeholder', [
+                'id' => 'deadline-calculation-placeholder',
+                'heading' => 'Deadline tracking',
+                'message' => 'Mediation and conciliation working-day deadlines are not calculated yet.',
+                'note' => 'No due date or overdue status is being shown. Official timeline rules must be confirmed before this is enabled.',
+            ])
         </div>
     </div>
 </div>

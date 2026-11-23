@@ -77,8 +77,10 @@ body.staff-menu-open {
     overflow: hidden;
 }
 
-a {
-    color: var(--blue);
+@layer base {
+    a {
+        color: var(--blue);
+    }
 }
 
 h1,

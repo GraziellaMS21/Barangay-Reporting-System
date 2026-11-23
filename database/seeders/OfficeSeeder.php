@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\Office;
-use App\Models\User;
 use Illuminate\Database\Seeder;
 
 class OfficeSeeder extends Seeder
@@ -13,12 +12,6 @@ class OfficeSeeder extends Seeder
      */
     public function run(): void
     {
-        $staffUserId = User::query()
-            ->where('role', 'staff')
-            ->where('is_active', true)
-            ->orderBy('id')
-            ->value('id');
-
         $offices = [
             [
                 'name' => 'Barangay Sanitation Office',
@@ -27,10 +20,10 @@ class OfficeSeeder extends Seeder
                 'is_internal' => true,
                 'is_external' => false,
                 'contact' => 'Barangay Hall · Sanitation Committee',
-                'contact_person' => 'Kgd. Ramon Bautista',
-                'contact_phone' => '(062) 991-1001',
+                'contact_person' => null,
+                'contact_phone' => null,
                 'address' => 'Barangay Calarian Hall',
-                'default_assignee_id' => $staffUserId,
+                'default_assignee_id' => null,
                 'is_active' => true,
             ],
             [
@@ -40,10 +33,10 @@ class OfficeSeeder extends Seeder
                 'is_internal' => true,
                 'is_external' => false,
                 'contact' => 'Barangay Hall · Infrastructure Committee',
-                'contact_person' => 'Kgd. Elena Mendoza',
-                'contact_phone' => '(062) 991-1002',
+                'contact_person' => null,
+                'contact_phone' => null,
                 'address' => 'Barangay Calarian Hall',
-                'default_assignee_id' => $staffUserId,
+                'default_assignee_id' => null,
                 'is_active' => true,
             ],
             [
@@ -52,10 +45,10 @@ class OfficeSeeder extends Seeder
                 'description' => 'Handles city-maintained roads, major drainage lines, and public infrastructure works.',
                 'is_internal' => false,
                 'is_external' => true,
-                'contact' => 'city-engineering@example.test',
-                'contact_person' => 'Engr. Ana Reyes',
-                'contact_email' => 'city-engineering@example.test',
-                'contact_phone' => '(062) 991-0001',
+                'contact' => null,
+                'contact_person' => null,
+                'contact_email' => null,
+                'contact_phone' => null,
                 'address' => 'City Engineers Office, Zamboanga City Hall',
                 'is_active' => true,
             ],
@@ -65,10 +58,10 @@ class OfficeSeeder extends Seeder
                 'description' => 'Handles public health hazards, disease outbreaks, and sanitation inspections.',
                 'is_internal' => false,
                 'is_external' => true,
-                'contact' => 'city-health@example.test',
-                'contact_person' => 'Dr. Miguel Lopez',
-                'contact_email' => 'city-health@example.test',
-                'contact_phone' => '(062) 991-0002',
+                'contact' => null,
+                'contact_person' => null,
+                'contact_email' => null,
+                'contact_phone' => null,
                 'address' => 'City Health Office, Pettit Barracks, Zamboanga City',
                 'is_active' => true,
             ],
@@ -78,24 +71,30 @@ class OfficeSeeder extends Seeder
                 'description' => 'Handles streetlights, power poles, and public utility lines.',
                 'is_internal' => false,
                 'is_external' => true,
-                'contact' => 'utility@example.test',
-                'contact_person' => 'Ms. Rosa Lim',
-                'contact_email' => 'utility@example.test',
-                'contact_phone' => '(062) 991-0003',
+                'contact' => null,
+                'contact_person' => null,
+                'contact_email' => null,
+                'contact_phone' => null,
                 'address' => 'Public Utility Office, Don Pablo Lorenzo St., Zamboanga City',
+                'is_active' => true,
+            ],
+            [
+                'name' => 'City Social Welfare and Development Office (CSWDO)',
+                'type' => 'external',
+                'description' => 'Handles social welfare cases, child protection, family mediation, and social assistance.',
+                'is_internal' => false,
+                'is_external' => true,
+                'contact' => null,
+                'contact_person' => null,
+                'contact_email' => null,
+                'contact_phone' => null,
+                'address' => 'City Hall Complex, Pettit Barracks, Zamboanga City',
                 'is_active' => true,
             ],
         ];
 
         foreach ($offices as $office) {
-            $existing = Office::query()->firstWhere('name', $office['name']);
-            if ($existing) {
-                $existing->fill($office)->save();
-
-                continue;
-            }
-
-            Office::query()->create($office);
+            Office::firstOrCreate(['name' => $office['name']], $office);
         }
     }
 }

@@ -12,6 +12,7 @@ class EmergencyContactSeeder extends Seeder
      */
     public function run(): void
     {
+        // 'N/A' placeholders indicate real contact numbers must be confirmed by officials during setup.
         $contacts = [
             ['name' => 'National Emergency Hotline', 'number' => '911', 'type' => 'emergency', 'is_active' => true, 'sort_order' => 1],
             ['name' => 'Police Station', 'number' => 'N/A', 'type' => 'police', 'is_active' => true, 'sort_order' => 2],
@@ -20,8 +21,9 @@ class EmergencyContactSeeder extends Seeder
             ['name' => 'Disaster Response Office', 'number' => 'N/A', 'type' => 'disaster', 'is_active' => true, 'sort_order' => 5],
             ['name' => 'Barangay Hotline', 'number' => 'N/A', 'type' => 'barangay', 'is_active' => true, 'sort_order' => 6],
         ];
+
         foreach ($contacts as $contact) {
-            EmergencyContact::updateOrCreate([
+            EmergencyContact::firstOrCreate([
                 'name' => $contact['name'],
                 'type' => $contact['type'],
             ], $contact);

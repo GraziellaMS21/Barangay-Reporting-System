@@ -93,10 +93,16 @@ class CategoryQuestionSeeder extends Seeder
         foreach ($schemas as $slug => $data) {
             $cat = Category::where('slug', $slug)->first();
             if ($cat) {
-                $cat->update([
-                    'question_schema' => $data['q'],
-                    'sla_hours' => $data['sla'],
-                ]);
+                $updates = [];
+                if (empty($cat->question_schema)) {
+                    $updates['question_schema'] = $data['q'];
+                }
+                if ($cat->sla_hours === null) {
+                    $updates['sla_hours'] = $data['sla'];
+                }
+                if (! empty($updates)) {
+                    $cat->update($updates);
+                }
             }
         }
     }

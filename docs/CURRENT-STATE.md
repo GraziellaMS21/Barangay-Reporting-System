@@ -7,26 +7,40 @@ This document provides a realistic, code-verified audit of what is currently imp
 
 ---
 
-## 1. Feature Implementation Matrix
+## 1. Branch Divergence & Integration Status
 
-| Phase / Module | Verified Code State | Summary of Existing Implementation |
+The project codebase currently operates across two primary branches:
+
+| Branch | State | What is Merged | Test Suite | Routes |
+| :--- | :---: | :--- | :---: | :---: |
+| **`dev`** (Active Integration) | **Active** | **Phase 0, Phase 0.5, WS1, WS2, WS3, WS4, WS5, WS6**, and the **Users/Roles/Positions/Seeders Rework**. | **288 tests, 1,955 assertions** (100% green) | **273** |
+| **`main`** (Deployment Baseline) | **Behind** | **Phase 0, Phase 0.5, and WS1 only** (last merge: `1919a6e`). | 184 tests, 1,374 assertions | 244 |
+
+> [!IMPORTANT]
+> **Branch Divergence Detail**:
+> The following deliverables are currently completed and fully verified on **`dev`**, awaiting the final release merge into **`main`**:
+> - **WS2**: Official personnel directory, positions, signatory matrix with `SignatoryResolver`, granular permission presets, and official DILG/KP compliance reports.
+> - **WS3**: Katarungang Pambarangay case docketing (blotter vs complaint), party directory with residency verification, duplicate party warnings, and party merging.
+> - **WS4**: Sequential summons without artificial caps, 15-working-day mediation/conciliation countdown (`OverdueService` + `WorkingDays`), hearings calendar, settlement agreement upload, and CFA generation.
+> - **WS5**: Partner agency self-registration, admin review/approval, isolated Agency Portal (`/agency/referrals`), private disk file streaming, and referral case attachments.
+> - **WS6**: Legacy CSV/Excel file import wizard for historical blotter records (last 4 years) with column mapping, chunked commit, and batch rollback.
+> - **Users/Roles Rework**: Canonical `users.role` restricted strictly to `admin`, `staff`, and `agency` (`personnel` deprecated as a role); `User::position()` relation via `Personnel`; `RequiredDataSeeder` reference isolation (0 users, 0 reports seeded in production); official demo dataset in `DemoDataSeeder`.
+
+---
+
+## 2. Feature Implementation Matrix
+
+| Phase / Module | Verified Code State | Summary of Implementation |
 | :--- | :---: | :--- |
-| **Phase 0: Setup** | **Done** | Laravel 13, SQLite/MySQL, Vite, Tailwind CSS v4, Leaflet.js, FontAwesome installed and functional. |
-| **Phase 1: Guest Reporting & Track** | **Done** | Single-card resident submission form, Leaflet map pin selection, tracking code generator (`BRG-XXXXXX`), public tracking view. |
-| **Phase 2: Staff Auth & Basic Queue** | **Done** | Session auth, `role` middleware (`staff`, `admin`), report queue with pagination and basic filters. |
-| **Phase 3: Gemini AI Triage** | **Done** | `GeminiService` with structured JSON output, photo description, emergency detection, error resilience (`ai_status = failed`). |
-| **Phase 4: Routing & Referrals** | **Done** | `RoutingService` and `ReferralService`, jurisdiction checks, external referral tracking, formal letter generation. |
-| **Phase 5: Emergency & Duplicates** | **Done** | `emergency_flagged` status, 911 banner, `DuplicateService` (Haversine distance matching), `PriorityService` scoring. |
-| **Phase 6: Maps & Analytics** | **Done** | Staff `/admin/map`, public `/map` (excluding emergencies), KPI tiles, `HotspotService`, and aggregate Gemini insights. |
-| **Phase 7: Admin Settings & Auditing** | **Done** | Settings CRUD (categories, offices, routing rules, weights, emergency contacts), security `audit_logs` tracking overrides. |
-| **Phase 8: Foundation Improvements** | **Done** | Modular route files (`resident.php`, `staff.php`, `admin.php`, `engine.php`), domain events, database structure. |
-| **Phase 9: Resident Form Redesign** | **Done** | Single-card layout, client-side canvas image compression, single danger checkbox, dynamic category questions. |
-| **Phase 10: Case Management** | **Done** | 3-way review card, review gate, assignee filter, internal notes, `info_requests` thread, `resolution_proofs` multi-image upload. |
-| **Phase 11: Rules & AI Engine** | **Done** | Inline review comparison, timeout handling (30s), fallback models, `/api/nearby-reports` endpoint. |
-| **Phase 12: Admin & Notifications** | **Done** | `NotificationService`, transaction mail dispatch (`ReportReceived`, `ReportStatusChanged`, `EmergencyAlert`), CSV export. |
-
-| **Foundation (Phase 0)** | **Done** | Case module, agency portal, Reports Center and setup foundations: 22 migrated tables, 21 models, core services, permission middleware, config-driven navigation, 11 UI components, `app:empty` and `app:demo`. Stubs remain for workstreams. See `docs/FOUNDATION_HANDOFF.md`. Test suite: 184 tests, 1,374 assertions. |
-| **Revision 2 alignment** | **Planned** | Schema and seed changes from the Secretary's answers (`docs/REVISION_2.md` section 8). |
+| **Phase 0: Setup & Foundation** | **Done** (in `main` & `dev`) | Laravel 13, SQLite/MySQL, Vite, Tailwind CSS v4, Leaflet.js, FontAwesome installed. 22 foundation tables, core services, permission middleware. |
+| **Phase 0.5: Foundation Alignment** | **Done** (in `main` & `dev`) | Aligned schema for working days, CFA number, blotter record type, and 3-day referral follow-up. |
+| **WS1: Setup, Fiscal Year & Settings** | **Done** (in `main` & `dev`) | 7-step wizard (`/setup`), fiscal year lifecycle (`active`, `closed`, `locked`), settings manager, calendar holidays, automated backups (`app:backup`), global multi-year search. |
+| **WS2: People, Access & Reports Center** | **Done** (in `dev`) | Personnel directory (`/admin/personnel`), positions, signatory matrix (`SignatoryResolver`), 20 permission slugs, 4 presets, DILG compliance reports (`/admin/reports-center`). |
+| **WS3: Case Intake & Parties** | **Done** (in `dev`) | Dispute intake (`record_type`: blotter vs complaint), party directory, residency verification, duplicate party checks, party merge (`/admin/parties/{id}/merge`). |
+| **WS4: Summons, Hearings & Deadlines** | **Done** (in `dev`) | Sequential summons, working-day deadlines (15-day mediation + 15-day conciliation), hearings scheduler, amicable settlement recording, CFA & endorsement printables, Secretary dashboard. |
+| **WS5: Agency Portal & Referrals** | **Done** (in `dev`) | Outside agency registration with ID upload, admin approval, Agency Portal inbox (`/agency/referrals`), referral case dossier attachments, 3-day follow-up tracking. |
+| **WS6 (Stretch): Legacy File Import** | **Done** (in `dev`) | Ingestion wizard for historical records (last 4 years) from CSV/Excel without AI, interactive column mapping, chunked commit, and batch rollback (`/admin/imports`). |
+| **Users, Roles & Seeders Rework** | **Done** (in `dev`) | Coarse role canonicalization (`admin`, `staff`, `agency`), `hasOneThrough` position relation, `RequiredDataSeeder` reference data isolation (0 users/reports), updated `app:empty` and `app:demo`. |
 ---
 
 ## 2. Verified Code Gaps (Target Design vs. Codebase)

@@ -23,6 +23,11 @@ Standardized development conventions for **Barangay-Reporting-System-1**.
 - **Database Transactions**: Any mutation updating multiple tables (e.g. status transition + log creation + event dispatch) must execute within `DB::transaction()`.
 - **Core Governance Rule**: **"The AI suggests, the rules route, the officials decide."** Never auto-transition a report or case status. Neither AI analysis, summons counts, attendance results, deadline expirations, nor document generation may automatically alter database statuses without explicit official action.
 - **Dynamic Settings & Unconfirmed Values**: Never hardcode placeholder values (deadlines, follow-up days, barangay name, signatories, fees) in controllers, services, or Blade templates. Read from `setting()` or database models. When an item has `is_confirmed = false`, render `<x-ui.pending-badge>`.
+- **Role & Position Separation**:
+  - `users.role` defines coarse access tier strictly (`admin`, `staff`, `agency` via `App\Support\UserRole`). `personnel` is NOT a role.
+  - Position is accessed strictly via `User::position()` (a `HasOneThrough` relation through `Personnel`). Never add a redundant `position_id` column to `users`.
+  - Permissions derive strictly from role + preset (`config/permission_presets.php`). Positions never grant permissions directly.
+  - `users.office_id` is populated strictly for `agency` users (linking to an external office with `is_external = true`) and is `null` for `admin` and `staff`.
 - **Naming Conventions**:
   - Controllers: `PascalCase` ending in `Controller` (`ReportController`).
   - Models: Singular `PascalCase` (`Report`, `StatusLog`, `Referral`, `BarangayCase`).

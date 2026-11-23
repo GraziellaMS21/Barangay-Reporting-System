@@ -4,12 +4,15 @@ namespace App\Http\Controllers\Agency;
 
 use App\Http\Controllers\Controller;
 use App\Models\Referral;
+use App\Models\ReferralAttachment;
 use App\Models\ReferralUpdate;
 use App\Services\AuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReferralController extends Controller
 {
@@ -47,7 +50,7 @@ class ReferralController extends Controller
             abort(403, 'Unauthorized access to this referral.');
         }
 
-        $referral->load(['report.category', 'report.purok', 'updates.user']);
+        $referral->load(['report.category', 'report.purok', 'updates.user', 'attachments.uploadedBy', 'case']);
 
         $auditLogger->log(
             $request->user(),
@@ -201,5 +204,58 @@ class ReferralController extends Controller
         });
 
         return redirect()->route('agency.referrals.show', $referral)->with('success', 'Note sent to barangay staff.');
+    }
+
+    public function downloadAttachment(Request $request, Referral $referral, ReferralAttachment $attachment): StreamedResponse
+    {
+        if ($referral->office_id !== $request->user()->office_id || $attachment->referral_id !== $referral->id) {
+            abort(403, 'Unauthorized access to this attachment.');
+        }
+
+        if (! Storage::disk('private')->exists($attachment->path)) {
+            abort(404, 'Attachment file not found.');
+        }
+
+        return Storage::disk('private')->response($attachment->path, basename($attachment->path));
+    }
+
+    public function uploadAttachment(Request $request, Referral $referral, AuditLogger $auditLogger): RedirectResponse
+    {
+        if ($referral->office_id !== $request->user()->office_id) {
+            abort(403, 'Unauthorized access to this referral.');
+        }
+
+        $validated = $request->validate([
+            'label' => ['required', 'string', 'max:255'],
+            'file' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,doc,docx,txt', 'max:10240'],
+        ]);
+
+        $path = $request->file('file')->store("referral-attachments/{$referral->id}", 'private');
+
+        $attachment = ReferralAttachment::create([
+            'referral_id' => $referral->id,
+            'label' => $validated['label'],
+            'path' => $path,
+            'uploaded_by' => $request->user()->id,
+        ]);
+
+        ReferralUpdate::create([
+            'referral_id' => $referral->id,
+            'user_id' => $request->user()->id,
+            'note' => "Attached document: {$validated['label']}",
+            'channel' => 'portal',
+            'occurred_at' => now(),
+            'visible_to_resident' => true,
+        ]);
+
+        $auditLogger->log(
+            $request->user(),
+            'agency.uploaded_attachment',
+            $referral,
+            [],
+            ['attachment_id' => $attachment->id, 'label' => $validated['label']]
+        );
+
+        return back()->with('success', 'Document attachment uploaded successfully.');
     }
 }

@@ -44,6 +44,7 @@ class Referral extends Model
     protected $fillable = [
         'fiscal_year_id',
         'report_id',
+        'case_id',
         'office_id',
         'reference_no',
         'referral_text',
@@ -81,9 +82,19 @@ class Referral extends Model
         return $this->belongsTo(Report::class);
     }
 
+    public function case(): BelongsTo
+    {
+        return $this->belongsTo(BarangayCase::class, 'case_id');
+    }
+
     public function office(): BelongsTo
     {
         return $this->belongsTo(Office::class);
+    }
+
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(ReferralAttachment::class);
     }
 
     public function preparedBy(): BelongsTo

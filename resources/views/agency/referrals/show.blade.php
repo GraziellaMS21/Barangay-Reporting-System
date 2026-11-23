@@ -67,6 +67,54 @@
         </dl>
       </x-ui.card>
 
+      {{-- Referral & Case Dossier Attachments --}}
+      <x-ui.card>
+        <div class="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
+          <div>
+            <h3 class="text-sm font-bold text-slate-900">Case Documents & Attachments</h3>
+            <p class="text-xs text-slate-500">Official case dossiers, CFA certifications, and supplementary evidence.</p>
+          </div>
+        </div>
+
+        @if($referral->attachments->isEmpty())
+          <p class="text-xs text-slate-400 italic py-3 text-center">No documents attached to this referral.</p>
+        @else
+          <ul class="divide-y divide-slate-100 text-xs">
+            @foreach($referral->attachments as $att)
+              <li class="py-2.5 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <i class="fa-solid fa-file-pdf text-red-500 text-base"></i>
+                  <div>
+                    <span class="font-bold text-slate-800">{{ $att->label }}</span>
+                    <span class="block text-[11px] text-slate-400">Uploaded {{ $att->created_at->format('M d, Y h:i A') }}</span>
+                  </div>
+                </div>
+                <a href="{{ route('agency.referrals.attachments.download', [$referral, $att]) }}" class="inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-sm">
+                  <i class="fa-solid fa-download"></i> Download
+                </a>
+              </li>
+            @endforeach
+          </ul>
+        @endif
+
+        {{-- Upload Additional Document Form --}}
+        @if($referral->status !== 'closed')
+          <form method="POST" action="{{ route('agency.referrals.attachments.upload', $referral) }}" enctype="multipart/form-data" class="mt-4 pt-3 border-t border-slate-100 space-y-2 text-xs">
+            @csrf
+            <label class="block font-semibold text-slate-700">Upload Agency Attachment / Inspection Report</label>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <input type="text" name="label" required placeholder="Document label / title..." class="rounded border border-slate-300 p-1.5 text-xs">
+              <input type="file" name="file" required class="rounded border border-slate-300 p-1 text-xs bg-slate-50">
+            </div>
+            <div class="text-right pt-1">
+              <button type="submit" class="rounded bg-blue-600 px-3 py-1 font-semibold text-white hover:bg-blue-700">
+                <i class="fa-solid fa-upload mr-1"></i> Upload Document
+              </button>
+            </div>
+          </form>
+        @endif
+      </x-ui.card>
+
       {{-- Progress & Messages Timeline --}}
       <x-ui.card>
         <div class="border-b border-slate-200 pb-3 mb-4">

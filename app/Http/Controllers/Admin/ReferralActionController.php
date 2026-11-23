@@ -4,11 +4,14 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Referral;
+use App\Models\ReferralAttachment;
 use App\Models\ReferralUpdate;
 use App\Services\AuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReferralActionController extends Controller
 {
@@ -77,5 +80,52 @@ class ReferralActionController extends Controller
         });
 
         return back()->with('success', 'Message posted to referral thread.');
+    }
+
+    public function downloadAttachment(Referral $referral, ReferralAttachment $attachment): StreamedResponse
+    {
+        abort_unless($attachment->referral_id === $referral->id, 404);
+
+        if (! Storage::disk('private')->exists($attachment->path)) {
+            abort(404, 'Attachment file not found.');
+        }
+
+        return Storage::disk('private')->response($attachment->path, basename($attachment->path));
+    }
+
+    public function uploadAttachment(Request $request, Referral $referral, AuditLogger $auditLogger): RedirectResponse
+    {
+        $validated = $request->validate([
+            'label' => ['required', 'string', 'max:255'],
+            'file' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,doc,docx,txt', 'max:10240'],
+        ]);
+
+        $path = $request->file('file')->store("referral-attachments/{$referral->id}", 'private');
+
+        $attachment = ReferralAttachment::create([
+            'referral_id' => $referral->id,
+            'label' => $validated['label'],
+            'path' => $path,
+            'uploaded_by' => $request->user()->id,
+        ]);
+
+        ReferralUpdate::create([
+            'referral_id' => $referral->id,
+            'user_id' => $request->user()->id,
+            'note' => "Staff attached document: {$validated['label']}",
+            'channel' => 'portal',
+            'occurred_at' => now(),
+            'visible_to_resident' => false,
+        ]);
+
+        $auditLogger->log(
+            $request->user(),
+            'referral.uploaded_attachment',
+            $referral,
+            [],
+            ['attachment_id' => $attachment->id, 'label' => $validated['label']]
+        );
+
+        return back()->with('success', 'Document attachment uploaded to referral.');
     }
 }

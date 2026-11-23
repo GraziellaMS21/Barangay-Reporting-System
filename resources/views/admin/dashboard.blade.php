@@ -320,16 +320,22 @@
       <tbody class="divide-y divide-slate-100">
         @forelse($pendingReferrals as $referral)
           @php($referralOverdue = $referral->isOverdue())
+          @php($referralUrl = $referral->report_id ? route('admin.reports.show', $referral->report_id) : ($referral->case_id ? route('admin.cases.show', $referral->case_id) : '#'))
           <tr class="hover:bg-slate-50/80 transition-colors cursor-pointer group" tabindex="0" role="link"
-              aria-label="Open referral {{ $referral->reference_no ?? $referral->report?->tracking_code }}"
-              onclick="window.location='{{ route('admin.reports.show', $referral->report_id) }}'"
-              onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location='{{ route('admin.reports.show', $referral->report_id) }}';}">
+              aria-label="Open referral {{ $referral->reference_no ?? $referral->report?->tracking_code ?? $referral->case?->case_number }}"
+              onclick="window.location='{{ $referralUrl }}'"
+              onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location='{{ $referralUrl }}';}">
             <td data-label="REF no." class="py-3 px-3.5">
               <div class="font-mono font-bold text-xs text-blue-700">{{ $referral->reference_no ?? 'Not assigned' }}</div>
               @if($referral->report?->tracking_code)
                 <div class="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
                   <i class="fa-solid fa-ticket text-[10px]" aria-hidden="true"></i>
                   <span>{{ $referral->report->tracking_code }}</span>
+                </div>
+              @elseif($referral->case?->case_number)
+                <div class="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
+                  <i class="fa-solid fa-scale-balanced text-[10px]" aria-hidden="true"></i>
+                  <span>{{ $referral->case->case_number }}</span>
                 </div>
               @endif
             </td>

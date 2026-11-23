@@ -67,7 +67,7 @@ class DashboardController extends Controller
             ->get();
         $pendingReferrals = Referral::query()
             ->needsAttention()
-            ->with(['report:id,tracking_code', 'office:id,name'])
+            ->with(['report:id,tracking_code', 'case:id,case_number', 'office:id,name'])
             ->orderByRaw('CASE WHEN follow_up_at IS NOT NULL AND follow_up_at < ? THEN 0 ELSE 1 END', [now()->toDateTimeString()])
             ->latest('id')
             ->limit(5)

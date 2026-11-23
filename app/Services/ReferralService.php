@@ -8,6 +8,7 @@ use App\Models\BarangayCase;
 use App\Models\EscalationDestination;
 use App\Models\Office;
 use App\Models\Referral;
+use App\Models\ReferralAttachment;
 use App\Models\ReferralUpdate;
 use App\Models\Report;
 use App\Models\Setting;
@@ -17,6 +18,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -263,21 +265,115 @@ class ReferralService
     }
 
     /**
-     * STUB: Referrals with follow_up_at <= today and status not closed.
+     * Referrals with follow_up_at <= today and status not closed.
      *
      * @return Collection<int, Referral>
      */
     public function dueForFollowUp(): Collection
     {
-        return new Collection;
+        return Referral::query()
+            ->with(['office', 'report.category', 'report.purok', 'case'])
+            ->where('status', '!=', 'closed')
+            ->whereNotNull('follow_up_at')
+            ->whereDate('follow_up_at', '<=', today())
+            ->orderBy('follow_up_at')
+            ->get();
     }
 
     /**
-     * STUB: WS5 completes case-to-referral handoff.
+     * Case-to-referral handoff for escalated cases.
      */
     public function createFromCase(BarangayCase $case, EscalationDestination $destination, User $by): Referral
     {
-        throw new \LogicException('Not implemented (WS5)');
+        return DB::transaction(function () use ($case, $destination, $by): Referral {
+            $office = $destination->office;
+            if (! $office) {
+                $office = Office::firstOrCreate(
+                    ['name' => $destination->name],
+                    ['type' => 'external', 'is_external' => true, 'is_active' => true]
+                );
+            }
+
+            $fy = $case->fiscalYear ?? app(FiscalYearService::class)->active();
+            $refNo = $this->generateReferenceNo();
+
+            $complainantsText = $case->complainants->pluck('full_name')->implode(', ') ?: 'Complainant';
+            $respondentsText = $case->respondents->pluck('full_name')->implode(', ') ?: 'Respondent';
+            $reason = $case->escalations()->latest()->value('reason') ?? 'Dispute reached an impasse before the Lupong Tagapamayapa.';
+
+            $letterText = "CASE REFERRAL & ENDORSEMENT\n\n"
+                ."Case Docket No.: {$case->case_number}\n"
+                ."Title: {$case->title}\n"
+                ."Transmitted to: {$destination->name}\n\n"
+                ."Parties:\n"
+                ."- Complainant(s): {$complainantsText}\n"
+                ."- Respondent(s): {$respondentsText}\n\n"
+                ."Impasse / Escalation Grounds:\n{$reason}\n\n"
+                .'Case documents and CFA certification are attached to this referral.';
+
+            $followUpDays = (int) Setting::value('referral_follow_up_days', config('reports.referrals.follow_up_days', 3));
+
+            $referral = Referral::create([
+                'fiscal_year_id' => $fy?->id,
+                'case_id' => $case->id,
+                'report_id' => $case->source_report_id,
+                'office_id' => $office->id,
+                'reference_no' => $refNo,
+                'referral_text' => $letterText,
+                'status' => 'sent',
+                'sent_at' => now(),
+                'sent_via' => 'portal',
+                'follow_up_at' => now()->addDays($followUpDays),
+                'prepared_by' => $by->id,
+                'follow_up_owner_id' => $by->id,
+            ]);
+
+            $attachmentContent = "BARANGAY CALARIAN - OFFICIAL CASE DOSSIER\n"
+                ."===========================================\n"
+                ."Case No.: {$case->case_number}\n"
+                ."Title: {$case->title}\n"
+                .'Filing Date: '.($case->filed_on?->format('F d, Y') ?? 'N/A')."\n"
+                ."Narrative:\n{$case->narrative}\n\n"
+                ."Complainant(s): {$complainantsText}\n"
+                ."Respondent(s): {$respondentsText}\n"
+                ."Destination Agency: {$destination->name}\n"
+                ."Escalation Grounds: {$reason}\n";
+
+            $attachmentPath = "referral-attachments/{$referral->id}/case-{$case->case_number}-dossier.txt";
+            Storage::disk('private')->put($attachmentPath, $attachmentContent);
+
+            ReferralAttachment::create([
+                'referral_id' => $referral->id,
+                'label' => "Case Dossier & Summary (#{$case->case_number})",
+                'path' => $attachmentPath,
+                'uploaded_by' => $by->id,
+            ]);
+
+            ReferralUpdate::create([
+                'referral_id' => $referral->id,
+                'user_id' => $by->id,
+                'note' => "Case {$case->case_number} officially transmitted to {$destination->name} portal by {$by->name}.",
+                'channel' => 'portal',
+                'occurred_at' => now(),
+                'visible_to_resident' => true,
+            ]);
+
+            AuditLog::create([
+                'user_id' => $by->id,
+                'action' => 'referral.created_from_case',
+                'model' => Referral::class,
+                'model_id' => $referral->id,
+                'old_values' => null,
+                'new_values' => [
+                    'case_id' => $case->id,
+                    'case_number' => $case->case_number,
+                    'reference_no' => $refNo,
+                    'destination' => $destination->name,
+                ],
+            ]);
+
+            return $referral;
+        });
     }
 
     /**

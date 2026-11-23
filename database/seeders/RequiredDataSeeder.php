@@ -175,16 +175,6 @@ class RequiredDataSeeder extends Seeder
                 'is_confirmed' => false,
             ],
             [
-                'key' => 'cases.summons_limit',
-                'value' => '3',
-                'type' => 'integer',
-                'group' => 'cases',
-                'label' => 'Summons Limit Before Escalation',
-                'description' => 'Maximum regular summons allowed before certifying to file action.',
-                'source_question' => 'Q24: How many summons before escalation eligibility?',
-                'is_confirmed' => false,
-            ],
-            [
                 'key' => 'cases.hearing_interval_days',
                 'value' => '7',
                 'type' => 'integer',

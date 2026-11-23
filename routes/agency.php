@@ -43,11 +43,14 @@ Route::middleware(['auth'])->group(function () {
 
 // Agency portal
 Route::middleware(['auth', 'role:agency', 'agency.active'])->prefix('agency')->name('agency.')->group(function () {
+    Route::get('/', fn () => redirect()->route('agency.referrals.index'));
     Route::get('/referrals', [AgencyReferralController::class, 'index'])->name('referrals.index');
     Route::get('/referrals/{referral}', [AgencyReferralController::class, 'show'])->name('referrals.show');
     Route::post('/referrals/{referral}', [AgencyReferralController::class, 'update'])->name('referrals.update');
     Route::put('/referrals/{referral}', [AgencyReferralController::class, 'update'])->name('referrals.put');
     Route::post('/referrals/{referral}/message', [AgencyReferralController::class, 'message'])->name('referrals.message');
+    Route::get('/referrals/{referral}/attachments/{attachment}', [AgencyReferralController::class, 'downloadAttachment'])->name('referrals.attachments.download');
+    Route::post('/referrals/{referral}/attachments', [AgencyReferralController::class, 'uploadAttachment'])->name('referrals.attachments.upload');
 
     Route::prefix('team')->name('team.')->group(function () {
         Route::get('/', [TeamController::class, 'index'])->name('index');
@@ -72,4 +75,6 @@ Route::middleware(['auth', 'role:staff', 'permission:agencies.manage'])->prefix(
 Route::middleware(['auth', 'role:staff', 'permission:referrals.manage'])->prefix('admin/referrals')->name('admin.referrals.')->group(function () {
     Route::post('/{referral}/send', [ReferralActionController::class, 'send'])->name('send');
     Route::post('/{referral}/messages', [ReferralActionController::class, 'storeMessage'])->name('messages.store');
+    Route::get('/{referral}/attachments/{attachment}', [ReferralActionController::class, 'downloadAttachment'])->name('attachments.download');
+    Route::post('/{referral}/attachments', [ReferralActionController::class, 'uploadAttachment'])->name('attachments.upload');
 });

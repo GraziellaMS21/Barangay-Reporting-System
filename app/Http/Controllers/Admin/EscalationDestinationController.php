@@ -4,42 +4,127 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\EscalationDestination;
+use App\Models\Office;
+use App\Services\AuditLogger;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\View\View;
 
 class EscalationDestinationController extends Controller
 {
-    public function index()
+    public function __construct(
+        protected AuditLogger $auditLogger
+    ) {}
+
+    public function index(): View
     {
-        return view('stub', ['title' => 'Escalation Destinations', 'owner' => 'WS4']);
+        $destinations = EscalationDestination::query()
+            ->with('office')
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->paginate(15);
+
+        return view('admin.case-actions.destinations.index', [
+            'destinations' => $destinations,
+        ]);
     }
 
-    public function create()
+    public function create(): View
     {
-        return view('stub', ['title' => 'Add Destination', 'owner' => 'WS4']);
+        $offices = Office::query()->where('is_active', true)->orderBy('name')->get();
+
+        return view('admin.case-actions.destinations.create', [
+            'offices' => $offices,
+        ]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request): RedirectResponse
     {
-        return redirect()->route('admin.escalation-destinations.index')->with('success', 'Destination created.');
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'office_id' => ['nullable', 'integer', 'exists:offices,id'],
+            'sort_order' => ['nullable', 'integer', 'min:0'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        $destination = EscalationDestination::create([
+            'name' => $validated['name'],
+            'office_id' => $validated['office_id'] ?? null,
+            'sort_order' => $validated['sort_order'] ?? 0,
+            'is_active' => $request->boolean('is_active', true),
+            'is_confirmed' => true,
+        ]);
+
+        $this->auditLogger->log(
+            $request->user(),
+            'escalation_destination.created',
+            $destination,
+            [],
+            $destination->toArray()
+        );
+
+        return redirect()->route('admin.escalation-destinations.index')
+            ->with('success', "Escalation destination '{$destination->name}' added.");
     }
 
-    public function show(EscalationDestination $escalation_destination)
+    public function edit(EscalationDestination $escalation_destination): View
     {
-        return view('stub', ['title' => "Destination: {$escalation_destination->name}", 'owner' => 'WS4']);
+        $offices = Office::query()->where('is_active', true)->orderBy('name')->get();
+
+        return view('admin.case-actions.destinations.edit', [
+            'destination' => $escalation_destination,
+            'offices' => $offices,
+        ]);
     }
 
-    public function edit(EscalationDestination $escalation_destination)
+    public function update(Request $request, EscalationDestination $escalation_destination): RedirectResponse
     {
-        return view('stub', ['title' => "Edit Destination: {$escalation_destination->name}", 'owner' => 'WS4']);
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'office_id' => ['nullable', 'integer', 'exists:offices,id'],
+            'sort_order' => ['nullable', 'integer', 'min:0'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        $old = $escalation_destination->only(['name', 'office_id', 'sort_order', 'is_active']);
+
+        $escalation_destination->update([
+            'name' => $validated['name'],
+            'office_id' => $validated['office_id'] ?? null,
+            'sort_order' => $validated['sort_order'] ?? 0,
+            'is_active' => $request->boolean('is_active', true),
+        ]);
+
+        $this->auditLogger->log(
+            $request->user(),
+            'escalation_destination.updated',
+            $escalation_destination,
+            $old,
+            $escalation_destination->only(['name', 'office_id', 'sort_order', 'is_active'])
+        );
+
+        return redirect()->route('admin.escalation-destinations.index')
+            ->with('success', "Escalation destination '{$escalation_destination->name}' updated.");
     }
 
-    public function update(Request $request, EscalationDestination $escalation_destination)
+    public function destroy(Request $request, EscalationDestination $escalation_destination): RedirectResponse
     {
-        return redirect()->route('admin.escalation-destinations.index')->with('success', 'Destination updated.');
-    }
+        if ($escalation_destination->escalations()->exists()) {
+            return back()->with('error', 'Cannot delete destination because cases have been escalated to it.');
+        }
 
-    public function destroy(EscalationDestination $escalation_destination)
-    {
-        return redirect()->route('admin.escalation-destinations.index')->with('success', 'Destination deleted.');
+        $name = $escalation_destination->name;
+        $escalation_destination->delete();
+
+        $this->auditLogger->log(
+            $request->user(),
+            'escalation_destination.deleted',
+            $escalation_destination,
+            ['name' => $name],
+            []
+        );
+
+        return redirect()->route('admin.escalation-destinations.index')
+            ->with('success', "Destination '{$name}' deleted.");
     }
 }

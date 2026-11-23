@@ -9,6 +9,7 @@ use App\Models\ReferralUpdate;
 use App\Models\Report;
 use App\Models\User;
 use App\Services\ReferralService;
+use App\Services\SignatoryResolver;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -64,6 +65,7 @@ class ReferralController extends Controller
             $referralQuery = Referral::query()
                 ->with([
                     'report.category:id,name',
+                    'case:id,case_number',
                     'office:id,name,type,is_internal,is_external',
                     'followUpOwner:id,name',
                     'preparedBy:id,name',
@@ -81,7 +83,8 @@ class ReferralController extends Controller
             if ($search) {
                 $referralQuery->where(function ($q) use ($search) {
                     $q->where('reference_no', 'like', "%{$search}%")
-                        ->orWhereHas('report', fn ($rq) => $rq->where('tracking_code', 'like', "%{$search}%")->orWhere('description', 'like', "%{$search}%"));
+                        ->orWhereHas('report', fn ($rq) => $rq->where('tracking_code', 'like', "%{$search}%")->orWhere('description', 'like', "%{$search}%"))
+                        ->orWhereHas('case', fn ($cq) => $cq->where('case_number', 'like', "%{$search}%")->orWhere('title', 'like', "%{$search}%"));
                 });
             }
 
@@ -95,11 +98,11 @@ class ReferralController extends Controller
                     'id' => $referral->id,
                     'report_id' => $referral->report_id,
                     'reference_no' => $referral->reference_no ?? 'Not assigned',
-                    'tracking_code' => $referral->report?->tracking_code,
+                    'tracking_code' => $referral->report?->tracking_code ?? $referral->case?->case_number,
                     'type_label' => 'External',
                     'office_id' => $referral->office_id,
                     'office_name' => $referral->office?->name ?? 'Unassigned',
-                    'category_name' => $referral->report?->category?->name ?? 'General',
+                    'category_name' => $referral->report?->category?->name ?? ($referral->case ? 'Lupon Case' : 'General'),
                     'urgency' => $referral->report?->urgency ?? 'Normal',
                     'status' => $referral->status,
                     'status_label' => Referral::STATUSES[$referral->status] ?? $referral->status,
@@ -108,7 +111,7 @@ class ReferralController extends Controller
                     'follow_up_at' => $referral->follow_up_at,
                     'is_overdue' => $referral->isOverdue(),
                     'owner_name' => $ownerName,
-                    'url' => route('admin.reports.show', $referral->report_id),
+                    'url' => $referral->report_id ? route('admin.reports.show', $referral->report_id) : ($referral->case_id ? route('admin.cases.show', $referral->case_id) : '#'),
                     'sort_at' => $referral->sent_at ?? $referral->created_at,
                     'model' => $referral,
                 ]);
@@ -235,14 +238,16 @@ class ReferralController extends Controller
     }
 
     /** Printable referral letter (Print / Save as PDF). */
-    public function letter(Referral $referral): View
+    public function letter(Referral $referral, SignatoryResolver $signatoryResolver): View
     {
-        $referral->load(['report.purok', 'report.category', 'office']);
+        $referral->load(['report.purok', 'report.category', 'office', 'case']);
+        $signatories = $signatoryResolver->forDocument('referral_letter', now());
 
         return view('admin.referrals.letter', [
             'referral' => $referral,
             'report' => $referral->report,
             'office' => $referral->office,
+            'signatories' => $signatories,
         ]);
     }
 

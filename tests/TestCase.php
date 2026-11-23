@@ -88,7 +88,7 @@ abstract class TestCase extends BaseTestCase
         return $this->actingAs($user);
     }
 
-    public function actingAsAgency(?Office $office = null, string $status = 'approved'): static
+    public function actingAsAgency(?Office $office = null, string $status = 'approved', bool $isOfficeAdmin = true): static
     {
         $office ??= Office::first() ?? Office::create([
             'name' => 'City Social Welfare and Development Office',
@@ -111,7 +111,7 @@ abstract class TestCase extends BaseTestCase
             'contact_number' => '09171234567',
             'id_document_path' => 'documents/id.jpg',
             'status' => $status,
-            'is_office_admin' => false,
+            'is_office_admin' => $isOfficeAdmin,
         ]);
 
         return $this->actingAs($user);

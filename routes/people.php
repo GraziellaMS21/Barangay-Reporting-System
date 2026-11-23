@@ -14,10 +14,13 @@ Route::middleware(['auth'])->prefix('account/password')->name('account.password.
     Route::put('/', [AccountPasswordController::class, 'update'])->name('put');
 });
 
-Route::middleware(['auth', 'role:staff'])->prefix('admin')->name('admin.')->group(function () {
-    // Personnel
+Route::middleware(['auth', 'role:staff', 'password.changed'])->prefix('admin')->name('admin.')->group(function () {
+    // Personnel, Positions & Signatories
     Route::middleware(['permission:personnel.manage'])->group(function () {
+        Route::post('/personnel/{personnel}/deactivate', [PersonnelController::class, 'deactivate'])->name('personnel.deactivate');
         Route::resource('personnel', PersonnelController::class);
+
+        Route::post('/positions/{position}/toggle-active', [PositionController::class, 'toggleActive'])->name('positions.toggle-active');
         Route::resource('positions', PositionController::class);
 
         Route::get('/signatories', [SignatoryController::class, 'edit'])->name('signatories.edit');
@@ -25,9 +28,12 @@ Route::middleware(['auth', 'role:staff'])->prefix('admin')->name('admin.')->grou
         Route::put('/signatories', [SignatoryController::class, 'update'])->name('signatories.put');
     });
 
-    // Users
+    // Users & Permissions
     Route::middleware(['permission:users.manage'])->group(function () {
-        Route::resource('users', UserController::class);
+        Route::resource('users', UserController::class)->except(['show', 'destroy']);
+        Route::get('/users/{user}/permissions', [UserController::class, 'editPermissions'])->name('users.permissions.edit');
+        Route::put('/users/{user}/permissions', [UserController::class, 'updatePermissions'])->name('users.permissions.update');
+        Route::post('/users/{user}/permissions', [UserController::class, 'updatePermissions'])->name('users.permissions.post');
         Route::post('/users/{user}/deactivate', [UserController::class, 'deactivate'])->name('users.deactivate');
         Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('users.reset-password');
     });

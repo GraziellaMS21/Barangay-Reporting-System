@@ -47,5 +47,12 @@
       <i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i> Sign in
     </button>
   </form>
+
+  <div class="login-signup-link">
+    <p>Partner agency representative?</p>
+    <a href="{{ route('agency.register.show') }}">
+      <i class="fa-solid fa-building-shield" aria-hidden="true"></i> Register for agency access
+    </a>
+  </div>
 </section>
 @endsection

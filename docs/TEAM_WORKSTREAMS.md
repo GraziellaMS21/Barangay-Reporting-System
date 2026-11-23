@@ -187,7 +187,7 @@ UI reference: `docs/UI_UX_SPEC.md` section 4 (WS2, pages 4.10 to 4.20)
 **Goal:** registry of personnel and signatories, granular role-preset management, and official DILG/KP reports generator with signature blocks.
 
 #### 2.1 Positions & Personnel (`/admin/positions`, `/admin/personnel`)
-- Positions and signatories per `PLACEHOLDERS.md` B1, B2.
+- Positions and signatories per `docs/PROJECT.md` § 8 (B1, B2).
 - Lupon members get accounts via position `lupon_member` and preset `case_encoder` [D1, A Q15].
 - Deactivation preserves audit trail and past signature references.
 

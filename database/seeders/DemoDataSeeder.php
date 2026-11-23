@@ -502,7 +502,7 @@ class DemoDataSeeder extends Seeder
 
         // Case 4: Escalated to Court (Physical Injury)
         $caseTypeAltercation = CaseType::where('slug', 'altercation')->first();
-        $destinationCourt = EscalationDestination::where('code', 'mtcc_branch_1')->first()
+        $destinationCourt = EscalationDestination::where('name', 'like', '%MTCC%')->first()
             ?? EscalationDestination::first();
 
         $partyComplainant4 = Party::firstOrCreate(

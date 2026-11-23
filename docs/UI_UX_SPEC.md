@@ -16,7 +16,7 @@ This document is the single layout, visual, and interaction standard for the 5-p
 2. **Button Hierarchy**: Primary action buttons are **always the rightmost** control. Secondary, outline, and ghost buttons sit to the left of the primary action. Destructive actions sit isolated or in a "More" dropdown.
 3. **Column Width Sums**: Table column widths are calibrated for visual weight and **must total exactly 100%**.
 4. **Documentation Only**: This document guides front-end view authoring; do not alter existing resident-facing pages (`resources/views/resident/*`), which are preserved under the "existing, keep" policy.
-5. **Precedence**: This specification governs visual representation. Status transition logic, permission checks, and database state constraints remain governed by [`docs/WORKFLOW.md`](file:///c:/githubFiles/Barangay-Reporting-System-1/docs/WORKFLOW.md), [`docs/API.md`](file:///c:/githubFiles/Barangay-Reporting-System-1/docs/API.md), and [`docs/SPEC_ADDENDUM.md`](file:///c:/githubFiles/Barangay-Reporting-System-1/docs/SPEC_ADDENDUM.md).
+5. **Precedence**: This specification governs visual representation. Status transition logic, permission checks, and database state constraints remain governed by [`docs/WORKFLOW.md`](file:///c:/githubFiles/Barangay-Reporting-System-1/docs/WORKFLOW.md), [`docs/API.md`](file:///c:/githubFiles/Barangay-Reporting-System-1/docs/API.md), and [`docs/CONVENTIONS.md`](file:///c:/githubFiles/Barangay-Reporting-System-1/docs/CONVENTIONS.md).
 
 ---
 
@@ -1155,7 +1155,7 @@ Used for: Official Summons, Case Endorsements, Referral Letters, Amicable Settle
 | `<x-ui.page-header>` | `title`, `subtitle`, `badge` | Default | Standard | Always placed at top of content area; slots hold breadcrumbs and header action buttons. |
 | `<x-ui.card>` | `padding` (`p-6` default), `title` | Default | Standard | Universal white surface container; do not nest cards unless creating person tags or code blocks. |
 | `<x-ui.button>` | `variant`, `size`, `href`, `disabled`, `type` | `primary`, `secondary`, `outline`, `danger`, `ghost`, `amber` / `sm`, `md`, `lg` | Default, hover, active, focus, disabled, loading (spinner) | Primary is always rightmost; destructive operations use `danger` or red-outline. |
-| `<x-ui.badge>` | `variant`, `dot`, `size` | `success`, `info`, `warning`, `danger`, `slate`, `amber` | Static | Color tokens reference [`docs/SPEC_ADDENDUM.md`](file:///c:/githubFiles/Barangay-Reporting-System-1/docs/SPEC_ADDENDUM.md) section 8.1. Always pair with text. |
+| `<x-ui.badge>` | `variant`, `dot`, `size` | `success`, `info`, `warning`, `danger`, `slate`, `amber` | Static | Color tokens reference [`docs/CONVENTIONS.md`](file:///c:/githubFiles/Barangay-Reporting-System-1/docs/CONVENTIONS.md) Section 4.2. Always pair with text. |
 | `<x-ui.table>` | `headers` (array), `empty` (string) | Default | Default, empty state, hover row | Responsive wrapper with horizontal scroll card containment. First column sticky on mobile. |
 | `<x-ui.form-field>` | `label`, `name`, `required`, `hint`, `error` | Default | Default, focused, valid, invalid (red outline) | Encapsulates accessible label, required asterisk, input slot, helper text, and error span. |
 | `<x-ui.modal>` | `id`, `title`, `size` (`sm`, `md`, `lg`) | Small (480 px), Medium (640 px), Large (800 px) | Open, closed | Native dialog or plain JS backdrop; traps focus; auto-focuses first input; closes on Esc. |
@@ -1173,7 +1173,7 @@ Used for: Official Summons, Case Endorsements, Referral Letters, Amicable Settle
 | `<x-ui.stepper>` | `steps` (array), `current` | Horizontal (desktop), vertical (mobile) | Pending, active, completed | Step progression bar for multi-step wizards and agency referral progress tracking. |
 
 > [!NOTE]
-> **Badge Color Matrix**: All status pill variants reference the authoritative status-to-token mappings in [`docs/SPEC_ADDENDUM.md`](file:///c:/githubFiles/Barangay-Reporting-System-1/docs/SPEC_ADDENDUM.md) Section 8.1.
+> **Badge Color Matrix**: All status pill variants reference the authoritative status-to-token mappings in [`docs/CONVENTIONS.md`](file:///c:/githubFiles/Barangay-Reporting-System-1/docs/CONVENTIONS.md) Section 4.2.
 
 ---
 

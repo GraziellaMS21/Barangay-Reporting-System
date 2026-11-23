@@ -302,3 +302,11 @@
 - **Context**: Running `DatabaseSeeder` previously executed demo seeders, creating dummy users and mock reports in environments intended for clean setup. Redundant seeders (`AdminSeeder`, `EngineSeeder`, `UserSeeder`, `StaffSeeder`, `ResidentSeeder`) clobbered admin modifications.
 - **Decision**: Streamline `DatabaseSeeder` to execute strictly `RequiredDataSeeder` (idempotent reference data: Puroks 1–7, Categories, Offices, Routing Rules, Emergency Contacts, Response Templates, Settings placeholders, Priority Weights, Case Types, Escalation Destinations). Move all demo activity, demo accounts, and case sequences into `DemoDataSeeder` and `DemoReportSeeder`. Use `firstOrCreate` across reference seeders to prevent overwriting admin edits.
 - **Rationale**: Guarantees that `php artisan app:empty` and production database seeds result in exactly 0 users, 0 reports, and 0 cases, while `php artisan app:demo` seeds a fully hydrated demo environment.
+
+### Decision 76: Removal of Deprecated Root `SKILL.md`
+- **Status**: Accepted
+- **Date**: 2026-11-24
+- **Context**: The root `SKILL.md` was deprecated in Decision 54 as an obsolete stub pointing to `AGENTS.md`. During the documentation cleanup, maintaining an empty/stub skill file at root introduced clutter and potential confusion with genuine project skills (such as `.agents/skills/ui-ux-pro-max`).
+- **Decision**: Remove the root `SKILL.md` completely.
+- **Rationale**: `AGENTS.md` is the sole, authoritative execution manual for AI coding agents in this repository. Removing the redundant stub eliminates ambiguity.
+- **Consequences**: Agents operating in the repository reference `AGENTS.md` and the canonical files in `docs/`.

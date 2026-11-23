@@ -275,3 +275,30 @@
 - **Date**: 2026-11-22
 - **Context**: Finding old records and preventing data loss were identified by the Secretary as paramount operational priorities (Q2, Q34).
 - **Decision**: Elevate automated daily backups (`app:backup`) and multi-year global search (`admin.search`) to guaranteed core deliverables in WS1.
+
+---
+
+## Users, Roles, Positions & Seeders Rework Decisions (2026-11-24)
+
+### Decision 73: Canonical User Roles Restricted to Admin, Staff, and Agency Only
+- **Status**: Accepted
+- **Date**: 2026-11-24
+- **Context**: Previously, `role` was ambiguously used for access tiers, positions, and permissions. The legacy seeders created users with `role = 'personnel'`, which was not an access tier defined in `docs/PROJECT.md`.
+- **Decision**: Restrict `users.role` strictly to `admin`, `staff`, and `agency` using `App\Support\UserRole`. Deprecate `personnel` as a role and treat it purely as an assignable directory model (`Personnel`).
+- **Rationale**: Eliminates privilege escalation ambiguities, simplifies role middleware (`role:admin`, `role:staff`, `role:agency`), and aligns code with the project specification.
+- **Consequences**: Data migration `2026_12_02_000001_migrate_personnel_role_to_staff` converts legacy personnel users to staff with `reports_center.view`.
+
+### Decision 74: Single Source of Truth for User Position and Agency Office
+- **Status**: Accepted
+- **Date**: 2026-11-24
+- **Context**: Linking positions directly to `users` via a redundant `users.position_id` column would introduce dual-source-of-truth discrepancies with the existing `personnel` table (`personnel.user_id` and `personnel.position_id`).
+- **Decision**: Implement `User::position()` as a `HasOneThrough` relationship through `Personnel`. Enforce `users.office_id` strictly for `agency` users (linking to an external office with `is_external = true`), keeping it `null` for `admin` and `staff`.
+- **Rationale**: Preserves architectural purity and ensures that user access permissions remain governed strictly by role + preset, independent of position title.
+- **Consequences**: Barangay positions do not grant permissions by themselves. Access is determined by role + permission preset (`staff_full`, `case_encoder`, `case_reviewer`, `reports_analyst`).
+
+### Decision 75: Production Reference Data Isolated from Demo Dataset
+- **Status**: Accepted
+- **Date**: 2026-11-24
+- **Context**: Running `DatabaseSeeder` previously executed demo seeders, creating dummy users and mock reports in environments intended for clean setup. Redundant seeders (`AdminSeeder`, `EngineSeeder`, `UserSeeder`, `StaffSeeder`, `ResidentSeeder`) clobbered admin modifications.
+- **Decision**: Streamline `DatabaseSeeder` to execute strictly `RequiredDataSeeder` (idempotent reference data: Puroks 1–7, Categories, Offices, Routing Rules, Emergency Contacts, Response Templates, Settings placeholders, Priority Weights, Case Types, Escalation Destinations). Move all demo activity, demo accounts, and case sequences into `DemoDataSeeder` and `DemoReportSeeder`. Use `firstOrCreate` across reference seeders to prevent overwriting admin edits.
+- **Rationale**: Guarantees that `php artisan app:empty` and production database seeds result in exactly 0 users, 0 reports, and 0 cases, while `php artisan app:demo` seeds a fully hydrated demo environment.

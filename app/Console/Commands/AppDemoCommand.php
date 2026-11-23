@@ -49,10 +49,12 @@ class AppDemoCommand extends Command
         $this->info('================================================================');
         $this->info(' Demo environment is ready! Test credentials:');
         $this->info(' ---------------------------------------------------------------');
-        $this->info(' Admin:    admin@calarian.gov.ph   | Password: password123');
-        $this->info(' Staff:    staff@calarian.gov.ph   | Password: password123 (full)');
-        $this->info(' Encoder:  clerk@calarian.gov.ph   | Password: password123 (cases)');
-        $this->info(' Agency:   cswdo@zamboanga.gov.ph  | Password: password123 (CSWDO)');
+        $this->info(' Admin:    admin@calarian.gov.ph     | Password: password123 (Captain)');
+        $this->info(' Sec:      secretary@calarian.gov.ph | Password: password123 (Secretary)');
+        $this->info(' Staff:    staff@calarian.gov.ph     | Password: password123 (Desk Officer)');
+        $this->info(' Encoder:  clerk@calarian.gov.ph     | Password: password123 (Lupon)');
+        $this->info(' Reviewer: reviewer@calarian.gov.ph  | Password: password123 (Kagawad PO)');
+        $this->info(' Agency:   cswdo@zamboanga.gov.ph    | Password: password123 (CSWDO)');
         $this->info(' ---------------------------------------------------------------');
         $this->info(' URL:      '.url('/login'));
         $this->info(' UI Guide: '.url('/admin/_ui'));

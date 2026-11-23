@@ -2,35 +2,18 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
     /**
-     * Seed the application's database.
+     * Seed the application's baseline database.
+     * Demo accounts and scenarios are seeded explicitly via DemoDataSeeder.
      */
     public function run(): void
     {
         $this->call([
-            PurokSeeder::class,
-            EmergencyContactSeeder::class,
-            CategorySeeder::class,
-            OfficeSeeder::class,
-            RoutingRuleSeeder::class,
-            SettingSeeder::class,
             RequiredDataSeeder::class,
-            UserSeeder::class,
-            DemoReportSeeder::class,
-            CategoryQuestionSeeder::class,
-            ResponseTemplateSeeder::class,
-            ResidentSeeder::class,
-            StaffSeeder::class,
-            EngineSeeder::class,
-            AdminSeeder::class,
-            Ws6ExtraSeeder::class,
         ]);
     }
 }

@@ -3,7 +3,12 @@
 Reference documentation for web endpoints, RESTful parameters, authentication middleware, and payload schemas in **Barangay-Reporting-System-1**.
 
 > [!NOTE]
-> All endpoints documented below reflect active and foundation routes registered in the application (244 routes total, snapshotted in `docs/ROUTES.snapshot.json`). Foundation endpoints built in Phase 0 are marked with their workstream owner and implementation status (`Built` vs `Stub / In Progress`).
+> All endpoints documented below reflect active routes registered in the application (273 routes total, snapshotted in `docs/ROUTES.snapshot.json`).
+> To regenerate the route snapshot from the live application routing table, run:
+> ```sh
+> php artisan route:list --json > docs/ROUTES.snapshot.json
+> ```
+> Endpoints across all workstreams (WS1 through WS6) are fully implemented and verified against the PHPUnit test suite.
 
 ---
 
@@ -153,89 +158,89 @@ Guest / Initial Admin setup route group with `web` middleware.
 
 | Method | URI | Route Name | Middleware / Permission | Purpose | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/setup` | `setup.show` | `web` | 7-step interactive onboarding wizard. | Stub |
-| `POST` | `/setup/step/{step}` | `setup.step` | `web` | Validate & save specific setup step. | Stub |
-| `POST` | `/setup/complete` | `setup.complete` | `web` | Finalize setup wizard & redirect to login. | Stub |
+| `GET` | `/setup` | `setup.show` | `web` | 7-step interactive onboarding wizard. | Built |
+| `POST` | `/setup/step/{step}` | `setup.step` | `web` | Validate & save specific setup step. | Built |
+| `POST` | `/setup/complete` | `setup.complete` | `web` | Finalize setup wizard & redirect to login. | Built |
 
 ### B. Settings, Fiscal Years, Calendar & Backups (`routes/settings.php` — WS1)
 Protected by `auth`, `role:staff`, and granular permissions.
 
 | Method | URI | Route Name | Middleware / Permission | Purpose | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/admin/settings/general` | `admin.settings.general.edit` | `permission:settings.manage` | Core barangay profile & switches. | Stub |
-| `PUT` | `/admin/settings/general` | `admin.settings.general.update` | `permission:settings.manage` | Update general barangay settings. | Stub |
-| `GET` | `/admin/fiscal-years` | `admin.fiscal-years.index` | `permission:fiscal_year.manage` | Fiscal year management list. | Stub |
-| `POST` | `/admin/fiscal-years` | `admin.fiscal-years.store` | `permission:fiscal_year.manage` | Create new fiscal year. | Stub |
-| `POST` | `/admin/fiscal-years/{id}/activate` | `admin.fiscal-years.activate` | `permission:fiscal_year.manage` | Set active fiscal year. | Stub |
-| `POST` | `/admin/fiscal-years/{id}/lock` | `admin.fiscal-years.lock` | `permission:fiscal_year.manage` | Lock closed fiscal year (immutable). | Stub |
+| `GET` | `/admin/settings/general` | `admin.settings.general.edit` | `permission:settings.manage` | Core barangay profile & switches. | Built |
+| `PUT` | `/admin/settings/general` | `admin.settings.general.update` | `permission:settings.manage` | Update general barangay settings. | Built |
+| `GET` | `/admin/fiscal-years` | `admin.fiscal-years.index` | `permission:fiscal_year.manage` | Fiscal year management list. | Built |
+| `POST` | `/admin/fiscal-years` | `admin.fiscal-years.store` | `permission:fiscal_year.manage` | Create new fiscal year. | Built |
+| `POST` | `/admin/fiscal-years/{id}/activate` | `admin.fiscal-years.activate` | `permission:fiscal_year.manage` | Set active fiscal year. | Built |
+| `POST` | `/admin/fiscal-years/{id}/lock` | `admin.fiscal-years.lock` | `permission:fiscal_year.manage` | Lock closed fiscal year (immutable). | Built |
 | `POST` | `/admin/fiscal-years/switch-view` | `admin.fiscal-years.switch-view` | `auth` | Set session viewing fiscal year. | Built |
-| `GET` | `/admin/settings/numbering` | `admin.numbering.edit` | `permission:settings.manage` | Numbering scheme formats ({MM}-{SEQ:3}-{YEAR}). | Stub |
-| `PUT` | `/admin/settings/numbering` | `admin.numbering.update` | `permission:settings.manage` | Update numbering formats. | Stub |
-| `GET` | `/admin/settings/calendar` | `admin.settings.calendar.index` | `permission:settings.manage` | Manage holidays for working days engine. | Planned |
-| `GET` | `/admin/settings/pending` | `admin.pending.index` | `permission:settings.manage` | Unconfirmed assumptions register. | Planned |
-| `POST` | `/admin/settings/pending/{id}/confirm` | `admin.pending.confirm` | `permission:settings.manage` | Confirm placeholder value. | Planned |
-| `GET` | `/admin/settings/templates` | `admin.templates.index` | `permission:templates.manage` | Response templates catalog. | Stub |
-| `GET` | `/admin/settings/case-types` | `admin.case-types.index` | `permission:settings.manage` | KP case categories and timeline flags. | Stub |
-| `GET` | `/admin/settings/case-fields` | `admin.case-fields.index` | `permission:settings.manage` | Configure dynamic form fields. | Stub |
-| `GET` | `/admin/settings/escalation-destinations` | `admin.escalation-destinations.index` | `permission:settings.manage` | Manage court/prosecutor destinations. | Stub |
-| `GET` | `/admin/settings/backups` | `admin.backups.index` | `permission:backups.manage` | Database backup management & export. | Stub |
-| `POST` | `/admin/settings/backups/run` | `admin.backups.run` | `permission:backups.manage` | Trigger immediate system backup. | Planned |
-| `GET` | `/admin/settings/backups/{file}` | `admin.backups.download` | `permission:backups.manage` | Download private backup archive. | Planned |
-| `GET` | `/admin/search` | `admin.search` | `auth`, `role:staff`, `throttle:30,1` | Multi-year global search. | Planned |
+| `GET` | `/admin/settings/numbering` | `admin.numbering.edit` | `permission:settings.manage` | Numbering scheme formats ({MM}-{SEQ:3}-{YEAR}). | Built |
+| `PUT` | `/admin/settings/numbering` | `admin.numbering.update` | `permission:settings.manage` | Update numbering formats. | Built |
+| `GET` | `/admin/settings/calendar` | `admin.settings.calendar.index` | `permission:settings.manage` | Manage holidays for working days engine. | Built |
+| `GET` | `/admin/settings/pending` | `admin.pending.index` | `permission:settings.manage` | Unconfirmed assumptions register. | Built |
+| `POST` | `/admin/settings/pending/{id}/confirm` | `admin.pending.confirm` | `permission:settings.manage` | Confirm placeholder value. | Built |
+| `GET` | `/admin/settings/templates` | `admin.templates.index` | `permission:templates.manage` | Response templates catalog. | Built |
+| `GET` | `/admin/settings/case-types` | `admin.case-types.index` | `permission:settings.manage` | KP case categories and timeline flags. | Built |
+| `GET` | `/admin/settings/case-fields` | `admin.case-fields.index` | `permission:settings.manage` | Configure dynamic form fields. | Built |
+| `GET` | `/admin/settings/escalation-destinations` | `admin.escalation-destinations.index` | `permission:settings.manage` | Manage court/prosecutor destinations. | Built |
+| `GET` | `/admin/settings/backups` | `admin.backups.index` | `permission:backups.manage` | Database backup management & export. | Built |
+| `POST` | `/admin/settings/backups/run` | `admin.backups.run` | `permission:backups.manage` | Trigger immediate system backup. | Built |
+| `GET` | `/admin/settings/backups/{file}` | `admin.backups.download` | `permission:backups.manage` | Download private backup archive. | Built |
+| `GET` | `/admin/search` | `admin.search` | `auth`, `role:staff`, `throttle:30,1` | Multi-year global search. | Built |
 
 ### C. People, Personnel & Reports Center (`routes/people.php`, `routes/reports_center.php` — WS2)
 Protected by `auth`, `role:staff`, and granular permissions.
 
 | Method | URI | Route Name | Middleware / Permission | Purpose | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/admin/personnel` | `admin.personnel.index` | `permission:personnel.manage` | Directory of officials, tanods & Lupon. | Stub |
-| `GET` | `/admin/positions` | `admin.positions.index` | `permission:personnel.manage` | Manage barangay positions & codes. | Stub |
-| `GET` | `/admin/signatories` | `admin.signatories.edit` | `permission:personnel.manage` | Document signatory matrix. | Stub |
-| `PUT` | `/admin/signatories` | `admin.signatories.update` | `permission:personnel.manage` | Update document signatory roles. | Stub |
-| `GET` | `/admin/users` | `admin.users.index` | `permission:users.manage` | Manage staff accounts and presets. | Stub |
-| `GET` | `/admin/users/{id}/permissions` | `admin.users.permissions.edit` | `permission:users.manage` | Edit granular user permission checkboxes. | Stub |
-| `PUT` | `/admin/users/{id}/permissions` | `admin.users.permissions.update` | `permission:users.manage` | Apply permission preset or custom list. | Stub |
-| `GET` | `/admin/reports-center` | `admin.reports-center.index` | `permission:reports_center.view` | Report templates catalog (DILG/KP). | Stub |
-| `GET` | `/admin/reports-center/{key}` | `admin.reports-center.show` | `permission:reports_center.view` | Report parameter form and table preview. | Stub |
-| `POST` | `/admin/reports-center/{key}/export` | `admin.reports-center.export` | `permission:reports_center.export` | Export report to PDF, Excel, or Print. | Stub |
-| `GET` | `/admin/reports-center/generated/{id}` | `admin.reports-center.download` | `permission:reports_center.view` | Download previously generated report. | Stub |
+| `GET` | `/admin/personnel` | `admin.personnel.index` | `permission:personnel.manage` | Directory of officials, tanods & Lupon. | Built |
+| `GET` | `/admin/positions` | `admin.positions.index` | `permission:personnel.manage` | Manage barangay positions & codes. | Built |
+| `GET` | `/admin/signatories` | `admin.signatories.edit` | `permission:personnel.manage` | Document signatory matrix. | Built |
+| `PUT` | `/admin/signatories` | `admin.signatories.update` | `permission:personnel.manage` | Update document signatory roles. | Built |
+| `GET` | `/admin/users` | `admin.users.index` | `permission:users.manage` | Manage staff accounts and presets. | Built |
+| `GET` | `/admin/users/{id}/permissions` | `admin.users.permissions.edit` | `permission:users.manage` | Edit granular user permission checkboxes. | Built |
+| `PUT` | `/admin/users/{id}/permissions` | `admin.users.permissions.update` | `permission:users.manage` | Apply permission preset or custom list. | Built |
+| `GET` | `/admin/reports-center` | `admin.reports-center.index` | `permission:reports_center.view` | Report templates catalog (DILG/KP). | Built |
+| `GET` | `/admin/reports-center/{key}` | `admin.reports-center.show` | `permission:reports_center.view` | Report parameter form and table preview. | Built |
+| `POST` | `/admin/reports-center/{key}/export` | `admin.reports-center.export` | `permission:reports_center.export` | Export report to PDF, Excel, or Print. | Built |
+| `GET` | `/admin/reports-center/generated/{id}` | `admin.reports-center.download` | `permission:reports_center.view` | Download previously generated report. | Built |
 
 ### D. Case Intake & Party Management (`routes/cases.php` — WS3)
 Protected by `auth`, `role:staff`, and `permission:cases.view`.
 
 | Method | URI | Route Name | Middleware / Permission | Purpose | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/admin/cases` | `admin.cases.index` | `permission:cases.view` | Case list with deadline badges and filters. | Stub |
-| `GET` | `/admin/cases/create` | `admin.cases.create` | `permission:cases.create` | Blotter vs Complaint intake form. | Stub |
-| `POST` | `/admin/cases` | `admin.cases.store` | `permission:cases.create` | Persist case with duplicate warnings. | Stub |
-| `GET` | `/admin/cases/{id}` | `admin.cases.show` | `permission:cases.view` | Case dossier, parties, notes, timeline. | Stub |
-| `GET` | `/admin/cases/{id}/edit` | `admin.cases.edit` | `permission:cases.edit` | Edit complaint narrative and metadata. | Stub |
-| `PUT` | `/admin/cases/{id}` | `admin.cases.update` | `permission:cases.edit` | Update case details. | Stub |
-| `GET` | `/admin/parties` | `admin.parties.index` | `permission:cases.view` | Master party directory. | Stub |
-| `GET` | `/admin/parties/{id}` | `admin.parties.show` | `permission:cases.view` | Party profile and case history. | Stub |
-| `GET` | `/admin/parties/{party}/merge` | `admin.parties.merge.create` | `permission:cases.edit` | Side-by-side party merge preview. | Planned |
-| `POST` | `/admin/parties/{party}/merge` | `admin.parties.merge.store` | `permission:cases.edit` | Commit party record merge. | Planned |
-| `POST` | `/admin/reports/{id}/convert-to-case`| `admin.reports.convert-to-case` | `permission:cases.create` | Prefill dispute intake from report. | Planned |
+| `GET` | `/admin/cases` | `admin.cases.index` | `permission:cases.view` | Case list with deadline badges and filters. | Built |
+| `GET` | `/admin/cases/create` | `admin.cases.create` | `permission:cases.create` | Blotter vs Complaint intake form. | Built |
+| `POST` | `/admin/cases` | `admin.cases.store` | `permission:cases.create` | Persist case with duplicate warnings. | Built |
+| `GET` | `/admin/cases/{id}` | `admin.cases.show` | `permission:cases.view` | Case dossier, parties, notes, timeline. | Built |
+| `GET` | `/admin/cases/{id}/edit` | `admin.cases.edit` | `permission:cases.edit` | Edit complaint narrative and metadata. | Built |
+| `PUT` | `/admin/cases/{id}` | `admin.cases.update` | `permission:cases.edit` | Update case details. | Built |
+| `GET` | `/admin/parties` | `admin.parties.index` | `permission:cases.view` | Master party directory. | Built |
+| `GET` | `/admin/parties/{id}` | `admin.parties.show` | `permission:cases.view` | Party profile and case history. | Built |
+| `GET` | `/admin/parties/{party}/merge` | `admin.parties.merge.create` | `permission:cases.edit` | Side-by-side party merge preview. | Built |
+| `POST` | `/admin/parties/{party}/merge` | `admin.parties.merge.store` | `permission:cases.edit` | Commit party record merge. | Built |
+| `POST` | `/admin/reports/{id}/convert-to-case`| `admin.reports.convert-to-case` | `permission:cases.create` | Prefill dispute intake from report. | Built |
 
 ### E. Case Procedural Actions & Deadlines (`routes/case_actions.php` — WS4)
 Protected by `auth`, `role:staff`, and procedural permissions.
 
 | Method | URI | Route Name | Middleware / Permission | Purpose | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/admin/secretary` | `admin.secretary` | `permission:cases.view` | Secretary operational reminders dashboard. | Stub |
-| `GET` | `/admin/hearings` | `admin.hearings.index` | `permission:cases.summons` | Hearing schedule calendar & upcoming roster.| Stub |
-| `GET` | `/admin/cases/{id}/summons/create` | `admin.cases.summons.create` | `permission:cases.summons` | Form to generate sequential summons. | Stub |
-| `POST` | `/admin/cases/{id}/summons` | `admin.cases.summons.store` | `permission:cases.summons` | Issue sequential summons. | Stub |
-| `GET` | `/admin/cases/{id}/summons/{s}/print` | `admin.cases.summons.print` | `permission:cases.summons` | Printable summons with signature block. | Planned |
-| `POST` | `/admin/cases/{id}/summons/{s}/void` | `admin.cases.summons.void` | `permission:cases.summons` | Void summons with mandatory note. | Planned |
-| `POST` | `/admin/cases/{id}/summons/{s}/service` | `admin.cases.summons.service` | `permission:cases.summons` | Record summons service result. | Planned |
-| `POST` | `/admin/cases/{id}/summons/{s}/attendance`| `admin.cases.summons.attendance`| `permission:cases.summons` | Record party attendance at hearing. | Planned |
-| `POST` | `/admin/cases/{id}/hearings` | `admin.cases.hearings.store` | `permission:cases.summons` | Schedule conciliation hearing. | Stub |
-| `POST` | `/admin/hearings/{h}/outcome` | `admin.cases.hearings.outcome` | `permission:cases.summons` | Record hearing outcome proceedings. | Planned |
+| `GET` | `/admin/secretary` | `admin.secretary` | `permission:cases.view` | Secretary operational reminders dashboard. | Built |
+| `GET` | `/admin/hearings` | `admin.hearings.index` | `permission:cases.summons` | Hearing schedule calendar & upcoming roster.| Built |
+| `GET` | `/admin/cases/{id}/summons/create` | `admin.cases.summons.create` | `permission:cases.summons` | Form to generate sequential summons. | Built |
+| `POST` | `/admin/cases/{id}/summons` | `admin.cases.summons.store` | `permission:cases.summons` | Issue sequential summons. | Built |
+| `GET` | `/admin/cases/{id}/summons/{s}/print` | `admin.cases.summons.print` | `permission:cases.summons` | Printable summons with signature block. | Built |
+| `POST` | `/admin/cases/{id}/summons/{s}/void` | `admin.cases.summons.void` | `permission:cases.summons` | Void summons with mandatory note. | Built |
+| `POST` | `/admin/cases/{id}/summons/{s}/service` | `admin.cases.summons.service` | `permission:cases.summons` | Record summons service result. | Built |
+| `POST` | `/admin/cases/{id}/summons/{s}/attendance`| `admin.cases.summons.attendance`| `permission:cases.summons` | Record party attendance at hearing. | Built |
+| `POST` | `/admin/cases/{id}/hearings` | `admin.cases.hearings.store` | `permission:cases.summons` | Schedule conciliation hearing. | Built |
+| `POST` | `/admin/hearings/{h}/outcome` | `admin.cases.hearings.outcome` | `permission:cases.summons` | Record hearing outcome proceedings. | Built |
 | `POST` | `/admin/cases/{id}/settle` | `admin.cases.settle` | `permission:cases.edit` | Record settlement terms & agreement upload. | Built |
 | `GET` | `/admin/cases/{id}/escalate` | `admin.cases.escalate.create` | `permission:cases.escalate` | CFA / Court escalation form. | Built |
 | `POST` | `/admin/cases/{id}/escalate` | `admin.cases.escalate.store` | `permission:cases.escalate` | Certify case & issue CFA. | Built |
-| `GET` | `/admin/cases/{id}/escalate/letter` | `admin.cases.escalate.letter` | `permission:cases.escalate` | Printable CFA & endorsement letter. | Planned |
+| `GET` | `/admin/cases/{id}/escalate/letter` | `admin.cases.escalate.letter` | `permission:cases.escalate` | Printable CFA & endorsement letter. | Built |
 | `POST` | `/admin/cases/{id}/notes` | `admin.cases.notes.store` | `permission:cases.view` | Append investigation or hearing notes. | Built |
 
 ### F. External Agency Portal & Referrals (`routes/agency.php` — WS5)
@@ -243,32 +248,32 @@ Protected by `auth`, `role:agency`, `agency.active` (or `agencies.manage` on adm
 
 | Method | URI | Route Name | Middleware / Permission | Purpose | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/agency/register` | `agency.register` | `guest`, `throttle:5,1` | Agency registration with ID/letter upload. | Stub |
-| `POST` | `/agency/register` | `agency.register.store` | `guest`, `throttle:5,1` | Submit credentials and official agency proof. | Stub |
-| `GET` | `/agency/pending` | `agency.pending` | `auth` | Awaiting admin account approval landing page.| Stub |
-| `GET` | `/agency/referrals` | `agency.referrals.index` | `role:agency, agency.active` | Outside agency referral inbox. | Stub |
-| `GET` | `/agency/referrals/{id}` | `agency.referrals.show` | `role:agency, agency.active` | Referral case dossier & paper attachments. | Stub |
+| `GET` | `/agency/register` | `agency.register` | `guest`, `throttle:5,1` | Agency registration with ID/letter upload. | Built |
+| `POST` | `/agency/register` | `agency.register.store` | `guest`, `throttle:5,1` | Submit credentials and official agency proof. | Built |
+| `GET` | `/agency/pending` | `agency.pending` | `auth` | Awaiting admin account approval landing page.| Built |
+| `GET` | `/agency/referrals` | `agency.referrals.index` | `role:agency, agency.active` | Outside agency referral inbox. | Built |
+| `GET` | `/agency/referrals/{id}` | `agency.referrals.show` | `role:agency, agency.active` | Referral case dossier & paper attachments. | Built |
 | `POST` | `/agency/referrals/{id}/accept` | `agency.referrals.accept` | `role:agency, agency.active` | Agency acknowledgment of referred case. | Built |
 | `POST` | `/agency/referrals/{id}/updates` | `agency.referrals.updates.store`| `role:agency, agency.active` | Agency progress milestone or resolution update. | Built |
-| `POST` | `/agency/referrals/{id}/message` | `agency.referrals.message` | `role:agency, agency.active` | Send direct message to barangay staff. | Planned |
-| `GET` | `/agency/team` | `agency.team.index` | `role:agency, agency.active` | Agency office team roster (Office Admin). | Stub |
-| `POST` | `/agency/team/invite` | `agency.team.invite` | `role:agency, agency.active` | Send invite link to agency colleague. | Stub |
-| `GET` | `/agency/invite/{token}` | `agency.invite.show` | `public`, `throttle:5,1` | Invited agency colleague registration form. | Planned |
-| `POST` | `/agency/invite/{token}` | `agency.invite.accept` | `public`, `throttle:5,1` | Complete invited registration. | Planned |
-| `GET` | `/admin/agencies` | `admin.agencies.index` | `permission:agencies.manage` | Admin review list of partner agency requests.| Stub |
-| `GET` | `/admin/agencies/{id}/document` | `admin.agencies.document` | `permission:agencies.manage` | Stream private ID/letter proof document. | Planned |
-| `POST` | `/admin/referrals/{id}/send` | `admin.referrals.send` | `permission:referrals.manage` | Transmit prepared referral to agency portal. | Planned |
+| `POST` | `/agency/referrals/{id}/message` | `agency.referrals.message` | `role:agency, agency.active` | Send direct message to barangay staff. | Built |
+| `GET` | `/agency/team` | `agency.team.index` | `role:agency, agency.active` | Agency office team roster (Office Admin). | Built |
+| `POST` | `/agency/team/invite` | `agency.team.invite` | `role:agency, agency.active` | Send invite link to agency colleague. | Built |
+| `GET` | `/agency/invite/{token}` | `agency.invite.show` | `public`, `throttle:5,1` | Invited agency colleague registration form. | Built |
+| `POST` | `/agency/invite/{token}` | `agency.invite.accept` | `public`, `throttle:5,1` | Complete invited registration. | Built |
+| `GET` | `/admin/agencies` | `admin.agencies.index` | `permission:agencies.manage` | Admin review list of partner agency requests.| Built |
+| `GET` | `/admin/agencies/{id}/document` | `admin.agencies.document` | `permission:agencies.manage` | Stream private ID/letter proof document. | Built |
+| `POST` | `/admin/referrals/{id}/send` | `admin.referrals.send` | `permission:referrals.manage` | Transmit prepared referral to agency portal. | Built |
 
 ### G. Legacy File Import (`routes/imports.php` — WS6, Stretch)
 Protected by `auth`, `role:staff`, `permission:imports.manage`.
 
 | Method | URI | Route Name | Middleware / Permission | Purpose | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/admin/imports` | `admin.imports.index` | `permission:imports.manage` | Batch history of Excel/CSV imports. | Planned |
-| `GET` | `/admin/imports/create` | `admin.imports.create` | `permission:imports.manage` | Upload file and download blank template. | Planned |
-| `POST` | `/admin/imports` | `admin.imports.store` | `permission:imports.manage` | Store file on private disk & create batch. | Planned |
-| `GET` | `/admin/imports/{id}/map` | `admin.imports.map` | `permission:imports.manage` | Interactive column mapping screen. | Planned |
-| `POST` | `/admin/imports/{id}/map` | `admin.imports.save-map` | `permission:imports.manage` | Save column mapping & validate sample. | Planned |
-| `GET` | `/admin/imports/{id}/preview` | `admin.imports.preview` | `permission:imports.manage` | Preview parsed rows and duplicate warnings. | Planned |
-| `POST` | `/admin/imports/{id}/commit` | `admin.imports.commit` | `permission:imports.manage` | Commit rows in chunks (original case numbers). | Planned |
-| `POST` | `/admin/imports/{id}/rollback` | `admin.imports.rollback` | `permission:imports.manage` | Roll back committed batch completely. | Planned |
+| `GET` | `/admin/imports` | `admin.imports.index` | `permission:imports.manage` | Batch history of Excel/CSV imports. | Built |
+| `GET` | `/admin/imports/create` | `admin.imports.create` | `permission:imports.manage` | Upload file and download blank template. | Built |
+| `POST` | `/admin/imports` | `admin.imports.store` | `permission:imports.manage` | Store file on private disk & create batch. | Built |
+| `GET` | `/admin/imports/{id}/map` | `admin.imports.map` | `permission:imports.manage` | Interactive column mapping screen. | Built |
+| `POST` | `/admin/imports/{id}/map` | `admin.imports.save-map` | `permission:imports.manage` | Save column mapping & validate sample. | Built |
+| `GET` | `/admin/imports/{id}/preview` | `admin.imports.preview` | `permission:imports.manage` | Preview parsed rows and duplicate warnings. | Built |
+| `POST` | `/admin/imports/{id}/commit` | `admin.imports.commit` | `permission:imports.manage` | Commit rows in chunks (original case numbers). | Built |
+| `POST` | `/admin/imports/{id}/rollback` | `admin.imports.rollback` | `permission:imports.manage` | Roll back committed batch completely. | Built |

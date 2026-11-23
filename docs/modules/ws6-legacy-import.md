@@ -17,7 +17,7 @@
 
 ---
 
-## 2. Implemented Rules (`docs/REVISION_2.md` Section 6.6)
+## 2. Implemented Rules (`docs/DECISIONS.md` Decision 66)
 1. **Original Case Numbers Preserved**: Keeps the historical docket number verbatim. Any `case_number` already in use in `cases` (or duplicated within the batch) is flagged as a conflict error row and never overwrites existing records.
 2. **Sequences Untouched**: Never invokes `NumberingService::next()`. Active fiscal year sequence counters in `number_sequences` remain untouched.
 3. **Historical Fiscal Years Lifecycle**: Auto-creates missing `FiscalYear` records for historical years within the `records.lookback_years` window (default 4 years), imports while open, and automatically closes and locks historical fiscal years at the end of the batch while keeping the current active fiscal year active.

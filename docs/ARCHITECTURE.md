@@ -76,8 +76,8 @@ The application follows a **Modular Monolithic MVC Pattern** built on Laravel 13
 | **`SummonsCounterService`** | `app/Services/SummonsCounterService.php` | Counts non-voided summons per case for display only. No threshold is enforced: the barangay counts days, not summons (Secretary Q20). Deadlines are handled by `OverdueService`. |
 | **`OverdueService`** | `app/Services/OverdueService.php` | SLA calculation identifying overdue reports and pending external referrals, plus case mediation and conciliation deadlines in working days (`App\Support\WorkingDays`). |
 | **`GlobalSearchService`** | `app/Services/GlobalSearchService.php` | Cross-entity universal search indexing reports, cases, parties, and referrals. |
-
-> **Planned services (Revision 2):** `WorkingDays` (helper), `PartyMatchingService` and a case duplicate check (WS3), `LegacyImportService` (WS6, stretch). See `REVISION_2.md`.
+| **`PartyMatchingService`** | `app/Services/Cases/PartyMatchingService.php` | Duplicate party detection and merge assistance. |
+| **`LegacyImportService`** | `app/Services/Imports/LegacyImportService.php` | Chunked CSV/Excel legacy file ingestion with validation and rollback. |
 
 ---
 
@@ -100,14 +100,50 @@ Numbering sequences are tracked in `number_sequences` with a composite unique ke
 ## 4. Role, Permission & Preset Architecture
 
 Security is layered across three tiers:
-1. **Roles**: High-level actor classification (`admin`, `staff`, `agency`).
-2. **Granular Permissions**: 18 slugs currently built in Phase 0 (target 22 plus `imports.manage` in Phase 0.5/Revision 2) covering discrete capabilities (e.g. `cases.view`, `cases.summons`, `settings.manage`, `reports_center.export`).
+1. **Roles**: Coarse access tier governed strictly by `users.role` with three allowed values: `admin`, `staff`, and `agency` (`personnel` is NOT a role; it is an assignable directory of people).
+2. **Granular Permissions**: Exactly **20 permission slugs** are registered and seeded in code:
+   - `settings.manage`, `fiscal_year.manage`, `templates.manage`, `backups.manage`
+   - `personnel.manage`, `users.manage`
+   - `reports.view`, `reports_center.view`, `reports_center.export`
+   - `cases.view`, `cases.view_confidential`, `cases.create`, `cases.edit`, `cases.summons`, `cases.escalate`
+   - `agencies.manage`, `referrals.manage`, `imports.manage`
+   - `dashboard.view`, `audit.view`
 3. **Role Presets**: Pre-configured permission bundles defined in `config/permission_presets.php`:
-   - `staff_full`: Complete staff operational rights across cases, reports, and referrals.
-   - `case_encoder`: Lupon clerk role restricted to dispute case docketing and summons issuance.
-   - `reports_analyst`: Read-only reporting and dashboard analytics access.
-   - `case_reviewer` (Revision 2): view all cases including confidential ones, plus reports; for the Kagawad (Peace & Order), kagawads on minors' cases and the VAW focal person.
-4. **Admin Exemption**: Users with role `admin` implicitly satisfy all permission checks via `User::hasPermission()`.
+   - `staff_full`: Complete staff operational rights across cases, reports, and referrals without confidential case access or system backups (16 permissions).
+   - `case_encoder`: Lupon clerk role restricted to dispute case docketing and summons issuance for non-confidential cases (5 permissions).
+   - `reports_analyst`: Read-only reporting and dashboard analytics access (3 permissions).
+   - `case_reviewer`: Review of all dispute cases including confidential cases, reports queue, and Reports Center (6 permissions).
+4. **Admin Exemption**: Users with role `admin` implicitly satisfy all permission checks via `User::hasPermission()`. Positions do not grant permissions on their own.
+
+---
+
+## 5. Storage Disks & Trust Boundaries
+
+The system enforces strict disk isolation to protect sensitive citizen data and official documents:
+
+| Storage Disk | Physical Path | Access Rules | Stored Assets |
+| :--- | :--- | :--- | :--- |
+| **`public`** | `storage/app/public` | Public web access via symlink | Non-emergency resident incident photos, resolution proofs. |
+| **`private`** | `storage/app/private` | Authenticated & authorized controller streaming only | Partner agency ID/letter proofs, referral case dossier attachments, official digital signatures (`personnel.signature_path`), database backup archives (`backups/`). |
+
+---
+
+## 6. Navigation, Seeder & Audit Architecture
+
+### Config-Driven Navigation
+Navigation is declared centrally in `config/navigation.php`. The administrative layout (`layouts/admin.blade.php`) dynamically filters menu items and badge counts against:
+- User role (`admin` vs `staff`)
+- User permissions via `hasPermission()`
+- Master feature flags (`config('features.cases_enabled')`)
+- Partner agencies use an isolated minimal layout (`layouts/agency.blade.php`) with access restricted strictly to their assigned referrals and account profile.
+
+### Isolated Seeder Architecture
+The seeder pipeline is cleanly partitioned:
+- **`RequiredDataSeeder` (Production Reference)**: Idempotent seeder run by `DatabaseSeeder` and `php artisan app:empty`. Seeds baseline reference records (Puroks 1–7, Categories, Offices, Routing Rules, Emergency Contacts, Response Templates, Settings Placeholders, Priority Weights, Case Types, Escalation Destinations). It creates **0 users**, **0 reports**, and **0 cases**.
+- **`DemoDataSeeder` (Development & Evaluation)**: Executed via `php artisan app:demo`. Sets up active fiscal year 2026, advances `number_sequences` to prevent collision, seeds canonical demo accounts (`admin@`, `secretary@`, `staff@`, `clerk@`, `reviewer@`, `cswdo@`), and invokes `DemoReportSeeder`.
+
+### Audit Logging & Security Tracing
+Every administrative override of an AI recommendation, setting alteration, fiscal year status change, and confidential case view is recorded in `audit_logs` via `App\Services\AuditLogger`. View access to confidential cases is throttled in cache (max 1 audit event per user/case per hour) to prevent audit log flooding while maintaining complete security traceability.
 
 ---
 

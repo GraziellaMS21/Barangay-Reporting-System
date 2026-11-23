@@ -2,27 +2,281 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\FiscalYear;
+use App\Models\Personnel;
+use App\Models\Position;
+use App\Models\Setting;
+use App\Models\User;
+use App\Services\FiscalYearService;
+use App\Services\SettingsService;
+use Database\Seeders\RequiredDataSeeder;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\View\View;
 
 class SetupController extends Controller
 {
-    public function show()
-    {
-        return view('stub', ['title' => 'Setup Wizard', 'owner' => 'WS1']);
-    }
+    public function __construct(
+        protected SettingsService $settingsService,
+        protected FiscalYearService $fiscalYearService
+    ) {}
 
-    public function step(string $step)
+    public function show(): RedirectResponse
     {
-        return view('stub', ['title' => "Setup Wizard Step: {$step}", 'owner' => 'WS1']);
-    }
+        if ($this->isCompleted()) {
+            return redirect()->route('login');
+        }
 
-    public function store(Request $request, string $step)
-    {
+        $step = (int) session('setup_step', 1);
+
         return redirect()->route('setup.step', ['step' => $step]);
     }
 
-    public function finish(Request $request)
+    public function step(string $step): View|RedirectResponse
     {
-        return redirect()->route('admin.dashboard');
+        if ($this->isCompleted()) {
+            return redirect()->route('login');
+        }
+
+        $stepNum = (int) $step;
+        if ($stepNum < 1 || $stepNum > 5) {
+            return redirect()->route('setup.step', ['step' => 1]);
+        }
+
+        $data = [
+            'currentStep' => $stepNum,
+            'steps' => [
+                ['label' => 'Verification', 'step' => 1],
+                ['label' => 'Admin Account', 'step' => 2],
+                ['label' => 'Barangay Profile', 'step' => 3],
+                ['label' => 'Fiscal Year', 'step' => 4],
+                ['label' => 'Personnel & Review', 'step' => 5],
+            ],
+        ];
+
+        if ($stepNum === 1) {
+            $data['checks'] = $this->runEnvironmentChecks();
+        } elseif ($stepNum === 2) {
+            $data['admin'] = User::where('role', 'admin')->first();
+        } elseif ($stepNum === 3) {
+            $data['profile'] = [
+                'name' => setting('barangay.name', 'Barangay Calarian'),
+                'city' => setting('barangay.city', 'Zamboanga City'),
+                'province' => setting('barangay.province', 'Zamboanga del Sur'),
+                'region' => setting('barangay.region', 'Region IX (Zamboanga Peninsula)'),
+                'hall_address' => setting('barangay.hall_address', 'Calarian, Zamboanga City, 7000'),
+                'contact_number' => setting('barangay.contact_number', '0917-123-4567'),
+                'email' => setting('barangay.email', 'info@calarian.gov.ph'),
+            ];
+        } elseif ($stepNum === 4) {
+            $data['currentYear'] = (int) now()->year;
+            $data['fiscalYear'] = $this->fiscalYearService->active() ?? FiscalYear::first();
+        } elseif ($stepNum === 5) {
+            $data['positions'] = Position::orderBy('sort_order')->get();
+            $data['personnel'] = Personnel::with('position')->get();
+            $data['admin'] = User::where('role', 'admin')->first();
+            $data['activeYear'] = $this->fiscalYearService->active();
+        }
+
+        return view("setup.step{$stepNum}", $data);
+    }
+
+    public function store(Request $request, string $step): RedirectResponse
+    {
+        if ($this->isCompleted()) {
+            return redirect()->route('login');
+        }
+
+        $stepNum = (int) $step;
+
+        if ($stepNum === 1) {
+            session(['setup_step' => 2]);
+
+            return redirect()->route('setup.step', ['step' => 2]);
+        }
+
+        if ($stepNum === 2) {
+            $validated = $request->validate([
+                'name' => ['required', 'string', 'max:255'],
+                'email' => ['required', 'email', 'max:255'],
+                'password' => ['required', 'string', 'min:8', 'confirmed'],
+            ]);
+
+            $admin = User::where('email', $validated['email'])->first();
+            if ($admin) {
+                $admin->update([
+                    'name' => $validated['name'],
+                    'password' => Hash::make($validated['password']),
+                    'role' => 'admin',
+                    'is_active' => true,
+                    'must_change_password' => false,
+                ]);
+            } else {
+                User::create([
+                    'name' => $validated['name'],
+                    'email' => $validated['email'],
+                    'password' => Hash::make($validated['password']),
+                    'role' => 'admin',
+                    'is_active' => true,
+                    'must_change_password' => false,
+                ]);
+            }
+
+            session(['setup_step' => 3]);
+
+            return redirect()->route('setup.step', ['step' => 3])->with('success', 'Administrator account saved.');
+        }
+
+        if ($stepNum === 3) {
+            $validated = $request->validate([
+                'barangay_name' => ['required', 'string', 'max:255'],
+                'city' => ['required', 'string', 'max:255'],
+                'province' => ['nullable', 'string', 'max:255'],
+                'region' => ['nullable', 'string', 'max:255'],
+                'hall_address' => ['required', 'string', 'max:500'],
+                'contact_number' => ['required', 'string', 'max:50'],
+                'email' => ['required', 'email', 'max:255'],
+            ]);
+
+            $this->settingsService->set('barangay.name', $validated['barangay_name']);
+            $this->settingsService->set('barangay.city', $validated['city']);
+            $this->settingsService->set('barangay.province', $validated['province'] ?? '');
+            $this->settingsService->set('barangay.region', $validated['region'] ?? '');
+            $this->settingsService->set('barangay.hall_address', $validated['hall_address']);
+            $this->settingsService->set('barangay.contact_number', $validated['contact_number']);
+            $this->settingsService->set('barangay.email', $validated['email']);
+
+            session(['setup_step' => 4]);
+
+            return redirect()->route('setup.step', ['step' => 4])->with('success', 'Barangay profile saved.');
+        }
+
+        if ($stepNum === 4) {
+            $validated = $request->validate([
+                'year' => ['required', 'integer', 'min:2020', 'max:2050'],
+            ]);
+
+            $year = (int) $validated['year'];
+            $fy = FiscalYear::firstOrCreate(
+                ['year' => $year],
+                [
+                    'label' => "FY {$year}",
+                    'starts_on' => "{$year}-01-01",
+                    'ends_on' => "{$year}-12-31",
+                    'status' => 'active',
+                    'is_locked' => false,
+                ]
+            );
+
+            $this->fiscalYearService->activate($fy);
+
+            session(['setup_step' => 5]);
+
+            return redirect()->route('setup.step', ['step' => 5])->with('success', "Fiscal year {$year} configured and activated.");
+        }
+
+        if ($stepNum === 5) {
+            return $this->finish($request);
+        }
+
+        return redirect()->route('setup.step', ['step' => 1]);
+    }
+
+    public function finish(Request $request): RedirectResponse
+    {
+        if ($this->isCompleted()) {
+            return redirect()->route('login');
+        }
+
+        // Run required seed data if not yet seeded
+        if (Position::count() === 0) {
+            app(RequiredDataSeeder::class)->run();
+        }
+
+        // Ensure active fiscal year
+        if (! $this->fiscalYearService->active()) {
+            $currentYear = (int) now()->year;
+            $fy = FiscalYear::firstOrCreate(
+                ['year' => $currentYear],
+                [
+                    'label' => "FY {$currentYear}",
+                    'starts_on' => "{$currentYear}-01-01",
+                    'ends_on' => "{$currentYear}-12-31",
+                    'status' => 'active',
+                    'is_locked' => false,
+                ]
+            );
+            $this->fiscalYearService->activate($fy);
+        }
+
+        // Mark setup completed in database
+        Setting::updateOrCreate(
+            ['key' => 'system.setup_completed'],
+            [
+                'value' => 'true',
+                'type' => 'boolean',
+                'group' => 'system',
+                'label' => 'System Setup Completed',
+                'description' => 'Flag indicating initial setup wizard has been concluded.',
+                'is_confirmed' => true,
+            ]
+        );
+
+        Cache::forget('setting.system.setup_completed');
+        session()->forget('setup_step');
+
+        return redirect()->route('login')->with('success', 'System setup completed successfully! Please sign in with your administrator account.');
+    }
+
+    protected function isCompleted(): bool
+    {
+        $setting = Setting::where('key', 'system.setup_completed')->first();
+
+        return $setting ? filter_var($setting->value, FILTER_VALIDATE_BOOLEAN) : false;
+    }
+
+    /**
+     * @return array<string, array{label: string, passed: bool, message: string}>
+     */
+    protected function runEnvironmentChecks(): array
+    {
+        $checks = [];
+
+        // 1. Database
+        try {
+            DB::connection()->getPdo();
+            $checks['database'] = [
+                'label' => 'Database Connected',
+                'passed' => true,
+                'message' => 'Connection verified successfully.',
+            ];
+        } catch (\Throwable $e) {
+            $checks['database'] = [
+                'label' => 'Database Connected',
+                'passed' => false,
+                'message' => $e->getMessage(),
+            ];
+        }
+
+        // 2. Storage
+        $storagePath = storage_path('app');
+        $checks['storage'] = [
+            'label' => 'Storage Directory Writable',
+            'passed' => is_writable($storagePath),
+            'message' => is_writable($storagePath) ? 'Storage directory is writable.' : 'Storage directory is not writable.',
+        ];
+
+        // 3. Mail Driver
+        $driver = config('mail.default', 'log');
+        $checks['mail'] = [
+            'label' => 'Mail Transport Configured',
+            'passed' => ! empty($driver),
+            'message' => "Configured driver: {$driver}",
+        ];
+
+        return $checks;
     }
 }

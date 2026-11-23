@@ -77,8 +77,10 @@ body.staff-menu-open {
     overflow: hidden;
 }
 
-a {
-    color: var(--blue);
+@layer base {
+    a {
+        color: var(--blue);
+    }
 }
 
 h1,
@@ -1351,49 +1353,42 @@ h3 {
     position: sticky;
     top: 0;
     flex-direction: column;
-    width: var(--sidebar-expanded-width);
-    flex-shrink: 0;
     height: 100vh;
-    overflow-x: hidden;
-    overflow-y: auto;
+    max-height: 100vh;
+    overflow: hidden;
     border-right: 1px solid rgb(255 255 255 / 10%);
-    padding: 0.85rem 0.65rem;
     background: var(--ink);
     z-index: 30;
-    scrollbar-width: thin;
-    scrollbar-color: rgb(255 255 255 / 20%) transparent;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
 }
 
 .staff-sidebar::-webkit-scrollbar {
-    width: 5px;
-}
-
-.staff-sidebar::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.staff-sidebar::-webkit-scrollbar-thumb {
-    background: rgb(255 255 255 / 20%);
-    border-radius: 999px;
-}
-
-.staff-sidebar::-webkit-scrollbar-thumb:hover {
-    background: rgb(255 255 255 / 35%);
+    display: none;
+    width: 0;
+    height: 0;
 }
 
 .staff-drawer-overlay {
     display: none;
 }
 
+.staff-sidebar-header {
+    flex-shrink: 0;
+    padding: 0.85rem 0.65rem 0.75rem;
+    border-bottom: 1px solid rgb(255 255 255 / 8%);
+    background: var(--ink);
+    z-index: 10;
+}
+
 .staff-sidebar-brand {
     display: flex;
     align-items: center;
-    gap: 0.85rem;
-    padding: 0.6rem 0.65rem 0.85rem;
+    gap: 0.75rem;
+    padding: 0.15rem 0.25rem;
     color: #fff;
     text-decoration: none;
-    border-bottom: 1px solid rgb(255 255 255 / 10%);
-    margin-bottom: 0.65rem;
+    overflow: hidden;
 }
 
 .staff-sidebar-brand .brand-seal {
@@ -1432,9 +1427,47 @@ h3 {
     white-space: nowrap;
 }
 
+.staff-nav-container {
+    flex: 1 1 0%;
+    min-height: 0;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
 .staff-nav {
-    display: grid;
+    flex: 1 1 0%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
     gap: 0.2rem;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0.65rem 0.5rem 2.5rem;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.staff-nav::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+}
+
+.staff-sidebar-blur-fade {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 48px;
+    pointer-events: none;
+    z-index: 8;
+    background: linear-gradient(to top, var(--ink) 25%, rgba(15, 23, 42, 0.7) 65%, transparent 100%);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    mask-image: linear-gradient(to top, black 40%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to top, black 40%, transparent 100%);
 }
 
 .staff-nav-heading {
@@ -1444,6 +1477,7 @@ h3 {
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
+    flex-shrink: 0;
 }
 
 .staff-nav a,
@@ -1465,6 +1499,7 @@ h3 {
     cursor: pointer;
     white-space: nowrap;
     overflow: hidden;
+    flex-shrink: 0;
 }
 
 .staff-nav a i,
@@ -1494,19 +1529,22 @@ h3 {
 
 .staff-nav form {
     margin: 0;
+    flex-shrink: 0;
 }
 
 .staff-sidebar-footer {
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     gap: 0.65rem;
-    margin-top: auto;
-    border-top: 1px solid rgb(255 255 255 / 15%);
-    padding: 0.65rem 0.35rem 0.25rem;
+    border-top: 1px solid rgb(255 255 255 / 12%);
+    padding: 0.75rem 0.65rem;
+    background: var(--ink);
     color: #fff;
     font-size: 0.8rem;
     overflow: hidden;
     white-space: nowrap;
+    z-index: 10;
 }
 
 .sidebar-avatar {
@@ -1549,6 +1587,7 @@ h3 {
     font-size: 0.7rem;
     font-weight: 800;
     text-transform: uppercase;
+    width: fit-content;
 }
 
 .role-badge.role-admin {
@@ -1556,9 +1595,15 @@ h3 {
     background: var(--gold);
 }
 
+.role-badge.role-secretary {
+    color: #ffffff;
+    background: #059669;
+}
+
+.role-badge.role-personnel,
 .role-badge.role-staff {
-    color: #e6ecff;
-    background: #52627f;
+    color: #e2e8f0;
+    background: #334155;
 }
 
 .staff-main {

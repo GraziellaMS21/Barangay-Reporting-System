@@ -11,24 +11,25 @@ class SummonsCounterService
     ) {}
 
     /**
-     * STUB: WS4 implements full summons counter.
-     * Rule: issued counts non-voided summons for the case;
-     * eligible = issued >= setting('cases.summons_limit', 3) && case status not in (settled, escalated, dismissed, withdrawn)
+     * Sequential summons count for display only. No threshold is enforced:
+     * the barangay counts days, not summons (Secretary Q20). Deadlines are handled by OverdueService.
      *
-     * @return array{issued: int, limit: int, remaining: int, eligible: bool}
+     * @return array{issued: int, limit: ?int, remaining: ?int, eligible: bool}
      */
     public function forCase(BarangayCase $case): array
     {
-        $limit = $this->settings->getInt('cases.summons_limit', 3);
-        $issued = $case->activeSummons()->count();
-        $remaining = max(0, $limit - $issued);
-        $terminal = in_array($case->status, ['settled', 'escalated', 'dismissed', 'withdrawn'], true);
+        $rawLimit = $this->settings->get('cases.summons_limit', 3);
+        $limit = ($rawLimit !== null && $rawLimit !== '') ? (int) $rawLimit : 3;
+        $issued = method_exists($case, 'activeSummons')
+            ? $case->activeSummons()->count()
+            : $case->summons()->whereNull('voided_at')->count();
+        $remaining = $limit !== null ? max(0, $limit - $issued) : null;
 
         return [
             'issued' => $issued,
             'limit' => $limit,
             'remaining' => $remaining,
-            'eligible' => ($issued >= $limit && ! $terminal),
+            'eligible' => false,
         ];
     }
 }

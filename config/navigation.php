@@ -11,6 +11,7 @@ return [
                     'icon' => 'fa-solid fa-gauge-high',
                     'permission' => null,
                     'active_pattern' => 'admin.dashboard*',
+                    'admin_only' => true,
                 ],
                 [
                     'label' => 'Secretary Dashboard',
@@ -18,6 +19,7 @@ return [
                     'icon' => 'fa-solid fa-clipboard-check',
                     'permission' => 'cases.view',
                     'active_pattern' => 'admin.secretary*',
+                    'secretary_only' => true,
                 ],
             ],
         ],

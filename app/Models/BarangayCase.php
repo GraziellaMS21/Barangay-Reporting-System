@@ -22,19 +22,26 @@ class BarangayCase extends Model
         'case_number',
         'fiscal_year_id',
         'case_type_id',
+        'record_type',
         'source',
         'source_report_id',
         'title',
         'narrative',
         'filed_on',
+        'complaint_started_on',
+        'endorsed_to_pangkat_on',
+        'conciliation_extension_days',
         'incident_date',
         'incident_location',
         'purok_id',
         'status',
         'encoded_by',
         'assigned_to',
+        'pangkat_chairman_personnel_id',
         'settled_on',
         'settlement_terms',
+        'settlement_amount',
+        'settlement_agreement_path',
         'outcome_note',
         'is_confidential',
     ];
@@ -43,8 +50,11 @@ class BarangayCase extends Model
     {
         return [
             'filed_on' => 'date',
+            'complaint_started_on' => 'date',
+            'endorsed_to_pangkat_on' => 'date',
             'incident_date' => 'date',
             'settled_on' => 'date',
+            'settlement_amount' => 'decimal:2',
             'is_confidential' => 'boolean',
         ];
     }
@@ -72,6 +82,11 @@ class BarangayCase extends Model
     public function assignedTo(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_to');
+    }
+
+    public function pangkatChairman(): BelongsTo
+    {
+        return $this->belongsTo(Personnel::class, 'pangkat_chairman_personnel_id');
     }
 
     public function caseParties(): HasMany

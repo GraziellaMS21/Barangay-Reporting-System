@@ -5,18 +5,21 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Services\GlobalSearchService;
 use Illuminate\Http\Request;
+use Illuminate\View\View;
 
 class GlobalSearchController extends Controller
 {
-    public function search(Request $request, GlobalSearchService $searchService)
+    public function search(Request $request, GlobalSearchService $searchService): View
     {
         $q = (string) $request->input('q', '');
         $results = $searchService->search($q, $request->user());
 
-        return view('stub', [
-            'title' => "Global Search: {$q}",
-            'owner' => 'WS1',
-            'results' => $results,
-        ]);
+        $totalFound = count($results['reports'])
+            + count($results['referrals'])
+            + count($results['cases'])
+            + count($results['parties'])
+            + count($results['personnel']);
+
+        return view('admin.search', compact('q', 'results', 'totalFound'));
     }
 }

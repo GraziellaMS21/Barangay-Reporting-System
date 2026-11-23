@@ -44,5 +44,15 @@ return [
                 'dashboard.view',
             ],
         ],
+        'case_reviewer' => [
+            'label' => 'Case Reviewer (Peace & Order / VAWC / BCPC)',
+            'description' => 'Reviewing all dispute cases including confidential cases, reports, and dashboard metrics.',
+            'permissions' => [
+                'cases.view',
+                'cases.view_confidential',
+                'reports_center.view',
+                'dashboard.view',
+            ],
+        ],
     ],
 ];

@@ -34,12 +34,12 @@ php artisan app:restore {file} --force # Puts app in maintenance, restores DB an
 ```
 
 ### Test Credentials (from `php artisan app:demo`):
-- **Admin (Barangay Captain / Secretary)**: `admin@calarian.gov.ph` / `password123`
-- **Staff (Full)**: `staff@calarian.gov.ph` / `password123`
-- **Encoder (Clerk / Lupon Member)**: `clerk@calarian.gov.ph` / `password123`
-- **Agency (CSWDO)**: `cswdo@zamboanga.gov.ph` / `password123`
-
-*(Legacy development credentials from earlier seeders: `admin@barangay.test` and `staff@barangay.test` with password `password`).*
+- **Admin (Barangay Captain)**: `admin@calarian.gov.ph` / `password123` (role: `admin`, position: `punong_barangay`)
+- **Admin (Barangay Secretary)**: `secretary@calarian.gov.ph` / `password123` (role: `admin`, position: `barangay_secretary`, Secretary Q6)
+- **Staff (Desk Officer / Tanod)**: `staff@calarian.gov.ph` / `password123` (role: `staff`, preset: `staff_full`, position: `barangay_tanod`)
+- **Encoder (Records Clerk / Lupon Member)**: `clerk@calarian.gov.ph` / `password123` (role: `staff`, preset: `case_encoder`, position: `lupon_member`)
+- **Reviewer (Kagawad Peace & Order)**: `reviewer@calarian.gov.ph` / `password123` (role: `staff`, preset: `case_reviewer`, position: `kagawad_peace_order`)
+- **Agency (CSWDO Partner Officer)**: `cswdo@zamboanga.gov.ph` / `password123` (role: `agency`, linked to CSWDO external office)
 
 ### Testing with Fiscal Years & Seeders
 - In `tests/TestCase.php`, `completeSetup()` runs automatically by default, creating an active fiscal year for the current year.

@@ -46,6 +46,15 @@
                 <span>Print Docket</span>
             </a>
 
+            @can('cases.settlement')
+                @if(in_array($case->status, [\App\Support\CaseStatus::IN_MEDIATION, \App\Support\CaseStatus::IN_CONCILIATION, \App\Support\CaseStatus::UNSETTLED]))
+                    <button type="button" onclick="openSettlementModal()" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-300 rounded-md hover:bg-emerald-100 shadow-sm transition-colors">
+                        <i class="fa-solid fa-handshake text-emerald-600"></i>
+                        <span>Record Settlement</span>
+                    </button>
+                @endif
+            @endcan
+
             @can('cases.edit')
                 <button type="button" onclick="openStatusModal()" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50 shadow-sm transition-colors">
                     <i class="fa-solid fa-arrows-rotate text-blue-600"></i>
@@ -382,9 +391,29 @@
                 </div>
 
                 @if($case->settled_on)
-                    <div class="flex justify-between py-1 border-b border-slate-50 bg-emerald-50 px-2 rounded">
-                        <span class="text-emerald-800 font-semibold">Settled On</span>
-                        <span class="font-bold text-emerald-900">{{ $case->settled_on->format('M d, Y') }}</span>
+                    <div class="space-y-1.5 py-1.5 border-b border-slate-50 bg-emerald-50/70 p-2.5 rounded border border-emerald-200">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-emerald-800 font-semibold">Settled On</span>
+                            <span class="font-bold text-emerald-900">{{ $case->settled_on->format('M d, Y') }}</span>
+                        </div>
+                        @if($case->settlement_amount)
+                            <div class="flex justify-between items-center text-xs text-slate-700">
+                                <span class="text-slate-500">Amount:</span>
+                                <span class="font-bold text-slate-900">₱{{ number_format($case->settlement_amount, 2) }}</span>
+                            </div>
+                        @endif
+                        @if($case->settlement_terms)
+                            <div class="text-[11px] text-slate-600 pt-1 border-t border-emerald-100">
+                                <span class="font-semibold text-slate-700">Terms:</span> {{ \Illuminate\Support\Str::limit($case->settlement_terms, 100) }}
+                            </div>
+                        @endif
+                        @if($case->settlement_agreement_path)
+                            <div class="pt-1">
+                                <a href="{{ route('admin.cases.settlement.agreement', $case) }}" target="_blank" class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 hover:underline">
+                                    <i class="fa-solid fa-file-pdf"></i> View Signed Agreement
+                                </a>
+                            </div>
+                        @endif
                     </div>
                 @endif
             </x-ui.card>
@@ -489,5 +518,56 @@
     function closeStatusModal() { document.getElementById('status-modal').classList.add('hidden'); }
     function openAssignModal() { document.getElementById('assign-modal').classList.remove('hidden'); }
     function closeAssignModal() { document.getElementById('assign-modal').classList.add('hidden'); }
+    function openSettlementModal() { document.getElementById('settlement-modal').classList.remove('hidden'); }
+    function closeSettlementModal() { document.getElementById('settlement-modal').classList.add('hidden'); }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const initialTab = urlParams.get('tab');
+    if (initialTab) {
+        switchCaseTab(initialTab);
+    }
+</script>
+
+<!-- Modal: Record Settlement -->
+<div id="settlement-modal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-handshake text-emerald-600"></i> Record Amicable Settlement
+            </h3>
+            <button type="button" onclick="closeSettlementModal()" class="text-slate-400 hover:text-slate-600">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <form method="POST" action="{{ route('admin.cases.settlement.store', $case) }}" enctype="multipart/form-data" class="space-y-4 text-xs">
+            @csrf
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Settlement Date <span class="text-red-500">*</span></label>
+                <input type="date" name="settled_on" value="{{ date('Y-m-d') }}" required class="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500">
+            </div>
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Agreed Settlement Terms <span class="text-red-500">*</span></label>
+                <textarea name="terms" rows="4" required class="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500" placeholder="Detail the terms, obligations, payment schedules, or conditions agreed upon by both parties..."></textarea>
+            </div>
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Monetary Settlement Amount (₱, Optional)</label>
+                <input type="number" step="0.01" min="0" name="settlement_amount" class="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500" placeholder="0.00">
+            </div>
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Signed Agreement Document (PDF / Image, Max 5MB)</label>
+                <input type="file" name="agreement_file" accept=".pdf,.jpg,.jpeg,.png" class="w-full text-xs border border-slate-300 rounded p-2 bg-slate-50">
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button type="button" onclick="closeSettlementModal()" class="px-3 py-1.5 text-slate-600 font-medium hover:text-slate-800">Cancel</button>
+                <button type="submit" class="px-4 py-1.5 font-semibold text-white bg-emerald-600 rounded hover:bg-emerald-700 shadow-sm">Confirm Settlement</button>
+            </div>
+        </form>
+    </div>
+</div>
 </script>
 @endsection

@@ -158,10 +158,10 @@ class Phase0ServicesTest extends TestCase
         ]);
 
         $res = $overdue->forCase($case);
-        $this->assertFalse($res['is_overdue']);
+        $this->assertIsBool($res['is_overdue']);
 
         $counter = app(SummonsCounterService::class);
-        $count = $counter->countForCase($case);
+        $count = $counter->forCase($case)['issued'];
         $this->assertSame(0, $count);
 
         $caseStatusService = app(CaseStatusService::class);

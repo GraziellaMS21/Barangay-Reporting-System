@@ -43,12 +43,14 @@ Route::middleware(['auth', 'role:staff'])->prefix('admin')->name('admin.')->grou
 
         Route::middleware(['permission:cases.settlement'])->group(function () {
             Route::post('/settlement', [CaseSettlementController::class, 'store'])->name('settlement.store');
+            Route::get('/settlement/agreement', [CaseSettlementController::class, 'agreement'])->name('settlement.agreement');
         });
 
         Route::middleware(['permission:cases.escalate'])->group(function () {
             Route::get('/escalate', [CaseEscalationController::class, 'create'])->name('escalations.create');
             Route::post('/escalate', [CaseEscalationController::class, 'store'])->name('escalations.store');
             Route::get('/escalate/letter', [CaseEscalationController::class, 'letter'])->name('escalations.letter');
+            Route::get('/escalate/cfa', [CaseEscalationController::class, 'cfa'])->name('escalations.cfa');
         });
     });
 });

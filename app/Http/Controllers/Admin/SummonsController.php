@@ -61,41 +61,59 @@ class SummonsController extends Controller
             ->with('success', "Summons {$summons->summons_number} issued.");
     }
 
-    public function service(Request $request, BarangayCase $case, Summons $summons): View
+    public function service(Request $request, BarangayCase $case, Summons $summons): RedirectResponse
     {
-        return $this->placeholder(
-            'Summons service record',
-            'Recording summons service details is not available yet.',
-            $case
-        );
+        $validated = $request->validate([
+            'service_result' => ['required', 'string', Rule::in(['received', 'refused', 'not_found', 'other'])],
+            'served_on' => ['required', 'date'],
+            'served_by_personnel_id' => ['nullable', 'integer', Rule::exists('personnel', 'id')],
+            'remarks' => ['nullable', 'string'],
+        ]);
+
+        $summons->update([
+            'service_result' => $validated['service_result'],
+            'served_on' => $validated['served_on'],
+            'served_by_personnel_id' => $validated['served_by_personnel_id'] ?? $summons->served_by_personnel_id,
+            'remarks' => $validated['remarks'] ?? $summons->remarks,
+        ]);
+
+        return to_route('admin.cases.show', $case)
+            ->with('success', "Service result recorded for summons {$summons->summons_number}.");
     }
 
-    public function attendance(Request $request, BarangayCase $case, Summons $summons): View
+    public function attendance(Request $request, BarangayCase $case, Summons $summons): RedirectResponse
     {
-        return $this->placeholder(
-            'Summons attendance',
-            'Recording summons attendance is not available yet.',
-            $case
-        );
+        $validated = $request->validate([
+            'attendance' => ['required', 'string', Rule::in(['appeared', 'failed_to_appear', 'pending'])],
+        ]);
+
+        $summons->update(['attendance' => $validated['attendance']]);
+
+        return to_route('admin.cases.show', $case)
+            ->with('success', "Attendance recorded for summons {$summons->summons_number}.");
     }
 
-    public function void(Request $request, BarangayCase $case, Summons $summons): View
+    public function void(Request $request, BarangayCase $case, Summons $summons): RedirectResponse
     {
-        return $this->placeholder(
-            'Void summons',
-            'Voiding a summons and recording the required reason are not available yet.',
-            $case
-        );
+        $validated = $request->validate([
+            'void_note' => ['required', 'string', 'min:5'],
+        ]);
+
+        $summons->update([
+            'voided_at' => now(),
+            'void_note' => $validated['void_note'],
+        ]);
+
+        return to_route('admin.cases.show', $case)
+            ->with('success', "Summons {$summons->summons_number} voided.");
     }
 
     public function print(BarangayCase $case, Summons $summons): View
     {
-        return $this->placeholder(
-            'Print summons',
-            'A printable official summons is not available yet.',
-            $case,
-            "Summons {$summons->summons_number}"
-        );
+        return view('admin.case-actions.summons.print', [
+            'case' => $case,
+            'summons' => $summons->load(['respondentCaseParty.party', 'issuedBy']),
+        ]);
     }
 
     private function placeholder(

@@ -41,6 +41,7 @@ class BarangayCase extends Model
         'settled_on',
         'settlement_terms',
         'settlement_amount',
+        'settlement_agreement_path',
         'outcome_note',
         'is_confidential',
     ];

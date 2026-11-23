@@ -15,7 +15,7 @@ class SummonsCounter extends Component
         BarangayCase $case,
         SummonsCounterService $summonsCounterService
     ) {
-        $this->issued = $summonsCounterService->countForCase($case);
+        $this->issued = $summonsCounterService->forCase($case)['issued'];
     }
 
     public function render(): ViewContract

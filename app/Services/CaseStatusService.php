@@ -20,12 +20,13 @@ class CaseStatusService
      */
     protected const ALLOWED_TRANSITIONS = [
         CaseStatus::FILED => [CaseStatus::IN_MEDIATION, CaseStatus::SETTLED, CaseStatus::DISMISSED, CaseStatus::WITHDRAWN],
-        CaseStatus::IN_MEDIATION => [CaseStatus::SETTLED, CaseStatus::UNSETTLED, CaseStatus::DISMISSED, CaseStatus::WITHDRAWN],
-        CaseStatus::UNSETTLED => [CaseStatus::ESCALATED, CaseStatus::IN_MEDIATION, CaseStatus::DISMISSED, CaseStatus::WITHDRAWN],
+        CaseStatus::IN_MEDIATION => [CaseStatus::IN_CONCILIATION, CaseStatus::SETTLED, CaseStatus::UNSETTLED, CaseStatus::ESCALATED, CaseStatus::DISMISSED, CaseStatus::WITHDRAWN],
+        CaseStatus::IN_CONCILIATION => [CaseStatus::SETTLED, CaseStatus::UNSETTLED, CaseStatus::ESCALATED, CaseStatus::DISMISSED, CaseStatus::WITHDRAWN],
+        CaseStatus::UNSETTLED => [CaseStatus::ESCALATED, CaseStatus::IN_CONCILIATION, CaseStatus::IN_MEDIATION, CaseStatus::DISMISSED, CaseStatus::WITHDRAWN],
         CaseStatus::ESCALATED => [CaseStatus::IN_MEDIATION],
         CaseStatus::SETTLED => [CaseStatus::IN_MEDIATION],
-        CaseStatus::DISMISSED => [CaseStatus::IN_MEDIATION],
-        CaseStatus::WITHDRAWN => [CaseStatus::IN_MEDIATION],
+        CaseStatus::DISMISSED => [CaseStatus::FILED, CaseStatus::IN_MEDIATION],
+        CaseStatus::WITHDRAWN => [CaseStatus::FILED, CaseStatus::IN_MEDIATION],
     ];
 
     public function canTransition(string $from, string $to): bool

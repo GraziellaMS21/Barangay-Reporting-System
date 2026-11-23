@@ -77,6 +77,10 @@ class SeederTest extends TestCase
         $this->assertNotNull($admin);
         $this->assertSame('admin', $admin->role);
 
+        $secretary = User::where('email', 'secretary@calarian.gov.ph')->first();
+        $this->assertNotNull($secretary);
+        $this->assertSame('admin', $secretary->role);
+
         $staff = User::where('email', 'staff@calarian.gov.ph')->first();
         $this->assertNotNull($staff);
         $this->assertSame('staff', $staff->role);
@@ -88,9 +92,16 @@ class SeederTest extends TestCase
         $this->assertTrue($encoder->permissions()->where('slug', 'cases.create')->exists());
         $this->assertFalse($encoder->permissions()->where('slug', 'settings.manage')->exists());
 
+        $reviewer = User::where('email', 'reviewer@calarian.gov.ph')->first();
+        $this->assertNotNull($reviewer);
+        $this->assertSame('staff', $reviewer->role);
+        $this->assertTrue($reviewer->permissions()->where('slug', 'cases.view_confidential')->exists());
+
         $agency = User::where('email', 'cswdo@zamboanga.gov.ph')->first();
         $this->assertNotNull($agency);
         $this->assertSame('agency', $agency->role);
+
+        $this->assertSame(0, User::where('role', 'personnel')->count());
 
         $reg = AgencyRegistration::where('user_id', $agency->id)->first();
         $this->assertNotNull($reg);

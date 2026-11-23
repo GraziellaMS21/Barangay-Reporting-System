@@ -11,6 +11,7 @@ use App\Models\CaseType;
 use App\Models\EscalationDestination;
 use App\Models\FiscalYear;
 use App\Models\Hearing;
+use App\Models\NumberSequence;
 use App\Models\Office;
 use App\Models\Party;
 use App\Models\Personnel;
@@ -21,6 +22,7 @@ use App\Models\Summons;
 use App\Models\User;
 use App\Services\PermissionService;
 use App\Support\CaseStatus;
+use App\Support\UserRole;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -28,7 +30,7 @@ class DemoDataSeeder extends Seeder
 {
     public function run(): void
     {
-        // 1. Ensure required data is present
+        // 1. Ensure baseline reference data is present
         $this->call(RequiredDataSeeder::class);
 
         // 2. Active fiscal year for current year
@@ -43,7 +45,6 @@ class DemoDataSeeder extends Seeder
             ]
         );
 
-        // Ensure active
         if ($fiscalYear->status !== 'active') {
             $fiscalYear->update(['status' => 'active']);
         }
@@ -61,84 +62,102 @@ class DemoDataSeeder extends Seeder
             ]
         );
 
+        // All demo accounts use password123 for testing and demonstration purposes only
         $defaultPassword = Hash::make('password123');
         $permissionService = app(PermissionService::class);
 
+        // Clean up any legacy or deprecated personnel role accounts
+        User::where('email', 'personnel@calarian.gov.ph')->orWhere('role', 'personnel')->delete();
+
         // 4. Demo Accounts
-        // Admin
+        // 4.1 Admin: Punong Barangay (Captain)
         $admin = User::updateOrCreate(
             ['email' => 'admin@calarian.gov.ph'],
             [
                 'name' => 'Hon. Eduardo V. Alvarez (Captain)',
                 'password' => $defaultPassword,
-                'role' => 'admin',
+                'role' => UserRole::ADMIN,
                 'is_active' => true,
                 'must_change_password' => false,
             ]
         );
 
-        // Secretary / Staff (staff_full preset)
-        $staff = User::updateOrCreate(
-            ['email' => 'staff@calarian.gov.ph'],
+        // 4.2 Secretary: Admin role per Secretary Q6
+        $secretary = User::updateOrCreate(
+            ['email' => 'secretary@calarian.gov.ph'],
             [
                 'name' => 'Maria Clara Delos Santos (Secretary)',
                 'password' => $defaultPassword,
-                'role' => 'staff',
+                'role' => UserRole::ADMIN,
+                'is_active' => true,
+                'must_change_password' => false,
+            ]
+        );
+
+        // 4.3 Staff: Desk Officer / Tanod (staff_full preset)
+        $staff = User::updateOrCreate(
+            ['email' => 'staff@calarian.gov.ph'],
+            [
+                'name' => 'Rogelio B. Gutierrez (Desk Officer)',
+                'password' => $defaultPassword,
+                'role' => UserRole::STAFF,
                 'is_active' => true,
                 'must_change_password' => false,
             ]
         );
         $permissionService->applyPreset($staff, 'staff_full');
 
-        // Barangay Personnel Account
-        $personnelUser = User::updateOrCreate(
-            ['email' => 'personnel@calarian.gov.ph'],
-            [
-                'name' => 'Barangay Personnel',
-                'password' => $defaultPassword,
-                'role' => 'personnel',
-                'is_active' => true,
-                'must_change_password' => false,
-            ]
-        );
-        $permissionService->applyPreset($personnelUser, 'staff_full');
-
-        // Encoder (case_encoder preset)
+        // 4.4 Encoder: Lupon Records Clerk (case_encoder preset)
         $encoder = User::updateOrCreate(
             ['email' => 'clerk@calarian.gov.ph'],
             [
                 'name' => 'Juana Reyes (Records Clerk)',
                 'password' => $defaultPassword,
-                'role' => 'staff',
+                'role' => UserRole::STAFF,
                 'is_active' => true,
                 'must_change_password' => false,
             ]
         );
         $permissionService->applyPreset($encoder, 'case_encoder');
 
-        // CSWDO Office & Agency User
-        $cswdoOffice = Office::firstOrCreate(
-            ['name' => 'City Social Welfare and Development Office (CSWDO)'],
+        // 4.5 Reviewer: Kagawad Peace & Order (case_reviewer preset)
+        $reviewer = User::updateOrCreate(
+            ['email' => 'reviewer@calarian.gov.ph'],
             [
-                'type' => 'external',
-                'description' => 'Handles social welfare cases, child protection, family mediation, and social assistance.',
-                'is_internal' => false,
-                'is_external' => true,
-                'contact' => 'cswdo@zamboanga.gov.ph',
-                'contact_person' => 'Atty. Cristina Mendoza',
-                'contact_email' => 'cswdo@zamboanga.gov.ph',
-                'contact_phone' => '(062) 991-2345',
-                'address' => 'City Hall Complex, Pettit Barracks, Zamboanga City',
+                'name' => 'Hon. Antonio S. Luna (Kagawad Peace & Order)',
+                'password' => $defaultPassword,
+                'role' => UserRole::STAFF,
                 'is_active' => true,
+                'must_change_password' => false,
             ]
         );
+        $permissionService->applyPreset($reviewer, 'case_reviewer');
+
+        // 4.6 Agency Partner: CSWDO external office user
+        $cswdoOffice = Office::where('name', 'City Social Welfare and Development Office (CSWDO)')->first();
+        if (! $cswdoOffice) {
+            $cswdoOffice = Office::firstOrCreate(
+                ['name' => 'City Social Welfare and Development Office (CSWDO)'],
+                [
+                    'type' => 'external',
+                    'description' => 'Handles social welfare cases, child protection, family mediation, and social assistance.',
+                    'is_internal' => false,
+                    'is_external' => true,
+                    'contact_email' => 'cswdo@zamboanga.gov.ph',
+                    'contact_phone' => '(062) 991-2345',
+                    'address' => 'City Hall Complex, Pettit Barracks, Zamboanga City',
+                    'is_active' => true,
+                ]
+            );
+        }
 
         $agencyUser = User::updateOrCreate(
             ['email' => 'cswdo@zamboanga.gov.ph'],
             [
                 'name' => 'Atty. Cristina Mendoza (CSWDO)',
                 'password' => $defaultPassword,
-                'role' => 'agency',
+                'role' => UserRole::AGENCY,
+                'office_id' => $cswdoOffice->id,
                 'is_active' => true,
                 'must_change_password' => false,
             ]
@@ -160,30 +179,20 @@ class DemoDataSeeder extends Seeder
             ]
         );
 
-        // 5. Personnel Records
-        $pbPosition = Position::firstOrCreate(
-            ['code' => 'punong_barangay'],
-            ['name' => 'Punong Barangay', 'sort_order' => 1, 'is_signatory_default' => true, 'is_confirmed' => true]
-        );
+        // Set default assignee for internal offices to demo staff user
+        Office::where('is_internal', true)->update(['default_assignee_id' => $staff->id]);
 
-        $secPosition = Position::firstOrCreate(
-            ['code' => 'barangay_secretary'],
-            ['name' => 'Barangay Secretary', 'sort_order' => 2, 'is_signatory_default' => true, 'is_confirmed' => true]
-        );
-
-        $luponPosition = Position::firstOrCreate(
-            ['code' => 'lupon_member'],
-            ['name' => 'Lupon Member / Conciliator', 'sort_order' => 3, 'is_signatory_default' => false, 'is_confirmed' => true]
-        );
-
-        $tanodPosition = Position::firstOrCreate(
-            ['code' => 'barangay_tanod'],
-            ['name' => 'Barangay Tanod / Peace Officer', 'sort_order' => 4, 'is_signatory_default' => false, 'is_confirmed' => true]
-        );
+        // 5. Personnel Records linked to Position and User accounts
+        $pbPosition = Position::where('code', 'punong_barangay')->first();
+        $secPosition = Position::where('code', 'barangay_secretary')->first();
+        $luponPosition = Position::where('code', 'lupon_member')->first();
+        $tanodPosition = Position::where('code', 'barangay_tanod')->first();
+        $kagawadPosition = Position::where('code', 'kagawad_peace_order')->first();
 
         $pbPersonnel = Personnel::updateOrCreate(
-            ['position_id' => $pbPosition->id, 'full_name' => 'Hon. Eduardo V. Alvarez'],
+            ['full_name' => 'Hon. Eduardo V. Alvarez'],
             [
+                'position_id' => $pbPosition?->id,
                 'user_id' => $admin->id,
                 'contact_number' => '0917-111-2233',
                 'email' => 'admin@calarian.gov.ph',
@@ -195,11 +204,12 @@ class DemoDataSeeder extends Seeder
         );
 
         $secPersonnel = Personnel::updateOrCreate(
-            ['position_id' => $secPosition->id, 'full_name' => 'Maria Clara Delos Santos'],
+            ['full_name' => 'Maria Clara Delos Santos'],
             [
-                'user_id' => $staff->id,
+                'position_id' => $secPosition?->id,
+                'user_id' => $secretary->id,
                 'contact_number' => '0918-222-3344',
-                'email' => 'staff@calarian.gov.ph',
+                'email' => 'secretary@calarian.gov.ph',
                 'term_start' => now()->subYears(2)->toDateString(),
                 'term_end' => now()->addYear()->toDateString(),
                 'is_signatory' => true,
@@ -208,10 +218,12 @@ class DemoDataSeeder extends Seeder
         );
 
         $tanodPersonnel = Personnel::updateOrCreate(
-            ['position_id' => $tanodPosition->id, 'full_name' => 'Rogelio B. Gutierrez'],
+            ['full_name' => 'Rogelio B. Gutierrez'],
             [
+                'position_id' => $tanodPosition?->id,
+                'user_id' => $staff->id,
                 'contact_number' => '0919-333-4455',
-                'email' => 'tanod.gutierrez@calarian.gov.ph',
+                'email' => 'staff@calarian.gov.ph',
                 'term_start' => now()->subYear()->toDateString(),
                 'term_end' => now()->addYear()->toDateString(),
                 'is_signatory' => false,
@@ -220,8 +232,9 @@ class DemoDataSeeder extends Seeder
         );
 
         $luponPersonnel = Personnel::updateOrCreate(
-            ['position_id' => $luponPosition->id, 'full_name' => 'Juana Reyes'],
+            ['full_name' => 'Juana Reyes'],
             [
+                'position_id' => $luponPosition?->id,
                 'user_id' => $encoder->id,
                 'contact_number' => '0919-444-5566',
                 'email' => 'clerk@calarian.gov.ph',
@@ -233,8 +246,9 @@ class DemoDataSeeder extends Seeder
         );
 
         $pangkatPersonnel = Personnel::updateOrCreate(
-            ['position_id' => $luponPosition->id, 'full_name' => 'Hon. Alberto C. Mendoza (Pangkat Chairman)'],
+            ['full_name' => 'Hon. Alberto C. Mendoza (Pangkat Chairman)'],
             [
+                'position_id' => $luponPosition?->id,
                 'contact_number' => '0919-777-8899',
                 'email' => 'pangkat.mendoza@calarian.gov.ph',
                 'term_start' => now()->subYear()->toDateString(),
@@ -244,9 +258,41 @@ class DemoDataSeeder extends Seeder
             ]
         );
 
-        // 6. Demo Cases
+        if ($kagawadPosition) {
+            Personnel::updateOrCreate(
+                ['full_name' => 'Hon. Antonio S. Luna (Kagawad Peace & Order)'],
+                [
+                    'position_id' => $kagawadPosition->id,
+                    'user_id' => $reviewer->id,
+                    'contact_number' => '0919-888-9900',
+                    'email' => 'reviewer@calarian.gov.ph',
+                    'term_start' => now()->subYear()->toDateString(),
+                    'term_end' => now()->addYear()->toDateString(),
+                    'is_signatory' => false,
+                    'is_active' => true,
+                ]
+            );
+        }
+
+        // 6. Demo Cases & Number Sequences
         $purok = Purok::first();
         $purokId = $purok?->id;
+
+        $case1Number = sprintf('CASE-%04d-00001', $currentYear);
+        $case2Number = sprintf('CASE-%04d-00002', $currentYear);
+        $case3Number = sprintf('CASE-%04d-00003', $currentYear);
+        $case4Number = sprintf('CASE-%04d-00004', $currentYear);
+        $blotterNumber = sprintf('BLOT-%04d-00001', $currentYear);
+
+        // Advance sequence counters so subsequent created cases do not collide
+        NumberSequence::updateOrCreate(
+            ['type' => 'case', 'fiscal_year_id' => $fiscalYear->id],
+            ['last_number' => 4]
+        );
+        NumberSequence::updateOrCreate(
+            ['type' => 'blotter', 'fiscal_year_id' => $fiscalYear->id],
+            ['last_number' => 1]
+        );
 
         // Case 1: Filed (Boundary Dispute)
         $caseTypeBoundary = CaseType::where('slug', 'boundary_dispute')->first();
@@ -274,10 +320,11 @@ class DemoDataSeeder extends Seeder
         );
 
         $case1 = BarangayCase::updateOrCreate(
-            ['case_number' => 'CASE-2026-00001'],
+            ['case_number' => $case1Number],
             [
                 'fiscal_year_id' => $fiscalYear->id,
                 'case_type_id' => $caseTypeBoundary?->id,
+                'record_type' => 'complaint',
                 'source' => 'direct',
                 'title' => 'Dela Cruz vs. Penduko - Boundary Fence Encroachment',
                 'narrative' => 'Complainant alleges respondent extended hollow-block boundary fence approximately 0.5 meters into complainant lot without prior survey.',
@@ -308,10 +355,10 @@ class DemoDataSeeder extends Seeder
         // Case 2: In Mediation with Summons and Hearing (Noise Disturbance)
         $caseTypeNoise = CaseType::where('slug', 'noise_disturbance')->first();
         $partyComplainant2 = Party::firstOrCreate(
-            ['full_name' => 'Corazon A. Ramos'],
+            ['full_name' => 'Maria Theresa Santos'],
             [
-                'contact_number' => '0917-555-0201',
-                'address_line' => '45 Jasmin Lane, Purok 2',
+                'contact_number' => '0918-555-0201',
+                'address_line' => '45 Jasmin St., Purok 1',
                 'home_barangay' => 'Calarian',
                 'home_city' => 'Zamboanga City',
                 'residency_status' => 'resident',
@@ -319,10 +366,10 @@ class DemoDataSeeder extends Seeder
             ]
         );
         $partyRespondent2 = Party::firstOrCreate(
-            ['full_name' => 'Danilo B. Bautista'],
+            ['full_name' => 'Danilo R. Bautista'],
             [
-                'contact_number' => '0917-555-0202',
-                'address_line' => '47 Jasmin Lane, Purok 2',
+                'contact_number' => '0918-555-0202',
+                'address_line' => '47 Jasmin St., Purok 1',
                 'home_barangay' => 'Calarian',
                 'home_city' => 'Zamboanga City',
                 'residency_status' => 'resident',
@@ -331,18 +378,17 @@ class DemoDataSeeder extends Seeder
         );
 
         $case2 = BarangayCase::updateOrCreate(
-            ['case_number' => 'CASE-2026-00002'],
+            ['case_number' => $case2Number],
             [
                 'fiscal_year_id' => $fiscalYear->id,
                 'case_type_id' => $caseTypeNoise?->id,
                 'record_type' => 'complaint',
                 'source' => 'direct',
-                'title' => 'Ramos vs. Bautista - Excessive Late Night Videoke',
-                'narrative' => 'Respondent repeatedly operates commercial sound amplification and videoke past 10:00 PM on weeknights despite neighborhood reminders.',
-                'filed_on' => now()->subDays(14)->toDateString(),
-                'complaint_started_on' => now()->subDays(14)->toDateString(),
-                'incident_date' => now()->subDays(16)->toDateString(),
-                'incident_location' => 'Jasmin Lane, Purok 2, Calarian',
+                'title' => 'Santos vs. Bautista - Excessive Videoke Noise Disturbance',
+                'narrative' => 'Complainant reports respondent operates commercial-grade videoke past 10:00 PM on weeknights causing sleep disruption and neighborhood unrest.',
+                'filed_on' => now()->subDays(12)->toDateString(),
+                'incident_date' => now()->subDays(14)->toDateString(),
+                'incident_location' => 'Jasmin Street, Purok 1, Calarian',
                 'purok_id' => $purokId,
                 'status' => CaseStatus::IN_MEDIATION,
                 'encoded_by' => $encoder->id,
@@ -364,14 +410,14 @@ class DemoDataSeeder extends Seeder
             ['case_id' => $case2->id, 'sequence_no' => 1],
             [
                 'respondent_case_party_id' => $casePartyRespondent2->id,
-                'summons_number' => 'SUM-2026-0001',
+                'summons_number' => sprintf('SUM-%04d-0001', $currentYear),
                 'issued_on' => now()->subDays(10)->toDateString(),
                 'issued_by' => $staff->id,
                 'hearing_at' => now()->addDays(2)->setTime(10, 0),
                 'venue' => 'Barangay Hall Session Hall, Calarian',
                 'served_by_personnel_id' => $tanodPersonnel->id,
                 'served_on' => now()->subDays(9)->toDateString(),
-                'service_result' => 'served_personal',
+                'service_result' => 'received',
                 'remarks' => 'Personally received and signed by respondent Danilo Bautista.',
             ]
         );
@@ -390,10 +436,10 @@ class DemoDataSeeder extends Seeder
         // Case 3: Settled (Debt Claim)
         $caseTypeDebt = CaseType::where('slug', 'debt_claim')->first();
         $partyComplainant3 = Party::firstOrCreate(
-            ['full_name' => 'Roberto T. Gomez'],
+            ['full_name' => 'Elena G. Mendoza'],
             [
-                'contact_number' => '0917-555-0301',
-                'address_line' => '88 Ilang-Ilang Road, Purok 3',
+                'contact_number' => '0919-555-0301',
+                'address_line' => '78 Rosas St., Purok 1',
                 'home_barangay' => 'Calarian',
                 'home_city' => 'Zamboanga City',
                 'residency_status' => 'resident',
@@ -401,10 +447,10 @@ class DemoDataSeeder extends Seeder
             ]
         );
         $partyRespondent3 = Party::firstOrCreate(
-            ['full_name' => 'Carmelita D. Flores'],
+            ['full_name' => 'Roberto K. Tan'],
             [
-                'contact_number' => '0917-555-0302',
-                'address_line' => '90 Ilang-Ilang Road, Purok 3',
+                'contact_number' => '0919-555-0302',
+                'address_line' => '82 Rosas St., Purok 1',
                 'home_barangay' => 'Calarian',
                 'home_city' => 'Zamboanga City',
                 'residency_status' => 'resident',
@@ -413,23 +459,24 @@ class DemoDataSeeder extends Seeder
         );
 
         $case3 = BarangayCase::updateOrCreate(
-            ['case_number' => 'CASE-2026-00003'],
+            ['case_number' => $case3Number],
             [
                 'fiscal_year_id' => $fiscalYear->id,
                 'case_type_id' => $caseTypeDebt?->id,
+                'record_type' => 'complaint',
                 'source' => 'direct',
-                'title' => 'Gomez vs. Flores - Unpaid Sari-Sari Store Merchandise Credit',
-                'narrative' => 'Collection of PHP 8,500 for grocery store credit incurred between August and October.',
+                'title' => 'Mendoza vs. Tan - Unpaid Sari-sari Store Micro-loan',
+                'narrative' => 'Complainant filed claim for unpaid balance of PHP 15,000 for sari-sari store merchandise loaned over a 4-month period.',
                 'filed_on' => now()->subDays(25)->toDateString(),
-                'incident_date' => now()->subDays(30)->toDateString(),
-                'incident_location' => 'Purok 3 Commercial Stalls',
+                'incident_date' => now()->subDays(60)->toDateString(),
+                'incident_location' => 'Rosas Street, Purok 1, Calarian',
                 'purok_id' => $purokId,
                 'status' => CaseStatus::SETTLED,
+                'settlement_amount' => 15000.00,
+                'settled_on' => now()->subDays(5)->toDateString(),
+                'outcome_note' => 'Amicable settlement reached. Respondent agreed to 3 monthly payments of PHP 5,000 beginning end of month.',
                 'encoded_by' => $encoder->id,
                 'assigned_to' => $staff->id,
-                'settled_on' => now()->subDays(3)->toDateString(),
-                'settlement_terms' => 'Respondent agreed to pay PHP 4,250 on the 15th and PHP 4,250 on the 30th of next month.',
-                'outcome_note' => 'Amicable settlement signed and attested by Punong Barangay.',
                 'is_confidential' => false,
             ]
         );
@@ -442,14 +489,21 @@ class DemoDataSeeder extends Seeder
             ['case_id' => $case3->id, 'party_id' => $partyRespondent3->id],
             ['role' => 'respondent', 'residency_at_filing' => 'resident']
         );
+        CaseStatusLog::firstOrCreate(
+            ['case_id' => $case3->id, 'to_status' => CaseStatus::SETTLED],
+            ['from_status' => CaseStatus::IN_MEDIATION, 'user_id' => $staff->id, 'note' => 'Formal settlement agreement signed before Lupon Chairman.']
+        );
 
-        // Case 4: Escalated (Physical Altercation / CFA)
+        // Case 4: Escalated to Court (Physical Injury)
         $caseTypeAltercation = CaseType::where('slug', 'altercation')->first();
+        $destinationCourt = EscalationDestination::where('code', 'mtcc_branch_1')->first()
+            ?? EscalationDestination::first();
+
         $partyComplainant4 = Party::firstOrCreate(
-            ['full_name' => 'Arnel P. Mercado'],
+            ['full_name' => 'Ferdinand A. Castro'],
             [
-                'contact_number' => '0917-555-0401',
-                'address_line' => '12 Rosal St., Purok 4',
+                'contact_number' => '0920-555-0401',
+                'address_line' => '12 Orchids Lane, Purok 1',
                 'home_barangay' => 'Calarian',
                 'home_city' => 'Zamboanga City',
                 'residency_status' => 'resident',
@@ -457,10 +511,10 @@ class DemoDataSeeder extends Seeder
             ]
         );
         $partyRespondent4 = Party::firstOrCreate(
-            ['full_name' => 'Fernando C. Aquino'],
+            ['full_name' => 'Alexander B. Ramos'],
             [
-                'contact_number' => '0917-555-0402',
-                'address_line' => '14 Rosal St., Purok 4',
+                'contact_number' => '0920-555-0402',
+                'address_line' => '15 Orchids Lane, Purok 1',
                 'home_barangay' => 'Calarian',
                 'home_city' => 'Zamboanga City',
                 'residency_status' => 'resident',
@@ -469,21 +523,22 @@ class DemoDataSeeder extends Seeder
         );
 
         $case4 = BarangayCase::updateOrCreate(
-            ['case_number' => 'CASE-2026-00004'],
+            ['case_number' => $case4Number],
             [
                 'fiscal_year_id' => $fiscalYear->id,
                 'case_type_id' => $caseTypeAltercation?->id,
+                'record_type' => 'complaint',
                 'source' => 'direct',
-                'title' => 'Mercado vs. Aquino - Physical Altercation and Property Damage',
-                'narrative' => 'Dispute over vehicle driveway blockage escalated into physical altercation and broken vehicle tail light. Respondent failed to appear after 3 valid summonses.',
+                'title' => 'Castro vs. Ramos - Slander by Deed and Scuffle',
+                'narrative' => 'Heated altercation during purok meeting resulting in minor physical confrontation. Mediation efforts failed due to repeated non-appearance.',
                 'filed_on' => now()->subDays(40)->toDateString(),
                 'incident_date' => now()->subDays(45)->toDateString(),
-                'incident_location' => 'Rosal Street, Purok 4',
+                'incident_location' => 'Orchids Lane, Purok 1, Calarian',
                 'purok_id' => $purokId,
                 'status' => CaseStatus::ESCALATED,
+                'outcome_note' => 'Certification to File Action (CFA) issued following 3 failed conciliation sessions.',
                 'encoded_by' => $encoder->id,
                 'assigned_to' => $staff->id,
-                'outcome_note' => 'Certificate to File Action (CFA) issued due to respondent repeated non-appearance.',
                 'is_confidential' => false,
             ]
         );
@@ -492,31 +547,34 @@ class DemoDataSeeder extends Seeder
             ['case_id' => $case4->id, 'party_id' => $partyComplainant4->id],
             ['role' => 'complainant', 'residency_at_filing' => 'resident']
         );
-        $casePartyRespondent4 = CaseParty::updateOrCreate(
+        CaseParty::updateOrCreate(
             ['case_id' => $case4->id, 'party_id' => $partyRespondent4->id],
             ['role' => 'respondent', 'residency_at_filing' => 'resident']
         );
 
-        $mtcc = EscalationDestination::where('name', 'like', '%Municipal Trial Court%')->first();
-        if ($mtcc) {
+        if ($destinationCourt) {
+            $complainantCaseParty = CaseParty::where('case_id', $case4->id)->where('role', 'complainant')->first();
             CaseEscalation::updateOrCreate(
                 ['case_id' => $case4->id],
                 [
-                    'escalation_destination_id' => $mtcc->id,
+                    'escalation_destination_id' => $destinationCourt->id,
+                    'requested_by_case_party_id' => $complainantCaseParty?->id,
+                    'requested_on' => now()->subDays(2)->toDateString(),
+                    'reason' => 'Failure of conciliation: respondent failed to appear across 3 scheduled sessions without valid excuse.',
+                    'escalated_at' => now()->subDays(2),
                     'escalated_by' => $staff->id,
                     'decided_by_personnel_id' => $pbPersonnel->id,
-                    'reason' => 'Respondent failed to appear for 3 scheduled hearings despite personal service of summons. Certificate to File Action issued.',
-                    'summons_count_at_time' => 3,
-                    'escalated_at' => now()->subDays(2),
+                    'signed_by_personnel_id' => $pbPersonnel->id,
+                    'cfa_number' => sprintf('CFA-%04d-0001', $currentYear),
                 ]
             );
         }
 
-        // Case 5: Blotter Record (Incident Documentation)
+        // Case 5: Blotter Entry (Lost IDs)
         $partyBlotter = Party::firstOrCreate(
-            ['full_name' => 'Elena S. Ramos'],
+            ['full_name' => 'Luzviminda O. Santos'],
             [
-                'contact_number' => '0917-555-0501',
+                'contact_number' => '0921-555-0501',
                 'address_line' => '55 Bougainvillea St., Purok 1',
                 'home_barangay' => 'Calarian',
                 'home_city' => 'Zamboanga City',
@@ -526,7 +584,7 @@ class DemoDataSeeder extends Seeder
         );
 
         $case5 = BarangayCase::updateOrCreate(
-            ['case_number' => 'BLOT-2026-00001'],
+            ['case_number' => $blotterNumber],
             [
                 'fiscal_year_id' => $fiscalYear->id,
                 'case_type_id' => $caseTypeNoise?->id,
@@ -550,5 +608,8 @@ class DemoDataSeeder extends Seeder
             ['case_id' => $case5->id, 'party_id' => $partyBlotter->id],
             ['role' => 'complainant', 'residency_at_filing' => 'resident']
         );
+
+        // 7. Seed demo resident reports (via DemoReportSeeder)
+        $this->call(DemoReportSeeder::class);
     }
 }

@@ -9,7 +9,7 @@ Testing standards, CLI commands, test suite organization, and the client demonst
 Tests execute in an isolated SQLite `:memory:` database with dummy mail drivers and mocked Gemini API clients.
 
 ```sh
-# Run entire test suite (184 passing tests)
+# Run entire test suite (288 tests, 1,955 assertions as of 2026-11-24)
 php artisan test
 
 # Run a specific feature test file
@@ -64,14 +64,15 @@ The test suite extends `Tests\TestCase` and is organized into functional feature
 | `tests/Feature/GeminiExtractionTest.php` | Structured Gemini JSON extraction, prompt injection defense, emergency flag detection, and API failure fallbacks. |
 | `tests/Feature/AdminSettingsTest.php` | Role authorization gates, category question builder updates, priority weight persistence, and audit logging. |
 
-### Planned Workstream Test Suites
+### Implemented Workstream Feature Test Suites
 - `tests/Feature/Setup/SetupWizardTest.php` (WS1): Complete 7-step wizard, resume on step, admin creation, fiscal year activation.
 - `tests/Unit/WorkingDaysTest.php` (WS1/Phase 0.5): Weekend skips, holiday exclusions from `calendar.holidays`, deadline boundaries.
-- `tests/Feature/People/SignatoryResolverTest.php` (WS2): Resolves document signers by date, position, and case Pangkat Chairman.
-- `tests/Feature/Cases/CaseIntakeAndDuplicatesTest.php` (WS3): Blotter vs complaint, trimmed party form, case duplicate detection, party merging.
-- `tests/Feature/CaseActions/DeadlinesAndSummonsTest.php` (WS4): 15-working-day mediation clock, summons without limit, settlement agreement, CFA generation.
-- `tests/Feature/Agency/AgencyPortalWorkflowTest.php` (WS5): Registration with ID/letter upload, Secretary approval, scoped referral visibility, attachments on private disk.
+- `tests/Feature/People/PersonnelAndSignatoriesTest.php` (WS2): Resolves document signers by date, position, and case Pangkat Chairman.
+- `tests/Feature/Cases/CaseDocketAndManagementTest.php` (WS3): Blotter vs complaint, trimmed party form, case duplicate detection, party merging.
+- `tests/Feature/CaseActions/HearingTest.php` & `SummonsLifecycleTest.php` (WS4): 15-working-day mediation clock, summons without limit, settlement agreement, CFA generation.
+- `tests/Feature/Agency/AgencyWorkflowTest.php` (WS5): Registration with ID/letter upload, Secretary approval, scoped referral visibility, attachments on private disk.
 - `tests/Feature/Imports/LegacyImportTest.php` (WS6): Sample 100-row Excel import, mapping preview, conflict detection, batch rollback.
+- `tests/Feature/Auth/UserRolePositionReworkTest.php`: Canonical role validation, `personnel` role migration, seeder idempotency, confidential case isolation.
 
 ---
 

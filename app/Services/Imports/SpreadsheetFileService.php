@@ -413,7 +413,8 @@ class SpreadsheetFileService
             foreach ($reader->getSheetIterator() as $sheet) {
                 foreach ($sheet->getRowIterator() as $row) {
                     $cells = [];
-                    foreach ($row->getCells() as $cell) {
+                    $rowCells = method_exists($row, 'getCells') ? $row->getCells() : $row->cells;
+                    foreach ($rowCells as $cell) {
                         $val = $cell->getValue();
                         if ($val instanceof \DateTimeInterface) {
                             $cells[] = $val->format('Y-m-d');

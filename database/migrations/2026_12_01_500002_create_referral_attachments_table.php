@@ -11,14 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('referral_attachments', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('referral_id')->constrained('referrals')->cascadeOnDelete();
-            $table->string('label');
-            $table->string('path');
-            $table->foreignId('uploaded_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->timestamps();
-        });
+        if (! Schema::hasTable('referral_attachments')) {
+            Schema::create('referral_attachments', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('referral_id')->constrained('referrals')->cascadeOnDelete();
+                $table->string('label');
+                $table->string('path');
+                $table->foreignId('uploaded_by')->nullable()->constrained('users')->nullOnDelete();
+                $table->timestamps();
+            });
+        }
     }
 
     /**

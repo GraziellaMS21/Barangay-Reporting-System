@@ -1,103 +1,61 @@
 # Implementation Roadmap & Pending Tasks
 
-Ordered, outcome-driven tasks to bring the existing codebase into alignment with the canonical target design in [**`docs/WORKFLOW.md`**](file:///C:/githubFiles/Barangay-Reporting-System-1/docs/WORKFLOW.md) and [**`docs/REVISION_2.md`**](file:///C:/githubFiles/Barangay-Reporting-System-1/docs/REVISION_2.md).
-
-> [!IMPORTANT]
-> **Execution Rule**: Execute tasks in this exact numerical sequence. Do not combine tasks into a single unreviewed commit. Verify with tests after each step.
+Active, outcome-driven tasks for **Barangay-Reporting-System-1**.
 
 ---
 
-## Task 1: Remove `on_hold` Status [Completed]
-- **Status**: Completed (2026-11-19)
-- **Goal**: Eliminate `on_hold` from the core state machine, representing "waiting on materials" as a progress update note under `in_progress`.
-- **Verification**: `./vendor/bin/pint --test` passes, `ReportProgressUpdateTest` passes (5 tests, 48 assertions), and `on_hold` is completely absent from active status sets.
+## 1. Summary of Completed Milestones
+
+All foundation and core functional modules have been implemented and verified on the `dev` integration branch (288 tests, 1,955 assertions, 0 failures, 100% green):
+
+- [x] **Tasks 1–6: Core Lifecycle & Phase 0 Foundation**: Canonical 12 report statuses, `no_action` with mandatory reason codes, `ReportStatusService::canTransition()`, recovery transitions (`merged -> under_review`), 22 foundation tables, and core services.
+- [x] **Phase 0.5: Foundation Alignment**: Schema alignment for Katarungang Pambarangay cases (working days engine via `App\Support\WorkingDays`, CFA numbering, blotter record type, and 3-day referral follow-up).
+- [x] **WS1: Setup, Fiscal Years & Settings**: 7-step onboarding wizard (`/setup`), fiscal year lifecycle (`active`, `closed`, `locked`), numbering configuration (`{MM}` token), calendar holidays, automated backups (`app:backup`), and multi-year global search.
+- [x] **WS2: People, Access & Reports Center**: Official personnel directory, positions, signatory matrix (`SignatoryResolver`), 20 permission slugs, 4 presets, and official DILG compliance reports (`/admin/reports-center`).
+- [x] **WS3: Case Intake & Parties**: Direct dispute docketing (`record_type`: blotter vs complaint), party directory, residency verification, duplicate party warnings, and party merge (`/admin/parties/{id}/merge`).
+- [x] **WS4: Summons, Hearings & Deadlines**: Sequential summons tracking, working-day statutory deadlines (15-day mediation + 15-day conciliation), hearings scheduler, amicable settlement recording, and CFA printables.
+- [x] **WS5: Agency Portal & Referrals**: Partner agency self-registration, admin verification, isolated Agency Portal (`/agency/referrals`), referral case attachments on private storage, and 3-day follow-up tracking.
+- [x] **WS6 (Stretch): Legacy File Import**: Ingestion wizard for historical records (last 4 years) from CSV/Excel without AI, interactive column mapping, chunked commit, and batch rollback (`/admin/imports`).
+- [x] **Users, Roles, Positions & Seeders Rework**: Canonical access tiers (`admin`, `staff`, `agency` via `App\Support\UserRole`), `User::position()` relation via `Personnel`, production reference data isolation (`RequiredDataSeeder` with 0 users/reports), and clean demo dataset (`DemoDataSeeder`).
 
 ---
 
-## Task 2: Replace `out_of_scope` & `closed` with `no_action` and Reason Codes [Completed]
-- **Status**: Completed (2026-11-19)
-- **Goal**: Unify non-actionable end states into `no_action` with mandatory reason codes and data migration.
-- **Verification**: Zero occurrences of `out_of_scope` or `closed` remain in status sets/logic, `./vendor/bin/pint --test` passes, and all 60 feature tests pass.
+## 2. Active Pending Tasks
 
----
+### Task 1: Merge `dev` Branch into `main` (Release PR)
+- **Goal**: Bring `main` (currently at Phase 0/WS1) up to parity with `dev` which contains WS1 through WS6 and the Users/Roles rework.
+- **Scope**: Perform release merge or pull request from `dev` into `main`. Ensure CI/CD passes, Pint is clean, and 288 tests are green.
 
-## Task 3: Add Public `canTransition()` Method to `ReportStatusService` [Completed]
-- **Status**: Completed (2026-11-19)
-- **Goal**: Provide a clean public helper method to validate state transitions before invoking database mutations.
-- **Verification**: `./vendor/bin/pint --test` passes, unit tests pass, and `canTransition()` is available across the system.
+### Task 2: Staff Review Page Redesign (Review Workspace)
+- **Goal**: Streamline the staff review workspace to align with the status-to-action matrix in `docs/WORKFLOW.md` § 11.
+- **Scope**:
+  - **Status-Driven Action Panel**: Display exactly one clear primary action per lifecycle status (e.g. `Confirm and route` on `submitted`, `Propose resolution` on `in_progress`), moving secondary/override actions into a contextual menu.
+  - **Unified Timeline**: Merge the **Activity Timeline** (`status_logs` + `info_requests`) and **Internal Notes** (`internal_notes`) into a single chronologically descending thread.
+  - **Comparison Matrix**: Ensure resident input vs. Gemini AI suggestion vs. final value comparison is instantly readable on a 375px viewport without side-by-side overflow.
 
----
+### Task 3: Staff Queue Redesign (Report Queue)
+- **Goal**: Re-architect `/admin/reports` for high operational throughput.
+- **Scope**:
+  - **Next Action Column**: Replace vague status columns with a clear, imperative "Next Action" indicator (e.g., *"Needs Clarification"*, *"Ready to Route"*, *"Resolution Awaiting Confirmation"*).
+  - **Lifecycle-Based Tabs**: Filter queue into intuitive operational tabs (`Needs Action`, `In Progress`, `Referred`, `Archived`).
+  - **Emergencies Pinned**: Ensure emergency-flagged incidents always sort to the absolute top of every tab with high-contrast red alert styling.
+  - **Queue Columns**: Remove unnecessary reporter contact column (respecting privacy and screen width); replace with Purok badge, Category chip, and relative age timer.
 
-## Task 4: Implement New Recovery & Direct Transitions [Completed]
-- **Status**: Completed (2026-11-19)
-- **Goal**: Implement the approved edge-case transitions from Phase B requirements (`merged -> under_review`, `emergency_flagged -> in_progress`, `no_action -> in_progress`, and `no_action -> reopened`).
-- **Verification**: `./vendor/bin/pint --test` passes and all 67 unit and feature tests pass.
+### Task 4: Resident Submission Form Refinement
+- **Goal**: Maximize citizen submission completion rate while preventing priority score distortion.
+- **Scope**:
+  - **Dynamic Category Questions**: Keep dynamic questions strictly optional (`required: false`) with a maximum of 2 observable questions per category.
+  - **Unselected Defaults**: Ensure situational toggles under "More details" (`is_ongoing`, `is_recurring`) default to unset (`""`), preventing pre-selected "No" answers from unintentionally depressing priority scores.
+  - **Observable Guidance**: Tailor situational placeholders per category (e.g. Streetlight: *"Which pole or nearest landmark is unlit?"*).
 
----
+### Task 5: Academic Thesis Documentation Alignment
+- **Goal**: Sync physical capstone deliverables with the revised software architecture.
+- **Scope**:
+  - Apply the requirement updates specified in [**`docs/ACADEMIC_DOCS_UPDATE.md`**](file:///c:/githubFiles/Barangay-Reporting-System-1/docs/ACADEMIC_DOCS_UPDATE.md) to the Requirements Blueprint (PDF) and Project Proposal (Word).
+  - Once verified against the academic submissions, delete `docs/ACADEMIC_DOCS_UPDATE.md`.
 
-## Task 5: End-to-End Verification of Code and Documentation [Completed]
-- **Status**: Completed (2026-11-19)
-- **Goal**: Ensure absolute parity between documentation and live codebase.
-- **Done When**: Test suite is 100% green, Pint is clean, and docs in `docs/` reflect the exact code state.
-
----
-
-## Task 6: Phase 0 — Foundation & Infrastructure [Completed]
-- **Status**: Completed (2026-11-22)
-- **Branch**: `feature/phase0-foundation` (merged to `main`)
-- **Goal**: Implement complete foundation layer across schema, services, middleware, route stubs, navigation, shared UI components, and test harness without building feature screens beyond stubs.
-- **Verified Deliverables**:
-  1. [x] **Dependencies**: `barryvdh/laravel-dompdf` (^3.1), `openspout/openspout` (^5.15).
-  2. [x] **Database Migrations**: 22 foundation tables and altered schema (`settings`, `response_templates`, `referral_updates` reused).
-  3. [x] **Models & Factories**: 21 new Eloquent models (44 models total across app) with typed casts, relations, and factories; `HasConfirmation` and `BelongsToFiscalYear` concerns.
-  4. [x] **Core Services**: `SettingsService` (with `setting()` helper), `FiscalYearService`, `FiscalYearContext`, `FiscalYearGuard`, `NumberingService`, `PermissionService`, `AuditLogger`, `PersonnelService`, and initial stubs.
-  5. [x] **Middleware & Gates**: `SetupCompleted`, `CheckPermission`, `EnsurePasswordChanged`, `EnsureAgencyActive`, and updated `EnsureRole` with test helpers (`actingAsAdmin`, `actingAsStaff`, `actingAsEncoder`, `actingAsAgency`).
-  6. [x] **Routes & Controller Stubs**: 244 total registered routes snapshotted in `docs/ROUTES.snapshot.json` across 7 foundation route files.
-  7. [x] **Navigation & Shared UI Components**: `config/navigation.php`, updated `layouts/admin.blade.php`, `layouts/agency.blade.php`, `layouts/print.blade.php`, and 11 Blade components in `resources/views/components/ui/` with interactive showcase at `/admin/_ui`.
-  8. [x] **Seeders & Commands**: `RequiredDataSeeder` (idempotent, unconfirmed placeholders), `DemoDataSeeder` (active FY, realistic Calarian cases, demo accounts: `admin@calarian.gov.ph`, `staff@calarian.gov.ph`, `clerk@calarian.gov.ph`, `cswdo@zamboanga.gov.ph`), `app:empty`, and `app:demo`.
-  9. [x] **Configuration & Presets**: `config/features.php`, `config/documents.php`, `config/permission_presets.php` (presets `staff_full`, `case_encoder`, `reports_analyst`).
-  10. [x] **Verification**: All 184 tests pass (1,374 assertions), Pint is 100% clean.
-
----
-
-## Task 7: Phase 0.5 — Foundation Alignment (Lead) [Pending Execution]
-- **Status**: Ready to Start
-- **Branch**: `feature/phase0-5-alignment`
-- **Goal**: Align Phase 0 foundation code and schema with the Secretary's answers and decisions from `REVISION_2.md` before team workstreams branch.
-- **Sub-tasks**:
-  1. [ ] **Migrations (`2026_11_23_0002NN_`)**:
-     - `summons`: update `service_result` to string(20), map built values to `pending`, `received`, `refused`, `not_found`, `other` [A Q21, R10].
-     - `cases`: add `record_type string(20) default 'complaint'` (`blotter`, `complaint`) [A Q18]; `endorsed_to_pangkat_on date ?`; `conciliation_extension_days unsigned tinyint default 0` [A Q25]; `pangkat_chairman_personnel_id fk personnel ?` [A Q5]; `settlement_amount decimal(12,2) ?` [A Q24]; `complaint_started_on date ?` [P].
-     - `case_types`: add `is_confidential_default bool default false` [A Q7, C6]; `uses_kp_timeline bool default true` [P].
-     - `case_escalations`: add `requested_by_case_party_id fk case_parties ?` [A Q23]; `requested_on date ?`; `cfa_number string(60) ?`; `signed_by_personnel_id fk personnel ?` [A Q5].
-     - `escalation_destinations`: add `office_id fk offices ?` [R12].
-     - `referral_attachments` (new): `id`, `referral_id fk cascade`, `label str`, `path str` (private disk), `uploaded_by fk users ?`, timestamps [C7].
-  2. [ ] **Services & Helpers**:
-     - `NumberingService`: add `{MM}` token, type `blotter`, format validation, enforce fiscal year reset [C4, R7].
-     - `App\Support\WorkingDays`: calculate working days excluding weekends and `calendar.holidays` setting [C1, A Q25].
-     - `App\Support\CaseStatus`: add `IN_CONCILIATION = 'in_conciliation'` constant and update `all()` [5.1].
-     - `SummonsCounterService`: adjust contract to return info-only count (`limit => null`, `eligible => false`) [C1].
-     - `SignatoryResolver`: update signature to accept optional `?BarangayCase $case = null` [5.4].
-     - `config/permission_presets.php`: add `case_reviewer` preset [5.6].
-     - `config/features.php`: add `legacy_import => false`.
-     - Seed permission `imports.manage`.
-  3. [ ] **Tests & Fixtures**:
-     - Update referral follow-up tests in `tests/Feature/ReferralAndProofWorkflowTest.php` to reflect 3 days default [A Q12].
-     - Add unit tests for `WorkingDays` (weekends, holidays, boundaries).
-     - Add unit tests for numbering format `{MM}-{SEQ:3}-{YEAR}`.
-     - Update `DemoDataSeeder` with a Lupon member, a Pangkat Chairman, a blotter-only entry, and a case at day 14 of 15.
-
----
-
-## Upcoming Team Workstreams (Ready to Branch after Phase 0.5)
-
-All workstreams branch from `main` after Phase 0.5 merges, developing on isolated feature branches per `docs/TEAM_WORKSTREAMS.md`:
-
-| Workstream | Scope / Objective | Owner | Target Branch |
-| :--- | :--- | :--- | :--- |
-| **WS1: Setup, Fiscal Year & Settings** | 7-step wizard at `/setup`, fiscal year lifecycle UI, numbering config with `{MM}`, calendar holidays page, backups, global multi-year search, pending confirmation register. | Lead | `feature/ws1-setup` |
-| **WS2: People, Access & Reports Center** | Personnel directory, positions, signatories matrix, granular permissions with presets, DILG reports (yearly KP accomplishment, monthly case summary, purok-problem matrix) with print layout. | Member | `feature/ws2-people-reports` |
-| **WS3: Case Intake & Parties** | Case intake with blotter vs complaint selection, trimmed party form with residency verification, duplicate party & case warnings, expected party merge (`/admin/parties/{id}/merge`), canonical status matrix. | Member | `feature/ws3-cases` |
-| **WS4: Summons, Hearings & Deadlines** | Sequential summons without artificial limits, 15-working-day mediation/conciliation countdowns, hearings schedule, amicable settlement capture, CFA printables, complainant-led escalation. | Member | `feature/ws4-case-actions` |
-| **WS5: Agency Accounts & Referrals** | Outside agency registration with ID/letter upload, Secretary approval, agency portal inbox, referral progress updates, referral attachments on private disk, 3-day follow-up. | Member | `feature/ws5-agency` |
-| **WS6 (Stretch): Legacy File Import** | Import the last 4 record years of cases, blotter entries, and parties from Excel/CSV without AI, column mapping preview, chunked commit, batch rollback, blank downloadable template. | Member (WS2/WS5) | `feature/ws6-import` |
+### Task 6: Official Physical Forms & Templates Ingestion
+- **Goal**: Replace draft notice layouts and response templates with official barangay wording.
+- **Scope**:
+  - Receive the physical blank forms from the Barangay Secretary (Summons notice, CFA form, Amicable Settlement agreement, DILG annual report layout).
+  - Confirm pending items at `/admin/settings/pending` and update Blade print views to remove `<x-ui.draft-watermark>`.

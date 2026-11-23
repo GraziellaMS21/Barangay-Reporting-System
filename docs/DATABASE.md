@@ -573,7 +573,7 @@ This enables the 5-step interactive setup wizard (`/setup`) to audit, highlight,
 
 ## 5. Planned Schema Changes (Revision 2, not yet migrated)
 
-Applied by the lead as migrations `2026_11_23_0002NN_` before workstreams branch (`docs/TASKS.md` Task 7 / `REVISION_2.md` section 8.2), and by WS6 later.
+Applied by the lead as migrations `2026_11_23_0002NN_` before workstreams branch (`docs/TASKS.md` / `docs/DECISIONS.md`), and by WS6 later.
 
 | Table | Planned Column / Schema Change | Target Type & Rules | Task Alignment |
 | :--- | :--- | :--- | :--- |

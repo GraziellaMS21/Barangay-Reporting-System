@@ -2,7 +2,7 @@
 
 Exact changes needed in the two submitted documents so they match the revised system: **Requirements Blueprint** (PDF, 10 pages) and **Final Project Proposal Documentation** (Word). Written so a teammate or an AI assistant can apply them directly.
 
-All additions are labelled **Source: New (adviser feedback)** and are subject to the secretary's answers (see `PLACEHOLDERS.md`). Existing IDs are never renumbered; new IDs continue each sequence.
+All additions are labelled **Source: New (adviser feedback)** and are subject to the secretary's answers (see `docs/PROJECT.md` § 8). Existing IDs are never renumbered; new IDs continue each sequence.
 
 ---
 

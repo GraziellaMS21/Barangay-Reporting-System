@@ -25,10 +25,9 @@ class EnsureRole
         foreach ($roles as $roleGroup) {
             foreach (explode(',', $roleGroup) as $r) {
                 $r = trim($r);
-                if ($r === 'staff' || $r === 'personnel') {
-                    // role:staff admits staff, personnel, and admin, never agency
+                if ($r === 'staff') {
+                    // role:staff admits staff and admin, never agency
                     $allowedRoles[] = 'staff';
-                    $allowedRoles[] = 'personnel';
                     $allowedRoles[] = 'admin';
                 } else {
                     $allowedRoles[] = $r;

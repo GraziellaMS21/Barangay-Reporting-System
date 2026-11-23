@@ -39,7 +39,7 @@ class UserSettingsController extends Controller
         $attributes = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email:rfc', 'max:255', Rule::unique('users', 'email')],
-            'role' => ['required', Rule::in(['staff', 'personnel', 'admin'])],
+            'role' => ['required', Rule::in(['admin', 'staff', 'agency'])],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ], [
             'name.required' => 'Enter the staff member\'s name.',
@@ -62,7 +62,7 @@ class UserSettingsController extends Controller
         $attributes = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email:rfc', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
-            'role' => ['required', Rule::in(['staff', 'personnel', 'admin'])],
+            'role' => ['required', Rule::in(['admin', 'staff', 'agency'])],
             'is_active' => ['required', 'boolean'],
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
         ], [

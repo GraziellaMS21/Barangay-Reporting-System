@@ -215,7 +215,7 @@ class ReferralController extends Controller
         ];
 
         $staffUsers = User::query()
-            ->whereIn('role', ['admin', 'staff', 'personnel'])
+            ->whereIn('role', ['admin', 'staff'])
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name', 'role']);

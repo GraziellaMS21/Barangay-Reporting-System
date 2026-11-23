@@ -24,7 +24,7 @@
         $roleClass = 'secretary';
         $brandSubtitle = 'Secretary Portal';
         $dashboardRoute = route('admin.secretary');
-    } elseif ($currentUser?->role === 'personnel' || $positionName) {
+    } elseif ($positionName) {
         $roleLabel = $positionName ?: 'Personnel';
         $roleClass = 'personnel';
         $brandSubtitle = 'Personnel Portal';

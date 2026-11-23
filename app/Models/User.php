@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use App\Support\UserRole;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasOneThrough;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -50,31 +52,40 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function isAdmin(): bool
     {
-        return $this->role === 'admin';
+        return $this->role === UserRole::ADMIN;
     }
 
     public function isStaff(): bool
     {
-        return $this->role === 'staff' || $this->role === 'personnel' || $this->role === 'admin';
+        return $this->role === UserRole::STAFF || $this->role === UserRole::ADMIN;
     }
 
     public function isPersonnel(): bool
     {
-        return $this->role === 'personnel' || $this->role === 'staff' || $this->personnel()->exists();
+        return $this->role === UserRole::STAFF || $this->personnel()->exists();
     }
 
     public function isAgency(): bool
     {
-        return $this->role === 'agency';
+        return $this->role === UserRole::AGENCY;
+    }
+
+    public function hasPosition(string $code): bool
+    {
+        if ($this->relationLoaded('personnel') && $this->personnel?->relationLoaded('position')) {
+            return $this->personnel?->position?->code === $code;
+        }
+
+        if ($this->relationLoaded('position') && $this->position !== null) {
+            return $this->position->code === $code;
+        }
+
+        return $this->personnel()->whereHas('position', fn ($q) => $q->where('code', $code))->exists();
     }
 
     public function isSecretary(): bool
     {
-        if ($this->relationLoaded('personnel') && $this->personnel?->position?->code === 'barangay_secretary') {
-            return true;
-        }
-
-        if ($this->personnel()->whereHas('position', fn ($q) => $q->where('code', 'barangay_secretary'))->exists()) {
+        if ($this->hasPosition('barangay_secretary')) {
             return true;
         }
 
@@ -108,6 +119,18 @@ class User extends Authenticatable implements MustVerifyEmail
     public function personnel(): HasOne
     {
         return $this->hasOne(Personnel::class);
+    }
+
+    public function position(): HasOneThrough
+    {
+        return $this->hasOneThrough(
+            Position::class,
+            Personnel::class,
+            'user_id',
+            'id',
+            'id',
+            'position_id'
+        );
     }
 
     public function office(): BelongsTo

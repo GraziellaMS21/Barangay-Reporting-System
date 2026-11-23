@@ -96,7 +96,7 @@ class ReportController extends Controller
         $puroks = Purok::orderBy('name')->get();
         $categories = Category::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']);
         $staffUsers = User::query()
-            ->whereIn('role', ['admin', 'staff', 'personnel'])
+            ->whereIn('role', ['admin', 'staff'])
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name', 'role']);
@@ -389,7 +389,7 @@ class ReportController extends Controller
         }
 
         $staffUsers = User::query()
-            ->whereIn('role', ['admin', 'staff', 'personnel'])
+            ->whereIn('role', ['admin', 'staff'])
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name', 'role']);
@@ -604,12 +604,12 @@ class ReportController extends Controller
             'follow_up_owner_id' => [
                 'nullable',
                 'integer',
-                Rule::exists('users', 'id')->where(fn ($query) => $query->whereIn('role', ['admin', 'staff', 'personnel'])),
+                Rule::exists('users', 'id')->where(fn ($query) => $query->whereIn('role', ['admin', 'staff'])),
             ],
             'assigned_to' => [
                 'nullable',
                 'integer',
-                Rule::exists('users', 'id')->where(fn ($query) => $query->whereIn('role', ['admin', 'staff', 'personnel'])),
+                Rule::exists('users', 'id')->where(fn ($query) => $query->whereIn('role', ['admin', 'staff'])),
             ],
             'review_note' => ['nullable', 'string', 'max:1000'],
         ], [
@@ -829,7 +829,7 @@ class ReportController extends Controller
     public function unmerge(Request $request, Report $report, ReportStatusService $statusService): RedirectResponse
     {
         $reviewer = $request->user();
-        abort_unless($reviewer instanceof User && in_array($reviewer->role, ['admin', 'staff', 'personnel'], true), 403);
+        abort_unless($reviewer instanceof User && in_array($reviewer->role, ['admin', 'staff'], true), 403);
         abort_unless($report->status === ReportStatus::MERGED, 422, 'Only merged reports can be unmerged.');
 
         $validated = $request->validate([
@@ -982,7 +982,7 @@ class ReportController extends Controller
         $validated = $request->validate([
             'assigned_to' => [
                 'nullable',
-                Rule::exists('users', 'id')->where(fn ($q) => $q->whereIn('role', ['admin', 'staff', 'personnel'])),
+                Rule::exists('users', 'id')->where(fn ($q) => $q->whereIn('role', ['admin', 'staff'])),
             ],
         ]);
 
@@ -1287,7 +1287,7 @@ class ReportController extends Controller
         ReportStatusService $statusService
     ): RedirectResponse {
         $user = $request->user();
-        abort_unless($user && in_array($user->role, ['admin', 'staff', 'personnel'], true), 403);
+        abort_unless($user && in_array($user->role, ['admin', 'staff'], true), 403);
 
         $allowedReopen = [ReportStatus::RESOLVED, ReportStatus::NO_ACTION];
         abort_unless(in_array($report->status, $allowedReopen, true), 422);
@@ -1565,7 +1565,7 @@ class ReportController extends Controller
 
         $validated = $request->validate([
             'office_id' => ['nullable', 'exists:offices,id'],
-            'assigned_to' => ['nullable', Rule::exists('users', 'id')->where(fn ($q) => $q->whereIn('role', ['admin', 'staff', 'personnel']))],
+            'assigned_to' => ['nullable', Rule::exists('users', 'id')->where(fn ($q) => $q->whereIn('role', ['admin', 'staff']))],
             'review_note' => ['nullable', 'string', 'max:1000'],
         ]);
 

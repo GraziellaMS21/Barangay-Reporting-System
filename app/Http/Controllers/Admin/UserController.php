@@ -5,10 +5,14 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\People\SaveUserRequest;
 use App\Http\Requests\Admin\People\UpdateUserPermissionsRequest;
+use App\Models\AgencyRegistration;
+use App\Models\Office;
 use App\Models\Permission;
+use App\Models\Position;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\PermissionService;
+use App\Support\UserRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -52,10 +56,12 @@ class UserController extends Controller
     public function create(): View
     {
         return view('admin.users.form', [
-            'user' => new User(['role' => 'staff', 'is_active' => true, 'must_change_password' => true]),
+            'user' => new User(['role' => UserRole::STAFF, 'is_active' => true, 'must_change_password' => true]),
             'presets' => config('permission_presets.presets', []),
             'permissionGroups' => Permission::query()->orderBy('group')->orderBy('label')->get()->groupBy('group'),
             'selectedSlugs' => config('permission_presets.presets.staff_full.permissions', []),
+            'positions' => Position::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(),
+            'externalOffices' => Office::query()->where(fn ($q) => $q->where('is_external', true)->orWhere('type', 'external'))->where('is_active', true)->orderBy('name')->get(),
         ]);
     }
 
@@ -72,6 +78,7 @@ class UserController extends Controller
                 'email' => $validated['email'],
                 'password' => Hash::make($plainPassword),
                 'role' => $validated['role'],
+                'office_id' => $validated['role'] === UserRole::AGENCY ? ($validated['office_id'] ?? null) : null,
                 'is_active' => $request->has('is_active') ? $request->boolean('is_active') : true,
                 'email_verified_at' => now(),
                 'must_change_password' => $request->has('must_change_password')
@@ -79,12 +86,38 @@ class UserController extends Controller
                     : true,
             ]);
 
-            if ($created->role === 'staff') {
+            if ($created->role === UserRole::STAFF) {
                 if (! empty($validated['preset'])) {
                     $this->permissionService->applyPreset($created, $validated['preset']);
                 } elseif (isset($validated['permissions'])) {
                     $this->permissionService->sync($created, $validated['permissions']);
                 }
+            } elseif ($created->role === UserRole::AGENCY) {
+                AgencyRegistration::updateOrCreate(
+                    ['user_id' => $created->id],
+                    [
+                        'office_id' => $created->office_id,
+                        'agency_name_claimed' => $created->office?->name ?? 'Partner Agency',
+                        'position_title' => 'Agency Representative',
+                        'contact_number' => 'N/A',
+                        'id_document_path' => 'system/admin_created.pdf',
+                        'status' => 'approved',
+                        'is_office_admin' => true,
+                        'reviewed_by' => $request->user()?->id,
+                        'reviewed_at' => now(),
+                        'decision_note' => 'Account created by system administrator.',
+                    ]
+                );
+            }
+
+            if (! empty($validated['position_id']) && $created->role !== UserRole::AGENCY) {
+                $created->personnel()->create([
+                    'position_id' => $validated['position_id'],
+                    'full_name' => $created->name,
+                    'email' => $created->email,
+                    'term_start' => now()->toDateString(),
+                    'is_active' => true,
+                ]);
             }
 
             $this->audit->log($request->user(), 'user.created', $created, [], [
@@ -105,13 +138,15 @@ class UserController extends Controller
 
     public function edit(User $user): View
     {
-        $user->load('permissions');
+        $user->load(['permissions', 'personnel.position', 'office']);
 
         return view('admin.users.form', [
             'user' => $user,
             'presets' => config('permission_presets.presets', []),
             'permissionGroups' => Permission::query()->orderBy('group')->orderBy('label')->get()->groupBy('group'),
             'selectedSlugs' => $user->permissions->pluck('slug')->all(),
+            'positions' => Position::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(),
+            'externalOffices' => Office::query()->where(fn ($q) => $q->where('is_external', true)->orWhere('type', 'external'))->where('is_active', true)->orderBy('name')->get(),
         ]);
     }
 
@@ -122,9 +157,9 @@ class UserController extends Controller
         $newActive = $request->has('is_active') ? $request->boolean('is_active') : $user->is_active;
 
         // Guard against removing or deactivating the last active administrator
-        if ($user->role === 'admin' && ($newRole !== 'admin' || ! $newActive)) {
+        if ($user->role === UserRole::ADMIN && ($newRole !== UserRole::ADMIN || ! $newActive)) {
             $otherActiveAdmins = User::query()
-                ->where('role', 'admin')
+                ->where('role', UserRole::ADMIN)
                 ->where('is_active', true)
                 ->where('id', '!=', $user->id)
                 ->count();
@@ -148,6 +183,7 @@ class UserController extends Controller
                 'name' => $validated['name'],
                 'email' => $validated['email'],
                 'role' => $newRole,
+                'office_id' => $newRole === UserRole::AGENCY ? ($validated['office_id'] ?? null) : null,
                 'is_active' => $newActive,
             ];
 
@@ -160,11 +196,51 @@ class UserController extends Controller
 
             $user->update($updates);
 
-            if ($newRole === 'staff') {
+            if ($newRole === UserRole::STAFF) {
                 if (! empty($validated['preset'])) {
                     $this->permissionService->applyPreset($user, $validated['preset']);
                 } elseif ($request->has('permissions')) {
                     $this->permissionService->sync($user, $validated['permissions'] ?? []);
+                }
+            } elseif ($newRole === UserRole::AGENCY) {
+                AgencyRegistration::updateOrCreate(
+                    ['user_id' => $user->id],
+                    [
+                        'office_id' => $user->office_id,
+                        'agency_name_claimed' => $user->office?->name ?? 'Partner Agency',
+                        'position_title' => 'Agency Representative',
+                        'contact_number' => 'N/A',
+                        'id_document_path' => 'system/admin_created.pdf',
+                        'status' => 'approved',
+                        'is_office_admin' => true,
+                        'reviewed_by' => $request->user()?->id,
+                        'reviewed_at' => now(),
+                        'decision_note' => 'Account updated by system administrator.',
+                    ]
+                );
+            }
+
+            // Sync position via Personnel
+            if ($newRole === UserRole::AGENCY) {
+                if ($user->personnel) {
+                    $user->personnel->update(['position_id' => null]);
+                }
+            } else {
+                $posId = $validated['position_id'] ?? null;
+                if ($posId) {
+                    if ($user->personnel) {
+                        $user->personnel->update(['position_id' => $posId]);
+                    } else {
+                        $user->personnel()->create([
+                            'position_id' => $posId,
+                            'full_name' => $user->name,
+                            'email' => $user->email,
+                            'term_start' => now()->toDateString(),
+                            'is_active' => true,
+                        ]);
+                    }
+                } elseif (array_key_exists('position_id', $validated) && $user->personnel) {
+                    $user->personnel->update(['position_id' => null]);
                 }
             }
 

@@ -399,3 +399,24 @@ stateDiagram-v2
    - `NumberingService` resets sequence numbers to `001` at the commencement of each fiscal year.
    - Sequence uniqueness is scoped strictly to `(fiscal_year_id, type)`.
    - Imported historical records (WS6) retain their original docket numbers and do not consume active fiscal year sequences.
+
+---
+
+## 11. Staff Screens & Status-to-Action Mapping
+
+To ensure operational consistency across UI redesigns (queue filters, action panels, and review workspaces), staff actions are strictly bound to report lifecycle states:
+
+| Report Status | Staff's Operational Job | Primary Action | Secondary / Exception Actions |
+| :--- | :--- | :--- | :--- |
+| **`submitted`** | Initial intake & comparative triage (Resident vs. AI). | **Confirm and Route** (verifies category, urgency, office) | Ask reporter for info (`needs_info`), Flag emergency, Take no action (`no_action`), Mark duplicate (`merged`). |
+| **`under_review`** | In-depth triage, jurisdiction verification, and assignment. | **Route Internally** or **Prepare Referral** | Ask reporter for info, Take no action, Flag emergency, Mark duplicate. |
+| **`needs_info`** | Awaiting resident clarification response. | **Review Clarification** (resumes to `under_review`) | Re-route internally, Take no action with `resident_unreachable`, Re-ask info. |
+| **`routed`** | Formal assignment dispatch to Tanods / maintenance crew. | **Start Work** (transitions to `in_progress`) | Re-assign office or personnel, Prepare referral, Ask info, Take no action. |
+| **`in_progress`** | Active field inspection, repairs, or municipal coordination. | **Propose Resolution** (requires proof photos & notes) | Add progress milestone note (self-transition), Ask info, Refer upward, Take no action. |
+| **`awaiting_confirmation`** | Awaiting resident satisfaction rating or 14-day SLA expiry. | **Confirm Resolution** (transitions to `resolved`) | Reopen upon resident dispute (`reopened`), Resume work (`in_progress`). |
+| **`resolved`** | Archived completed incident record. | **View Resolution Dossier** | Reopen on recurrence or dispute (`reopened` or `in_progress`). |
+| **`reopened`** | Investigate unresolved or recurring failure. | **Resume Work** (transitions to `in_progress`) | Re-route internally, Ask info, Take no action with explanation. |
+| **`referred`** | Monitor external agency action and 3-day follow-up. | **Log Agency Update** (milestone or portal message) | Re-route internally (`routed`), Resolve upon agency fix (`resolved`), Take no action (`not_barangay_matter`). |
+| **`merged`** | Consolidated secondary duplicate incident. | **View Canonical Parent** | Staff-only recovery unmerge (`under_review`). |
+| **`no_action`** | Non-actionable report with mandatory reason code. | **View Reason & Justification** | Reopen/recover report (`in_progress` or `reopened`). |
+| **`emergency_flagged`** | High-priority safety coordination with 911 / CDRRMO. | **Dispatch Emergency Response** (`in_progress`) | Transfer to review (`under_review`), Conclude redirection (`no_action` with `emergency_redirected`). |

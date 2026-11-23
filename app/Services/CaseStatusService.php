@@ -11,7 +11,8 @@ use LogicException;
 class CaseStatusService
 {
     public function __construct(
-        protected AuditLogger $audit
+        protected AuditLogger $audit,
+        protected FiscalYearGuard $fiscalYearGuard
     ) {}
 
     /**
@@ -37,6 +38,8 @@ class CaseStatusService
      */
     public function transition(BarangayCase $case, string $to, string $note, ?User $by = null): BarangayCase
     {
+        $this->fiscalYearGuard->assertWritable($case);
+
         $from = $case->status;
         if (! $this->canTransition($from, $to)) {
             throw new LogicException("Cannot transition case from {$from} to {$to}.");

@@ -53,4 +53,9 @@ class CaseStatus
             self::WITHDRAWN => 'Withdrawn',
         ];
     }
+
+    public static function label(string $status): string
+    {
+        return self::labels()[$status] ?? ucfirst(str_replace('_', ' ', $status));
+    }
 }

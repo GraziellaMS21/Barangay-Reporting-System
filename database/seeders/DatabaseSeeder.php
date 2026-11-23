@@ -30,6 +30,7 @@ class DatabaseSeeder extends Seeder
             StaffSeeder::class,
             EngineSeeder::class,
             AdminSeeder::class,
+            Ws6ExtraSeeder::class,
         ]);
     }
 }

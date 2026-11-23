@@ -34,6 +34,7 @@ class RequiredDataSeeder extends Seeder
             ['slug' => 'cases.escalate', 'label' => 'Escalate Cases to Court/Agencies', 'group' => 'cases'],
             ['slug' => 'agencies.manage', 'label' => 'Manage Partner Agencies', 'group' => 'agencies'],
             ['slug' => 'referrals.manage', 'label' => 'Manage External Referrals', 'group' => 'referrals'],
+            ['slug' => 'imports.manage', 'label' => 'Manage Legacy File Imports', 'group' => 'imports'],
             ['slug' => 'dashboard.view', 'label' => 'View Dashboard Analytics', 'group' => 'dashboard'],
             ['slug' => 'audit.view', 'label' => 'View Audit Log', 'group' => 'audit'],
         ];

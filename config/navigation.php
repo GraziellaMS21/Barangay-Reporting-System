@@ -196,6 +196,13 @@ return [
                     'active_pattern' => 'admin.escalation-destinations.*',
                 ],
                 [
+                    'label' => 'Legacy Imports',
+                    'route' => 'admin.imports.index',
+                    'icon' => 'fa-solid fa-file-import',
+                    'permission' => 'imports.manage',
+                    'active_pattern' => 'admin.imports.*',
+                ],
+                [
                     'label' => 'Backups',
                     'route' => 'admin.backups.index',
                     'icon' => 'fa-solid fa-database',

@@ -2,11 +2,11 @@
 
 namespace Tests\Feature\Cases;
 
-use App\Models\AuditLog;
 use App\Models\BarangayCase;
 use App\Models\CaseType;
+use App\Models\Category;
 use App\Models\FiscalYear;
-use App\Models\Party;
+use App\Models\Permission;
 use App\Models\Purok;
 use App\Models\Report;
 use App\Models\User;
@@ -20,9 +20,13 @@ class CaseDocketAndManagementTest extends TestCase
     use RefreshDatabase;
 
     protected User $admin;
+
     protected User $staff;
+
     protected FiscalYear $fy;
+
     protected CaseType $caseType;
+
     protected Purok $purok;
 
     protected function setUp(): void
@@ -39,7 +43,7 @@ class CaseDocketAndManagementTest extends TestCase
         $this->staff = User::factory()->create(['role' => 'staff']);
 
         // Give staff cases permissions
-        $permissions = \App\Models\Permission::whereIn('slug', ['cases.view', 'cases.create', 'cases.edit'])->get();
+        $permissions = Permission::whereIn('slug', ['cases.view', 'cases.create', 'cases.edit'])->get();
         $this->staff->permissions()->sync($permissions);
 
         $this->caseType = CaseType::first() ?? CaseType::create(['name' => 'Boundary Dispute', 'slug' => 'boundary-dispute']);
@@ -203,7 +207,7 @@ class CaseDocketAndManagementTest extends TestCase
     {
         $this->actingAs($this->staff);
 
-        $category = \App\Models\Category::first() ?? \App\Models\Category::create(['name' => 'Disturbance', 'slug' => 'disturbance']);
+        $category = Category::first() ?? Category::create(['name' => 'Disturbance', 'slug' => 'disturbance']);
 
         $report = Report::create([
             'tracking_code' => 'BRG-123456',
@@ -338,7 +342,7 @@ class CaseDocketAndManagementTest extends TestCase
     {
         $unauthorizedStaff = User::factory()->create(['role' => 'staff']);
         $unauthorizedStaff->permissions()->sync(
-            \App\Models\Permission::where('slug', 'cases.view')->get()
+            Permission::where('slug', 'cases.view')->get()
         );
 
         $confidentialCase = BarangayCase::create([

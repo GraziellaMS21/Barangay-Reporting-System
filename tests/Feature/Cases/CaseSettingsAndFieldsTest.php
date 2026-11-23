@@ -6,6 +6,7 @@ use App\Models\BarangayCase;
 use App\Models\CaseFieldConfig;
 use App\Models\CaseType;
 use App\Models\FiscalYear;
+use App\Models\Permission;
 use App\Models\User;
 use App\Support\CaseStatus;
 use Database\Seeders\RequiredDataSeeder;
@@ -17,6 +18,7 @@ class CaseSettingsAndFieldsTest extends TestCase
     use RefreshDatabase;
 
     protected User $admin;
+
     protected User $staff;
 
     protected function setUp(): void
@@ -27,7 +29,7 @@ class CaseSettingsAndFieldsTest extends TestCase
         $this->admin = User::factory()->create(['role' => 'admin']);
         $this->staff = User::factory()->create(['role' => 'staff']);
 
-        $settingsPermission = \App\Models\Permission::where('slug', 'settings.manage')->first();
+        $settingsPermission = Permission::where('slug', 'settings.manage')->first();
         if ($settingsPermission) {
             $this->staff->permissions()->attach($settingsPermission);
         }

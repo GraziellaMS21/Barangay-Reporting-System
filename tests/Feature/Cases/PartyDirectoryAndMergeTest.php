@@ -7,6 +7,7 @@ use App\Models\CaseParty;
 use App\Models\CaseType;
 use App\Models\FiscalYear;
 use App\Models\Party;
+use App\Models\Permission;
 use App\Models\Purok;
 use App\Models\User;
 use App\Services\Cases\PartyMatchingService;
@@ -20,6 +21,7 @@ class PartyDirectoryAndMergeTest extends TestCase
     use RefreshDatabase;
 
     protected User $staff;
+
     protected Purok $purok;
 
     protected function setUp(): void
@@ -28,7 +30,7 @@ class PartyDirectoryAndMergeTest extends TestCase
         $this->seed(RequiredDataSeeder::class);
 
         $this->staff = User::factory()->create(['role' => 'staff']);
-        $permissions = \App\Models\Permission::whereIn('slug', ['cases.view', 'cases.edit'])->get();
+        $permissions = Permission::whereIn('slug', ['cases.view', 'cases.edit'])->get();
         $this->staff->permissions()->sync($permissions);
 
         $this->purok = Purok::first() ?? Purok::create(['name' => 'Purok 1']);

@@ -95,6 +95,10 @@ class ReportReviewService
             }
 
             if ($intent === 'route') {
+                if ($lockedReport->hasUnverifiedAudio()) {
+                    throw new \InvalidArgumentException('Voice report needs verification. Listen to the recording and confirm or enter what was said before routing.');
+                }
+
                 if ($lockedReport->is_emergency || $lockedReport->status === 'emergency_flagged') {
                     throw new \InvalidArgumentException('Emergency-flagged reports must be handled through the emergency banner.');
                 }

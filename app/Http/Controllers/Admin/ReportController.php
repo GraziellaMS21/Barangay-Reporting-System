@@ -1351,7 +1351,7 @@ class ReportController extends Controller
         $confirmed = 0;
 
         foreach ($validated['report_ids'] as $id) {
-            $report = Report::query()->with(['category', 'aiResult', 'duplicateSuggestions'])->find($id);
+            $report = Report::query()->with(['category', 'aiResult', 'duplicateSuggestions', 'audio'])->find($id);
             if (! $report) {
                 continue;
             }
@@ -1360,6 +1360,7 @@ class ReportController extends Controller
                 && (float) $ai->confidence >= $threshold
                 && $report->category_id && $report->urgency
                 && $report->getRecommendedOffice() && ! $report->is_emergency
+                && ! $report->hasUnverifiedAudio()
                 && $report->duplicateSuggestions->where('decision', 'pending')->isEmpty();
             if (! $ready) {
                 continue;
@@ -1567,6 +1568,10 @@ class ReportController extends Controller
     ): RedirectResponse {
         $reviewer = $request->user();
         abort_unless($reviewer instanceof User, 403);
+
+        if ($report->hasUnverifiedAudio()) {
+            return back()->with('error', 'Voice report needs verification. Listen to the recording and confirm or enter what was said before routing.');
+        }
 
         if (! $report->category_id || ! $report->urgency) {
             return back()->withErrors(['category_id' => 'Category and urgency are required before routing.'])->withInput();

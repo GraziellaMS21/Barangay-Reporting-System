@@ -75,24 +75,32 @@ Rendered with system sans-serif font stack (`ui-sans-serif, system-ui, sans-seri
 
 ### 2.7 Application Shells
 
-#### Admin Shell
-- **Left Sidebar (Desktop >= 1024 px)**: Fixed 256 px width (`w-64`), dark background `--ink`, white text, active nav item blue background (`bg-blue-600`).
-- **Top Header**: Height 64 px (`h-16`), white background, bottom border `--line`. Layout (left to right):
+#### Authenticated Shells (Admin & Agency)
+- **Hover-Expand Icon Rail Overlay (Desktop >= 1024 px)**:
+  - Base state: Centered icon rail with permanent $4.5\text{rem}$ ($72\text{px}$) width (`w-[4.5rem]`). The main content column is offset by `margin-left: 4.5rem` (`w-full min-w-0`), preventing layout shifts.
+  - Hover / focus-within state: Expands smoothly to $16\text{rem}$ ($256\text{px}$) as an overlay (`position: fixed; left: 0; top: 0; bottom: 0; z-index: 30;`) with $120\text{ms}$ expand delay and $200\text{ms}$ collapse delay. The content does not reflow or push sideways.
+  - Navigation container has dedicated thin scrolling (`scrollbar-width: thin; overflow-y: auto;`) ensuring bottom items (e.g. Operations and Account) are never clipped.
+  - Theme styling: Navy (`--ink` `#0f172a`) for Admin/Staff and Slate (`#0f172a` / `#1e293b`) for the Agency Partner Portal.
+- **Top Header**: Height 64 px (`h-16`), sticky position (`sticky top-0 z-20`), white background with bottom border `--line`. Layout (left to right):
   1. Mobile menu toggle button (`lg:hidden`).
-  2. Global search input (max width 480 px, expandable).
+  2. Page heading & subtitle, or global search input.
   3. Fiscal year switcher dropdown (`Viewing: FY 2026`).
   4. Pending confirmation badge link (`N items pending confirmation`, gold pill, admin-only).
   5. User profile / logout account menu.
-- **Content Area**: Canvas `#F8FAFC`, page padding 24 px (`p-6` desktop, 16 px tablet, 12 px mobile), max width 1280 px (`max-w-7xl mx-auto`).
-- **Mobile Drawer (< 1024 px)**: Sidebar collapses into off-canvas slide-over drawer triggered by the hamburger menu button with a 50% opacity backdrop overlay.
+- **Content Area**: Canvas `#F8FAFC`, full width with `min-w-0`, zero double padding (`w-full min-w-0` wrapping `p-4 md:p-6`).
+- **Mobile Drawer (< 1024 px)**: Sidebar collapses into off-canvas slide-over drawer triggered by the hamburger menu button with a 50% opacity backdrop overlay (`.staff-drawer-overlay`).
 
-#### Agency Shell
-- **Navigation**: Top bar only (no left sidebar).
-- **Top Header**: Height 64 px (`h-16`), dark `--ink` or white with bottom border.
-  - Left: Agency badge & claimed agency name.
-  - Center-left: Navigation links (**Referrals**, **Team**).
-  - Right: User account menu & Logout.
-- **Content Area**: Canvas `#F8FAFC`, max width 1080 px (`max-w-5xl mx-auto`), page padding 24 px.
+#### Zero Horizontal Scroll & Responsive Table Cards
+- **Tabular Layout**: Every table in admin, staff, and agency views is `table-fixed w-full` with explicit column width percentages summing to exactly $100\%$.
+- **No Overflow Hiding**: Viewport boundaries and card wrappers use `overflow-hidden` (never masking horizontal overflow on `body`).
+- **Mobile Stacked Cards (< 768 px)**: Below $768\text{px}$, tables transform into vertically stacked card lists using `.responsive-card-table`. Each cell renders as a key-value row with `td::before { content: attr(data-label); }`, completely eliminating horizontal scrolling down to $375\text{px}$ viewports while maintaining table semantic DOM integrity for automated test suites.
+
+#### Turbo Drive Navigation (Authenticated Scoping)
+- **Scoped Drive**: `Turbo.session.drive = false` globally. Only authenticated layouts opt in via `data-turbo="true"` on `<body>`. Public resident pages, login/logout, setup wizard, and printable documents are strictly excluded.
+- **Persistent Sidebar**: The navigation rail is marked `id="staff-sidebar" data-turbo-permanent` so only main content swaps on link clicks. Active navigation links update client-side on `turbo:load` and `turbo:render`.
+- **Cache & Script Controls**: Layouts declare `<meta name="turbo-cache-control" content="no-cache">` and `<meta name="turbo-prefetch" content="false">`.
+- **Lifecycle Cleanup**: Chart.js charts and Leaflet maps are explicitly destroyed/removed on `turbo:before-render` and `turbo:before-cache`.
+- **Download & Form Exclusions**: File exports (CSV, Excel, backups) and logout forms carry `data-turbo="false"`.
 
 #### Print Layout
 - Page format: Standard Letter size (8.5" x 11").

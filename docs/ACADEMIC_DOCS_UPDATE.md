@@ -26,7 +26,7 @@ Add a line to the source-column key: **New** = requirement added after adviser f
 
 | ID | From | System Requirement |
 | :--- | :--- | :--- |
-| SR-16 | UR-11 | The system shall show a first-launch setup wizard that creates the first administrator, the barangay profile, the active fiscal year, the staff list, and each employee's access. |
+| SR-16 | UR-11 | The system shall show a 5-step first-launch setup wizard that validates environment prerequisites, creates the root administrator, saves the barangay profile, configures and activates the fiscal year, and reviews seeded baseline personnel, locking upon completion. (Staff onboarding and permission assignment are managed post-setup, with interactive setup onboarding planned in Task 13). |
 | SR-17 | UR-11 | The system shall require one active fiscal year and stamp every new report, referral, and case with it. |
 | SR-18 | UR-12 | The system shall keep a registry of personnel with position, term of office, signatory status, and active or inactive status, without deleting former employees. |
 | SR-19 | UR-10, UR-11 | The system shall let the administrator give each employee individual permissions, in addition to the Staff and Administrator roles. |
@@ -44,11 +44,11 @@ Add a line to the source-column key: **New** = requirement added after adviser f
 
 | ID | Functional Requirement | Source |
 | :--- | :--- | :--- |
-| FR-23 | The system shall provide a multi-step setup wizard that runs on first launch and is closed once setup is complete. | New (adviser feedback) |
+| FR-23 | The system shall provide a 5-step setup wizard (environment checks, administrator account, barangay profile, fiscal year, and baseline personnel review) that runs on first launch and locks permanently once complete. | New (adviser feedback) |
 | FR-24 | The system shall let the administrator add, activate, close, and reopen fiscal years, with a recorded note for closing and reopening. | New |
 | FR-25 | The system shall let the administrator configure the number format for referrals, cases, and summons, including whether numbers restart each fiscal year. | New |
 | FR-26 | The system shall provide a registry of positions, personnel, and signatories, and shall use the signatory in force on the document date on every printed letter and report. | New |
-| FR-27 | The system shall provide user management with per-employee permissions, account deactivation, temporary passwords, and forced password change on first login. | New |
+| FR-27 | The system shall provide user management with 21 granular permission slugs, 4 predefined role presets (`staff_full: 18`, `case_encoder: 5`, `reports_analyst: 3`, `case_reviewer: 5`), account deactivation, temporary passwords, and forced password change on first login. | New |
 | FR-28 | The system shall show every setting or data item that has not yet been confirmed by the barangay and let the administrator confirm it. | New |
 | FR-29 | The system shall let staff create, edit, assign, and change the status of cases (blotter or formal complaint), with a recorded note for every status change, and allow upgrading blotters to formal complaints. | New |
 | FR-30 | The system shall provide a person directory with duplicate warnings, residency tagging with the basis for it, and the ability to merge duplicate persons. | New |
@@ -61,6 +61,10 @@ Add a line to the source-column key: **New** = requirement added after adviser f
 | FR-37 | The system shall provide a secretary dashboard (today's hearings, upcoming hearings, summons awaiting service, cases near deadline, overdue cases, referrals awaiting follow-up) and a global search across all fiscal years by tracking code, referral number, case number, and person name. | New |
 | FR-38 | The system shall make a daily backup and let the administrator download it. | New |
 | FR-39 | The system shall provide an Excel and CSV bulk import wizard (upload, column mapping, validation preview, chunked commit, batch rollback) for historical records across past fiscal years without AI involvement. | New |
+| FR-40 | The system shall provide an online complaint intake form where residents submit dispute complaint requests (capturing 5Ws, rights violated, relief requested, complainant and respondent free-text info, and RA 10173 consent), creating a pending intake without automatically docketing or creating parties. | New (intake update) |
+| FR-41 | The system shall screen out confidential matters (VAWC, child abuse) from the online complaint form, directing residents to 911, PNP Aleng Pulis, Bantay Bata, or the Barangay VAW Desk without storing database records. | New (confidentiality) |
+| FR-42 | The system shall provide a staff pending intake queue on the Cases Docket with "Docket this" (prefilling intake form and creating case at `filed`) and "Redirect/Reject" (mandatory reason) actions. | New (docketing) |
+| FR-43 | The system shall allow residents to submit community problem reports without creating an account (guest mode) and anonymously without storing personal details or IP addresses. | New (guest reporting) |
 
 **Edits to existing rows**
 - **FR-06:** replace "email residents ... and email officials" scope note with: "Notifications are sent by email only; SMS is deferred."
@@ -78,12 +82,14 @@ Add a line to the source-column key: **New** = requirement added after adviser f
 | NFR-14 | Auditability | The system shall record every change to settings, permissions, fiscal years, agency approvals, and case status, with who, when, old value, new value, and note. |
 | NFR-15 | Performance | The system shall generate a standard report of up to 5,000 rows within 5 seconds. |
 | NFR-16 | Maintainability | Values that the barangay has not yet confirmed shall be stored as editable settings or data, never hardcoded. |
+| NFR-17 | Privacy | The system shall keep respondent details unlinked and unlisted from public tracking, and shall strictly withhold case status and dispute timelines on public intake confirmation screens. |
+| NFR-18 | Security | The system shall enforce IP-based rate limiting (`throttle:3,10`) and honeypot field validation on public dispute complaint and guest reporting forms to mitigate spam submissions. |
 
 ### 1.5 Section E: Use Case Diagram and table
 
-**Changes to the diagram header:** "5 actors, 43 use cases, 1 system boundary". Add the **External Agency** actor on the **right side**, below the Administrator, as an external system or role (stick figure). Existing 27 use cases stay.
+**Changes to the diagram header:** "5 actors, 50 use cases, 1 system boundary". Add the **External Agency** actor on the **right side**, below the Administrator, as an external system or role (stick figure). The system architecture comprises **three layers** (Public Problem Reporting, Case Management, Administration) and **two distinct operational modules joined by conversion** (Community Reports and Dispute Cases).
 
-**16 new use cases** (draw inside the boundary):
+**23 new use cases** (draw inside the boundary):
 
 | # | New use case | Actor |
 | :--- | :--- | :--- |
@@ -103,15 +109,22 @@ Add a line to the source-column key: **New** = requirement added after adviser f
 | 14 | View Assigned Referrals | External Agency |
 | 15 | Update Referral Status | External Agency |
 | 16 | Back Up Data | Administrator |
+| 17 | Submit Complaint Request | Resident |
+| 18 | Review Pending Intake | Staff |
+| 19 | Docket Complaint | Staff |
+| 20 | Record Hearing Attendance | Staff |
+| 21 | Handle Non-Appearance | Staff |
+| 22 | Submit Community Problem as Guest or Anonymously | Resident |
+| 23 | Convert Report to Dispute Case | Staff |
 
-Relationships: **Escalate Case** `<<include>>` **Issue Summons** history check; **Record Case** `<<extend>>` from **Convert Report to Case** (the existing problem report review); **Update Referral Status** `<<include>>` **View Assigned Referrals**; **Approve Agency Account** `<<extend>>` **Register Agency Account**. Keep the hollow arrow from Administrator to Staff. Report by Phone stays dashed (planned).
+Relationships: **Escalate Case** `<<include>>` **Issue Summons** history check; **Docket Complaint** `<<extend>>` **Review Pending Intake**; **Convert Report to Dispute Case** bridges community reports to dispute cases; **Update Referral Status** `<<include>>` **View Assigned Referrals**; **Approve Agency Account** `<<extend>>` **Register Agency Account**. Keep the hollow arrow from Administrator to Staff. Report by Phone stays dashed (planned).
 
 **Actor table (page 10): replace with**
 
 | Actor | Use Cases | Related FR |
 | :--- | :--- | :--- |
-| Resident | unchanged | FR-01 to FR-05, FR-18, FR-22 |
-| Barangay Staff | existing plus Record Case, Manage Parties, Issue Summons, Schedule and Record Hearing, Record Settlement, Escalate Case, Generate Official Report | FR-07 to FR-09, FR-13 to FR-19, FR-29 to FR-33, FR-36, FR-37 |
+| Resident | Submit Community Problem Report, Track Report, Confirm/Reopen Resolution, Submit Complaint Request, Submit Community Problem as Guest or Anonymously | FR-01 to FR-05, FR-18, FR-22, FR-40, FR-41, FR-43 |
+| Barangay Staff | Review Queue (problem reports), Route/Refer Report, Review Pending Intake, Docket Complaint, Record Case, Manage Parties, Issue Summons, Schedule and Record Hearing, Record Hearing Attendance, Handle Non-Appearance, Record Settlement, Escalate Case, Generate Official Report, Convert Report to Dispute Case | FR-07 to FR-09, FR-13 to FR-19, FR-29 to FR-33, FR-36, FR-37, FR-42 |
 | Captain / Administrator | existing plus Run First-Time Setup, Manage Fiscal Year, Manage Personnel and Signatories, Manage Permissions, Approve Agency Account, Back Up Data | FR-19 to FR-21, FR-23 to FR-28, FR-34, FR-36, FR-38 |
 | External Agency | Register Agency Account, View Assigned Referrals, Update Referral Status | FR-34, FR-35 |
 | AI Service (external) | unchanged | FR-10 to FR-12, FR-14, FR-19 |
@@ -138,7 +151,7 @@ Relationships: **Escalate Case** `<<include>>` **Issue Summons** history check; 
 | :--- | :--- |
 | **1.1 Product Overview** | Add one paragraph: the system now has an administrative foundation (first-time setup, fiscal year, personnel and signatories, per-employee permissions), a case management module (parties, summons, hearings, escalation), and an external agency portal for referrals |
 | **1.3 Background of the Client** | Add the adviser-driven needs: records tied to a fiscal year, official signatories on documents, case records with complainants and respondents, summons tracking, and referrals shared with outside agencies |
-| **1.4 Proposed Solution** and **1.4.1 Product Summary** | Rewrite from "two layers" to **three layers**; add Layer 3 below. Keep the principle "The AI suggests, the rules route, the officials decide" |
+| **1.4 Proposed Solution** and **1.4.1 Product Summary** | Rewrite from "two layers" to **three layers** (Public Problem Reporting, Case Management, Administration) and describe the system as **two distinct operational modules joined by conversion** (Community Reports and Dispute Cases); keep the existing "(problem reports)" wording for Staff Review Queue. Keep the principle "The AI suggests, the rules route, the officials decide" |
 | **1.4.2 List of Features** (Table 1.1) | Add a **Layer 3, Barangay Administration and Case Management** block with the rows below. In "Notifications" delete "and SMS" (email only). In "Voice Call Reporting" update to "Voice reporting prototype (record-first intake for resident form and staff hotline, AI pre-fills form with human verification, category optional, no telephony); real telephony, live call recording, and softphone remain deferred". In "Staff Review Queue and Case Management" add "(problem reports)" to avoid confusion with cases. Update the intro sentence and the table number/caption if the count changes |
 | **List of Tables / Table of Contents** | Refresh page numbers and the feature count after the edit |
 
@@ -146,7 +159,7 @@ Relationships: **Escalate Case** `<<include>>` **Issue Summons** history check; 
 
 | Feature | Description | Intended User |
 | :--- | :--- | :--- |
-| First-Time Setup Wizard | Guides the administrator through the barangay profile, active fiscal year, staff list, and access on first launch | Administrator |
+| First-Time Setup Wizard | Guides the administrator through environment verification, administrator account creation, barangay profile, active fiscal year, and seeded baseline personnel review on first launch | Administrator |
 | Fiscal Year Management | Groups records and numbers by fiscal year; closing a year locks finished records | Administrator |
 | Personnel and Signatory Registry | Keeps employees, positions, terms of office, and the signatories used on letters and reports | Administrator |
 | Per-Employee Access Control | Gives each employee individual permissions on top of the Staff and Administrator roles | Administrator |
@@ -157,6 +170,9 @@ Relationships: **Escalate Case** `<<include>>` **Issue Summons** history check; 
 | Reports Center | Produces standard reports by fiscal year with signatory blocks in PDF and Excel | Administrator, Staff |
 | Secretary Dashboard and Search | Shows hearings, pending summons, overdue cases, and follow-ups, and searches across records | Staff |
 | Backup | Makes daily backups that the administrator can download | Administrator |
+| Resident Complaint Intake | Allows residents to submit dispute complaint requests online as a pending intake, with confidential screening gate (VAWC/child protection) and privacy-preserving receipt | Resident |
+| Pending Intake Review Queue | Allows staff to review complaint requests and execute "Docket this" into the case docket or "Redirect/Reject" with mandatory justification | Staff |
+| Guest & Anonymous Community Reporting | Frictionless civic reporting without creating an account and optional anonymous mode with one-time tracking code | Resident |
 
 Also check the "Intended User" column: add **External Agency** wherever it applies. Do not change Chapter 2 (company) unless the team roster or workstream assignments change.
 

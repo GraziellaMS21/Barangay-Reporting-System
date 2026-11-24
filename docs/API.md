@@ -3,12 +3,12 @@
 Reference documentation for web endpoints, RESTful parameters, authentication middleware, and payload schemas in **Barangay-Reporting-System-1**.
 
 > [!NOTE]
-> All endpoints documented below reflect active routes registered in the application (273 routes total, snapshotted in `docs/ROUTES.snapshot.json`).
-> To regenerate the route snapshot from the live application routing table, run:
+> All endpoints documented in Sections 1 through 13 reflect active routes registered in the application (273 routes total, snapshotted in `docs/ROUTES.snapshot.json`).
+> Planned endpoints documented in Section 14 reflect upcoming features (WS3/WS4/Resident Complaint Intake) and are **not** yet registered in code or in the snapshot.
+> To regenerate the route snapshot from the live application routing table when new routes are implemented, run:
 > ```sh
 > php artisan route:list --json > docs/ROUTES.snapshot.json
 > ```
-> Endpoints across all workstreams (WS1 through WS6) are fully implemented and verified against the PHPUnit test suite.
 
 ---
 
@@ -43,15 +43,15 @@ Routing is modularized under `routes/` and registered via `routes/web.php`:
 
 ### `GET /`
 - **Controller**: `ReportController@create`
-- **Status**: Built
-- **Description**: Renders the resident single-card incident reporting interface.
+- **Status**: Built (Entry screen update Planned, [DECIDED, D2])
+- **Description**: Renders the resident entry interface featuring three prominent action choices: Emergency, Report a Community Problem, and File a Complaint. Clicking "Report a Community Problem" reveals the single-card community report form with wrong-door guidance notice ([DECIDED, D6]).
 
 ### `POST /report`
 - **Controller**: `ReportController@store`
-- **Status**: Built
-- **Middleware**: `throttle:10,1`
+- **Status**: Built (Guest & Anonymous additions Planned, [DECIDED, D7])
+- **Middleware**: `throttle:10,1` (Planned guest mode: `throttle:5,1` + honeypot field)
 - **Payload**:
-  - `category_id` (integer, required, exists in `categories`)
+  - `category_id` (integer, nullable per Decision 80, exists in `categories`)
   - `description` (string, required, min: 10, max: 2000)
   - `lat` (numeric, nullable)
   - `lng` (numeric, nullable)
@@ -62,17 +62,22 @@ Routing is modularized under `routes/` and registered via `routes/web.php`:
   - `is_recurring` (boolean, nullable)
   - `answers` (array, nullable) — Dynamic question responses
   - `photos[]` (array of image files, optional, max: 5 files, 5 MB total)
-  - `reporter_name` (string, nullable)
-  - `reporter_contact` (string, nullable)
-  - `reporter_email` (email, nullable)
-  - `is_anonymous` (boolean, nullable)
+  - `reporter_name` (string, nullable; optional for guests, omitted if anonymous)
+  - `reporter_contact` (string, nullable; optional for guests, omitted if anonymous)
+  - `reporter_email` (email, nullable; optional for guests, omitted if anonymous)
+  - `is_anonymous` (boolean, nullable; when true, discards contact details and stores no IP)
   - `consent` (accepted, required)
 - **Response**: Redirects to `/report/success/{tracking_code}`.
 
 ### `GET /report/success/{tracking_code}`
 - **Controller**: `ReportController@success`
 - **Status**: Built
-- **Description**: Displays confirmation card with the generated `BRG-XXXXXX` tracking code.
+- **Description**: Displays confirmation card with the generated `BRG-XXXXXX` tracking code. For anonymous guest submissions, displays one-time tracking code with notice that status can be viewed via `/track/{code}`.
+
+### `GET /track/{tracking_code}`
+- **Controller**: `TrackController@show`
+- **Status**: Built
+- **Description**: Displays report status timeline, public staff notes, and proof gallery. Never reveals reporter PII, internal notes, or emergency reports. Shows status only.
 
 ### `GET /track/{tracking_code?}`
 - **Controller**: `TrackController@show`
@@ -158,7 +163,7 @@ Guest / Initial Admin setup route group with `web` middleware.
 
 | Method | URI | Route Name | Middleware / Permission | Purpose | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/setup` | `setup.show` | `web` | 7-step interactive onboarding wizard. | Built |
+| `GET` | `/setup` | `setup.show` | `web` | 5-step interactive onboarding wizard (Verification, Admin Account, Profile, Fiscal Year, Personnel Review). | Built |
 | `POST` | `/setup/step/{step}` | `setup.step` | `web` | Validate & save specific setup step. | Built |
 | `POST` | `/setup/complete` | `setup.complete` | `web` | Finalize setup wizard & redirect to login. | Built |
 
@@ -420,3 +425,107 @@ Protected by `auth`, `role:staff`, `permission:imports.manage`.
   - `verified_description`: Text (required; confirmed transcript or corrected text).
   - `verification_note`: Text (optional).
 - **Response**: Redirect back to report review page with success toast. Unblocks "Confirm and route" action.
+
+---
+
+## 14. Planned Endpoints (Resident Complaint Intake & Case Enhancements)
+
+> [!IMPORTANT]
+> The endpoints in this section are **Planned**. They are not yet present in the application routing table or in `docs/ROUTES.snapshot.json`. Once implemented in code, the snapshot must be regenerated with `php artisan route:list --json > docs/ROUTES.snapshot.json`.
+
+### 14.1 Public Resident Complaint Intake (`routes/resident.php`, Planned)
+
+#### `GET /complaint`
+- **Controller**: `Resident\ComplaintController@create` (Planned)
+- **Status**: Planned ([DECIDED, D2, D4, D4a])
+- **Middleware**: `web` (Turbo Drive disabled, 375px mobile first)
+- **Description**: Displays the resident dispute filing interface with an upfront confidential screening question (VAWC / child protection). If answered "Yes", the form is hidden, no data is stored, and the user is shown emergency hotlines (911, PNP Aleng Pulis, Bantay Bata) with a "Leave this page" quick-exit button. If answered "No", displays the compact single-card complaint form.
+
+#### `POST /complaint`
+- **Controller**: `Resident\ComplaintController@store` (Planned)
+- **Status**: Planned ([DECIDED, D4])
+- **Middleware**: `web`, `throttle:3,10` (rate limited; spam protection via honeypot)
+- **Payload**:
+  - `complainant_name` (string, required)
+  - `complainant_alias` (string, nullable)
+  - `complainant_age` (integer, nullable)
+  - `complainant_contact` (string, required)
+  - `complainant_address` (string, required)
+  - `complainant_residency_claim` (string, required)
+  - `respondent_name` (string, required; stored as unlinked free text)
+  - `respondent_alias` (string, nullable)
+  - `respondent_address` (string, required)
+  - `respondent_contact` (string, nullable)
+  - `what_happened` (string, required) — 5Ws
+  - `who_involved` (string, required) — 5Ws
+  - `when_happened` (datetime, required) — 5Ws
+  - `where_happened` (string, required) — 5Ws
+  - `why_how_happened` (string, required) — 5Ws
+  - `rights_violated` (string, required)
+  - `relief_requested` (string, required)
+  - `case_type_suggestion` (string, nullable)
+  - `consent` (accepted, required; RA 10173 data privacy consent)
+- **Behavior**: Persists record into `complaint_intakes` in status `pending`. Does NOT create a case or any `parties` records.
+- **Response**: Redirects to `/complaint/received`.
+
+#### `GET /complaint/received`
+- **Controller**: `Resident\ComplaintController@received` (Planned)
+- **Status**: Planned ([DECIDED, D4])
+- **Description**: Displays acknowledgement screen only: *"Your complaint request has been received. Please visit the Barangay Calarian Hall to sign and complete filing."* Strictly reveals NO case status, NO respondent information, and NO dispute tracking.
+
+### 14.2 Staff Pending Intakes Review (`routes/cases.php`, Planned)
+
+#### `GET /admin/cases/intakes`
+- **Controller**: `Admin\CaseIntakeController@index` (Planned)
+- **Permission**: `cases.view`
+- **Description**: Renders the "Pending intake" tab on the Cases Docket. Fixed table layout with columns totaling 100%, mobile card stack below 768px.
+
+#### `GET /admin/cases/intakes/{intake}`
+- **Controller**: `Admin\CaseIntakeController@show` (Planned)
+- **Permission**: `cases.view`
+- **Description**: Displays complete details of the resident complaint intake, showing complainant details, respondent free-text details, 5Ws, rights violated, relief requested, and duplicate warnings.
+
+#### `POST /admin/cases/intakes/{intake}/docket`
+- **Controller**: `Admin\CaseIntakeController@docket` (Planned)
+- **Permission**: `cases.create`
+- **Description**: Executes the "Docket this" action. Opens the existing WS3 intake form prefilled with the intake data. Upon staff confirmation, creates the case in status `filed`, confirms parties, logs the blotter entry reference (two numbers, one record), and transitions intake to `docketed`.
+
+#### `POST /admin/cases/intakes/{intake}/reject`
+- **Controller**: `Admin\CaseIntakeController@reject` (Planned)
+- **Permission**: `cases.edit`
+- **Payload**:
+  - `outcome_reason` (string, required): Standard reason code.
+  - `explanation_note` (string, required): Written justification.
+- **Description**: Marks the intake as `redirected` or `rejected`.
+
+### 14.3 Case Procedures & Printables (`routes/case_actions.php`, Planned)
+
+#### `POST /admin/cases/{case}/first-meeting`
+- **Controller**: `Admin\CaseActionController@recordFirstMeeting` (Planned)
+- **Permission**: `cases.edit`
+- **Payload**: `first_meeting_on` (date, required)
+- **Description**: Records the first meeting before the Punong Barangay to start the 15-working-day mediation clock ([PROPOSED, P2]).
+
+#### `POST /admin/cases/{case}/eligibility`
+- **Controller**: `Admin\CaseActionController@updateEligibility` (Planned)
+- **Permission**: `cases.edit`
+- **Payload**: `checklist` (array of booleans: `parties_same_barangay`, `kp_matter`, `non_confidential`, `residency_verified`)
+- **Description**: Saves the staff pre-summons eligibility screening checklist ([PROPOSED, P1]).
+
+#### `POST /admin/cases/{case}/upload-scan`
+- **Controller**: `Admin\CaseActionController@uploadScan` (Planned)
+- **Permission**: `cases.edit`
+- **Payload**: `signed_document` (file, PDF/image, max 10MB)
+- **Description**: Uploads a scanned copy of the signed blotter or complaint sheet to private storage disk.
+
+#### Printables Endpoints
+All printable endpoints resolve signatories dynamically via `SignatoryResolver::forDocument()` and display `<x-ui.draft-watermark>`:
+- `GET /admin/cases/{case}/print/blotter`: Printable blotter extract (Secretary prepares, PB certifies).
+- `GET /admin/cases/{case}/print/complaint`: Printable formal complaint form (Complainant signs, PB acknowledges).
+- `GET /admin/cases/{case}/summons/{summons}/print`: Printable summons notice (PB signed).
+- `GET /admin/cases/{case}/hearings/{hearing}/notice`: Printable conciliation notice of hearing (Pangkat Chairman signed).
+- `GET /admin/cases/{case}/print/settlement`: Printable amicable settlement agreement (Parties + PB / Pangkat Chair).
+- `GET /admin/cases/{case}/print/cfa`: Printable Certification to File Action (Pangkat Chairman signed per C3).
+
+> [!NOTE]
+> **Permission Slugs Stability**: All planned endpoints strictly reuse the existing **21 permission slugs** seeded in `RequiredDataSeeder.php` (`cases.view`, `cases.create`, `cases.edit`, `cases.summons`, `cases.escalate`, etc.). No new permission slugs are required.

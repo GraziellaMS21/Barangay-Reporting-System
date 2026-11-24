@@ -8,45 +8,39 @@ Architectural specification, service layer boundaries, data flow pipelines, and 
 
 The application follows a **Modular Monolithic MVC Pattern** built on Laravel 13, augmented with an explicit Domain Service Layer. Controller actions remain thin, delegating domain decisions, state transitions, external AI queries, and routing logic to dedicated service classes.
 
+### Two Distinct Modules Joined by Conversion Bridge ([DECIDED, D1])
+The system architecture separates civic municipal problem reports from statutory Katarungang Pambarangay dispute conciliations. The two modules maintain distinct state machines, database records, and administrative queues, joined explicitly by the Report-to-Case Conversion bridge:
+
 ```
        +-------------------------------------------------------------+
        |                     Resident / Public UI                   |
-       |  (Report Form, Tracking Status, Confirmation, Public Map)   |
+       |  [Entry Screen: Emergency | Community Problem | Complaint]  |
        +------------------------------+------------------------------+
                                       | HTTP Requests / CSRF
                                       v
        +-------------------------------------------------------------+
        |                  Laravel Routing & Middleware               |
-       |  (routes/resident.php, routes/staff.php, routes/admin.php)  |
+       |  (routes/resident.php, routes/staff.php, routes/cases.php)  |
        +------------------------------+------------------------------+
                                       |
                                       v
        +-------------------------------------------------------------+
        |                 Controller Presentation Layer               |
-       |        (ReportController, TrackController, Admin/*)         |
-       +------------------------------+------------------------------+
-                                      | Calls Domain Services
-                                      v
-       +-------------------------------------------------------------+
-       |                       Domain Service Layer                  |
-       |  - GeminiService (Async AI Classification & Photo Auditing) |
-       |  - ReportStatusService (Finite State Machine Transitions)    |
-       |  - RoutingService (Jurisdiction Rules & Office Assignment)  |
-       |  - PriorityService (Risk Weights, SLA & Score Calculation)  |
-       |  - ReferralService (External Agency Transmission & Letters) |
-       |  - ProofPhotoService (Multi-image Resolution Evidence)      |
-       |  - DashboardAnalyticsService & HotspotService               |
-       +------------------------------+------------------------------+
-                                      | Eloquent ORM
-                                      v
-       +-------------------------------------------------------------+
-       |                 Data Storage & External Services            |
-       |  - Database: SQLite (Dev/Test) / MySQL (Production Target)  |
-       |  - AI API: Google Gemini REST API (gemini-2.5-flash)        |
-       |  - Mapping: OpenStreetMap Tile Servers (via Leaflet.js)     |
-       |  - Mail: Laravel Mail (Log Driver / SMTP) & NotificationLog |
-       +-------------------------------------------------------------+
+       |        (ReportController, TrackController, CaseController)  |
+       +---------------+------------------------------+--------------+
+                       |                              |
+                       v                              v
+       +-------------------------------+  +-------------------------------+
+       |   MODULE 1: Community Reports |  |  MODULE 2: Cases & Blotter    |
+       |   - Report Queue (12 Statuses)|  |  - Cases Docket (8 Statuses)  |
+       |   - Gemini AI Triage          |  |  - Mediation & Conciliation   |
+       |   - SLA & Agency Referrals    |  |  - Summons & Hearings (KP)    |
+       +---------------+---------------+  +---------------+---------------+
+                       │                                  ▲
+                       └─── [Report-to-Case Conversion] ──┘
 ```
+
+The presentation layer includes a resident entry screen with three buttons ([DECIDED, D2]) and planned UI page renames (e.g. Report Queue -> "Community reports", Barangay Cases -> "Cases & Blotter") which affect Blade views only, without altering underlying routes or permission slugs.
 
 ---
 
@@ -80,6 +74,16 @@ The application follows a **Modular Monolithic MVC Pattern** built on Laravel 13
 | **`GlobalSearchService`** | `app/Services/GlobalSearchService.php` | Cross-entity universal search indexing reports, cases, parties, and referrals. |
 | **`PartyMatchingService`** | `app/Services/Cases/PartyMatchingService.php` | Duplicate party detection and merge assistance. |
 | **`LegacyImportService`** | `app/Services/Imports/LegacyImportService.php` | Chunked CSV/Excel legacy file ingestion with validation and rollback. |
+| **`ComplaintIntakeService`** | `app/Services/Cases/ComplaintIntakeService.php` | *(Planned, WS3)* Handles resident complaint submission, confidential screening gate (VAWC/child protection), pending intake queue management, and the atomic "Docket this" transaction. |
+| **`EligibilityCheckService`** | `app/Services/Cases/EligibilityCheckService.php` | *(Planned, WS3)* Assists staff in evaluating pre-summons statutory criteria (same-barangay residents, KP legal scope, non-confidentiality, residency verification). |
+| **`PrintableDocumentService`** | `app/Services/Cases/PrintableDocumentService.php` | *(Planned, WS4)* Maps case, blotter, summons, hearing, settlement, and CFA data to printable templates, resolving signatories dynamically via `SignatoryResolver`. |
+
+> [!IMPORTANT]
+> **Strict Human Governance Rule**:
+> None of these services transition status automatically. Neither intake submission, summons delivery results, non-appearance in hearings, nor deadline expiration triggers automated state mutations. All status transitions require explicit authorized official action and execute through `ReportStatusService::transition()` or `CaseStatusService::transition()` strictly within an atomic `DB::transaction()`.
+> 
+> **Presentation-Only UI Enhancements**:
+> The "Pending intake" tab on the Cases Docket and planned page renames ("Community reports" / "Cases & Blotter") are presentation-layer enhancements affecting Blade templates and navigation labels only. They require zero changes to underlying route paths, controller endpoints, database tables, or permission slugs.
 
 ---
 
@@ -103,19 +107,18 @@ Numbering sequences are tracked in `number_sequences` with a composite unique ke
 
 Security is layered across three tiers:
 1. **Roles**: Coarse access tier governed strictly by `users.role` with three allowed values: `admin`, `staff`, and `agency` (`personnel` is NOT a role; it is an assignable directory of people).
-2. **Granular Permissions**: Exactly **20 permission slugs** are registered and seeded in current code (with **1 planned slug**, `reports.log_phone`, bringing the planned total to **21 permission slugs**):
+2. **Granular Permissions**: Exactly **21 permission slugs** are registered and seeded in code (`RequiredDataSeeder.php`):
    - `settings.manage`, `fiscal_year.manage`, `templates.manage`, `backups.manage`
    - `personnel.manage`, `users.manage`
-   - `reports.view`, `reports_center.view`, `reports_center.export`
+   - `reports.view`, `reports.log_phone`, `reports_center.view`, `reports_center.export`
    - `cases.view`, `cases.view_confidential`, `cases.create`, `cases.edit`, `cases.summons`, `cases.escalate`
    - `agencies.manage`, `referrals.manage`, `imports.manage`
    - `dashboard.view`, `audit.view`
-   - *(Planned)* `reports.log_phone`: Allows desk officers to record and transcribe telephone complaints at the barangay hotline.
 3. **Role Presets**: Pre-configured permission bundles defined in `config/permission_presets.php`:
-   - `staff_full`: Complete staff operational rights across cases, reports, and referrals without confidential case access or system backups (current: 16 permissions; planned: 17 permissions with `reports.log_phone`).
+   - `staff_full`: Complete staff operational rights across cases, reports, and referrals without confidential case access or system backups (18 permissions).
    - `case_encoder`: Lupon clerk role restricted to dispute case docketing and summons issuance for non-confidential cases (5 permissions).
    - `reports_analyst`: Read-only reporting and dashboard analytics access (3 permissions).
-   - `case_reviewer`: Review of all dispute cases including confidential cases, reports queue, and Reports Center (6 permissions).
+   - `case_reviewer`: Review of all dispute cases including confidential cases, reports queue, and Reports Center (5 permissions).
 4. **Admin Exemption**: Users with role `admin` implicitly satisfy all permission checks via `User::hasPermission()`. Positions do not grant permissions on their own.
 
 ---

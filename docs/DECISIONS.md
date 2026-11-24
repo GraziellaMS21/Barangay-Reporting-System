@@ -388,3 +388,89 @@
   5. *Audio Provenance & Audit Trail*: `report_audios` stores `extracted_data` (non-contact extraction for unattached audio), `ai_description`, and `provenance` JSON (recording field flags and `edited` booleans). Contact values are never stored in provenance JSON. The admin review page displays "From recording" or "Edited after recording" chips and an "Edited by resident" marker.
   6. *Uncertain Audio Safeguards*: Reaffirms **Decision 78**: unclear, failed, or invalid JSON recordings fill no fields, display a friendly message, and prompt manual entry. Reports submitted without a description require staff verification before routing.
 - **Consequences**: Resident report completion is accelerated; spoken details populate fields with visual provenance; unclassified cases are handled safely; privacy and human governance are preserved.
+
+---
+
+### Decision 81: Reports and Cases Retained as Separate Modules with Conversion Bridge
+- **Status**: Decided ([DECIDED, D1])
+- **Date**: 2026-11-24
+- **Context**: Community civic problems (floods, drainage, streetlights, garbage) and interpersonal dispute complaints (Katarungang Pambarangay) serve distinct statutory functions, lifecycles, and audiences.
+- **Decision**: Keep the Report Queue (12 statuses) and Cases Docket (8 statuses) completely separated. Neither queue nor management screens will merge them. The existing Report-to-Case Conversion (§ 8.8 in WORKFLOW.md) serves as the explicit bridge when a community report turns out to be an interpersonal dispute.
+
+### Decision 82: Resident Entry Screen Features Three Buttons, No Blotter Button
+- **Status**: Decided ([DECIDED, D2])
+- **Date**: 2026-11-24
+- **Context**: Resident entry screen on `resident/create.blade` must guide citizens clearly between emergency assistance, community issues, and interpersonal disputes.
+- **Decision**: The resident create view displays three prominent action buttons: (1) Emergency (reuses existing path), (2) Report a Community Problem (opens existing single-card report form), and (3) File a Complaint (opens dispute intake form). There is NO separate "File a Blotter" button because the blotter entry serves as the underlying record for a complaint.
+
+### Decision 83: Complaint Intake Creates Blotter Entry as Logbook Reference (Two Numbers, One Record)
+- **Status**: Decided ([DECIDED, D3; PROPOSED, P4, P4a])
+- **Date**: 2026-11-24
+- **Context**: Dispute filings in barangay practice generate both a blotter logbook entry and a formal conciliation complaint record.
+- **Decision**: A complaint intake creates a single case record holding both a Barangay Case Number and a Blotter Reference Number. Standalone blotter entries (walk-in, no dispute) get only a blotter number and remain at `filed`. Residents do not choose between blotter and complaint. Optional blotter series, page, and entry numbers may be recorded ([PROPOSED, P4]).
+
+### Decision 84: Resident Complaint Intake as Pending Request Only (Human-in-the-Loop Docketing)
+- **Status**: Decided ([DECIDED, D4])
+- **Date**: 2026-11-24
+- **Context**: Republic Act 7160 requires in-person appearance and sworn signatures for Katarungang Pambarangay disputes. Online submissions cannot auto-docket or bypass official intake.
+- **Decision**: The resident complaint form creates only a `pending` complaint intake, never a case. Staff review submissions in the "Pending intake" tab on the Cases Docket. Clicking "Docket this" prefills the intake form, confirms parties, and creates the case at `filed`. Residents see an acknowledgement screen only ("received, please visit the barangay hall to sign and complete filing"), revealing no case status, no respondent data, and no tracking. Respondent details are never auto-created as parties.
+
+### Decision 85: Confidential Matters (VAWC, Child Protection) Excluded from Online Forms
+- **Status**: Decided ([DECIDED, D4a])
+- **Date**: 2026-11-24
+- **Context**: Sensitive domestic violence and child protection matters require immediate in-person protection or emergency intervention, not unmonitored web queue submissions.
+- **Decision**: The complaint form introduces an upfront screening step. If the concern involves violence against women and children (VAWC) or child abuse, the form is not displayed, nothing is saved to the database, and the user is directed to 911, the PNP Aleng Pulis desk, Bantay Bata, or the physical Barangay VAW Desk, with a "Leave this page" quick-exit button.
+
+### Decision 86: Pre-Summons Classification, Proposed Eligibility Checklist, and Delivery Reminders
+- **Status**: Confirmed & Proposed ([CONFIRMED, C9, C14; PROPOSED, P1])
+- **Date**: 2026-11-24
+- **Context**: The Secretary clarified that staff classify case type and decide blotter-only vs formal complaint prior to issuing summons (Q18).
+- **Decision**: Staff complete case-type classification and an informational eligibility checklist (parties residing in same barangay, covered matter, non-confidential, residency verified) before issuing summons. The confirmed reminder is "Summons not yet delivered" ([CONFIRMED, C14]). Reminders are informational only and never block or auto-transition the case.
+
+### Decision 87: Mediation Statutory Clock Starts from First Meeting Date
+- **Status**: Proposed, Pending Confirmation ([PROPOSED, P2; CONFIRMED unit, C11])
+- **Date**: 2026-11-24
+- **Context**: The 15-day statutory mediation period under Section 410 of the Local Government Code begins from the first meeting of parties before the Lupon Chairman.
+- **Decision**: Add a `first_meeting_on` date to cases, starting the 15-working-day mediation clock from that date, with fallback to `filed_on` if unrecorded. Conciliation period is also proposed in working days (15 working days, extendable by up to 15), stored in `setting()` keys.
+
+### Decision 88: Non-Appearance Handling and Extended Soft Warning
+- **Status**: Proposed, Pending Confirmation ([PROPOSED, P3; CONFIRMED, C11])
+- **Date**: 2026-11-24
+- **Context**: Non-appearance of respondents or complainants during mediation requires procedural safeguards without automated status transitions.
+- **Decision**: Record `failed_to_appear` and service outcome in hearing minutes. Respondent non-appearance bars connected counterclaims and leads to Pangkat constitution rather than an immediate CFA. Complainant non-appearance allows staff to dismiss with a mandatory note. Summons counts are informational only; at 15 working days with no settlement, the case displays "Ready for next step: endorse to Pangkat". The soft warning on `in_mediation` to `escalated` is extended to warn when the respondent never appeared.
+
+### Decision 89: Planned Page Rename (Routes and Permissions Unchanged)
+- **Status**: Decided ([DECIDED, D1])
+- **Date**: 2026-11-24
+- **Context**: User feedback suggests "Report Queue" is better understood as "Community reports", and "Barangay Cases" as "Cases & Blotter".
+- **Decision**: Plan page and navigation label renames for UI clarity. Underlying routes, controller names, database tables, and permission slugs (`reports.view`, `cases.view`, etc.) remain strictly unchanged.
+
+### Decision 90: Wrong-Door Guidance Notice on Community Problem Form
+- **Status**: Decided ([DECIDED, D6])
+- **Date**: 2026-11-24
+- **Context**: Citizens frequently report interpersonal neighbor disputes on the community infrastructure report form.
+- **Decision**: Add an informational wrong-door banner on the Community Problem form: *"Is this a conflict with a specific person, like a neighbor, a debt, or an injury? File a Complaint instead, or visit the barangay hall."* Draft wording pending official review.
+
+### Decision 91: Community Problem Reports Permitted without Account and Anonymously
+- **Status**: Decided ([DECIDED, D7; PROPOSED, P11])
+- **Date**: 2026-11-24
+- **Context**: Resolving Secretary Q14 ("Not sure"). Community infrastructure issues (potholes, garbage, unlit poles) benefit from frictionless public reporting.
+- **Decision**: Community problem reports (Report Queue) may be submitted without logging in or creating an account, and may be submitted anonymously. Anonymous submissions store no name, contact, IP address, or device identifier. An optional single-view tracking code is displayed upon submission. Anonymity is strictly NOT offered on dispute complaints.
+
+### Decision 92: VAWC and Child-Protection Guidance Screen with Quick Exit
+- **Status**: Proposed, Pending Confirmation ([PROPOSED, P9; DECIDED, D4a])
+- **Date**: 2026-11-24
+- **Context**: Screening out confidential matters requires actionable offline guidance, emergency hotlines, and privacy-preserving quick exit.
+- **Decision**: When screening triggers for VAWC or child abuse, render guidance text in English and Filipino, show emergency hotlines (911, PNP Aleng Pulis, Bantay Bata), provide a "Leave this page" quick-exit button, and retain zero database records. All hotline phone numbers must be read dynamically from `setting()` keys, never hardcoded in Blade views.
+
+### Decision 93: Standardized Case Reminders and 3-Day Referral Follow-Up
+- **Status**: Confirmed & Proposed ([CONFIRMED, C6, C14; PROPOSED, P10])
+- **Date**: 2026-11-24
+- **Context**: Secretary Q27 confirmed four specific reminders.
+- **Decision**: The system's canonical reminders are strictly the four confirmed by the Secretary: (1) Hearing dates, (2) Summons not yet delivered, (3) Cases close to deadline, and (4) Unsettled cases ready for the next step. The 3-day follow-up interval applies strictly to external referral letters (Mode B). Optional reminders (settlement compliance date, Pangkat convening deadline, annual KP report) remain disabled by default.
+
+### Decision 94: Standardized Katarungang Pambarangay Procedure Sequence and Signatory Matrix
+- **Status**: Proposed, Pending Confirmation ([CONFIRMED, C3, C5, C8, C9; PROPOSED, P7, P8])
+- **Date**: 2026-11-24
+- **Context**: Ensuring KP legal procedure and document signatories reflect Local Government Code provisions and Secretary confirmations.
+- **Decision**: Adopt the standard KP sequence: complaint & classification -> summons -> PB mediation -> Pangkat constitution -> conciliation -> settlement or CFA. All printable documents resolve signatories dynamically via `SignatoryResolver` (Punong Barangay for summons, notices, and referrals; Pangkat Chairman for CFA and conciliation notices; Secretary for blotter extract preparation).

@@ -65,7 +65,7 @@ The test suite extends `Tests\TestCase` and is organized into functional feature
 | `tests/Feature/AdminSettingsTest.php` | Role authorization gates, category question builder updates, priority weight persistence, and audit logging. |
 
 ### Implemented Workstream Feature Test Suites
-- `tests/Feature/Setup/SetupWizardTest.php` (WS1): Complete 7-step wizard, resume on step, admin creation, fiscal year activation.
+- `tests/Feature/Setup/SetupWizardTest.php` (WS1): Complete 5-step wizard, resume on step, admin creation, fiscal year activation.
 - `tests/Unit/WorkingDaysTest.php` (WS1/Phase 0.5): Weekend skips, holiday exclusions from `calendar.holidays`, deadline boundaries.
 - `tests/Feature/People/PersonnelAndSignatoriesTest.php` (WS2): Resolves document signers by date, position, and case Pangkat Chairman.
 - `tests/Feature/Cases/CaseDocketAndManagementTest.php` (WS3): Blotter vs complaint, trimmed party form, case duplicate detection, party merging.
@@ -126,7 +126,7 @@ Use this step-by-step walkthrough for thesis defenses, official client demonstra
 
 1. **System Setup & Fresh Installation**:
    - Run `php artisan app:empty`.
-   - Open `/setup` in browser. Complete the 7-step onboarding wizard: create administrator account, enter Barangay Calarian profile, set active fiscal year, assign personnel and permissions.
+   - Open `/setup` in browser. Complete the 5-step onboarding wizard: environment check, create administrator account, enter Barangay Calarian profile, set active fiscal year, and review seeded baseline personnel. (Staff accounts and granular permissions are assigned post-setup at `/admin/users`).
 2. **Mobile Resident Submission**:
    - Open `/` in a browser resized to a phone viewport ($375\text{px}$).
    - Highlight the single-card layout, emergency 911 hotline prompt, and data privacy notice.
@@ -187,3 +187,59 @@ Before submitting pull requests or concluding workstream tasks, every developer 
 | **Modals & Overlays** | Max 90vw / 90vh; interior content scrolls gracefully. | Centered 480 px (sm) or 640 px (md). | Centered; focus traps to first input; Esc closes. |
 | **Touch Targets & Focus** | Minimum 44 px tap targets on all buttons and inputs. | Standard 40 px control heights. | Visible 2 px blue focus rings on tab navigation. |
 | **Color & Contrast** | Badges use both icon/text and color; 4.5:1 contrast. | 4.5:1 contrast on `#FFFFFF` / `#F8FAFC`. | 4.5:1 contrast verified across all states. |
+
+---
+
+## 5. Planned Feature Test Plan (WS3 / WS4 / Resident Intake)
+
+> [!NOTE]
+> The test suites below represent the **Planned Test Plan** for upcoming resident complaint intake and case lifecycle features. These test cases are planned for implementation in subsequent tasks alongside feature code; existing automated tests (337 tests, 2,253 assertions referenced in TASKS.md) remain passing and unaffected.
+
+### 5.1 Resident Entry Screen
+- Assert entry view renders exactly three primary actions: Emergency, Report a Community Problem, and File a Complaint.
+- Assert Emergency action uses `--red` accent and displays 911 / hotline guidance without altering report state.
+- Assert no separate "File a Blotter" button exists on the resident entry page.
+
+### 5.2 Resident Complaint Intake
+- Assert `POST /complaint` creates a record in `complaint_intakes` in status `pending`.
+- Assert submission does NOT create a case record, summons, or party in the canonical `parties` table.
+- Assert upfront confidentiality screening: answering "Yes" to VAWC/child-abuse screening redirects to guidance, stores zero records, and renders "Leave this page" quick exit.
+- Assert anonymity is rejected / unavailable on the complaint form (complainant name and contact are required).
+- Assert data privacy consent checkbox is required and cannot be submitted unchecked.
+- Assert `GET /complaint/received` displays receipt text only, strictly withholding case status, respondent data, and dispute tracking.
+- Assert rate limiting (`throttle:3,10`) and honeypot spam protection on complaint endpoint.
+
+### 5.3 Staff Intake Review & Docketing
+- Assert pending intakes display on `/admin/cases?tab=pending_intake` (`cases.view` permission required).
+- Assert "Docket this" opens the case creation form prefilled with intake facts.
+- Assert executing "Docket this" creates exactly one case at status `filed` and logs the blotter entry reference (two numbers, one record).
+- Assert duplicate case warning appears if parties match an existing active case within 30 days.
+- Assert rejecting or redirecting an intake strictly requires a standard outcome reason and written explanation note.
+
+### 5.4 Core Governance & Non-Automated State Transitions
+- Assert no automated status transitions occur from summons issuance, summons counts, hearing attendance, or deadline expiration.
+- Assert transitions require explicit authorized staff/official actions inside `DB::transaction()`.
+
+### 5.5 Mediation Clock & Working Days
+- Assert mediation statutory clock starts from `first_meeting_on` before the Punong Barangay, with fallback to `filed_on`.
+- Assert working day computation excludes weekends and official non-working holidays loaded from `calendar.holidays` via `App\Support\WorkingDays`.
+
+### 5.6 Hearing Attendance & Non-Appearance Handling
+- Assert recording respondent `failed_to_appear` logs absence in minutes and triggers soft warning when attempting `in_mediation` -> `escalated` ("The Pangkat usually must be constituted first").
+- Assert complainant non-appearance allows transition to `dismissed` with mandatory explanation note, and never auto-dismisses.
+- Assert at 15 working days without settlement, the case displays "Ready for next step: endorse to Pangkat"; assert no automated status change occurs and no summons-count threshold exists.
+
+### 5.7 Printable Templates & Signatories
+- Assert printables dynamically resolve signatories via `SignatoryResolver::forDocument()` (Punong Barangay for summons, notices, and referrals; Pangkat Chairman for CFA per C3; Secretary for blotter extract preparation).
+- Assert unconfirmed templates render `<x-ui.draft-watermark>`.
+- Assert CSV data exports emit empty strings `""` for unstated fields and never emit UI placeholder strings like `"Not provided"`.
+
+### 5.8 Guest and Anonymous Community Reports
+- Assert community problem report can be submitted as a guest without creating an account or logging in.
+- Assert anonymous report stores `is_anonymous = true` with null reporter name, contact, email, and stores no IP address or device identifier.
+- Assert optional one-time tracking code is generated for guest status lookup via `/track/{code}`.
+- Assert complaint form continues to reject anonymity.
+
+### 5.9 Regression Verification
+- Assert canonical 12-status community report lifecycle remains completely unchanged and functional.
+- Assert Report-to-Case conversion flow remains fully decoupled, transitioning civil report to `no_action` (`reason: converted_to_case`) while starting case at `filed`.

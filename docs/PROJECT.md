@@ -12,10 +12,23 @@ Core Principle: *"The AI suggests, the rules route, the officials decide."*
 
 Traditional incident reporting in barangays relies on physical walk-ins to the barangay hall, phone calls to personal mobile numbers, or unorganized group chats. This leads to lost requests, no accountability, lack of status visibility for residents, and difficulty triaging critical issues vs. routine maintenance.
 
-The system provides a lightweight, mobile-responsive web platform where residents can submit civic concerns without friction, while barangay officials receive AI-assisted triage with human-in-the-loop review, automated SLA tracking, structured external agency referrals via a dedicated Partner Agency Portal, and formal Katarungang Pambarangay case blotter/conciliation management.
+The system provides a lightweight, mobile-responsive web platform where residents can submit civic concerns and dispute complaint requests without friction, while barangay officials receive AI-assisted triage with human-in-the-loop review, automated SLA tracking, structured external agency referrals via a dedicated Partner Agency Portal, and formal Katarungang Pambarangay case blotter/conciliation management.
+
+### Modular Architecture: Two Modules Joined by Conversion ([DECIDED, D1])
+The application operates as **two distinct operational modules joined by an explicit conversion bridge**, plus shared administration:
+1. **Community Problem Reporting (Report Queue)**: Covers civic, municipal, sanitation, streetlight, drainage, flood, and infrastructure issues handled by internal committees or referred to external agencies, governed strictly by the canonical 12-status report lifecycle. Community reports reflect established barangay operational practice ([CONFIRMED, C6]) and can be submitted without an account or anonymously ([DECIDED, D7]).
+2. **Katarungang Pambarangay Case Management (Cases Docket)**: Covers interpersonal disputes, peace-and-order offenses, and conciliation proceedings governed by statutory Katarungang Pambarangay rules and the canonical 8-status case lifecycle. Features master enable switch `cases.enabled` and is pending thesis adviser confirmation.
+- **Conversion Bridge**: Civil community reports that turn out to be interpersonal disputes may be converted by authorized staff to formal cases via Report-to-Case Conversion (§ 8.8 in WORKFLOW.md). The two modules are never conflated or merged in management queues. Page renames (e.g. Report Queue -> "Community reports", Barangay Cases -> "Cases & Blotter") are Planned; route paths and permission slugs remain unchanged.
+
+### Resident Entry Screen Architecture (Three Buttons, [DECIDED, D2])
+Before any form is displayed, the resident entry screen (`resources/views/resident/create.blade.php`) presents three large, clear action buttons:
+1. **Emergency**: Reuses the existing emergency path, immediate 911/hotline display, and safety alerts (`--red` accent).
+2. **Report a Community Problem**: Opens the existing single-card community problem report form unchanged, supporting registered, guest, and anonymous submissions ([DECIDED, D7]). Features wrong-door notice directing civil disputes to the complaint form ([DECIDED, D6]).
+3. **File a Complaint (Planned, [DECIDED, D4])**: Opens the resident complaint intake form. Features mandatory upfront screening excluding confidential matters (VAWC / child protection) ([DECIDED, D4a]), captures complainant and respondent details and the 5Ws, and creates a **pending complaint intake**. Staff review and docket this via the "Pending intake" tab on the Cases Docket.
+*There is NO separate "File a Blotter" button* ([DECIDED, D2]): a complaint automatically establishes the blotter entry behind it as its logbook reference (two numbers, one record, [DECIDED, D3]).
 
 > [!NOTE]
-> **Active Scope**: Incident reporting (including optional voice reporting prototype; record-and-transcribe without telephony), external agency referrals with Partner Agency Portal, and Katarungang Pambarangay dispute conciliation cases are in scope; the case module is pending the adviser's confirmation (it can be switched off with `cases.enabled`), and importing the barangay's last 4 years of old records is a stretch item. Real telephony, softphone integration, live call recording, and cellular SMS broadcasts remain deferred.
+> **Active Scope**: Incident reporting (including optional voice reporting prototype; record-and-transcribe without telephony; guest/anonymous community problem reporting), external agency referrals with Partner Agency Portal, and Katarungang Pambarangay dispute conciliation cases are in scope; the case module and the resident complaint intake are pending adviser confirmation (`cases.enabled` switch; question: *"Should residents be able to start a dispute complaint online as a pending request, or should disputes stay walk-in only?"*), and importing the barangay's last 4 years of old records is a stretch item. Real telephony, softphone integration, live call recording, and cellular SMS broadcasts remain deferred.
 
 ---
 
@@ -25,7 +38,7 @@ Coarse access tier is governed strictly by `users.role` with three allowed value
 
 | Role | Account Tier | Position / Preset | Can Do | Must Not |
 | :--- | :--- | :--- | :--- | :--- |
-| **Resident** | **None** (guest, tracking code `BRG-XXXXXX`) | None | Submit a report (optionally recording audio instead of typing, with audio file upload fallback); see emergency contacts; track status and public timeline; answer staff clarification questions; confirm or reopen resolution and rate 1–5 stars; view the limited public transparency map. | See personal identification, full details, or audio recordings of other residents' reports. |
+| **Resident** | **None** (guest, anonymous, or registered; tracking code `BRG-XXXXXX`) | None | Submit a community problem report (optionally recording audio, as a guest or anonymously without an account [DECIDED, D7; Planned]); submit an online dispute complaint request (Planned, [DECIDED, D4]); see emergency contacts; track community report status and public timeline; answer staff clarification questions; confirm or reopen resolution and rate 1–5 stars; view the limited public transparency map. | See personal identification, full details, or audio recordings of other residents' reports; see respondent details or dispute tracking on complaint acknowledgement ([DECIDED, D4]). |
 | **Staff (Desk Officer / Tanod)** | Yes (`staff`) | Position `barangay_tanod`, Preset `staff_full` | Review the priority queue; record hotline phone reports (`reports.log_phone`); listen to and verify audio recordings requiring verification; view 3-way comparative triage (Resident vs. AI vs. Final); edit and confirm values; route internally or refer upward; handle emergencies and duplicates; assign personnel; request clarifications; propose resolution with proof photos. | Let AI output become final without manual staff review; auto-close or auto-resolve cases. |
 | **Lupon Member / Case Encoder** | Yes (`staff`) | Position `lupon_member`, Preset `case_encoder` | Record walk-in complaints and blotter entries; record party profiles; schedule hearings; generate summonses; view non-confidential cases and confidential cases they encoded themselves. | View other confidential cases (for example minors' or VAWC cases) or modify system settings and backups. |
 | **Case Reviewer (Kagawad Peace & Order)** | Yes (`staff`) | Position `kagawad_peace_order`, Preset `case_reviewer` | View all cases including confidential disputes; view reports queue and Reports Center exports. | Modify system settings, user accounts, or database backups. |
@@ -35,12 +48,13 @@ Coarse access tier is governed strictly by `users.role` with three allowed value
 | **AI Service (Google Gemini)** | N/A (external API) | N/A | Transcribe speech audio to text strictly as data (never executes spoken commands or repeats personal names); suggest category, urgency rating, executive summary, photo description, photo mismatch alert, emergency flags, duplicate candidates; generate aggregate dashboard insights. | Route, merge, close, resolve, modify final records, or contact police directly. |
 
 ### Permissions & Presets Architecture
-- **Granular Permissions**: Exactly **20 permission slugs** exist in code: `settings.manage`, `fiscal_year.manage`, `templates.manage`, `backups.manage`, `personnel.manage`, `users.manage`, `reports.view`, `reports_center.view`, `reports_center.export`, `cases.view`, `cases.view_confidential`, `cases.create`, `cases.edit`, `cases.summons`, `cases.escalate`, `agencies.manage`, `referrals.manage`, `imports.manage`, `dashboard.view`, `audit.view`.
+- **Granular Permissions**: Exactly **21 permission slugs** exist in code (seeded in `RequiredDataSeeder.php`): `settings.manage`, `fiscal_year.manage`, `templates.manage`, `backups.manage`, `personnel.manage`, `users.manage`, `reports.view`, `reports.log_phone`, `reports_center.view`, `reports_center.export`, `cases.view`, `cases.view_confidential`, `cases.create`, `cases.edit`, `cases.summons`, `cases.escalate`, `agencies.manage`, `referrals.manage`, `imports.manage`, `dashboard.view`, `audit.view`.
 - **Permission Presets**: Defined in `config/permission_presets.php`:
-  1. `staff_full` (16 permissions): Standard full operational rights across reports, cases, personnel, and referrals without confidential case access or system backups.
+  1. `staff_full` (18 permissions): Standard full operational rights across reports, cases, personnel, and referrals without confidential case access or system backups.
   2. `case_encoder` (5 permissions): Dispute case intake, editing, hearings, and summons generation for non-confidential cases.
   3. `reports_analyst` (3 permissions): Read-only reporting and dashboard analytics export access.
-  4. `case_reviewer` (6 permissions): Review of all dispute cases including confidential cases, reports queue, and Reports Center.
+  4. `case_reviewer` (5 permissions): Review of all dispute cases including confidential cases, reports queue, and Reports Center (`cases.view`, `cases.view_confidential`, `reports.view`, `reports_center.view`, `dashboard.view`).
+- **Summons vs. Working Days Escalation Policy**: Case escalation is strictly governed by the **15-working-day statutory period** (confirmed by the Barangay Secretary, Q20/Q21) rather than a summons count. Summons counts (`sequence_no`) are maintained purely for administrative record-keeping; `cases.summons_limit` in `SummonsCounterService` is display-only/legacy. No automatic escalation or status change ever occurs on summons count or deadline expiration ("The AI suggests, the rules route, the officials decide").
 - **Admin Exemption**: Users holding `role = 'admin'` automatically bypass explicit permission checks via `User::hasPermission()`. Positions do not grant permissions on their own.
 
 ---
@@ -146,26 +160,44 @@ Every value below lives in the database (`settings` table or reference seed tabl
 | `barangay.hall_address` | `string` | `Calarian, Zamboanga City, 7000` | `general` | Q5 | Hearing notice and summons venue address |
 | `barangay.contact_number` | `string` | `0917-123-4567` | `general` | Q6 | Official contact number |
 | `barangay.email` | `string` | `info@calarian.gov.ph` | `general` | Q7 | Official communication email |
-| `numbering.referral.format` | `string` | `REF-{YEAR}-{SEQ:4}` | `numbering` | Q8 | External referral numbering scheme |
-| `numbering.case.format` | `string` | `CASE-{YEAR}-{SEQ:5}` | `numbering` | Q9 | Conciliation case docket format |
-| `numbering.blotter.format` | `string` | `{MM}-{SEQ:3}-{YEAR}` | `numbering` | Q9 | Incident blotter numbering format |
-| `numbering.summons.format` | `string` | `SUM-{YEAR}-{SEQ:4}` | `numbering` | Q10 | Summons notice numbering format |
-| `referral.follow_up_days` | `integer` | `3` | `referrals` | Q12 | Agency follow-up reminder interval (days) |
-| `records.lookback_years` | `integer` | `4` | `general` | Q8 | Years of legacy records maintained |
+| `numbering.case.format` | `string` | `{MM}-{SEQ:3}-{YEAR}` | `numbering` | Q9, C5 | Conciliation case docket format ([CONFIRMED, C5]; flagged mismatch: code/UI `CASE-{YEAR}-{SEQ:5}` and `CASE-2026-00001` require correction) |
+| `numbering.blotter.format` | `string` | `{MM}-{SEQ:3}-{YEAR}` | `numbering` | Q9, C5 | Incident blotter numbering format ([CONFIRMED, C5]; flagged mismatch: UI `BLOT-2026-00001` requires correction) |
+| `numbering.referral.format` | `string` | `{MM}-{SEQ:3}-{YEAR}` | `numbering` | Q9, C5 | External referral numbering scheme per Secretary answer ([CONFIRMED, C5]; referral prefix `REF-YYYY-NNNN` remains unconfirmed) |
+| `numbering.summons.format` | `string` | `SUM-YYYY-NNNN` | `numbering` | Q10 | Summons notice numbering format ([PROPOSED, unconfirmed]) |
+| `referral.follow_up_days` | `integer` | `3` | `referrals` | Q12, C6 | Agency follow-up reminder interval (days; referral letters only) |
+| `records.lookback_years` | `integer` | `4` | `general` | Q8, C4 | Years of legacy records maintained |
 | `cases.enabled` | `boolean` | `true` | `cases` | Adviser | Master switch for dispute case module |
-| `cases.mediation_deadline_days` | `integer` | `15` | `cases` | Q20, Q25 | Mediation period limit (working days) |
-| `cases.conciliation_deadline_days` | `integer` | `15` | `cases` | Q25 | Conciliation period limit (working days) |
-| `cases.conciliation_extension_days` | `integer` | `15` | `cases` | Q25 | Maximum extension for conciliation (working days) |
-| `cases.deadline_day_type` | `string` | `working` | `cases` | Q20, Q25 | Working days vs calendar days computation |
+| `cases.mediation_deadline_days` | `integer` | `15` | `cases` | Q20, Q25, C11 | Mediation period limit (working days) |
+| `cases.conciliation_deadline_days` | `integer` | `15` | `cases` | Q25, C11, P2 | Conciliation period limit (working days, [PROPOSED unit]) |
+| `cases.conciliation_extension_days` | `integer` | `15` | `cases` | Q25, C11, P2 | Maximum extension for conciliation (working days, [PROPOSED unit]) |
+| `cases.deadline_day_type` | `string` | `working` | `cases` | Q20, Q25, C11 | Working days vs calendar days computation |
 | `cases.deadline_warning_days` | `integer` | `3` | `cases` | Q27 | Days before deadline to flag warning |
 | `calendar.holidays` | `json` | `[]` | `cases` | Q25 | Specific non-working holidays excluded from clock |
 | `cases.default_venue` | `string` | `Barangay Hall` | `cases` | None | Default hearing venue |
-| `cases.cfa_signer_position` | `string` | `pangkat_chairman` | `cases` | Q5 | Signatory position for CFA document |
-| `agencies.registration_open` | `boolean` | `true` | `agencies` | Q28 | Public partner agency registration switch |
-| `agencies.require_id_document` | `boolean` | `true` | `agencies` | Q31 | Mandatory proof upload for agency registration |
+| `cases.cfa_signer_position` | `string` | `pangkat_chairman` | `cases` | Q5, C3 | Signatory position for CFA document |
+| `agencies.registration_open` | `boolean` | `true` | `agencies` | Q28, C15 | Public partner agency registration switch |
+| `agencies.require_id_document` | `boolean` | `true` | `agencies` | Q31, C15 | Mandatory proof upload for agency registration |
 | `privacy.case_retention_years` | `integer` | `5` | `privacy` | Q36 | Case record retention threshold |
 | `reports.default_format` | `string` | `print` | `reports` | Q33 | Default report rendering (`print`, `pdf`, `excel`) |
 | `reports.paper_size` | `string` | `a4` | `reports` | None | Default paper size (`a4`, `letter`, `legal`) |
+| `hotline.vawc.national` | `string` | `911` | `hotlines` | P9 | National emergency hotline for screening screen (Planned) |
+| `hotline.vawc.pnp` | `string` | `0919-777-7377` | `hotlines` | P9 | PNP Aleng Pulis hotline (Planned) |
+| `hotline.bcpc.national` | `string` | `163` | `hotlines` | P9 | Bantay Bata hotline (Planned) |
+| `hotline.vawc.barangay` | `string` | `null` | `hotlines` | P9 | Local Barangay Calarian VAW Desk number (Planned) |
+| `hotline.bcpc.cswdo` | `string` | `null` | `hotlines` | P9 | Zamboanga City CSWDO hotline (Planned) |
+| `reminders.settlement_compliance` | `boolean` | `false` | `cases` | P10 | Optional reminder when settlement terms fall due (Planned) |
+| `reminders.pangkat_convening` | `boolean` | `false` | `cases` | P10 | Optional reminder 3 days after Pangkat constitution (Planned) |
+| `reminders.kp_accomplishment_yearly`| `boolean` | `false` | `cases` | P10, C16 | Optional reminder for annual KP accomplishment report (Planned) |
+
+#### Unconfirmed Numbering Formats Table
+| Entity | Confirmed Standard Format | Prototype / Legacy Format (Flagged Mismatch) | Confirmation Status |
+| :--- | :--- | :--- | :--- |
+| **Case Docket Number** | `{MM}-{SEQ:3}-{YEAR}` (e.g. `11-001-2026`) | `CASE-{YEAR}-{SEQ:5}` / `CASE-2026-00001` | **CONFIRMED [C5]**; UI/Code needs update |
+| **Blotter Number** | `{MM}-{SEQ:3}-{YEAR}` (e.g. `11-001-2026`) | `BLOT-2026-00001` | **CONFIRMED [C5]**; UI/Code needs update |
+| **Referral Number** | `{MM}-{SEQ:3}-{YEAR}` (e.g. `11-001-2026`) | `REF-YYYY-NNNN` / `REF-{YEAR}-{SEQ:4}` | Confirmed format, but `REF-` prefix unconfirmed |
+| **Summons Number** | `SUM-YYYY-NNNN` (proposed) | `SUM-{YEAR}-{SEQ:4}` | **[PROPOSED]**, Unconfirmed |
+| **Certificate to File Action (CFA)**| Unconfirmed format | `CFA-{YEAR}-{SEQ:4}` | **[PROPOSED]**, Unconfirmed |
+
 | `priority.urgency` | `integer` | `20` | `priority` | Settings | Priority score weight for urgency level |
 | `priority.category` | `integer` | `10` | `priority` | Settings | Priority score weight for category risk |
 | `priority.sensitive_place` | `integer` | `25` | `priority` | Settings | Priority score weight for sensitive place proximity |
@@ -195,6 +227,7 @@ Every value below lives in the database (`settings` table or reference seed tabl
 - `referral_letter`: Prepared by `barangay_secretary`, Approved by `punong_barangay`
 - `settlement_agreement`: Attested by `punong_barangay`, Approved by `punong_barangay`
 *(For `certificate_to_file_action`, `SignatoryResolver` resolves Pangkat Chairman or case-specific personnel)*.
+*(Note: Current codebase contains 2 fallback views—`resources/views/admin/reports-center/print.blade.php:137,142` and `show.blade.php:269,274`—that hardcode "Barangay Secretary" and "Punong Barangay" inside `@empty` fallback blocks when no signatories are configured. Remediation to blank signature lines is tracked in TASKS.md Task 14)*.
 
 #### Case Types (`case_types` table)
 - Non-Confidential by default: Physical injury, Noise disturbance, Boundary or property dispute, Theft, Domestic or family dispute, Threats or verbal abuse, Unpaid debt, Damage to property, Vehicular accident, Other.
@@ -220,20 +253,25 @@ Every value below lives in the database (`settings` table or reference seed tabl
 
 ## 9. Open Questions & Clarifications with Barangay Officials
 
-The following operational questions were surfaced during the Barangay Secretary questionnaire review and remain pending confirmation by barangay leadership:
+The following operational questions were surfaced during the Barangay Secretary questionnaire review or prompt design updates and remain pending confirmation by barangay leadership and the academic adviser:
 
-1. **Mediation Clock Start Date**: Does the 15-working-day mediation clock start on `filed_on` (docketing), the date the first summons is served, or the first hearing date?
-2. **Conciliation Calendar**: Are conciliation period extensions granted by the Punong Barangay or by the Pangkat Chairman?
-3. **Pangkat Roster**: Is the Pangkat Chairman designated as a standing role or elected per-dispute from the 3-member Pangkat panel?
-4. **Numbering Reset Specifics**: Do incident blotter entries and formal conciliation complaints share the same numerical sequence counter or separate sequence counters?
-5. **BCPC & VAWC Timeline**: Do BCPC and VAWC disputes follow standard Katarungang Pambarangay 15-day conciliation or immediate referral to specialized agencies without conciliation?
-6. **Confidential Case Viewing**: May the specific Lupon member who encoded a confidential case continue viewing it after initial docketing?
-7. **Agency Action Authority**: May an external partner agency directly mark a referral as "declined" or "closed", or does final resolution require barangay staff confirmation?
-8. **Statutory Privacy Notice**: Does the barangay have a pre-approved Data Privacy Act (RA 10173) consent notice for disputed parties, or will the system's generated draft be confirmed?
-9. **Physical Paper Size**: Which paper size is officially required for printed DILG compliance reports (`A4`, `Letter`, or `Legal/Long Bond`)?
-10. **Blotter Summary Submission**: Is the blotter incident summary submitted to any city agency, or retained strictly internal?
-11. **VAWC Committee Kagawads**: Which specific Kagawads are designated to review minor and child protection cases?
-12. **Historical Logbook Ingestion**: For the last 4 years of paper records, who will be responsible for typing non-digitized handwritten blotters into CSV format for WS6 import?
+### Group A: Working Answers Adopted for Now [PROPOSED, pending confirmation]
+1. **Mediation Clock Start Date**: Does the 15-working-day mediation clock start on the date of the first meeting of parties before the Punong Barangay (`first_meeting_on`) ([PROPOSED, P2]), or from docketing (`filed_on`) / summons service? [Provisionally resolved to first-meeting date].
+2. **Conciliation Unit and Extension**: The Secretary stated "another 15 to 30 days" for conciliation ([CONFIRMED, C11]). Is conciliation counted in working days ([PROPOSED, P2]), and who decides the extension (Punong Barangay or Pangkat Chairman)?
+3. **Non-Appearance Procedures**:
+   - *Respondent absent*: Does the barangay record `failed_to_appear`, bar connected counterclaims, and constitute the Pangkat rather than issue an immediate CFA ([PROPOSED, P3])? What does the barangay actually record and do within the 15 working days?
+   - *Complainant absent*: Does the barangay dismiss the case upon unexcused failure to appear after due notice ([PROPOSED, P3])?
+4. **Physical Logbook Form & Extracts**: Does the physical blotter logbook use series, page, and entry numbers ([PROPOSED, P4])? Can the team inspect a sample filled-in page? Is the logbook entry the primary intake record, with the "Barangay Blotter" document serving as a certified extract issued on request ([PROPOSED, P5])?
+5. **Numbering Reset and Prefixes**: Do blotter entries and formal complaint cases share a single numerical sequence counter, or run separate counters ([PROPOSED, P4a])? Do summons (`SUM-`), CFA, and referral numbers use `{MM}-{SEQ:3}-{YEAR}` or standard prefixes like `REF-YYYY-NNNN`?
+6. **Pre-Summons Eligibility Screening**: Before issuing summons, does staff verify legal eligibility items (parties are natural individuals residing in the same barangay, dispute not excluded by law, no parties in police custody) alongside classification by case type ([PROPOSED, P1])?
+7. **Statutory Conciliation Sequence**: Confirm the complete sequence ([PROPOSED, P7]): complaint intake & classification -> summons -> mediation (15 working days from first meeting) -> Pangkat constitution -> conciliation (15 working days) -> amicable settlement OR CFA upon complainant request. (Secretary Q18 omitted the Pangkat step).
+8. **Document Signatories Verification**: Confirm proposed signatory mapping ([PROPOSED, P8]): Notice of hearing (Pangkat Chairman), Amicable settlement (parties + PB or Pangkat Chair), Blotter extract (Secretary prepares, PB certifies), Complaint intake receipt (Secretary or Lupon member), CFA with Pangkat (Pangkat Chairman) vs CFA without Pangkat (Secretary prepares, PB signs).
+9. **Confidentiality Screening & Guidance**: Review draft VAWC and BCPC guidance wording in English and Filipino ([PROPOSED, P9]), and provide official contact numbers for the Barangay Calarian VAW Desk and City CSWDO.
+10. **Automated Reminders Scope**: Is the 3-day follow-up interval applicable strictly to external referral letters (Mode B) ([PROPOSED, P10; CONFIRMED, C6])? Does the Secretary wish to activate optional reminders for settlement compliance dates, 3-day Pangkat convening deadlines, or annual KP accomplishment reports?
+11. **Academic Adviser Question**: Should residents be allowed to submit dispute complaints online as a pending intake request only ([PROPOSED, P6; DECIDED, D4]), or should dispute intake strictly remain walk-in only at the barangay hall?
+
+### Group B: Decided by the Team (To Inform the Secretary)
+12. **Guest and Anonymous Community Reporting ([DECIDED, D7])**: The team has decided that community problem reports (Report Queue) may be submitted without creating an account and anonymously, with optional tracking codes ([PROPOSED, P11]). (The Secretary answered "Not sure" in Q14). Inform the Secretary of this decision, confirm if the barangay has any operational objections, and confirm whether tracking codes are desired. (Complaints remain strictly identified and in-person; anonymity is not offered for disputes).
 
 ---
 

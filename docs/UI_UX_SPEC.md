@@ -185,8 +185,8 @@ Used for: Barangay Case show page, Agency detail view, External Referral managem
 
 ```text
 +----------------------------------------------------------------------+
-| Breadcrumbs: Home / Cases / CASE-2026-00002                          |
-| CASE-2026-00002: Ramos vs. Bautista            [Print] [Issue Summons]
+| Breadcrumbs: Home / Cases / 11-002-2026                              |
+| 11-002-2026: Ramos vs. Bautista                [Print] [Issue Summons]
 | FY 2026 · Boundary Dispute · Filed Nov 12, 2026 · Status: [In Mediation]|
 +----------------------------------------------------------------------+
 | [Overview]   [Parties (2)]   [Summons (1)]   [Hearings (1)]   [Notes]|
@@ -348,7 +348,7 @@ Used for: Official Summons, Case Endorsements, Referral Letters, Amicable Settle
 - **Document Title**: Centered, 14 pt bold uppercase, 24 px below letterhead rule.
 - **Reference Block**: Date and unique number right-aligned.
 - **Typography & Spacing**: Arial 11 pt, 1.5 line height, 8 pt paragraph spacing.
-- **Signatory Block**: Up to 3 balanced columns (`Prepared by`, `Noted by`, `Approved by`) with 40 px blank signature clearance, horizontal rule, bold official name, and position title. Blank rules render when signatories are unconfirmed.
+- **Signatory Block**: Up to 3 balanced columns (`Prepared by`, `Noted by`, `Approved by`) with 40 px blank signature clearance, horizontal rule, bold official name, and position title. Blank rules render when signatories are unconfirmed. *(Note: in current code, `reports-center/print.blade.php:137,142` and `show.blade.php:269,274` hardcode "Barangay Secretary" and "Punong Barangay" in `@empty` fallbacks; remediation to standard blank rules is tracked in TASKS.md Task 14).*
 - **Draft Watermark**: Semi-transparent 96 pt diagonal watermark (`DRAFT`) renders across print canvas while template or signatories remain unconfirmed.
 
 ---
@@ -511,25 +511,16 @@ Used for: Official Summons, Case Endorsements, Referral Letters, Amicable Settle
   1. Municipal Brand Header.
   2. Wizard Progress Indicator ("Step N of 5").
   3. Prerequisites & Baseline Verification.
-  4. Step Form Content (Step 1: Welcome/Checks, Step 2: Barangay Identity, Step 3: Fiscal Year, Step 4: Numbering, Step 5: Positions & Personnel).
+  4. Step Form Content (Step 1: Verification, Step 2: Admin Account, Step 3: Barangay Profile, Step 4: Fiscal Year, Step 5: Personnel & Review).
   5. Navigation Action Footer.
 - **Buttons Table**:
   | Label | Variant | Position | Rule |
   | :--- | :--- | :--- | :--- |
   | `< Back` | Secondary / Ghost | Bottom-left of card | Hidden on Step 1; enabled on Steps 2–5. |
   | `Save and Continue ->` | Primary (`--blue`) | Bottom-right of card | Enabled when required fields validate. |
-  | `Complete Setup` | Primary Amber (`--gold`) | Bottom-right on Step 5 | Finalizes configuration and redirects to `/login`. |
-- **Special Table (Step 5: Positions & Personnel)**:
-  | Column | Width % | Align | Notes |
-  | :--- | :--- | :--- | :--- |
-  | Position | 26% | Left | Dropdown select from positions table. |
-  | Full Name | 28% | Left | Text input for official full name. |
-  | Signatory Default | 12% | Center | Checkbox indicating default document signer. |
-  | Create Login Account | 14% | Center | Checkbox triggering account generation. |
-  | Email Address | 14% | Left | Required if login account is checked. |
-  | Action | 6% | Right | Trash icon button to remove row. |
-  *(Columns sum: 26 + 28 + 12 + 14 + 14 + 6 = 100%)*
-- **States**: Loading displays spinner in button; Error highlights missing inputs; Step 5 displays temporary passwords once in a bordered copy box.
+  | `Complete Setup` | Primary Amber (`--gold`) | Bottom-right on Step 5 | Finalizes configuration, seeds baseline reference data, and redirects to `/login`. |
+- **Step 5: Personnel & Review**:
+  Displays a summary of verified environment checks, administrator credentials, barangay profile, activated fiscal year, and seeded baseline positions (Punong Barangay, Secretary, Lupon, Tanod). Provisions the root Administrator user account. Staff account creation and permission preset assignments are performed post-setup via `/admin/users` (optional interactive Step 5b staff onboarding during setup is tracked in TASKS.md Task 13).
 - **Mobile Notes**: Table converts to stacked card rows on `< 640 px`; inputs expand full width.
 
 ---
@@ -905,6 +896,7 @@ Used for: Official Summons, Case Endorsements, Referral Letters, Amicable Settle
 
 #### 4.21 Barangay Cases Docket List
 - **ID & Route**: `WS3-P01` | `GET /admin/cases` (`admin.cases.index`) | **Pattern A** | **Owner: WS3**
+- **Tabs Available**: `Active Cases`, `Blotter Records`, `Pending Intake` (Planned, [DECIDED, D4]), `Archived / Closed`.
 - **Buttons Table**:
   | Label | Variant | Position | Rule |
   | :--- | :--- | :--- | :--- |
@@ -913,7 +905,7 @@ Used for: Official Summons, Case Endorsements, Referral Letters, Amicable Settle
 - **Table Columns Table**:
   | Column | Width % | Align | Notes |
   | :--- | :--- | :--- | :--- |
-  | Case No. | 12% | Left | Monospace link to detail view. |
+  | Case No. | 12% | Left | Monospace link to detail view (`{MM}-{SEQ:3}-{YEAR}`). |
   | Filed | 9% | Left | Short date `MMM DD`. |
   | Type | 13% | Left | Case category badge. |
   | Complainant(s) | 17% | Left | Truncated primary complainant names. |
@@ -923,6 +915,21 @@ Used for: Official Summons, Case Endorsements, Referral Letters, Amicable Settle
   | Assigned | 9% | Left | Assigned mediator / clerk name. |
   | Actions | 6% | Right | View and Edit icon actions. |
   *(Columns sum: 12 + 9 + 13 + 17 + 17 + 9 + 8 + 9 + 6 = 100%)*
+
+#### 4.21a Pending Complaint Intake Tab (Planned, [DECIDED, D4])
+- **ID & Route**: `WS3-P01b` | `GET /admin/cases?tab=pending_intake` | **Pattern A** | **Owner: WS3**
+- **Description**: Displays citizen complaint requests submitted via the online public form awaiting official staff docketing.
+- **Table Columns Table**:
+  | Column | Width % | Align | Notes |
+  | :--- | :--- | :--- | :--- |
+  | Received | 12% | Left | Date/time submitted `MMM DD, HH:MM`. |
+  | Complainant | 20% | Left | Citizen name, contact, and residency claim badge. |
+  | Respondent | 20% | Left | Free-text respondent name and address (unlinked). |
+  | Case Type | 15% | Left | Suggested category chip. |
+  | Narrative / Relief | 18% | Left | Truncated 5Ws snippet and relief requested. |
+  | Actions | 15% | Right | Primary "Docket this" button + Secondary "Redirect/Reject" dropdown. |
+  *(Columns sum: 12 + 20 + 20 + 15 + 18 + 15 = 100%)*
+- **Action Modal**: "Redirect / Reject" opens modal requiring standard outcome reason and mandatory written explanation. "Docket this" opens prefilled WS3 case intake form (`admin.cases.create`).
 
 ---
 
@@ -1029,17 +1036,25 @@ Used for: Official Summons, Case Endorsements, Referral Letters, Amicable Settle
 +----------------------------------------------------------------------+
 | Breadcrumbs: Home / Cases / 11-001-2026                              |
 | 11-001-2026: Dela Cruz vs. Penduko                    [Issue Summons]
-| FY 2026 · Boundary Dispute · Filed Nov 17, 2026 · Status: [In Mediation]|
+| FY 2026 · Boundary Dispute · Status: [In Mediation] · Source: [Resident Intake]|
+| Blotter Ref: 11-001-2026 (Logbook Series A, Page 12, Entry 3)        |
 +----------------------------------------------------------------------+
 | [Overview]  [Parties (2)]  [Summons (1)]  [Hearings]  [Escalation]   |
 +---------------------------------------------------+------------------+
 | Main Tab View (2/3 width)                         | Side Cards (1/3) |
-| (Summons Tab Selected)                            | Deadline Panel   |
-| Sequential Summons (No artificial limit)          | [=== Day 8/15 =] |
-|                                                   | 7 days remain    |
-| Seq No.  Respondent  Issued   Hearing   Service   |                  |
-| ------------------------------------------------- | Confidentiality  |
-| 1   001  P. Penduko  Nov 18   Nov 25    [Served]  | [ Standard Pub ] |
+| (Summons Tab Selected)                            | Pre-Summons Gate |
+| Sequential Summons (No maximum limit)             | [x] Same brgy    |
+|                                                   | [x] KP scope     |
+| Seq No.  Respondent  Issued   Hearing   Service   | [x] Non-confid.  |
+| ------------------------------------------------- | [x] Verified     |
+| 1   001  P. Penduko  Nov 18   Nov 25    [Received]|                  |
+|          Served by: Tanod J. Perez                | Mediation Clock  |
+|                                                   | 1st Mtg: Nov 18  |
+| [!] Warning: Respondent failed to appear at       | [=== Day 8/15 =] |
+|     mediation. Constitute Pangkat before CFA.     | 7 days remain    |
+|                                                   |                  |
+|                                                   | Confidentiality  |
+|                                                   | [ Standard Pub ] |
 |                                                   |                  |
 |                                                   | Assigned Officer |
 |                                                   | Sec. Delos Santos|
@@ -1059,10 +1074,16 @@ Used for: Official Summons, Case Endorsements, Referral Letters, Amicable Settle
   | Respondent | 20% | Left | Respondent party name. |
   | Issued | 12% | Left | Issuance date `YYYY-MM-DD`. |
   | Hearing | 16% | Left | Hearing timestamp. |
-  | Service | 12% | Left | Service result badge (`Received`, `Refused`, `Not Found`). |
-  | Attendance | 12% | Left | Attendance badge (`Appeared`, `Failed`). |
+  | Service | 12% | Left | Service result badge (`Received`, `Refused`, `Not Found`, `Other` [not in confirmed list]) + `Served by`. |
+  | Attendance | 12% | Left | Attendance badge (`Appeared`, `Failed to Appear`). |
   | Actions | 8% | Right | Print notice, Void action (requires note). |
   *(Columns sum: 6 + 14 + 20 + 12 + 16 + 12 + 12 + 8 = 100%. Voided rows display with line-through styling).*
+- **Procedural Safeguards & Indicators**:
+  - **Source Badges**: Displays `[Walk-in]`, `[From Report]` (for cases created via Report-to-Case conversion), or `[Resident Intake]` (for cases created from citizen online intake).
+  - **Pre-Summons Eligibility Card**: Side card displaying checklist ([PROPOSED, P1]): parties natural persons residing in Calarian, dispute within KP jurisdiction, matter non-confidential, residency verified.
+  - **Mediation Clock Start**: Starts from `first_meeting_on` before the Punong Barangay ([PROPOSED, P2]), falling back to `filed_on`.
+  - **Soft Warning Banners**: Extended soft warning triggers if staff attempt `in_mediation` -> `escalated` when the respondent never appeared at mediation (*"The Pangkat usually must be constituted first"*).
+  - **Day-Based Indicator**: At 15 working days with no settlement, the deadline panel renders "Ready for next step: endorse to Pangkat" (slate badge). Summons counts are informational only; no summons-count cutoff exists ([CONFIRMED, C11]).
 
 ---
 
@@ -1268,12 +1289,73 @@ Used for: Official Summons, Case Endorsements, Referral Letters, Amicable Settle
 - **ID & Route**: `SHR-P02` | `403` & `404` views | **Pattern D Variant** | **Owner: WS1 / Shared**
 - **Layout**: Centered card, width 480 px, status code illustration, brief plain-language explanation, **PRIMARY "Return to Dashboard" button**.
 
-#### 4.42 Existing Resident Pages (Preserved)
+#### 4.42 Resident Entry Screen & Community Problem Form
 - **ID & Routes**:
-  - `GET /` (`reports.create`): Single-card incident reporting form.
+  - `GET /` (`reports.create`): Resident entry portal & community problem form.
   - `GET /track/{tracking_code}` (`reports.track`): Resident public tracking & verification timeline.
   - `GET /map` (`reports.map`): Public incident transparency map.
-- **Specification Policy**: **Existing, keep**. Maintain single-card layout, zero-account friction, 375 px mobile-first compliance, and strict exclusion of reporter personal identification.
+- **Entry Screen Architecture (Three Buttons, [DECIDED, D2])**:
+  Before opening any form, the entry view presents three prominent, touch-friendly action cards:
+  ```text
+  +-------------------------------------------------------------+
+  |                   BARANGAY CALARIAN                         |
+  |             Citizen Service & Incident Portal               |
+  +-------------------------------------------------------------+
+  | [!] EMERGENCY (911 & Barangay Hotlines)                     |
+  |     Life-safety emergencies, active crimes, urgent rescue   |
+  +-------------------------------------------------------------+
+  | [*] REPORT A COMMUNITY PROBLEM                              |
+  |     Potholes, broken streetlights, floods, garbage, drainage|
+  +-------------------------------------------------------------+
+  | [i] FILE A COMPLAINT                                        |
+  |     Disputes with neighbors, unpaid debt, property, injury  |
+  +-------------------------------------------------------------+
+  ```
+  - **Emergency Button**: Uses high-visibility `--red` accent (`bg-red-600 text-white hover:bg-red-700`). Triggers immediate hotline overlay and tanod dispatch guidance.
+  - **Report a Community Problem**: Reveals the single-card community problem report form.
+  - **File a Complaint**: Navigates to the resident complaint intake form (`GET /complaint`).
+  - *No "File a Blotter" button* ([DECIDED, D2]): Complaints automatically create the blotter entry behind them.
+- **Community Problem Form Safeguards**:
+  - **Wrong-Door Notice Banner ([DECIDED, D6])**: Non-blocking gold info banner at top of form:
+    *"Is this a conflict with a specific person, like a neighbor, a debt, or an injury? File a Complaint instead, or visit the barangay hall."*
+  - **Safety Banner ([PROPOSED, P9])**: Notice linking to offline emergency and domestic support hotlines.
+  - **Guest & Anonymous Reporting ([DECIDED, D7; PROPOSED, P11])**:
+    - No account or login required.
+    - Optional reporter name, mobile number, and email.
+    - "Report anonymously" checkbox clears and disables contact inputs, accompanied by helper text: *"If you leave out your contact details, we cannot tell you the result."*
+    - Stores no reporter name, contact, IP address, or device identifier.
+    - Post-submit confirmation card displays optional one-time tracking code for viewing status updates via `/track/{code}`.
+
+#### 4.43 Resident Complaint Intake Form (Planned, [DECIDED, D4])
+- **ID & Route**: `RES-C01` | `GET /complaint` / `POST /complaint` | **Pattern B Variant (Single Card)** | **Owner: WS3 / Resident UI**
+- **Upfront Confidentiality Screening Gate ([DECIDED, D4a; PROPOSED, P9])**:
+  - Prompt: *"Is this about violence against a woman or her child, abuse of a child, or an emergency?"*
+  - Choices: `[ Yes, I need help ]` (Red outline) | `[ No, continue ]` (Blue primary)
+  - **Screening Result "Yes" (Guidance Screen)**:
+    - Displays emergency and domestic hotline guidance:
+      - English: *"If you are in danger, call 911 now. It is free and open 24/7. You can also go to the Barangay VAW Desk at the barangay hall, or to the PNP Women and Children Protection Desk. Please do not use this online form for this concern. For a child who is being harmed or needs protection, go to the barangay hall and ask for the BCPC, or call 911 or Bantay Bata 163."*
+      - Filipino: *"Kung nasa panganib ka o kailangan mo ng agarang tulong, tumawag sa 911 (libre at 24/7). Maaari ka ring pumunta sa VAW Desk ng barangay o sa Women and Children Protection Desk ng PNP. Huwag gamitin ang online form na ito para sa ganitong kaso."*
+    - Hotlines rendered dynamically from `setting()` (`hotline.vawc.national`, `hotline.vawc.pnp`, `hotline.bcpc.national`).
+    - Prominent **"Leave this page"** quick-exit button (redirects immediately to blank Google search).
+    - **Zero Data Stored**: No database row, session cookie, or screening answer is recorded.
+- **Form Structure on "No" (Single Compact Card, 375px Safe)**:
+  1. **Complainant Block**: Full legal name *, Alias, Age / Date of Birth, Contact number *, Complete residential address *, Residency declaration. *(Anonymity is strictly not offered on dispute complaints)*.
+  2. **Respondent Block**: Full name *, Alias if known, Complete address (for summons service) *, Contact number if known. *(Stored as unlinked free text; not added to party directory)*.
+  3. **Incident Facts (5Ws)**: What happened *, Who was involved *, When did it occur *, Where did it occur *, Why / How it happened *.
+  4. **Rights Violated & Relief Requested**: Specific description of rights violated and damages suffered *; specific remedies or settlement terms requested *.
+  5. **Data Privacy Consent**: Mandatory RA 10173 consent checkbox: *"I certify the facts stated are true and correct, and consent to barangay conciliation processing under RA 10173."* (Never auto-ticked).
+  6. **Closing Notice**: *"This online submission is a pending request only. Under Republic Act 7160, you must appear in person at the Barangay Calarian Hall to sign your official complaint before conciliation proceedings begin."*
+  7. **Primary Action**: `[ Submit Complaint Request ]` (`--blue`, full-width on mobile).
+
+#### 4.44 Complaint Acknowledgement Page (Planned, [DECIDED, D4])
+- **ID & Route**: `RES-C02` | `GET /complaint/received` | **Pattern D Variant** | **Owner: WS3 / Resident UI**
+- **Layout**: Centered card, width 480 px.
+- **Content**:
+  - Green checkmark icon.
+  - Heading: *"Complaint Request Received"*
+  - Body: *"Your dispute complaint request has been received by the Barangay Calarian Lupon Tagapamayapa desk. Please visit the barangay hall within 3 working days with a valid ID to physically sign your complaint and complete docketing."*
+  - **Strict Privacy Rule**: Renders **NO case status, NO respondent information, and NO public timeline/tracking link**, safeguarding respondent privacy and complying with RA 10173.
+  - Primary button: `[ Return to Home ]`.
 
 ---
 
@@ -1297,7 +1379,7 @@ Used for: Official Summons, Case Endorsements, Referral Letters, Amicable Settle
 | `<x-ui.person-finder>` | `name`, `entity`, `selected` | Default autocomplete | Empty, searching, selected | 56 px autocomplete row showing full name, age, residency badge, and selection tags. |
 | `<x-ui.deadline-panel>`| `daysElapsed`, `totalDays`, `rule` | Slate (normal), gold (due soon <=3d), red (overdue), grey (ready for next step) | Dynamic | Visual meter indicating working day progress towards statutory mediation/conciliation deadlines. |
 | `<x-ui.kpi-card>` | `title`, `value`, `icon`, `url`, `trend` | Standard dashboard card | Static | Standardized executive dashboard tile with bottom-left drilldown link. |
-| `<x-ui.signatory-block>`| `documentType`, `incumbents` | 2 or 3 equal columns | Draft, verified | Letterhead signature block printing blank rules when signatories are unconfirmed. |
+| `<x-ui.signatory-block>`| `documentType`, `incumbents` | 2 or 3 equal columns | Draft, verified | Letterhead signature block printing blank rules when signatories are unconfirmed (two fallback views with hardcoded titles flagged for cleanup in Task 14). |
 | `<x-ui.tab-bar>` | `tabs` (array), `active` | Underline border style | Active, inactive | Segmented tab strip highlighting active section with 2 px blue bottom border. |
 | `<x-ui.queue-filters>` | `currentStage`, `stageCounts`, `statusFilter`, `emergencyOnly`, `emergencyCount`, `isMyCases`, `myCasesCount`, `overdueOnly`, `overdueCount` | 3-row white card | Responsive (tabs >= 1024px, select < 1024px) | Unified queue filter bar. My cases is a toggle chip, not a sidebar item; tab counts scope to active view. |
 | `<x-ui.stepper>` | `steps` (array), `current` | Horizontal (desktop), vertical (mobile) | Pending, active, completed | Step progression bar for multi-step wizards and agency referral progress tracking. |
@@ -1340,3 +1422,12 @@ This section highlights intentional differences between the existing application
 | **Card Border Radius** | Several existing templates use `rounded-2xl` (16 px) or `rounded-xl` (12 px). | Standardizes on `rounded-lg` (8 px) for cards, inputs, buttons, and modals. | Professional GovTech aesthetic; matches institutional municipal forms. |
 | **Topbar Header** | Header combines page title and action buttons inside topbar. | Standardizes topbar for global tools (search, year switcher, account menu); page title moves to `<x-ui.page-header>`. | Prevents header clipping when long titles collide with header action clusters. |
 | **Case Show Skeleton** | Case detail view was generated as a bare tab placeholder in Step 6. | Formalized into Pattern C with a 2/3 main column and 1/3 side column (Deadline Panel & Confidentiality cards). | Provides immediate visual context and progress tracking for Katarungang Pambarangay conciliation. |
+
+### Planned Page and Navigation Label Renames ([DECIDED, D1])
+To better match municipal operational vocabulary, page titles and navigation labels will be renamed as a presentation-only update (Task 12). Underlying route paths, controller names, database tables, and permission slugs remain unchanged:
+
+| Current Label | Planned Renamed Label | Context / Affected Blade Views | Underlying Route / Permission Slug (Unchanged) |
+| :--- | :--- | :--- | :--- |
+| **Report Queue** | **Community reports** | `<x-layout.sidebar>`, `<x-ui.page-header>`, breadcrumbs on `/admin/reports` | Route `admin.reports.*`, slug `reports.view` |
+| **Barangay Cases** | **Cases & Blotter** | `<x-layout.sidebar>`, `<x-ui.page-header>`, breadcrumbs on `/admin/cases` | Route `admin.cases.*`, slug `cases.view` |
+| **Incident Reports** (Public) | **Community Problems** | Public entry buttons (`/`), public tracking header | Routes `reports.create`, `reports.track` |

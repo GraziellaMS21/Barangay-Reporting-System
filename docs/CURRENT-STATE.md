@@ -13,7 +13,7 @@ The project codebase currently operates across two primary branches:
 
 | Branch | State | What is Merged | Test Suite | Routes |
 | :--- | :---: | :--- | :---: | :---: |
-| **`dev`** (Active Integration) | **Active** | **Phase 0, Phase 0.5, WS1, WS2, WS3, WS4, WS5, WS6**, and the **Users/Roles/Positions/Seeders Rework**. | **288 tests, 1,955 assertions** (100% green) | **273** |
+| **`dev`** (Active Integration) | **Active** | **Phase 0, Phase 0.5, WS1, WS2, WS3, WS4, WS5, WS6, WS7**, and the **Users/Roles/Positions/Seeders Rework**. | **337 tests, 2,253 assertions** (100% green; expanded from earlier 288-test baseline) | **273** |
 | **`main`** (Deployment Baseline) | **Behind** | **Phase 0, Phase 0.5, and WS1 only** (last merge: `1919a6e`). | 184 tests, 1,374 assertions | 244 |
 
 > [!IMPORTANT]
@@ -34,8 +34,8 @@ The project codebase currently operates across two primary branches:
 | :--- | :---: | :--- |
 | **Phase 0: Setup & Foundation** | **Done** (in `main` & `dev`) | Laravel 13, SQLite/MySQL, Vite, Tailwind CSS v4, Leaflet.js, FontAwesome installed. 22 foundation tables, core services, permission middleware. |
 | **Phase 0.5: Foundation Alignment** | **Done** (in `main` & `dev`) | Aligned schema for working days, CFA number, blotter record type, and 3-day referral follow-up. |
-| **WS1: Setup, Fiscal Year & Settings** | **Done** (in `main` & `dev`) | 7-step wizard (`/setup`), fiscal year lifecycle (`active`, `closed`, `locked`), settings manager, calendar holidays, automated backups (`app:backup`), global multi-year search. |
-| **WS2: People, Access & Reports Center** | **Done** (in `dev`) | Personnel directory (`/admin/personnel`), positions, signatory matrix (`SignatoryResolver`), 20 permission slugs, 4 presets, DILG compliance reports (`/admin/reports-center`). |
+| **WS1: Setup, Fiscal Year & Settings** | **Done** (in `main` & `dev`) | 5-step wizard (`/setup`), fiscal year lifecycle (`active`, `closed`, `locked`), settings manager, calendar holidays, automated backups (`app:backup`), global multi-year search. |
+| **WS2: People, Access & Reports Center** | **Done** (in `dev`) | Personnel directory (`/admin/personnel`), positions, signatory matrix (`SignatoryResolver`), 21 permission slugs, 4 presets, DILG compliance reports (`/admin/reports-center`). |
 | **WS3: Case Intake & Parties** | **Done** (in `dev`) | Dispute intake (`record_type`: blotter vs complaint), party directory, residency verification, duplicate party checks, party merge (`/admin/parties/{id}/merge`). |
 | **WS4: Summons, Hearings & Deadlines** | **Done** (in `dev`) | Sequential summons, working-day deadlines (15-day mediation + 15-day conciliation), hearings scheduler, amicable settlement recording, CFA & endorsement printables, Secretary dashboard. |
 | **WS5: Agency Portal & Referrals** | **Done** (in `dev`) | Outside agency registration with ID upload, admin approval, Agency Portal inbox (`/agency/referrals`), referral case dossier attachments, 3-day follow-up tracking. |
@@ -269,3 +269,15 @@ The following specific gaps exist between the current codebase and the canonical
   - Strict Human-in-the-Loop Uncertainty Rule: uncertain or failed audio (`needs_verification`, `failed`) never auto-fills report fields (all "Not provided") and blocks "Confirm and route" until human staff listen and verify.
   - Zero PII logging: transcripts and caller contact details are never logged in application or audit logs.
   - Real telephony, softphone dialers, live call recording, SMS broadcasts, and dialect-specific acoustic speech models remain deferred.
+
+### Planned, Not Yet Implemented (Tasks 8 through 12)
+The following features are designed in the documentation suite but are strictly **Planned** and not yet implemented in application code, migrations, seeders, or tests:
+- **Resident Entry Screen (Three Buttons, [DECIDED, D2])**: Entry view on `resident/create.blade` with Emergency (`--red`), Report a Community Problem, and File a Complaint (no separate "File a Blotter" button).
+- **Wrong-Door Notice & Safety Guidance ([DECIDED, D6; PROPOSED, P9])**: Non-blocking banner on Community Problem form directing civil disputes to complaint form; upfront confidential screening question excluding VAWC/child protection with bilingual guidance and quick-exit.
+- **Guest and Anonymous Community Reporting ([DECIDED, D7; PROPOSED, P11])**: Submission without account or login; "Report anonymously" checkbox discarding identifying details; transient rate limiting; optional single-view tracking code.
+- **Resident Complaint Intake (Planned, [DECIDED, D4])**: Public complaint form (`GET /complaint`, `POST /complaint`) saving to `complaint_intakes` in status `pending`; acknowledgement page (`GET /complaint/received`) revealing no case status, respondent details, or dispute tracking.
+- **Staff Pending Intake Queue & Docketing ([DECIDED, D4])**: "Pending intake" tab on Cases Docket (`/admin/cases?tab=pending_intake`); "Docket this" action prefilling WS3 intake form, confirming parties, creating case at `filed`, and logging blotter entry reference (two numbers, one record, [DECIDED, D3]); "Redirect/Reject" action with mandatory reason.
+- **Pre-Summons Eligibility & First-Meeting Clock Start ([PROPOSED, P1, P2])**: Staff pre-summons eligibility checklist card; `first_meeting_on` field starting the 15-working-day mediation clock (fallback to `filed_on`).
+- **Summons & Hearing Enhancements ([CONFIRMED, C11; PROPOSED, P3])**: Summons `served_by` and service results (`received`, `refused`, `not_found`, `other`); hearing attendance (`appeared`, `failed_to_appear`); non-appearance handling (barring counterclaim, extended warning on escalation, "Ready for next step: endorse to Pangkat" indicator at 15 working days without settlement).
+- **Official Printables & Signatory Mapping ([CONFIRMED, C3; PROPOSED, P8])**: Blade templates with `<x-ui.draft-watermark>` for blotter extract, complaint form, summons, hearing notices, amicable settlement, and CFA; dynamic signatory resolution via `SignatoryResolver`.
+- **Presentation-Only Page Renames ([DECIDED, D1])**: Planned rename of "Report Queue" to "Community reports", and "Barangay Cases" to "Cases & Blotter" in views and navigation.

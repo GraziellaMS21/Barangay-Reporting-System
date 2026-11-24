@@ -5,7 +5,7 @@ Group 3 (SynohDev).
 
 > [!NOTE]
 > **Implementation Status (Verified 2026-11-24)**:
-> All six workstreams (WS1 through WS6) and the Phase 0/0.5 foundations have been **fully implemented, tested (288 tests, 100% green), and merged into the `dev` integration branch**. This file is maintained as the authoritative historical record of scope, feature ownership, and architectural partitioning.
+> All six workstreams (WS1 through WS6), WS7, and the Phase 0/0.5 foundations have been **fully implemented, tested (337 tests, 2,253 assertions, 100% green; expanded from the earlier 288-test baseline), and merged into the `dev` integration branch**. This file is maintained as the authoritative historical record of scope, feature ownership, and architectural partitioning.
 
 ---
 
@@ -159,9 +159,9 @@ UI reference: `docs/UI_UX_SPEC.md` section 4 (WS1, pages 4.1 to 4.9)
 **Goal:** fresh install guides admin through setup, runs scoped to active fiscal year, guaranteed backups and cross-year search.
 
 #### 1.1 Setup wizard (`/setup`)
-- 7 steps: Welcome, Administrator account, Barangay profile, Fiscal year, Positions & personnel, Access presets, Review & finish.
-- Step 6 uses built presets (`staff_full`, `case_encoder`, `reports_analyst`) plus `case_reviewer` [R8, 5.6].
-- Resumable via `system.setup_step`.
+- 5 steps: Verification (Step 1), Admin Account (Step 2), Barangay Profile (Step 3), Fiscal Year (Step 4), and Personnel & Review (Step 5).
+- Provisions the initial root Administrator user account. Staff accounts and permission presets are currently assigned post-setup via `/admin/users` (optional Step 5b for initial staff setup is tracked in TASKS.md Task 13).
+- Resumable via session `setup_step` and locked via `system.setup_completed`.
 
 #### 1.2 Fiscal years (`/admin/settings/fiscal-years`)
 - Table with built statuses: `active`, `inactive`, `closed`, `locked` [R6].
@@ -198,7 +198,7 @@ UI reference: `docs/UI_UX_SPEC.md` section 4 (WS2, pages 4.10 to 4.20)
 - `SignatoryResolver::forDocument($type, $asOf, ?BarangayCase $case = null)` [5.4, 5.5]. Resolves case-specific Pangkat Chairman for CFA [A Q5].
 
 #### 2.3 Users and permissions (`/admin/users`)
-- Granular permissions with 18 built slugs. Presets: `staff_full`, `case_encoder`, `reports_analyst`, and `case_reviewer`.
+- Granular permissions with 21 built slugs in `RequiredDataSeeder.php`. Presets in `config/permission_presets.php`: `staff_full` (18 permissions), `case_encoder` (5 permissions), `reports_analyst` (3 permissions), and `case_reviewer` (5 permissions).
 - Supports two system administrators (Captain, Secretary) [A Q6].
 
 #### 2.4 Reports Center (`/admin/reports-center`)
@@ -232,6 +232,13 @@ UI reference: `docs/UI_UX_SPEC.md` section 4 (WS3, pages 4.21 to 4.25)
 - List shows deadline state from `OverdueService` ("Day X of 15", gold due soon, red "Overdue X d", grey "Ready for next step") and plain summons count.
 - Status transitions follow `WORKFLOW.md` section 8 via `CaseStatusService`.
 
+#### 3.4 Planned Scope Additions (Tasks 9 & 10)
+- **Pending Intake Tab & Queue**: `GET /admin/cases?tab=pending_intake` reviewing resident-submitted complaint requests.
+- **"Docket This" Action**: Prefills case intake form from `complaint_intakes`, confirms parties, creates case at `filed`, and logs blotter reference (two numbers, one record).
+- **Eligibility Screening**: Implements pre-summons statutory checklist card (same barangay residency, KP jurisdiction, non-confidentiality, residency verification).
+- **First-Meeting Date**: `first_meeting_on` field starting the 15-working-day mediation clock.
+- **Migration Prefix**: Any new migrations for intake or parties must strictly use the WS3 prefix: `2026_12_01_30NNNN_`.
+
 ---
 
 ### WS4: Cases, summons, hearings, escalation
@@ -256,6 +263,22 @@ Captures `settled_on`, `terms`, optional monetary `settlement_amount`, and uploa
 - Soft warning if 15 working days not elapsed; officials decide.
 - Generates printable Certification to File Action (CFA) signed by Pangkat Chairman [A Q5] and Endorsement Letter signed by Punong Barangay.
 - Hands off to agency via `ReferralService::createFromCase` if `case_referral_handoff` is enabled [A Q29, C7].
+
+#### 4.5 Planned Scope Additions (Tasks 10 & 11)
+- **Summons & Service Delivery**: Record `served_by` ("who delivered it") and service outcomes (`received`, `refused`, `not_found`, `other`).
+- **Hearing Attendance & Minutes**: Attendance tracking per party (`appeared`, `failed_to_appear`).
+- **Non-Appearance Safeguards**: Loss of counterclaim recorded in minutes; extended soft warning on escalation from mediation if respondent never appeared; day-based "Ready for next step: endorse to Pangkat" indicator at 15 working days (no summons-count nudge).
+- **Mediation Clock Start**: Evaluation of 15 working days beginning on `first_meeting_on`.
+- **Printables & Signatories**: Printable templates (blotter extract, complaint form, summons, conciliation notices, settlement, CFA) wired to `SignatoryResolver`.
+- **Migration Prefix**: Any new migrations for summons, hearings, or procedures must strictly use the WS4 prefix: `2026_12_01_40NNNN_`.
+
+---
+
+### Resident UI & Public Entry Screens (Lead / Shared Resident UI)
+- **Resident Entry Portal (Task 8)**: Refactor `resident/create.blade.php` to display three touch-friendly buttons (Emergency, Report a Community Problem, File a Complaint; no "File a Blotter" button).
+- **Wrong-Door & Safety Banners (Task 8)**: Wrong-door advisory banner on Community Problem form; bilingual VAWC/BCPC emergency guidance screen with quick-exit.
+- **Guest & Anonymous Reporting (Task 8)**: Zero-friction guest reporting without an account; "Report anonymously" checkbox; single-view tracking code.
+- **Resident Complaint Intake Views (Task 9)**: Single-card complaint intake form (`GET /complaint`) and privacy-preserving acknowledgement page (`GET /complaint/received`).
 
 ---
 

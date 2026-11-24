@@ -102,7 +102,7 @@ erDiagram
 - `lat` (decimal 10,7, nullable)
 - `lng` (decimal 10,7, nullable)
 - `status` (string, indexed) — Canonical 12 statuses: `submitted`, `under_review`, `routed`, `in_progress`, `needs_info`, `awaiting_confirmation`, `resolved`, `reopened`, `emergency_flagged`, `referred`, `merged`, `no_action`.
-- `no_action_reason` (string, indexed, nullable) — Reason code for `no_action` (`not_barangay_matter`, `emergency_redirected`, `cannot_resolve`, `invalid_report`, `resident_unreachable`).
+- `no_action_reason` (string, indexed, nullable) — Reason code for `no_action` (`not_barangay_matter`, `emergency_redirected`, `cannot_resolve`, `invalid_report`, `resident_unreachable`, `converted_to_case` [Planned code alignment in `Report::NO_ACTION_REASONS`]).
 - `urgency` (enum: `Low`, `Medium`, `High`, `Critical`, nullable)
 - `priority_score` (integer, default: 0, indexed)
 - `summary` (text, nullable)
@@ -408,11 +408,18 @@ erDiagram
 
 ### `cases` (`BarangayCase`)
 - `id` (bigint unsigned, PK)
-- `case_number` (string, unique) — e.g. `CASE-2026-00001`
+- `case_number` (string, unique) — Format `{MM}-{SEQ:3}-{YEAR}` ([CONFIRMED, C5]; flagged mismatch: prototype used `CASE-2026-00001` which requires UI/code alignment)
 - `fiscal_year_id` (foreignId -> fiscal_years)
 - `case_type_id` (foreignId -> case_types)
-- `source` (enum: `direct`, `report_escalation`, default: `direct`)
-- `source_report_id` (foreignId -> reports, nullOnDelete, nullable)
+- `source` (enum: `direct`, `report_escalation`, `resident_intake`, default: `direct`)
+- `source_report_id` (foreignId -> reports, nullOnDelete, nullable) — Links converted community report
+- `source_intake_id` (foreignId -> complaint_intakes, nullOnDelete, nullable; Planned, [DECIDED, D4])
+- `first_meeting_on` (date, nullable; Planned, [PROPOSED, P2] — starts 15-working-day mediation clock)
+- `eligibility_checklist` (json, nullable; Planned, [PROPOSED, P1] — staff legal & residency screening)
+- `blotter_series` (string, nullable; Planned, [PROPOSED, P4] — physical logbook series)
+- `blotter_page` (string, nullable; Planned, [PROPOSED, P4] — physical logbook page)
+- `blotter_entry` (string, nullable; Planned, [PROPOSED, P4] — physical logbook entry number)
+- `blotter_record_id` (foreignId -> cases, nullOnDelete, nullable; Planned, [DECIDED, D3] — logbook reference)
 - `title` (string)
 - `narrative` (text)
 - `filed_on` (date)
@@ -474,15 +481,16 @@ erDiagram
 - `id` (bigint unsigned, PK)
 - `case_id` (foreignId -> cases, cascade)
 - `respondent_case_party_id` (foreignId -> case_parties, cascade)
-- `sequence_no` (integer unsigned) — 1, 2, 3 ... (no limit; Revision 2)
-- `summons_number` (string, unique)
+- `sequence_no` (integer unsigned) — 1, 2, 3 ... (no limit; counted for information only [CONFIRMED, C11, Q20])
+- `summons_number` (string, unique) — format `SUM-YYYY-NNNN` ([PROPOSED], unconfirmed)
+- `stage` (enum: `mediation`, `conciliation`, default: `mediation`; Planned)
 - `issued_on` (date)
-- `issued_by` (foreignId -> users)
+- `issued_by` (foreignId -> users / Signatory: Punong Barangay [CONFIRMED, C3, Q5])
 - `hearing_at` (datetime)
 - `venue` (string)
-- `served_by_personnel_id` (foreignId -> personnel, nullable)
+- `served_by_personnel_id` (foreignId -> personnel, nullable) — "Who delivered it" ([CONFIRMED, C11])
 - `served_on` (date, nullable)
-- `service_result` (enum: `pending`, `served_personal`, `served_substituted`, `refused`, `unserved`, default: `pending`) — **to be changed (Revision 2) to `pending`, `received`, `refused`, `not_found`, `other`** to match the secretary's wording (Q21)
+- `service_result` (enum: `pending`, `received`, `refused`, `not_found`, `other`, default: `pending`) — `received`, `refused`, `not_found` confirmed per Secretary C11; `other` retained as "not in Secretary's list"
 - `attendance` (enum: `pending`, `appeared`, `failed_to_appear`, default: `pending`)
 - `remarks` (text, nullable)
 - `voided_at` (timestamp, nullable)
@@ -496,9 +504,11 @@ erDiagram
 - `summons_id` (foreignId -> summons, nullOnDelete, nullable)
 - `scheduled_at` (datetime)
 - `venue` (string)
-- `presided_by_personnel_id` (foreignId -> personnel, nullable)
+- `presided_by_personnel_id` (foreignId -> personnel, nullable) — Punong Barangay for mediation, Pangkat Chairman for conciliation
+- `presiding_officer_role` (enum: `punong_barangay`, `pangkat_chair`, `lupon_member`, default: `punong_barangay`; Planned)
 - `status` (enum: `scheduled`, `in_progress`, `concluded`, `rescheduled`, `cancelled`, default: `scheduled`)
-- `outcome_note` (text, nullable)
+- `outcome_note` (text, nullable) — Minutes of the proceedings
+- `counterclaim_barred_note` (text, nullable; Planned, [PROPOSED, P3] — records loss of connected counterclaim upon unexcused respondent absence)
 - `timestamps`
 
 ### `escalation_destinations`
@@ -651,3 +661,82 @@ Stores voice recording files, technical audio metadata, transcription state, and
 - `voice.resident_extract_contact` (boolean, default `false`): Resident channel setting to extract caller contact (default false).
 - `voice.resident_recording_enabled` (boolean, default `true`): Toggles recorder on resident report form.
 - `voice.daily_analyze_limit` (integer, default `100`): Max AI voice analyses per day before fallback to manual entry.
+
+---
+
+## 7. Planned Schema: Resident Complaint Intake & Case Enhancements (WS3 / WS4)
+
+> [!IMPORTANT]
+> The schema elements below are **Planned** and do not exist in the active migrations or database yet. New migrations must strictly utilize WS3 (`2026_12_01_30NNNN_`) or WS4 (`2026_12_01_40NNNN_`) prefixes per CONVENTIONS.md.
+
+### `complaint_intakes` (New Table, Planned, WS3 Prefix `2026_12_01_30NNNN_`)
+Stores citizen-initiated dispute complaint requests prior to staff review and official docketing:
+
+| Column | Type | Attributes / Rules | Purpose |
+| :--- | :--- | :--- | :--- |
+| `id` | `bigint unsigned` | PK, auto-increment | Primary key. |
+| `complainant_name` | `string(255)` | Required | Complainant full legal name ([CONFIRMED, C8]). |
+| `complainant_alias` | `string(100)` | Nullable | Complainant alias / nickname. |
+| `complainant_age` | `unsigned smallint` | Nullable | Complainant age or birth date ([CONFIRMED, C8]). |
+| `complainant_contact` | `string(50)` | Required | Complainant phone number / email. |
+| `complainant_address` | `text` | Required | Complete residential address. |
+| `complainant_residency_claim` | `string(50)` | Default `'resident'` | Self-reported residency status (`resident`, `non_resident`, `transient`). |
+| `respondent_name` | `string(255)` | Required | Respondent full name (free text, unlinked). |
+| `respondent_alias` | `string(100)` | Nullable | Respondent alias if known. |
+| `respondent_address` | `text` | Required | Respondent complete address (for summons delivery). |
+| `respondent_contact` | `string(50)` | Nullable | Respondent contact details if known. |
+| `what_happened` | `text` | Required | 5Ws narrative: What occurred. |
+| `who_involved` | `text` | Required | 5Ws narrative: Persons involved. |
+| `when_happened` | `datetime` | Required | 5Ws narrative: Date and time of incident. |
+| `where_happened` | `text` | Required | 5Ws narrative: Location / nearest landmark. |
+| `why_how_happened` | `text` | Required | 5Ws narrative: Circumstances / cause. |
+| `rights_violated` | `text` | Required | Specific statement of rights violated / damages suffered. |
+| `relief_requested` | `text` | Required | Remedies or settlement terms sought by complainant. |
+| `case_type_suggestion` | `string(100)` | Nullable | Resident-selected dispute category. |
+| `confidentiality_screen_passed` | `boolean` | Default `true` | Confirms user passed the VAWC/child-protection screening gate. |
+| `consent_at` | `timestamp` | Required | Explicit RA 10173 data privacy consent timestamp (never auto-ticked). |
+| `status` | `string(30)` | Default `'pending'` | Intake status: `pending`, `docketed`, `redirected`, `rejected`. |
+| `reviewed_by` | `bigint unsigned` | FK -> `users.id`, nullable | Staff user who reviewed the submission. |
+| `reviewed_at` | `timestamp` | Nullable | Timestamp when staff reviewed/docketed. |
+| `outcome_reason` | `text` | Nullable | Mandatory explanation when intake is rejected or redirected. |
+| `case_id` | `bigint unsigned` | FK -> `cases.id`, nullable, nullOnDelete | Resulting case record once "Docket this" is executed. |
+| `submitted_at` | `timestamp` | Required | Submission timestamp. |
+| `timestamps` | `timestamp` | Standard | Created at, updated at. |
+
+> [!NOTE]
+> **PII & Respondent Isolation Rule**: Respondent details submitted by the resident are stored strictly as unverified free text in `complaint_intakes`. They are **never** auto-created in the canonical `parties` or `case_parties` tables until authorized staff verify and confirm them during the "Docket this" step.
+
+### Planned Schema Additions on `reports` (Guest & Anonymous Reporting, D7, P11)
+- `reports.is_anonymous`: Existing boolean column; enforced to drop/hide reporter name, phone, and email on submit.
+- `reports.tracking_code_hash`: (string 64, nullable, indexed; Planned) — SHA-256 hash of single-view tracking code for anonymous lookups without revealing personal data.
+- **Privacy Rule**: Rate limiting uses transient ephemeral cache keys; IP addresses and hardware device identifiers are **never** stored in the database.
+
+### Planned Settings Keys (`settings` table)
+- `hotline.vawc.national` (string, default `'911'`): National emergency hotline.
+- `hotline.vawc.pnp` (string, default `'0919-777-7377'`): PNP Aleng Pulis hotline.
+- `hotline.bcpc.national` (string, default `'163'`): Bantay Bata child protection hotline.
+- `hotline.vawc.barangay` (string, nullable): Official local Calarian VAW Desk hotline.
+- `hotline.bcpc.cswdo` (string, nullable): Zamboanga City CSWDO hotline.
+- `reminders.settlement_compliance` (boolean, default `false`): Optional reminder when settlement terms mature.
+- `reminders.pangkat_convening` (boolean, default `false`): Optional reminder 3 days after Pangkat constitution.
+- `reminders.kp_accomplishment_yearly` (boolean, default `false`): Optional reminder for annual KP report.
+- `cases.pangkat_convening_days` (integer, default `3`): Statutory limit to convene Pangkat.
+
+### Entity Relationship & Conversion Bridge (Text ERD)
+```text
+[Citizen] 
+    │
+    ├── (Community Problem) ──> [reports] (Canonical 12 Statuses)
+    │                                │
+    │                                ├── [Report-to-Case Conversion Bridge (cases.create)]
+    │                                │       │
+    └── (Dispute Complaint) ──> [complaint_intakes] (Status: pending)
+                                     │
+                                     ├── ["Docket this" Staff Action]
+                                     ▼
+                                 [cases] (Canonical 8 Statuses)
+                                     ├── (hasOne logbook reference) ──> [blotter entry] (record_type='blotter')
+                                     ├── (hasMany) ───────────────────> [case_parties] ──> [parties]
+                                     ├── (hasMany) ───────────────────> [summons]
+                                     └── (hasMany) ───────────────────> [hearings]
+```

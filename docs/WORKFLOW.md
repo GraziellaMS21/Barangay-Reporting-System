@@ -6,6 +6,9 @@
 
 ## 1. Lifecycle Stages (Incident Reports)
 
+> [!NOTE]
+> This lifecycle covers **community problems only** (such as drainage, garbage, streetlights, potholes, flooding, or stray animals). Interpersonal disputes and peace-and-order complaints follow the Katarungang Pambarangay case lifecycle (§ 8). Community problem reports may be submitted by registered residents, guests, or anonymously ([DECIDED, D7]), with all submissions advancing through the same canonical 12 statuses.
+
 1. **Intake**: Resident submits a report via the single-card form and receives an immediate unique tracking code (`BRG-XXXXXX`). The report is persisted immediately in status `submitted`. Submissions never hang waiting for external APIs.
 2. **AI Triage (Background)**: An asynchronous listener invokes `GeminiService::analyze()`. Extracted data (suggested category, urgency, executive summary, photo audit, emergency flags) is saved to `report_ai_results`. If Gemini times out (30s) or fails, the report remains fully actionable with `ai_status = failed`.
 3. **Branching**:
@@ -73,6 +76,7 @@ Every transition to `no_action` requires both a **standard reason code** and a *
 3. `cannot_resolve`: Valid concern that cannot be remediated due to insurmountable technical/legal barriers.
 4. `invalid_report`: Spam, incomprehensible submission, or test report.
 5. `resident_unreachable`: Necessary clarification was requested (`needs_info`), but reporter provided no valid contact or response within threshold.
+6. `converted_to_case`: Civil incident report converted into a formal Katarungang Pambarangay dispute case (§ 8.8) ([DECIDED], Planned code alignment in `Report::NO_ACTION_REASONS`).
 
 ### Storage Architecture
 - Stored in a **dedicated indexed column** on `reports`: `reports.no_action_reason` (nullable string).
@@ -214,27 +218,70 @@ stateDiagram-v2
 
 ### 8.2 Lifecycle Stages & Statutory Deadlines
 
+0. **Resident Complaint Intake (Planned, [DECIDED, D4, D4a])**:
+   - Residents may initiate a dispute filing via the online form ("File a Complaint"), which creates a **pending complaint intake**, never an active case.
+   - Screened upfront for confidential matters: VAWC and child protection concerns are excluded from the online form and directed immediately to emergency hotlines and the barangay hall / VAW Desk ([DECIDED, D4a]).
+   - Staff review pending intakes in the "Pending intake" tab on the Cases Docket.
+   - Staff check eligibility, residency, and duplicate warnings, then click **"Docket this"** to open the prefilled intake form. Only upon official confirmation is the case created at `filed` and the blotter entry logged.
+   - Complainant and respondent details are **not** auto-created as parties; staff confirm them during docketing.
+   - The resident receives an acknowledgement screen only ("received, please visit the barangay hall to sign and complete filing"), revealing **no case status, no respondent information, and no dispute tracking**, protecting respondent privacy. In-person appearance and physical signature remain mandatory.
+
 1. **Intake & Docketing (`filed`)**:
    - Case is recorded with record type `blotter` or `complaint` [A Q18].
-   - Docket number format: `{MM}-{SEQ:3}-{YEAR}` [A Q9] (e.g., `11-001-2026`).
-   - Blotter-only records stay at `filed` indefinitely without summons, hearings, or deadline countdowns, until upgraded to a formal complaint.
+   - Docket number format: `{MM}-{SEQ:3}-{YEAR}` [A Q9, C5] (e.g., `11-001-2026`). Numbers restart every calendar year.
+   - **One case record per complaint, with the blotter entry as its logbook reference** ([DECIDED, D3]): a complaint carries both a Barangay Case Number and a blotter reference number (two numbers, one record). Optional physical logbook series, page, and entry numbers may be recorded ([PROPOSED, P4]).
+   - Standalone blotter-only records (staff walk-in intake, no dispute) receive only a blotter number and rest at `filed` indefinitely without summons, hearings, or deadline countdowns, until upgraded by staff to a formal complaint.
+
+1a. **Pre-Summons Step & Eligibility Checklist ([CONFIRMED, C9; PROPOSED, P1])**:
+   - Before a summons is issued, staff classify the case by type and decide blotter-only vs. formal complaint [CONFIRMED, C9].
+   - Staff complete an informational **eligibility checklist** ([PROPOSED, P1]):
+     1. Parties are individuals actually residing in the same barangay (or covered adjoining arrangement); juridical entities excluded.
+     2. Matter is covered by Katarungang Pambarangay and not excluded (e.g. accused in police custody).
+     3. Dispute is not confidential (VAWC, child protection handled outside normal public flow).
+     4. Residency verification of both parties recorded.
+   - Reminder: "Summons not yet delivered" ([CONFIRMED, C14]). Reminders are informational only and never block or auto-transition the case.
+
 2. **Mediation Stage (`in_mediation`)**:
    - Presided over by the Punong Barangay (PB).
-   - Mediation clock: **15 working days** [A Q25] starting from `complaint_started_on` [P] (or `filed_on`).
-   - Summons are issued and hearings scheduled. Summons are counted for **information only** (no 3-summons cap or automated cutoff) [A Q20].
-   - If agreement is reached, transitions to `settled`. If unresolved within 15 working days, official endorses case to Pangkat.
+   - **Mediation clock start ([PROPOSED, P2; CONFIRMED unit, C11])**: The **15 working days** statutory mediation clock starts from the **first meeting of the parties before the Punong Barangay** (`first_meeting_on`), not docketing. If unrecorded, falls back to `filed_on`.
+   - Summons are issued and hearings scheduled. Summons format: `SUM-YYYY-NNNN` with sequential `sequence_no`. Summons are counted for **information only** (no maximum cap or automated cutoff) [CONFIRMED, C11, Q20].
+   - Staff record `served_by` (who delivered it) and **service result** ([CONFIRMED, C11]): `received`, `refused`, `not_found` (built-in `other` retained as "not in the Secretary's list").
+   - If agreement is reached, transitions to `settled`. If unresolved after 15 working days, official endorses case to Pangkat.
+
+2a. **Hearing Stage & Attendance Recording ([CONFIRMED, C11; PROPOSED, P3])**:
+   - Hearing attendance is recorded per party as `appeared` or `failed_to_appear`.
+   - Presiding officer logs hearing outcome and minutes note.
+   - **Non-appearance handling ([PROPOSED, P3; CONFIRMED, C11])**:
+     - *Respondent fails to appear*: absence and service result recorded in minutes; respondent loses the right to a connected counterclaim. The case does NOT end; the next step is endorsing to the Pangkat (`in_conciliation`) rather than issuing an immediate CFA.
+     - *Complainant fails to appear after due notice*: staff may transition to `dismissed` with a mandatory recorded note. Dismissal is never automatic.
+     - *Repeated unserved or ignored summons*: the barangay counts days, not summonses ([CONFIRMED, C11]). At 15 working days without settlement, the case displays "Ready for next step: endorse to Pangkat" (slate badge). It never auto-advances.
+     - *Warning extension*: The soft warning on transitioning from `in_mediation` to `escalated` is extended to warn when the respondent never appeared at mediation ("The Pangkat usually must be constituted first").
+
 3. **Conciliation Stage (`in_conciliation`)**:
-   - Presided over by the Pangkat ng Tagapagkasundo.
-   - Conciliation clock: **15 working days** [A Q25] starting from `endorsed_to_pangkat_on`.
-   - Conciliation extension: One extension of up to 15 working days (max 30 working days total conciliation) may be granted by the Pangkat [A Q25].
+   - Presided over by the Pangkat ng Tagapagkasundo (3 Lupon members).
+   - Before conciliation begins, the PB constitutes the Pangkat (recording constitution date and members). The Pangkat convenes within 3 days of constitution.
+   - Conciliation clock: **15 working days** [CONFIRMED, C11; PROPOSED unit, P2] starting from `endorsed_to_pangkat_on`.
+   - Conciliation extension: One extension of up to 15 working days (max 30 working days total conciliation) may be granted by the Pangkat [CONFIRMED, C11, Q25; PROPOSED unit, P2]. Managed via dynamic `setting()` values.
+
 4. **Resolution or Impasse (`settled` / `unsettled`)**:
-   - `settled`: Terms recorded, signed settlement uploaded, executed.
-   - `unsettled`: Mediation/conciliation elapsed without settlement. Complainant may request escalation.
+   - `settled`: Signed written agreement terms recorded, settlement date noted, agreed amount/terms logged, signed PDF uploaded ([CONFIRMED, C12]).
+   - `unsettled`: Conciliation period elapsed without agreement. Awaiting complainant decision.
+
 5. **Escalation & Endorsement (`escalated`)**:
-   - Complainant decides whether and when to escalate [A Q23].
-   - Official issues Certification to File Action (CFA) signed by the Pangkat Chairman [A Q5] (or PB if mediation stage).
-   - Case is endorsed to court, prosecutor, or PNP [A Q18].
-   - Case papers and attachments are dispatched to agency via `ReferralService::createFromCase` [A Q29, P].
+   - The complainant formally decides whether and when to move the case forward ([CONFIRMED, C12, Q22, Q23]).
+   - Official issues Certification to File Action (CFA): signed by the **Pangkat Chairman** once endorsed to the Pangkat ([CONFIRMED, C3, Q5]), or by the Punong Barangay as Lupon Chairman if no Pangkat was constituted ([PROPOSED, P8]).
+   - Case is endorsed to court, prosecutor, or PNP ([CONFIRMED, C9, Q18]).
+   - Case papers and attachments dispatched via `ReferralService::createFromCase` [A Q29, P].
+
+### 8.2.1 Statutory KP Procedure Sequence ([CONFIRMED, C9; PROPOSED, P7])
+1. **Intake & Classification**: Complaint is made orally, in writing, or via pending online intake. Staff record narrative, classify case type, and decide blotter-only vs. formal complaint ([CONFIRMED, C9]).
+2. **Summons Issuance**: Summons issued to respondent with notice of hearing to complainant, signed by the Punong Barangay ([CONFIRMED, C3]).
+3. **Mediation**: Mediation before the Punong Barangay. 15-working-day clock begins on first meeting date (`first_meeting_on`) ([PROPOSED, P2; CONFIRMED, C11]).
+4. **Endorsement to Pangkat**: If unresolved after 15 working days, case shows "Ready for next step: endorse to Pangkat". PB constitutes the Pangkat from the Lupon roster, and case is formally moved to `in_conciliation`. (Respondent's failure to appear leads here, not straight to CFA).
+5. **Conciliation**: Pangkat convenes within 3 days; holds conciliation hearings for 15 working days (extendable by up to 15 more).
+6. **Final Disposition**:
+   - *Settlement*: Amicable settlement signed by parties and attested (`settled`).
+   - *Impasse*: Case marked `unsettled`. Upon complainant request, CFA is issued by Pangkat Chairman and case is endorsed to PNP / Prosecutor / MTCC (`escalated`).
 
 ### 8.3 Case Status Directory
 
@@ -266,28 +313,37 @@ stateDiagram-v2
 
 ### 8.6 Summons & Hearing Governance
 
-- **Summons Counting**: Summons are numbered sequentially for administrative tracking (`sequence_no`), but there is **no maximum summons limit** [A Q20]. The system does not lock or force status changes based on summons count.
-- **Service Results**: Built values: `served_personal`, `served_substituted`, `refused`, `unserved`. Target normalized values: `pending`, `received`, `refused`, `not_found`, `other` [A Q21, R10].
-- **Hearing Outcomes**: Attendance recorded as `appeared`, `failed_to_appear`, or `pending`. Hearing status tracked as `scheduled`, `in_progress`, `concluded`, `rescheduled`, `cancelled` [R11].
+- **Summons Counting & Numbering**: Summons are formatted as `SUM-YYYY-NNNN` and numbered sequentially for administrative tracking (`sequence_no`), but there is **no maximum summons limit** [CONFIRMED, C11, Q20]. The system does not lock or force status changes based on summons count; setting `cases.summons_limit` in `SummonsCounterService` is strictly display-only/legacy. The statutory trigger is governed entirely by the 15-working-day mediation clock, evaluated via `WorkingDays` and `OverdueService`, rendering the day-based "Ready for next step: endorse to Pangkat" indicator without automated status transitions ([CONFIRMED, C11]).
+- **Summons Delivery & Service Results**: Each summons records `served_by` ("who delivered it") and service outcome ([CONFIRMED, C11]):
+  - `received` — Respondent personally accepted and signed summons.
+  - `refused` — Respondent refused to acknowledge or accept service.
+  - `not_found` — Respondent could not be located at the given address.
+  - `other` — Additional administrative exceptions (*retained from prototype, not in the Secretary's confirmed list*).
+- **Hearing Outcomes & Attendance**: Attendance is recorded per party as `appeared` or `failed_to_appear`. Hearing status is tracked as `scheduled`, `in_progress`, `concluded`, `rescheduled`, `cancelled`.
+  - Non-appearance of respondent: recorded in minutes; respondent loses right to a connected counterclaim ([PROPOSED, P3]); case moves to Pangkat constitution rather than an immediate CFA.
+  - Non-appearance of complainant: staff may dismiss with mandatory written note; never automatic.
 - **Voiding**: Any issued summons may be voided by authorized staff only with a **mandatory written explanation note**. Voiding decrements active summons display and logs an audit entry.
 
 ### 8.7 Intake Flow & Docketing Rules
 
-1. **Record Type Selection**: Staff selects **Blotter-only** (`blotter`) or **Formal Complaint** (`complaint`) as the first input field [A Q18, C3].
-2. **Party Search & Verification**: Staff searches existing persons by name or contact before creating new parties. Residency status is verified using Barangay ID, household list, government ID, or Purok leader confirmation [A Q16].
+1. **Intake Channels**:
+   - **Direct Walk-in**: Recorded by staff/Lupon members at the barangay hall. Staff select **Blotter-only** (`blotter`) or **Formal Complaint** (`complaint`) as the first input field [CONFIRMED, C9].
+   - **Resident Online Submission (Planned, [DECIDED, D4])**: Citizen submits online request; creates a pending intake; staff review eligibility, residency, and duplicate warnings, then click **"Docket this"** to open prefilled intake form.
+2. **Party Search & Verification**: Staff searches existing persons by name or contact before creating new parties. Residency status is verified using Barangay ID, household masterlist, government ID with Calarian address, or Purok leader confirmation [CONFIRMED, C8, Q16]. Complainant and respondent profiles record: full name, alias, age or birth date, contact number, and complete address. For non-residents, also records home barangay/city and reason for being in the barangay ([CONFIRMED, C8]).
 3. **Duplicate Warnings**:
    - **Person duplicates**: Matches on normalized name and contact number display existing person cards.
    - **Case duplicates**: Matches where both complainant and respondent match an existing open case within 30 days trigger a prominent warning: "Case #XX-XXX already filed between these parties on YYYY-MM-DD. Open existing or save anyway?" [A Q2, C8]. Staff decide whether to proceed.
-4. **Docket Numbering**: Formatted as `{MM}-{SEQ:3}-{YEAR}` (e.g. `11-001-2026`) via `NumberingService::next('case', $fiscalYear)`. Sequence resets every fiscal year [A Q9].
-5. **Confidentiality**: Pre-ticked if case type defaults to confidential [A Q7]. Stamped with active fiscal year.
+4. **Docket Numbering & Two-Number Record**: Formatted as `{MM}-{SEQ:3}-{YEAR}` (e.g. `11-001-2026`) via `NumberingService::next('case', $fiscalYear)`. Sequence resets every fiscal year [CONFIRMED, C5, Q9]. A complaint carries both a Case Number and a Blotter Reference Number on the single case record ([DECIDED, D3]); optional physical logbook series, page, and entry fields are supported ([PROPOSED, P4, P4a]).
+5. **Confidentiality**: Pre-ticked if case type defaults to confidential [A Q7, C2]. VAWC and child-protection cases remain accessible only to authorized personnel (Captain, Secretary, Peace & Order Kagawad, designated child-handling kagawads, VAW Focal person) [CONFIRMED, C2].
 6. **Transaction**: Intake persists case, parties, initial narrative, and audit log in a single atomic database transaction.
 
 ### 8.8 Report to Case Conversion
 
 - A civil incident report in `under_review` or `routed` may be converted to a case by staff with permission `cases.create`.
-- **Status Independence**: The report and the resulting case maintain distinct, decoupled lifecycles. The report transitions to `routed` or `no_action` (`reason: converted_to_case`), while the new case starts at `filed`.
+- **The Conversion Bridge ([DECIDED, D1])**: The Report Queue (community problems) and Cases Docket (disputes) remain strictly separated. Report-to-Case Conversion serves as the explicit bridge when a community report turns out to be an interpersonal dispute ([CONFIRMED, C13]).
+- **Status Independence**: The report and the resulting case maintain distinct, decoupled lifecycles. The civil report transitions to `no_action` with `reason: converted_to_case` (or `routed` if municipal field work continues), while the resulting case starts at `filed`.
 - **Cross-links**: `reports.case_id` and `cases.source_report_id` record the reciprocal relationship.
-- **Privacy & PII**: Reporter details are not automatically copied to case parties without explicit staff confirmation, protecting resident anonymity where requested.
+- **Privacy & PII**: Reporter details are not automatically copied to case parties without explicit staff confirmation, protecting resident anonymity where requested. Respondent details follow the exact same rule (no auto-created parties).
 
 ### 8.9 Settlement Agreement Capture
 
@@ -337,16 +393,18 @@ stateDiagram-v2
 
 | Item / Rule | Status | Source Tag | Caveat / Note |
 | :--- | :--- | :--- | :--- |
-| 15 working days mediation | Confirmed by Secretary | **[A Q20, Q25]** | Statutory timelines have not been verified against Katarungang Pambarangay rules. |
-| 15 working days conciliation | Confirmed by Secretary | **[A Q25]** | Statutory timelines have not been verified against Katarungang Pambarangay rules. |
-| Conciliation extension max 15d | Confirmed by Secretary | **[A Q25]** | "Another 15 to 30 days" per Secretary. |
-| Complainant requests CFA | Confirmed by Secretary | **[A Q22, Q23]** | Complainant chooses whether to escalate. |
-| Pangkat Chairman signs CFA | Confirmed by Secretary | **[A Q5]** | Verified against official signatory practices. |
-| Docket format `{MM}-{SEQ:3}-{YEAR}` | Confirmed by Secretary | **[A Q9]** | Sequence resets each calendar fiscal year. |
-| Summons count is info-only | Confirmed by Secretary | **[A Q20]** | No automatic cutoff after 3 summons. |
-| Mediation clock start date | Proposal | **[P]** | Proposed: `complaint_started_on` date (defaults to `filed_on`). |
-| Non-KP cases skip clock | Proposal | **[P]** | `case_types.uses_kp_timeline = false`. |
-| Pangkat Chairman per case | Follow-up Question | **[P]** | Follow-up question for Secretary tomorrow. |
+| 15 working days mediation | Confirmed by Secretary | **[CONFIRMED, C11, Q20, Q25]** | Mediation clock is strictly working days. |
+| 15 working days conciliation | Proposed working days | **[CONFIRMED days C11, Q25; PROPOSED unit P2]** | Period is 15 days, extendable by up to 15 ("15 to 30 days"); working-day unit is proposed. |
+| Conciliation extension max 15d | Confirmed by Secretary | **[CONFIRMED, C11, Q25]** | "Another 15 to 30 days" per Secretary. Setting-configurable. |
+| Complainant requests CFA | Confirmed by Secretary | **[CONFIRMED, C12, Q22, Q23]** | Complainant chooses whether to move the case forward. |
+| Pangkat Chairman signs CFA | Confirmed by Secretary | **[CONFIRMED, C3, Q5]** | Signs once case is endorsed to Pangkat. |
+| Docket format `{MM}-{SEQ:3}-{YEAR}` | Confirmed by Secretary | **[CONFIRMED, C5, Q9]** | Sequence resets each calendar fiscal year. Applies to cases, blotters, and referrals. |
+| Summons count is info-only | Confirmed by Secretary | **[CONFIRMED, C11, Q20]** | No automatic cutoff after 3 summons. Day-based indicator used instead. |
+| Mediation clock start date | Proposal | **[PROPOSED, P2]** | Starts from `first_meeting_on` before Punong Barangay, with fallback to `filed_on`. |
+| Non-KP cases skip clock | Proposal | **[PROPOSED, P1]** | `case_types.uses_kp_timeline = false`. |
+| Pangkat Chairman per case | Follow-up Question | **[OPEN QUESTION]** | Whether Pangkat Chairman is standing or elected per-case from 3-member panel. |
+| Summons service results & deliverer | Confirmed by Secretary | **[CONFIRMED, C11]** | `received`, `refused`, `not_found` and `served_by`. |
+| Reminders list | Confirmed by Secretary | **[CONFIRMED, C14]** | Exactly four: hearing dates, summons not yet delivered, cases close to deadline, unsettled ready for next step. |
 
 ### 8.13 Code Alignment (`App\Support\CaseStatus`)
 
@@ -360,6 +418,20 @@ stateDiagram-v2
 | `escalated` | `CaseStatus::ESCALATED` | `CaseStatus::ESCALATED = 'escalated'` | Matches built code. |
 | `dismissed` | `CaseStatus::DISMISSED` | `CaseStatus::DISMISSED = 'dismissed'` | Matches built code. |
 | `withdrawn` | `CaseStatus::WITHDRAWN` | `CaseStatus::WITHDRAWN = 'withdrawn'` | Matches built code. |
+
+### 8.14 Printable Templates & Signatory Mapping (Step 9)
+
+All printed forms and legal documents dynamically resolve authorized signatories through `SignatoryResolver::forDocument($documentType, $context)` without hardcoding personal names or positions. Printable documents carry the visible DRAFT watermark (`<x-ui.draft-watermark>`) until officially verified forms are ingested (Task 6).
+
+| Printable Document | Key Fields & Mapping | Signatories ([PROPOSED], confirm against official forms) |
+| :--- | :--- | :--- |
+| **Barangay Blotter entry / certified extract** | Series, page no., entry no., date and time entered, facts of the case (5Ws), parties involved | Prepared by the Barangay Secretary; certified by the Punong Barangay |
+| **Complaint form** | Barangay Case No., complainant details, respondent details, nature of rights violated, relief requested, date filed | Complainant signature; received by the Barangay Secretary or Lupon member who took it [CONFIRMED, C8]; acknowledged by the Punong Barangay [PROPOSED, P8] |
+| **Summons (mediation)** | `SUM-YYYY-NNNN`, sequence no., case no., complainant, respondent, nature of complaint, hearing date/time/venue, instruction to appear | Punong Barangay / Barangay Captain [CONFIRMED, C3, Q5] |
+| **Notice of hearing / conciliation summons** | Same as summons plus designated 3 Pangkat members and presiding chair | Pangkat Chairman [PROPOSED, P8] |
+| **Notice to complainant** | Case no., parties, scheduled mediation/conciliation hearing date, time, and venue | Punong Barangay / Barangay Captain [PROPOSED, follows summons signatory] |
+| **Amicable settlement** | Case no., parties, agreed terms, monetary settlement, date signed | Both parties; attested by the Punong Barangay (mediation stage) or Pangkat Chairman (conciliation stage) [PROPOSED, P8; CONFIRMED terms C12] |
+| **Certificate to File Action (CFA)** | CFA number, case no., parties, dispute summary, non-settlement or non-appearance finding | Pangkat Chairman signs once case was endorsed to Pangkat [CONFIRMED, C3, Q5]; Punong Barangay signs if no Pangkat constituted, prepared by Barangay Secretary [PROPOSED, P8] |
 
 ---
 
@@ -404,14 +476,16 @@ stateDiagram-v2
 
 ## 11. Staff Screens & Status-to-Action Mapping
 
-To ensure operational consistency across UI redesigns (queue filters, action panels, and review workspaces), staff actions are strictly bound to report lifecycle states:
+To ensure operational consistency across UI redesigns (queue filters, action panels, and review workspaces), staff actions are strictly bound to lifecycle states:
+
+### 11.1 Report Status-to-Action Mapping (Community Problems)
 
 | Report Status | Staff's Operational Job | Primary Action | Secondary / Exception Actions |
 | :--- | :--- | :--- | :--- |
 | **`submitted`** | Initial intake & comparative triage (Resident vs. AI). | **Confirm and Route** (verifies category, urgency, office); *for reports with unverified audio, shows **Listen and verify** as primary action prior to routing* | Ask reporter for info (`needs_info`), Flag emergency, Take no action (`no_action`), Mark duplicate (`merged`). |
-| **`under_review`** | In-depth triage, jurisdiction verification, and assignment. | **Route Internally** or **Prepare Referral** | Ask reporter for info, Take no action, Flag emergency, Mark duplicate. |
+| **`under_review`** | In-depth triage, jurisdiction verification, and assignment. | **Route Internally** or **Prepare Referral** | Ask reporter for info, Take no action, Flag emergency, Mark duplicate, Convert to dispute case (`cases.create`). |
 | **`needs_info`** | Awaiting resident clarification response. | **Review Clarification** (resumes to `under_review`) | Re-route internally, Take no action with `resident_unreachable`, Re-ask info. |
-| **`routed`** | Formal assignment dispatch to Tanods / maintenance crew. | **Start Work** (transitions to `in_progress`) | Re-assign office or personnel, Prepare referral, Ask info, Take no action. |
+| **`routed`** | Formal assignment dispatch to Tanods / maintenance crew. | **Start Work** (transitions to `in_progress`) | Re-assign office or personnel, Prepare referral, Ask info, Take no action, Convert to dispute case (`cases.create`). |
 | **`in_progress`** | Active field inspection, repairs, or municipal coordination. | **Propose Resolution** (requires proof photos & notes) | Add progress milestone note (self-transition), Ask info, Refer upward, Take no action. |
 | **`awaiting_confirmation`** | Awaiting resident satisfaction rating or 14-day SLA expiry. | **Confirm Resolution** (transitions to `resolved`) | Reopen upon resident dispute (`reopened`), Resume work (`in_progress`). |
 | **`resolved`** | Archived completed incident record. | **View Resolution Dossier** | Reopen on recurrence or dispute (`reopened` or `in_progress`). |
@@ -420,6 +494,27 @@ To ensure operational consistency across UI redesigns (queue filters, action pan
 | **`merged`** | Consolidated secondary duplicate incident. | **View Canonical Parent** | Staff-only recovery unmerge (`under_review`). |
 | **`no_action`** | Non-actionable report with mandatory reason code. | **View Reason & Justification** | Reopen/recover report (`in_progress` or `reopened`). |
 | **`emergency_flagged`** | High-priority safety coordination with 911 / CDRRMO. | **Dispatch Emergency Response** (`in_progress`) | Transfer to review (`under_review`), Conclude redirection (`no_action` with `emergency_redirected`). |
+
+### 11.2 Case Status-to-Action Mapping (Barangay Dispute Cases)
+
+| Case Status | Staff / Official Operational Job | Primary Action | Secondary / Exception Actions |
+| :--- | :--- | :--- | :--- |
+| **`filed`** | Docketed intake; classification & eligibility check. | **Issue Summons** (`cases.summons`; moves to `in_mediation` with hearing schedule) | Dismiss (`cases.edit`, note required), Complainant withdraws (`cases.edit`), Edit parties / narrative. |
+| **`in_mediation`** | Active mediation before Punong Barangay (15 working days). | **Record Hearing / Summons** or **Record Settlement** (`settled`) | Endorse to Pangkat (`in_conciliation` at 15 working days), Mark unsettled (`unsettled`), Dismiss for non-appearance, Void summons. |
+| **`in_conciliation`** | Conciliation before 3-member Pangkat (15 working days + ext). | **Record Conciliation Hearing** or **Record Settlement** (`settled`) | Mark conciliation impasse (`unsettled`), Extend conciliation (+15d max), Dismiss (`cases.edit`), Complainant withdraws. |
+| **`settled`** | Amicable settlement signed and binding. | **View Settlement Dossier & PDF** | Reopen by staff upon breach of terms (`in_mediation`, mandatory note). |
+| **`unsettled`** | Proceedings concluded without consensus. | **Issue CFA & Endorse** (`cases.escalate`; complainant requested) | Re-refer to Pangkat (`in_conciliation`, explanation note). |
+| **`escalated`** | Formal CFA issued; case endorsed to Court / PNP. | **View Endorsement Packet & CFA** | Reopen by staff upon procedural defect (`in_mediation`, note required). |
+| **`dismissed`** | Dismissed for lack of jurisdiction or complainant non-appearance. | **View Dismissal Note** | Reinstate case (`filed`, mandatory explanation note). |
+| **`withdrawn`** | Complainant submitted voluntary withdrawal. | **View Withdrawal Record** | Reinstate case (`filed`, mandatory explanation note). |
+
+### 11.3 Pending Complaint Intake Actions (Staff Review Queue)
+
+| Intake State | Staff Operational Job | Primary Action | Secondary / Exception Actions |
+| :--- | :--- | :--- | :--- |
+| **`pending`** | Resident-submitted complaint request awaiting verification. | **Docket this** (prefills WS3 intake form; creates case at `filed` + blotter entry) | Redirect/Reject (requires mandatory explanation note and selected outcome reason), View confidential safety details. |
+| **`docketed`** | Successfully docketed into Barangay Cases Docket. | **View Docketed Case** (links to `/admin/cases/{id}`) | Archive intake record. |
+| **`redirected`** / **`rejected`** | Rejected as ineligible, confidential, or out-of-scope. | **View Rejection Reason** | Staff override / re-open for review. |
 
 ---
 

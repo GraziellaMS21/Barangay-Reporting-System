@@ -20,10 +20,22 @@
 
     <!-- Escalation History / Records -->
     @if($case->escalations->isEmpty())
-        <div class="rounded-lg border border-dashed border-slate-300 p-8 text-center w-full">
-            <i class="fa-solid fa-file-shield text-3xl text-slate-400 mb-2"></i>
-            <p class="text-sm font-semibold text-slate-700">No escalation record filed</p>
-            <p class="mt-1 text-xs text-slate-500">When mediation reaches an impasse and the complainant requests escalation, the CFA record and printable letters will be stored here.</p>
+        <div class="rounded-xl border border-dashed border-slate-300 p-8 text-center w-full bg-white space-y-3">
+            <div class="w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto text-xl">
+                <i class="fa-solid fa-file-shield"></i>
+            </div>
+            <div>
+                <p class="text-sm font-bold text-slate-800">No escalation record filed</p>
+                <p class="mt-1 text-xs text-slate-500 max-w-md mx-auto">When mediation reaches an impasse and the complainant requests escalation, the CFA record and printable letters will be stored here.</p>
+            </div>
+            @if(isset($nextStep) && $nextStep['code'] === 'STEP_H_MEDIATION_UNSUCCESSFUL')
+                <div class="pt-2">
+                    <button type="button" onclick="openWorkflowModal('modal-issue-cfa')" class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-amber-600 rounded-lg hover:bg-amber-700 shadow-sm transition-colors cursor-pointer">
+                        <i class="fa-solid fa-certificate"></i>
+                        <span>Proceed to Next Step: Issue Certificate to File Action (KP Form 20)</span>
+                    </button>
+                </div>
+            @endif
         </div>
     @else
         <div class="space-y-4">

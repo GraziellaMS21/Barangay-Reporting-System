@@ -42,6 +42,7 @@ class Report extends Model
         'cannot_resolve' => 'Cannot be resolved',
         'invalid_report' => 'Invalid / Spam / Test report',
         'resident_unreachable' => 'Resident unreachable',
+        'converted_to_case' => 'Converted to dispute case',
     ];
 
     public const UPDATE_TYPES = [

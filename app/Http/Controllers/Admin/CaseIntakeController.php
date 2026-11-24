@@ -71,26 +71,26 @@ class CaseIntakeController extends Controller
             'case_type_id' => ['required', 'exists:case_types,id'],
             'purok_id' => ['nullable', 'exists:puroks,id'],
             'assigned_to' => ['nullable', 'exists:users,id'],
-            'what_happened' => ['required', 'string', 'min:10', 'max:5000'],
+            'what_happened' => ['required', 'string', 'min:5', 'max:5000'],
             'who_involved' => ['nullable', 'string', 'max:1000'],
-            'when_happened' => ['nullable', 'date'],
+            'when_happened' => ['nullable', 'string', 'max:255'],
             'where_happened' => ['nullable', 'string', 'max:1000'],
             'why_how_happened' => ['nullable', 'string', 'max:5000'],
             'rights_violated' => ['nullable', 'string', 'max:3000'],
             'relief_requested' => ['nullable', 'string', 'max:3000'],
             'field_provenance' => ['nullable', 'array'],
             'kp_eligibility' => ['required', 'array'],
-            'kp_eligibility.same_barangay' => ['required', 'accepted'],
-            'kp_eligibility.kp_matter' => ['required', 'accepted'],
-            'kp_eligibility.non_confidential' => ['required', 'accepted'],
-            'kp_eligibility.residency_verified' => ['required', 'accepted'],
+            'kp_eligibility.same_barangay' => ['required'],
+            'kp_eligibility.kp_matter' => ['required'],
+            'kp_eligibility.non_confidential' => ['required'],
+            'kp_eligibility.residency_verified' => ['required'],
             'is_confidential' => ['nullable', 'boolean'],
             'message_to_complainant' => ['nullable', 'string', 'max:500'],
         ], [
-            'kp_eligibility.same_barangay.accepted' => 'KP eligibility requires both parties to reside in the barangay or adjacent areas.',
-            'kp_eligibility.kp_matter.accepted' => 'KP eligibility requires the dispute to fall under Lupon jurisdiction.',
-            'kp_eligibility.non_confidential.accepted' => 'Disputes involving VAWC or child protection cannot be docketed under KP.',
-            'kp_eligibility.residency_verified.accepted' => 'Please confirm complainant residency verification before docketing.',
+            'kp_eligibility.same_barangay.required' => 'KP eligibility requires confirming both parties reside in Barangay Calarian or adjacent areas.',
+            'kp_eligibility.kp_matter.required' => 'KP eligibility requires confirming the dispute falls under Lupon jurisdiction.',
+            'kp_eligibility.non_confidential.required' => 'Disputes involving VAWC or child protection cannot be docketed under KP.',
+            'kp_eligibility.residency_verified.required' => 'Please confirm complainant residency verification before docketing.',
         ]);
 
         $case = DB::transaction(function () use ($validated, $request, $intake) {
@@ -114,8 +114,13 @@ class CaseIntakeController extends Controller
             $fullNarrative = implode("\n\n", $narrativeSections);
 
             $incidentDate = null;
-            if (! empty($validated['when_happened'])) {
-                $incidentDate = date('Y-m-d', strtotime($validated['when_happened']));
+            $parsedWhenHappened = null;
+            if (! empty($validated['when_happened']) && $validated['when_happened'] !== 'Not specified in narrative') {
+                $ts = strtotime($validated['when_happened']);
+                if ($ts !== false && $ts > 0) {
+                    $incidentDate = date('Y-m-d', $ts);
+                    $parsedWhenHappened = date('Y-m-d H:i:s', $ts);
+                }
             }
 
             $case = BarangayCase::create([
@@ -178,7 +183,7 @@ class CaseIntakeController extends Controller
                 'reviewed_at' => now(),
                 'what_happened' => $validated['what_happened'],
                 'who_involved' => $validated['who_involved'] ?? $intake->who_involved,
-                'when_happened' => $validated['when_happened'] ?? $intake->when_happened,
+                'when_happened' => $parsedWhenHappened ?? $intake->when_happened,
                 'where_happened' => $validated['where_happened'] ?? $intake->where_happened,
                 'why_how_happened' => $validated['why_how_happened'] ?? $intake->why_how_happened,
                 'rights_violated' => $validated['rights_violated'] ?? $intake->rights_violated,
@@ -198,7 +203,7 @@ class CaseIntakeController extends Controller
         });
 
         return redirect()->route('admin.cases.show', $case)
-            ->with('success', "Complaint intake successfully docketed as case {$case->case_number}.");
+            ->with('success', "Case {$case->case_number} docketed. Next: print the complaint for signing.");
     }
 
     /**

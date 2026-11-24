@@ -4,40 +4,36 @@
     'residentValue' => null,
     'aiValue' => null,
     'currentValue' => null,
-    'provenance' => 'ai',
+    'provenance' => null,
+    'aiStatus' => 'completed', // completed, failed, pending
 ])
 
 @php
-    $val = $currentValue ?? $aiValue ?? $residentValue ?? '';
-    $differs = filled($aiValue) && filled($residentValue) && trim((string)$aiValue) !== trim((string)$residentValue);
+    $hasAi = filled($aiValue) && trim((string)$aiValue) !== '' && trim((string)$aiValue) !== 'Not stated in the narrative';
+    $hasResident = filled($residentValue) && trim((string)$residentValue) !== '';
+    $val = $currentValue ?? ($hasAi ? $aiValue : ($hasResident ? $residentValue : ''));
+    
+    // Provenance badge logic
+    if (empty($provenance)) {
+        if ($aiStatus === 'failed') {
+            $provenance = $hasResident ? 'resident' : null;
+        } elseif ($hasAi) {
+            $provenance = 'ai';
+        } elseif ($hasResident) {
+            $provenance = 'resident';
+        } else {
+            $provenance = 'not_provided';
+        }
+    }
+    
+    $differs = $hasAi && $hasResident && trim((string)$aiValue) !== trim((string)$residentValue);
+    $bothValue = ($hasAi && $hasResident && $differs) ? trim($residentValue) . ' (AI Note: ' . trim($aiValue) . ')' : ($hasAi ? $aiValue : $residentValue);
+    $cardId = 'field_card_' . md5($fieldName);
 @endphp
 
-<div x-data="{
-    current: @js($val),
-    provenance: @js($provenance),
-    editing: false,
-    aiVal: @js($aiValue ?? ''),
-    resVal: @js($residentValue ?? ''),
-    useAi() {
-        this.current = this.aiVal;
-        this.provenance = 'ai';
-        this.editing = false;
-        $dispatch('field-reviewed', { field: @js($fieldName) });
-    },
-    useResident() {
-        this.current = this.resVal;
-        this.provenance = 'resident';
-        this.editing = false;
-        $dispatch('field-reviewed', { field: @js($fieldName) });
-    },
-    markAccepted() {
-        $dispatch('field-reviewed', { field: @js($fieldName) });
-    }
-}" 
-x-init="markAccepted()"
-class="p-4 rounded-xl border border-slate-200 bg-white shadow-xs space-y-3 transition-all hover:border-slate-300">
+<div id="{{ $cardId }}" class="p-4 rounded-xl border border-slate-200 bg-white shadow-xs space-y-3 transition-all hover:border-slate-300">
     <div class="flex items-center justify-between gap-2">
-        <label class="text-xs font-bold uppercase tracking-wider text-slate-700">
+        <label for="input_{{ $fieldName }}" class="text-xs font-bold uppercase tracking-wider text-slate-700">
             {{ $label }}
         </label>
         <div class="flex items-center gap-1.5">
@@ -46,66 +42,73 @@ class="p-4 rounded-xl border border-slate-200 bg-white shadow-xs space-y-3 trans
                     Differs
                 </span>
             @endif
-            <template x-if="provenance === 'ai'">
-                <x-ui.provenance-badge provenance="ai" />
-            </template>
-            <template x-if="provenance === 'resident'">
-                <x-ui.provenance-badge provenance="resident" />
-            </template>
-            <template x-if="provenance === 'staff_edited'">
-                <x-ui.provenance-badge provenance="staff_edited" />
-            </template>
+            <span id="badge_{{ $fieldName }}">
+                <x-ui.provenance-badge :provenance="$provenance" />
+            </span>
         </div>
     </div>
 
-    <!-- Display / Edit Field -->
+    <!-- Editable Input Field -->
     <div>
-        <template x-if="!editing">
-            <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-900 font-medium break-words">
-                <span x-text="current || 'Not specified'"></span>
-            </div>
-        </template>
-        <template x-if="editing">
-            <input type="text" 
-                   x-model="current" 
-                   @input="provenance = 'staff_edited'; $dispatch('field-reviewed', { field: @js($fieldName) })"
-                   class="w-full text-xs rounded-lg border-blue-500 focus:ring-blue-500 p-2.5 bg-white border">
-        </template>
+        <input type="text"
+               id="input_{{ $fieldName }}"
+               name="{{ $fieldName }}"
+               value="{{ $val }}"
+               oninput="updateProvenance('{{ $fieldName }}', 'staff_edited')"
+               placeholder="{{ $aiStatus === 'failed' ? 'AI unavailable. Retry or fill in manually.' : ($hasAi ? '' : 'Not stated in the narrative') }}"
+               class="w-full text-xs font-medium text-slate-900 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 p-2.5 transition-colors">
+        <input type="hidden" id="prov_{{ $fieldName }}" name="field_provenance[{{ $fieldName }}]" value="{{ $provenance ?? 'resident' }}">
     </div>
 
-    <!-- Hidden form input for submission -->
-    <input type="hidden" name="{{ $fieldName }}" :value="current">
-    <input type="hidden" name="field_provenance[{{ $fieldName }}]" :value="provenance">
+    <!-- Read-only Reference Lines (AI & Resident) -->
+    <div class="space-y-1 text-[11px] bg-slate-50 p-2 rounded border border-slate-100">
+        <div class="text-slate-600 truncate" title="{{ $hasAi ? $aiValue : 'None' }}">
+            <span class="font-bold text-purple-700">AI:</span> 
+            <span class="{{ $hasAi ? 'text-slate-800' : 'text-slate-400 italic' }}">{{ $hasAi ? $aiValue : 'None' }}</span>
+        </div>
+        <div class="text-slate-600 truncate" title="{{ $hasResident ? $residentValue : 'None' }}">
+            <span class="font-bold text-blue-700">Resident:</span> 
+            <span class="{{ $hasResident ? 'text-slate-800' : 'text-slate-400 italic' }}">{{ $hasResident ? $residentValue : 'None' }}</span>
+        </div>
+    </div>
 
-    <!-- Value Source Comparison & Action Chips -->
-    <div class="pt-1 border-t border-slate-100 flex items-center justify-between gap-2 text-[11px]">
-        <div class="text-slate-500 truncate max-w-[200px]" title="Resident value">
-            @if($residentValue)
-                <span class="font-semibold text-slate-600">Resident:</span> {{ $residentValue }}
-            @endif
-        </div>
-        <div class="flex items-center gap-1 shrink-0">
-            @if($aiValue)
-                <button type="button" 
-                        @click="useAi()" 
-                        class="px-2 py-1 rounded text-purple-700 bg-purple-50 hover:bg-purple-100 font-semibold border border-purple-200 transition-colors"
-                        title="Use AI Suggestion">
-                    Use AI
-                </button>
-            @endif
-            @if($residentValue)
-                <button type="button" 
-                        @click="useResident()" 
-                        class="px-2 py-1 rounded text-slate-700 bg-slate-100 hover:bg-slate-200 font-semibold border border-slate-200 transition-colors"
-                        title="Use Resident Value">
-                    Use Resident
-                </button>
-            @endif
-            <button type="button" 
-                    @click="editing = !editing; if(editing) provenance = 'staff_edited'" 
-                    class="px-2 py-1 rounded text-blue-700 bg-blue-50 hover:bg-blue-100 font-semibold border border-blue-200 transition-colors">
-                <span x-text="editing ? 'Done' : 'Edit'"></span>
-            </button>
-        </div>
+    <!-- Action Buttons [Use AI] [Use Resident] [Use Both] -->
+    <div class="pt-1 flex items-center justify-end gap-1.5 text-[11px]">
+        <button type="button"
+                @if($hasAi)
+                    onclick="setFieldValue('{{ $fieldName }}', {{ json_encode($aiValue) }}, 'ai')"
+                    class="px-2 py-1 rounded text-purple-700 bg-purple-50 hover:bg-purple-100 font-semibold border border-purple-200 transition-colors"
+                @else
+                    disabled
+                    title="AI found no data for this field"
+                    class="px-2 py-1 rounded text-slate-400 bg-slate-100 font-medium border border-slate-200 cursor-not-allowed opacity-60"
+                @endif>
+            Use AI
+        </button>
+
+        <button type="button"
+                @if($hasResident)
+                    onclick="setFieldValue('{{ $fieldName }}', {{ json_encode($residentValue) }}, 'resident')"
+                    class="px-2 py-1 rounded text-blue-700 bg-blue-50 hover:bg-blue-100 font-semibold border border-blue-200 transition-colors"
+                @else
+                    disabled
+                    title="Resident provided no structured data"
+                    class="px-2 py-1 rounded text-slate-400 bg-slate-100 font-medium border border-slate-200 cursor-not-allowed opacity-60"
+                @endif>
+            Use Resident
+        </button>
+
+        <button type="button"
+                @if($hasAi && $hasResident && $differs)
+                    onclick="setFieldValue('{{ $fieldName }}', {{ json_encode($bothValue) }}, 'staff_edited')"
+                    class="px-2 py-1 rounded text-emerald-700 bg-emerald-50 hover:bg-emerald-100 font-semibold border border-emerald-200 transition-colors"
+                    title="Combine Resident original and AI note"
+                @else
+                    disabled
+                    title="Requires differing values from both AI and Resident"
+                    class="px-2 py-1 rounded text-slate-400 bg-slate-100 font-medium border border-slate-200 cursor-not-allowed opacity-60"
+                @endif>
+            Use Both
+        </button>
     </div>
 </div>

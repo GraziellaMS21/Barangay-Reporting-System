@@ -24,10 +24,22 @@
     </div>
 
     @if($case->summons->isEmpty())
-        <div class="rounded-lg border border-dashed border-slate-300 p-8 text-center w-full">
-            <i class="fa-solid fa-envelope-open-text text-3xl text-slate-400 mb-2"></i>
-            <p class="text-sm font-semibold text-slate-700">No summons issued yet</p>
-            <p class="mt-1 text-xs text-slate-500">Official summons notices issued for this case will appear here with service and attendance tracking.</p>
+        <div class="rounded-xl border border-dashed border-slate-300 p-8 text-center w-full bg-white space-y-3">
+            <div class="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mx-auto text-xl">
+                <i class="fa-solid fa-envelope-open-text"></i>
+            </div>
+            <div>
+                <p class="text-sm font-bold text-slate-800">No summons issued yet</p>
+                <p class="mt-1 text-xs text-slate-500 max-w-md mx-auto">Official summons notices issued for this case will appear here with service and attendance tracking.</p>
+            </div>
+            @if(isset($nextStep) && $nextStep['code'] === 'STEP_C_ISSUE_NOTICES')
+                <div class="pt-2">
+                    <button type="button" onclick="openWorkflowModal('modal-mark-notices-issued')" class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-sm transition-colors cursor-pointer">
+                        <i class="fa-solid fa-check-double"></i>
+                        <span>Proceed to Next Step: Issue Summons & Notices</span>
+                    </button>
+                </div>
+            @endif
         </div>
     @else
         <div class="space-y-4">

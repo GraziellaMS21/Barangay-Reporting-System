@@ -61,12 +61,13 @@ Route::middleware(['auth', 'role:staff'])->group(function () {
         Route::get('/export', [PendingConfirmationController::class, 'exportCsv'])->name('export');
     });
 
-    // Response templates
+    // Response templates (read-only JSON available to all staff)
+    Route::get('/admin/settings/templates/json', [TemplateController::class, 'json'])->name('admin.templates.json');
+
     Route::middleware(['permission:templates.manage'])->prefix('admin/settings/templates')->name('admin.templates.')->group(function () {
         Route::get('/', [TemplateController::class, 'index'])->name('index');
         Route::get('/create', [TemplateController::class, 'create'])->name('create');
         Route::post('/', [TemplateController::class, 'store'])->name('store');
-        Route::get('/json', [TemplateController::class, 'json'])->name('json');
         Route::get('/{template}/edit', [TemplateController::class, 'edit'])->name('edit');
         Route::put('/{template}', [TemplateController::class, 'update'])->name('update');
         Route::patch('/{template}', [TemplateController::class, 'update'])->name('patch');

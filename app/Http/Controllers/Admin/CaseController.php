@@ -20,6 +20,7 @@ use App\Services\CaseStatusService;
 use App\Services\FiscalYearContext;
 use App\Services\FiscalYearGuard;
 use App\Services\FiscalYearService;
+use App\Services\KatarungangPambarangayService;
 use App\Services\NumberingService;
 use App\Services\SummonsCounterService;
 use App\Support\CaseStatus;
@@ -380,8 +381,9 @@ class CaseController extends Controller
             ->filter(fn (User $u) => $u->hasPermission('cases.view'));
 
         $summonsStats = $this->summonsCounter->forCase($case);
+        $nextStep = app(KatarungangPambarangayService::class)->determineNextStep($case);
 
-        return view('admin.cases.show', compact('case', 'staffMembers', 'summonsStats'));
+        return view('admin.cases.show', compact('case', 'staffMembers', 'summonsStats', 'nextStep'));
     }
 
     /**

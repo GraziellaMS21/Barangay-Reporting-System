@@ -306,6 +306,48 @@ class ResidentComplaintAiIntakeTest extends TestCase
         $response->assertRedirect(route('admin.cases.show', $intake->case_id));
     }
 
+    public function test_admin_can_docket_intake_with_unspecified_datetime_string(): void
+    {
+        $intake = ComplaintIntake::create([
+            'complainant_name' => 'Maria Makiling',
+            'complainant_contact' => '09170002222',
+            'complainant_address' => 'Calarian',
+            'respondent_name' => 'Bernardo Carpio',
+            'respondent_address' => 'Calarian',
+            'incident_narrative' => 'Dispute regarding noise disturbance late at night.',
+            'rights_and_relief' => 'Quiet living violated. Stop loud karaoke.',
+            'what_happened' => 'Late night noise.',
+            'status' => 'pending',
+            'ai_status' => 'done',
+            'confidentiality_screen_passed' => true,
+            'consent_at' => now(),
+            'submitted_at' => now(),
+        ]);
+
+        $response = $this->actingAs($this->staffUser)
+            ->post(route('admin.cases.intakes.docket', $intake), [
+                'case_type_id' => $this->caseType->id,
+                'what_happened' => 'Late night karaoke noise disturbance.',
+                'when_happened' => 'Not specified in narrative',
+                'where_happened' => 'Not specified in narrative',
+                'why_how_happened' => 'Neighbor sings videoke.',
+                'rights_violated' => 'Right to rest.',
+                'relief_requested' => 'Lower volume.',
+                'kp_eligibility' => [
+                    'same_barangay' => '1',
+                    'kp_matter' => '1',
+                    'non_confidential' => '1',
+                    'residency_verified' => '1',
+                ],
+            ]);
+
+        $intake->refresh();
+        $this->assertEquals('docketed', $intake->status);
+        $this->assertNotNull($intake->case_id);
+        $response->assertRedirect(route('admin.cases.show', $intake->case_id));
+        $response->assertSessionHas('success');
+    }
+
     public function test_docketing_fails_if_kp_eligibility_checklist_is_incomplete(): void
     {
         $intake = ComplaintIntake::create([

@@ -29,6 +29,7 @@ class BarangayCase extends Model
         'narrative',
         'filed_on',
         'first_meeting_on',
+        'mediation_started_at',
         'complaint_started_on',
         'endorsed_to_pangkat_on',
         'conciliation_extension_days',
@@ -36,6 +37,24 @@ class BarangayCase extends Model
         'incident_location',
         'purok_id',
         'status',
+        'complaint_printed_at',
+        'complaint_signed_received_at',
+        'complaint_signed_received_by',
+        'complaint_signed_document_path',
+        'notices_issued_at',
+        'summons_service_status',
+        'summons_served_at',
+        'summons_served_by',
+        'summons_recipient_name',
+        'summons_recipient_relation',
+        'mediation_outcome',
+        'repudiation_ends_at',
+        'repudiated_at',
+        'repudiation_ground',
+        'repudiated_by',
+        'repudiation_document_path',
+        'court_transmitted_at',
+        'cfa_issued_at',
         'encoded_by',
         'assigned_to',
         'pangkat_chairman_personnel_id',
@@ -53,9 +72,18 @@ class BarangayCase extends Model
         return [
             'filed_on' => 'date',
             'first_meeting_on' => 'date',
+            'mediation_started_at' => 'datetime',
             'complaint_started_on' => 'date',
             'endorsed_to_pangkat_on' => 'date',
             'incident_date' => 'date',
+            'complaint_printed_at' => 'datetime',
+            'complaint_signed_received_at' => 'datetime',
+            'notices_issued_at' => 'datetime',
+            'summons_served_at' => 'datetime',
+            'repudiation_ends_at' => 'datetime',
+            'repudiated_at' => 'datetime',
+            'court_transmitted_at' => 'datetime',
+            'cfa_issued_at' => 'datetime',
             'settled_on' => 'date',
             'settlement_amount' => 'decimal:2',
             'is_confidential' => 'boolean',
@@ -127,7 +155,7 @@ class BarangayCase extends Model
 
     public function activeSummons(): HasMany
     {
-        return $this->summons()->whereNull('voided_at');
+        return $this->summons()->whereNull('voided_at')->whereNull('superseded_at');
     }
 
     public function hearings(): HasMany

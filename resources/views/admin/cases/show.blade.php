@@ -94,7 +94,7 @@
                     </a>
                 @endcan
 
-                @can('cases.settlement')
+                @can('cases.edit')
                     @if(in_array($case->status, [\App\Support\CaseStatus::IN_MEDIATION, \App\Support\CaseStatus::IN_CONCILIATION, \App\Support\CaseStatus::UNSETTLED]))
                         <button type="button" onclick="openSettlementModal()" class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-300 rounded-lg hover:bg-emerald-100 shadow-sm transition-colors">
                             <i class="fa-solid fa-handshake text-emerald-600"></i>
@@ -179,6 +179,18 @@
             <span>{{ session('success') }}</span>
         </div>
     @endif
+    @if (session('error'))
+        <div role="alert" class="fixed bottom-6 right-6 z-50 p-4 bg-red-600 text-white font-medium text-xs rounded-xl shadow-xl flex items-center gap-3 transition-opacity duration-300" data-toast>
+            <i class="fa-solid fa-triangle-exclamation text-base"></i>
+            <span>{{ session('error') }}</span>
+        </div>
+    @endif
+    @if (session('warning_message'))
+        <div role="status" class="fixed bottom-6 right-6 z-50 p-4 bg-amber-600 text-white font-medium text-xs rounded-xl shadow-xl flex items-center gap-3 transition-opacity duration-300" data-toast>
+            <i class="fa-solid fa-circle-info text-base"></i>
+            <span>{{ session('warning_message') }}</span>
+        </div>
+    @endif
 
     <!-- Main Content Two-Column Grid -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
@@ -188,6 +200,11 @@
 
             <!-- Tab 1: Overview -->
             <div id="tab-pane-overview" class="tab-pane space-y-6">
+                <!-- Guided Post-Docket Workflow & Stepper -->
+                @if(isset($nextStep))
+                    @include('admin.cases.partials.next-step-panel', ['case' => $case, 'nextStep' => $nextStep])
+                @endif
+
                 <!-- Structured Facts & Narrative Card -->
                 <x-ui.card class="p-6 border border-slate-200 bg-white shadow-sm space-y-4 font-sans">
                     <div class="flex items-center justify-between border-b border-slate-100 pb-2">
@@ -208,7 +225,7 @@
                                     <x-ui.provenance-badge :provenance="$sourceIntake->field_provenance['what_happened']" />
                                 @endif
                             </div>
-                            <p class="text-sm text-slate-800 leading-relaxed whitespace-pre-wrap bg-slate-50 p-3.5 rounded-lg border border-slate-200/80">{{ $parsedWhat }}</p>
+                            <p class="text-sm text-slate-800 leading-relaxed whitespace-pre-wrap bg-slate-50 p-3.5 rounded-lg border border-slate-200/80">{{ $parsedWhat ?: 'Not stated' }}</p>
                         </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
@@ -219,7 +236,7 @@
                                         <x-ui.provenance-badge :provenance="$sourceIntake->field_provenance['why_how_happened']" />
                                     @endif
                                 </div>
-                                <p class="text-xs text-slate-800 leading-relaxed whitespace-pre-wrap">{{ $parsedCircumstances ?: 'Stated in initial narrative' }}</p>
+                                <p class="text-xs text-slate-800 leading-relaxed whitespace-pre-wrap {{ empty($parsedCircumstances) ? 'text-slate-400 italic' : '' }}">{{ $parsedCircumstances ?: 'Not stated' }}</p>
                             </div>
                             <div class="bg-slate-50 p-3 rounded-lg border border-slate-200/80">
                                 <div class="flex items-center justify-between mb-1">
@@ -228,7 +245,7 @@
                                         <x-ui.provenance-badge :provenance="$sourceIntake->field_provenance['rights_violated']" />
                                     @endif
                                 </div>
-                                <p class="text-xs text-slate-800 leading-relaxed whitespace-pre-wrap">{{ $parsedRights ?: 'Subject to Katarungang Pambarangay evaluation' }}</p>
+                                <p class="text-xs text-slate-800 leading-relaxed whitespace-pre-wrap {{ empty($parsedRights) ? 'text-slate-400 italic' : '' }}">{{ $parsedRights ?: 'Not stated' }}</p>
                             </div>
                             <div class="bg-slate-50 p-3 rounded-lg border border-slate-200/80">
                                 <div class="flex items-center justify-between mb-1">
@@ -237,7 +254,7 @@
                                         <x-ui.provenance-badge :provenance="$sourceIntake->field_provenance['relief_requested']" />
                                     @endif
                                 </div>
-                                <p class="text-xs text-slate-800 leading-relaxed whitespace-pre-wrap">{{ $parsedRelief ?: 'Amicable settlement & conciliation' }}</p>
+                                <p class="text-xs text-slate-800 leading-relaxed whitespace-pre-wrap {{ empty($parsedRelief) ? 'text-slate-400 italic' : '' }}">{{ $parsedRelief ?: 'Not stated' }}</p>
                             </div>
                         </div>
 
@@ -670,28 +687,33 @@
                     </div>
                 </div>
 
-                <!-- Mediation Clock -->
+                <!-- Mediation Clock (Sec. 410b RA 7160) -->
                 <div class="space-y-1.5 pb-3 border-b border-slate-100">
                     <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Mediation Clock (15 Days)</span>
-                    @if($case->first_meeting_on)
-                        <div class="pt-0.5">
+                    @php
+                        $clock = $nextStep['mediation_clock'] ?? null;
+                    @endphp
+                    @if($clock && $clock['is_started'])
+                        <div class="pt-0.5 space-y-1">
                             <div class="flex items-center justify-between text-xs font-semibold">
-                                <span class="text-blue-900">Day {{ $overdue['day'] }} of 15</span>
-                                <span class="text-[11px] text-slate-500">{{ $overdue['is_overdue'] ? 'Overdue' : 'Active' }}</span>
+                                <span class="{{ $clock['is_overdue'] ? 'text-red-700' : ($clock['is_warning'] ? 'text-amber-700' : 'text-blue-900') }}">
+                                    {{ $clock['display'] }}
+                                </span>
                             </div>
-                            <div class="w-full bg-slate-100 rounded-full h-2 mt-1.5 overflow-hidden">
-                                <div class="bg-blue-600 h-2 rounded-full transition-all" style="width: {{ min(100, round(($overdue['day'] / 15) * 100)) }}%"></div>
-                            </div>
-                            <p class="text-[11px] text-slate-500 mt-1">
-                                Ends on {{ \Carbon\Carbon::parse($overdue['deadline_on'])->format('M d, Y') }}
-                            </p>
+                            @if(!$clock['is_overdue'])
+                                @php
+                                    $periodDays = config('katarungang_pambarangay.mediation_period_days', 15);
+                                    $dayNum = min($periodDays, max(1, $periodDays - $clock['days_remaining']));
+                                    $pct = min(100, round(($dayNum / $periodDays) * 100));
+                                @endphp
+                                <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                                    <div class="h-2 rounded-full transition-all {{ $clock['is_warning'] ? 'bg-amber-500' : 'bg-blue-600' }}" style="width: {{ $pct }}%"></div>
+                                </div>
+                            @endif
                         </div>
                     @else
-                        <div class="pt-1">
-                            <button type="button" onclick="openStartClockModal()" class="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-sm transition-colors">
-                                <i class="fa-solid fa-stopwatch"></i>
-                                <span>Start 15-Day Clock</span>
-                            </button>
+                        <div class="pt-1 text-slate-500 text-xs">
+                            {{ $clock['display'] ?? 'Starts at the first hearing.' }}
                         </div>
                     @endif
                 </div>
@@ -796,6 +818,10 @@
 
         <form method="POST" action="{{ route('admin.cases.status', $case) }}" class="space-y-4 text-xs">
             @csrf
+            <div class="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs">
+                <i class="fa-solid fa-triangle-exclamation mr-1 text-amber-600"></i>
+                <strong>Notice:</strong> Changing status manually bypasses the guided milestone checks. A formal administrative justification is mandatory.
+            </div>
             <div>
                 <label class="block font-semibold text-slate-700 mb-1">Target Status <span class="text-red-500">*</span></label>
                 <select name="to_status" required class="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500">
@@ -809,14 +835,14 @@
             </div>
 
             <div>
-                <label class="block font-semibold text-slate-700 mb-1">Official Transition Note <span class="text-red-500">*</span></label>
+                <label class="block font-semibold text-slate-700 mb-1">Official Transition Reason & Justification <span class="text-red-500">*</span></label>
                 <textarea
                     name="note"
                     rows="3"
                     required
                     minlength="5"
                     maxlength="1000"
-                    placeholder="State reason or official order for status change..."
+                    placeholder="State reason or official order for bypassing guided steps..."
                     class="w-full text-xs border border-slate-300 rounded p-2 focus:ring-1 focus:ring-blue-500"
                 ></textarea>
             </div>
@@ -976,6 +1002,8 @@
         </div>
     </div>
 </div>
+
+@include('admin.cases.partials.workflow-modals', ['case' => $case, 'staffMembers' => $staffMembers])
 
 <script>
     function switchCaseTab(tabKey) {

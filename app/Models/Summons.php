@@ -29,6 +29,7 @@ class Summons extends Model
         'service_result',
         'attendance',
         'remarks',
+        'superseded_at',
         'voided_at',
         'void_note',
         'override_note',
@@ -41,6 +42,7 @@ class Summons extends Model
             'issued_on' => 'date',
             'hearing_at' => 'datetime',
             'served_on' => 'date',
+            'superseded_at' => 'datetime',
             'voided_at' => 'datetime',
         ];
     }

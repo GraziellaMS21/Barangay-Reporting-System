@@ -88,7 +88,7 @@ class StaffCaseIntakeDocketingTest extends TestCase
         $response->assertSee('Pending Intakes');
         $response->assertSee('Juan Dela Cruz');
         $response->assertSee('Pedro Penduko');
-        $response->assertSee('Docket this');
+        $response->assertSee('Review & Docket');
         $response->assertSee('Reject');
     }
 

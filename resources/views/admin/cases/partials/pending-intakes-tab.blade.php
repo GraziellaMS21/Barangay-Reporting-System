@@ -48,7 +48,9 @@
                                     @endif
                                 </td>
                                 <td class="py-3 px-4 align-top">
-                                    <div class="font-bold text-slate-900">{{ $intake->complainant_name }}</div>
+                                    <a href="{{ route('admin.cases.intakes.show', $intake) }}" data-turbo="false" class="font-bold text-blue-600 hover:text-blue-800 hover:underline">
+                                        {{ $intake->complainant_name }}
+                                    </a>
                                     @if($intake->complainant_alias)
                                         <div class="text-[10px] text-slate-500">"{{ $intake->complainant_alias }}"</div>
                                     @endif
@@ -70,24 +72,40 @@
                                     <p class="font-medium text-slate-800 line-clamp-2" title="{{ $intake->what_happened }}">{{ $intake->what_happened }}</p>
                                     <div class="mt-1 text-[11px] text-slate-500 flex items-center gap-1.5">
                                         <i class="fa-solid fa-location-dot text-slate-400"></i>
-                                        <span class="truncate">{{ $intake->where_happened }}</span>
+                                        <span class="truncate">{{ $intake->where_happened ?: 'Location not specified' }}</span>
                                     </div>
-                                    <div class="text-[10px] text-slate-400">Occurred: {{ $intake->when_happened?->format('M j, Y g:i A') }}</div>
+                                    <div class="text-[10px] text-slate-400">Occurred: {{ $intake->when_happened?->format('M j, Y g:i A') ?? 'Not specified' }}</div>
+                                    <div class="mt-1">
+                                        @if($intake->ai_status === 'completed')
+                                            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+                                                <i class="fa-solid fa-wand-magic-sparkles text-[9px]"></i> AI extracted
+                                            </span>
+                                        @elseif($intake->ai_status === 'failed')
+                                            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                                                <i class="fa-solid fa-circle-exclamation text-[9px] text-amber-500"></i> AI unavailable
+                                            </span>
+                                        @else
+                                            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                                                <i class="fa-solid fa-spinner fa-spin text-[9px]"></i> AI extracting...
+                                            </span>
+                                        @endif
+                                    </div>
                                 </td>
                                 <td class="py-3 px-4 align-top text-right">
                                     <div class="flex items-center justify-end gap-1.5 flex-wrap">
-                                        @can('cases.create')
-                                            <a href="{{ route('admin.cases.create', ['intake_id' => $intake->id]) }}"
-                                               class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow-sm transition-colors"
-                                               title="Prefill case creation form and docket">
-                                                <i class="fa-solid fa-plus-circle"></i>
-                                                <span>Docket this</span>
+                                        @can('cases.view')
+                                            <a href="{{ route('admin.cases.intakes.show', $intake) }}"
+                                               data-turbo="false"
+                                               class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow-xs transition-colors"
+                                               title="Review AI suggestions and docket">
+                                                <i class="fa-solid fa-wand-magic-sparkles text-[10px]"></i>
+                                                <span>Review &amp; Docket</span>
                                             </a>
                                         @endcan
                                         @can('cases.edit')
                                             <button type="button"
                                                     onclick="openRejectModal({{ $intake->id }}, @json($intake->complainant_name), @json($intake->respondent_name))"
-                                                    class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 border border-red-200 rounded-md transition-colors"
+                                                    class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 border border-red-200 rounded-md transition-colors"
                                                     title="Reject or redirect intake request">
                                                 <i class="fa-solid fa-ban"></i>
                                                 <span>Reject</span>

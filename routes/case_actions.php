@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\CaseEscalationController;
 use App\Http\Controllers\Admin\CasePrintableController;
 use App\Http\Controllers\Admin\CaseSettlementController;
+use App\Http\Controllers\Admin\CaseWorkflowController;
 use App\Http\Controllers\Admin\EscalationDestinationController;
 use App\Http\Controllers\Admin\HearingController;
 use App\Http\Controllers\Admin\SecretaryDashboardController;
@@ -42,7 +43,7 @@ Route::middleware(['auth', 'role:staff'])->prefix('admin')->name('admin.')->grou
             Route::post('/hearings/{hearing}/outcome', [HearingController::class, 'outcome'])->name('hearings.outcome');
         });
 
-        Route::middleware(['permission:cases.settlement'])->group(function () {
+        Route::middleware(['permission:cases.edit'])->group(function () {
             Route::post('/settlement', [CaseSettlementController::class, 'store'])->name('settlement.store');
             Route::get('/settlement/agreement', [CaseSettlementController::class, 'agreement'])->name('settlement.agreement');
         });
@@ -62,6 +63,19 @@ Route::middleware(['auth', 'role:staff'])->prefix('admin')->name('admin.')->grou
             Route::get('/conciliation-notice/{hearing?}', [CasePrintableController::class, 'conciliationNotice'])->name('conciliation-notice');
             Route::get('/settlement', [CasePrintableController::class, 'settlement'])->name('settlement');
             Route::get('/cfa', [CasePrintableController::class, 'cfa'])->name('cfa');
+        });
+
+        // Guided Katarungang Pambarangay Milestones & Post-Docket Workflow
+        Route::middleware(['permission:cases.edit'])->prefix('workflow')->name('workflow.')->group(function () {
+            Route::post('/mark-signed-complaint', [CaseWorkflowController::class, 'markSignedComplaint'])->name('mark-signed-complaint');
+            Route::post('/schedule-and-issue-summons', [CaseWorkflowController::class, 'scheduleHearingAndIssueSummons'])->name('schedule-and-issue-summons');
+            Route::post('/reschedule-hearing', [CaseWorkflowController::class, 'rescheduleHearing'])->name('reschedule-hearing');
+            Route::post('/record-summons-service', [CaseWorkflowController::class, 'recordSummonsService'])->name('record-summons-service');
+            Route::post('/record-hearing-outcome', [CaseWorkflowController::class, 'recordHearingOutcome'])->name('record-hearing-outcome');
+            Route::post('/mark-signed-settlement', [CaseWorkflowController::class, 'markSignedSettlement'])->name('mark-signed-settlement');
+            Route::post('/record-repudiation', [CaseWorkflowController::class, 'recordRepudiation'])->name('record-repudiation');
+            Route::post('/mark-court-transmitted', [CaseWorkflowController::class, 'markCourtTransmitted'])->name('mark-court-transmitted');
+            Route::post('/issue-cfa', [CaseWorkflowController::class, 'issueCfa'])->name('issue-cfa');
         });
     });
 });

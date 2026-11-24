@@ -38,6 +38,8 @@ class ReportStatus
 
     public const REASON_RESIDENT_UNREACHABLE = 'resident_unreachable';
 
+    public const REASON_CONVERTED_TO_CASE = 'converted_to_case';
+
     public static function noActionReasons(): array
     {
         return [
@@ -46,6 +48,7 @@ class ReportStatus
             self::REASON_CANNOT_RESOLVE,
             self::REASON_INVALID_REPORT,
             self::REASON_RESIDENT_UNREACHABLE,
+            self::REASON_CONVERTED_TO_CASE,
         ];
     }
 

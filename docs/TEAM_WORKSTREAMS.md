@@ -68,6 +68,7 @@ WS3 and WS4 are the heaviest core case flows. WS4 starts against the Phase 0 ske
 - WS4: `2026_12_01_40NNNN_`
 - WS5: `2026_12_01_50NNNN_`
 - WS6: `2026_12_01_60NNNN_`
+- WS7: `2026_12_01_70NNNN_` (Planned Prototype)
 
 **Folders per workstream**
 
@@ -79,6 +80,7 @@ WS3 and WS4 are the heaviest core case flows. WS4 starts against the Phase 0 ske
 | WS4 | `Admin/CaseActions` | `views/admin/case-actions` | `tests/Feature/CaseActions` | `app/Services/CaseActions/` |
 | WS5 | `Agency`, `Admin/Agencies`, `Admin/Referrals` | `views/agency`, `views/admin/agencies`, `views/admin/referrals` | `tests/Feature/Agency` | `app/Services/Agency/` |
 | WS6 | `Admin/Imports` | `views/admin/imports` | `tests/Feature/Imports` | `app/Services/Imports/` |
+| WS7 | `Api/Voice`, `Admin/Reports (phone)` | `views/components/voice`, `views/admin/reports/phone` | `tests/Feature/Voice` | `app/Services/Voice/` |
 
 ---
 
@@ -290,6 +292,37 @@ UI reference: `docs/UI_UX_SPEC.md` section 4 (WS6)
 - **Scope**: Excel or CSV files. No AI/OCR (protects party PII). Blank downloadable Excel template provided.
 - **Flow**: Upload (private disk) > Column Mapping (saveable) > Validation > Preview with duplicates > Chunked Commit with **Roll Back Batch** option.
 - **Integrity**: Retains original docket numbers (never consumes active sequences); auto-creates and locks historical fiscal years.
+
+---
+
+### WS7 (Planned Prototype): Voice Reporting Prototype (Record and Transcribe)
+
+UI reference: `docs/UI_UX_SPEC.md` Pattern K; Architecture: `docs/ARCHITECTURE.md` Section 2 & 5.
+
+**Goal:** Provide an asynchronous audio recording and transcription prototype for residents and hotline desk officers without telephony.
+
+- **Status**: Planned (not yet implemented)
+- **Migration Prefix**: `2026_12_01_70NNNN_`
+- **Routes**: `routes/resident.php` (`POST /report/voice/transcribe`), `routes/staff.php` (`GET/POST /admin/reports/phone`, `GET /admin/reports/{report}/audio`, `POST /admin/reports/{report}/audio/verify`).
+- **Permissions**: `reports.log_phone` (granted to `staff_full` preset and admin).
+- **In-Scope**:
+  - Resident: Optional `<x-voice.recorder>` in report form with audio file upload fallback (max `voice.max_seconds`, default 60s).
+  - Staff: "Record phone report" form for hotline desk officers with mandatory verbal consent checkbox.
+  - Storage: Audio stored strictly on `private` disk (`storage/app/private/audio/`) with UUID tokens.
+  - AI Pipeline: Gemini audio transcription (audio in, text out; untrusted data; no PII). Text populated into description for review/editing before submit.
+  - The Key Rule: If audio is uncertain or failed (`transcript_status = needs_verification | failed`), guessed text is never inserted into description; report is accepted into `submitted` with placeholder; review gate blocks "Confirm and route" until staff verify audio.
+  - Scheduled Retention: Command `app:purge-audio` deletes expired audio (> `voice.audio_retention_days`) and orphaned uploads (> 24h) while retaining transcript and report.
+  - Mock Mode: Offline mock mode (`voice.mock_transcription` or local sample button).
+- **Out-of-Scope (Deferred)**: Real telephony/SIP trunking, live two-way call recording, SMS gateway broadcasting, dialect-specific acoustic speech models, real-time streaming transcription.
+- **Dependencies on Existing Services**: `GeminiService`, private storage disk, `ReportStatusService` review gate, Turbo layout lifecycle hooks.
+- **Acceptance Criteria**:
+  - Resident can record or upload audio and edit transcribed text before submitting.
+  - Desk officer with `reports.log_phone` can log phone reports with verbal consent.
+  - `transcript_status` tracks `pending`, `done`, `needs_verification`, `failed`, `mock`.
+  - Uncertain/failed transcripts block routing until staff verification without creating new report statuses.
+  - Audio is never public (absent from public maps, APIs, tracking page, and emails).
+  - `app:purge-audio` command runs cleanly and logs audit events.
+  - Automated tests pass with 100% test coverage for success, uncertain audio, failure, and security constraints.
 
 ---
 

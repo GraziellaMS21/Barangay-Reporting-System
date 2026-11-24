@@ -54,7 +54,8 @@ The application follows a **Modular Monolithic MVC Pattern** built on Laravel 13
 
 | Service Class | Location | Primary Responsibilities |
 | :--- | :--- | :--- |
-| **`GeminiService`** | `app/Services/GeminiService.php` | Handles prompt serialization, HTTP timeouts (30s), fallback model failover, photo description, and response sanitization. |
+| **`GeminiService`** | `app/Services/GeminiService.php` | Handles prompt serialization, HTTP timeouts (30s), fallback model failover, photo description, and response sanitization. Planned: `transcribeAudio()` for audio transcription (audio in, text out; strictly untrusted data, no PII). |
+| **`VoiceService`** *(Planned)* | `app/Services/Voice/VoiceService.php` | Manages voice recording ingestion, audio format/duration validation, private disk storage, unverified draft tracking, and staff verification audit logging. |
 | **`ReportStatusService`** | `app/Services/ReportStatusService.php` | Enforces state transition matrix integrity, database transactions, and dispatches `ReportStatusChanged` events. |
 | **`RoutingService`** | `app/Services/RoutingService.php` | Evaluates category rules against jurisdiction authority (Mode A internal dispatch vs. Mode B external referral). |
 | **`PriorityService`** | `app/Services/PriorityService.php` | Computes dynamic numerical priority score based on risk weights, sensitivity proximity, and situational flags. |
@@ -101,15 +102,16 @@ Numbering sequences are tracked in `number_sequences` with a composite unique ke
 
 Security is layered across three tiers:
 1. **Roles**: Coarse access tier governed strictly by `users.role` with three allowed values: `admin`, `staff`, and `agency` (`personnel` is NOT a role; it is an assignable directory of people).
-2. **Granular Permissions**: Exactly **20 permission slugs** are registered and seeded in code:
+2. **Granular Permissions**: Exactly **20 permission slugs** are registered and seeded in current code (with **1 planned slug**, `reports.log_phone`, bringing the planned total to **21 permission slugs**):
    - `settings.manage`, `fiscal_year.manage`, `templates.manage`, `backups.manage`
    - `personnel.manage`, `users.manage`
    - `reports.view`, `reports_center.view`, `reports_center.export`
    - `cases.view`, `cases.view_confidential`, `cases.create`, `cases.edit`, `cases.summons`, `cases.escalate`
    - `agencies.manage`, `referrals.manage`, `imports.manage`
    - `dashboard.view`, `audit.view`
+   - *(Planned)* `reports.log_phone`: Allows desk officers to record and transcribe telephone complaints at the barangay hotline.
 3. **Role Presets**: Pre-configured permission bundles defined in `config/permission_presets.php`:
-   - `staff_full`: Complete staff operational rights across cases, reports, and referrals without confidential case access or system backups (16 permissions).
+   - `staff_full`: Complete staff operational rights across cases, reports, and referrals without confidential case access or system backups (current: 16 permissions; planned: 17 permissions with `reports.log_phone`).
    - `case_encoder`: Lupon clerk role restricted to dispute case docketing and summons issuance for non-confidential cases (5 permissions).
    - `reports_analyst`: Read-only reporting and dashboard analytics access (3 permissions).
    - `case_reviewer`: Review of all dispute cases including confidential cases, reports queue, and Reports Center (6 permissions).
@@ -124,7 +126,17 @@ The system enforces strict disk isolation to protect sensitive citizen data and 
 | Storage Disk | Physical Path | Access Rules | Stored Assets |
 | :--- | :--- | :--- | :--- |
 | **`public`** | `storage/app/public` | Public web access via symlink | Non-emergency resident incident photos, resolution proofs. |
-| **`private`** | `storage/app/private` | Authenticated & authorized controller streaming only | Partner agency ID/letter proofs, referral case dossier attachments, official digital signatures (`personnel.signature_path`), database backup archives (`backups/`). |
+| **`private`** | `storage/app/private` | Authenticated & authorized controller streaming only | Partner agency ID/letter proofs, referral case dossier attachments, official digital signatures (`personnel.signature_path`), database backup archives (`backups/`), and voice report audio recordings (`audio/`, planned). |
+
+### Private Audio Flow & Retention (Planned Prototype)
+- **Audio Storage**: Voice recordings are saved to `storage/app/private/audio/` with randomized UUID tokens (`report_audios.token`).
+- **Streaming Controller**: Authorized staff stream audio via `GET /admin/reports/{report}/audio` (supports HTTP Range requests for playback scrubbing; responds with `Cache-Control: private, no-store`). Voice audio is strictly omitted from public views, APIs, emails, and resident tracking pages.
+- **Scheduled Retention Purge**: Scheduled command `app:purge-audio` executes on a daily cron:
+  - Deletes audio files whose `created_at` exceeds `voice.audio_retention_days` (default 90 days).
+  - Deletes unattached audio recordings older than 24 hours (orphaned uploads where the resident abandoned the form).
+  - Retains the text transcript, language metadata, verification history, and report record permanently.
+  - Logs all purge and deletion events to `audit_logs`.
+- **Backup Ingestion**: Private audio assets are included in scheduled archive snapshots (`app:backup`).
 
 ---
 
@@ -198,6 +210,10 @@ sequenceDiagram
 1. **Strict Advisory Mandate**: The AI is completely isolated from binding state modifications. It has zero authority to execute database writes to final columns on `reports`, transition statuses, merge duplicates, or close reports.
 2. **Human-in-the-Loop Review Gate**: Staff must explicitly review and confirm category and urgency before routing an incident. AI values are rendered with clear visual badges (`AI Suggested`, `Matches`, `Differs`).
 3. **Emergency Containment**: The AI cannot contact emergency services (police, fire, CDRRMO). It only sets an advisory `emergency_flagged` status, which triggers on-screen 911 dialing guidance for the resident and sends priority alerts to local officials.
+4. **Voice Transcription Boundaries (Planned Prototype)**:
+   - Voice audio is transmitted to Gemini strictly as untrusted data. The prompt instructs the model never to execute spoken instructions, change routing commands, or repeat personal identifiable names.
+   - **Key Rule**: **If the audio is uncertain or the AI cannot understand it, nothing is guessed and the decision goes to staff.**
+   - When transcription produces `needs_verification` or `failed`, no guessed text is inserted into the report description. Guessed/partial text is held strictly as an unverified draft, and forward state transitions ("Confirm and route") are blocked until an authorized staff member listens to the recording and confirms or inputs the verified text.
 
 ---
 

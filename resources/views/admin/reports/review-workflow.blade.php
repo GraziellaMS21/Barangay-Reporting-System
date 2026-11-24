@@ -19,6 +19,8 @@
   $aiUrgencyPresent = $aiUrgency !== null && $aiUrgency !== '';
   $aiDescriptionPresent = $aiDescription !== null && trim($aiDescription) !== '';
   $alreadyReviewed = $report->reviewed_at !== null;
+  $voiceAudio = $report->audio;
+  $voiceProvenance = is_array($voiceAudio?->provenance) ? $voiceAudio->provenance : [];
   $residentCategory = $report->residentCategory ?? (! $alreadyReviewed ? $report->category : null);
   $residentPurok = $report->residentPurok ?? (! $alreadyReviewed ? $report->purok : null);
   $residentLandmark = $report->resident_landmark ?? (! $alreadyReviewed ? $report->landmark : null);
@@ -106,6 +108,7 @@
 
 <div class="review-workflow" data-review-workflow
      data-is-after-route="{{ $isAfterRoute ? 'true' : 'false' }}"
+     data-has-unverified-audio="{{ $report->hasUnverifiedAudio() ? 'true' : 'false' }}"
      data-ai-state="{{ $aiReady ? 'ready' : ($aiPending ? 'pending' : 'unavailable') }}"
      data-ai-poll-url="{{ route('admin.reports.review-ai', $report) }}"
      data-confidence-high="{{ $highConfidenceThreshold }}"
@@ -129,6 +132,15 @@
     <div class="review-page-title">
       <h1>{{ $report->tracking_code }}</h1>
       <x-status-badge :status="$report->status" />
+      @if($report->source === \App\Models\Report::SOURCE_VOICE)
+        <span class="review-badge review-badge-blue" title="Voice report">
+          <i class="fa-solid fa-microphone" aria-hidden="true"></i> Voice report
+        </span>
+      @elseif($report->source === \App\Models\Report::SOURCE_PHONE_LOG)
+        <span class="review-badge" style="background:#ccfbf1;color:#0f766e;border-color:#99f6e4;" title="Phone hotline report">
+          <i class="fa-solid fa-phone" aria-hidden="true"></i> Phone intake
+        </span>
+      @endif
       @if($isOverdue)
         <span class="review-badge review-badge-red" title="SLA due {{ $report->due_at->format('M d, Y h:i A') }}">
           <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Overdue
@@ -263,12 +275,43 @@
       <div class="review-card-content">
         <div class="review-reported-by">
           <span class="review-reported-label">Reported by</span>
-          @if($report->is_anonymous || ! filled($report->reporter_name))
+          @php
+            $isVoiceOrPhone = $report->source === \App\Models\Report::SOURCE_VOICE || $report->source === \App\Models\Report::SOURCE_PHONE_LOG || $report->audio;
+          @endphp
+          @if($report->is_anonymous)
+            <span class="review-not-provided"><i class="fa-solid fa-user" aria-hidden="true"></i> Not stated (anonymous report)</span>
+          @elseif(! $isVoiceOrPhone && ! filled($report->reporter_name))
             <span class="review-not-provided"><i class="fa-solid fa-user" aria-hidden="true"></i> Not stated (anonymous report)</span>
           @else
             <span class="review-reported-identity">
-              <span><i class="fa-solid fa-user" aria-hidden="true"></i> {{ $report->reporter_name }}</span>
-              @if($report->reporter_contact || $report->reporter_email)
+              <span>
+                <i class="fa-solid fa-user" aria-hidden="true"></i>
+                @if(filled($report->reporter_name))
+                  {{ $report->reporter_name }}
+                @else
+                  <span class="review-not-provided">Not provided</span>
+                @endif
+              </span>
+              @if($isVoiceOrPhone)
+                <span class="review-reported-contact">
+                  <span>
+                    <i class="fa-solid fa-phone" aria-hidden="true"></i>
+                    @if(filled($report->reporter_contact))
+                      {{ $report->reporter_contact }}
+                    @else
+                      <span class="review-not-provided">Not provided</span>
+                    @endif
+                  </span>
+                  <span>
+                    <i class="fa-solid fa-envelope" aria-hidden="true"></i>
+                    @if(filled($report->reporter_email))
+                      {{ $report->reporter_email }}
+                    @else
+                      <span class="review-not-provided">Not provided</span>
+                    @endif
+                  </span>
+                </span>
+              @elseif($report->reporter_contact || $report->reporter_email)
                 <span class="review-reported-contact">
                   @if($report->reporter_contact)
                     <span><i class="fa-solid fa-phone" aria-hidden="true"></i> {{ $report->reporter_contact }}</span>
@@ -369,9 +412,13 @@
           <div class="review-location-details">
             @if($residentPurok)
               <span><strong>Purok:</strong> {{ $residentPurok->name }}</span>
+            @elseif($report->source === \App\Models\Report::SOURCE_VOICE || $report->source === \App\Models\Report::SOURCE_PHONE_LOG || $report->audio)
+              <span><strong>Purok:</strong> <span class="review-not-provided">Not provided</span></span>
             @endif
             @if($residentLandmark)
               <span><strong>Landmark:</strong> {{ $residentLandmark }}</span>
+            @elseif($report->source === \App\Models\Report::SOURCE_VOICE || $report->source === \App\Models\Report::SOURCE_PHONE_LOG || $report->audio)
+              <span><strong>Landmark:</strong> <span class="review-not-provided">Not provided</span></span>
             @endif
             @if($googleMapsUrl)
               <a href="{{ $googleMapsUrl }}" target="_blank" rel="noopener">Open in Google Maps</a>
@@ -677,7 +724,14 @@
                  data-reviewed="{{ $alreadyReviewed || ! $categoryReviewRequired ? 'true' : 'false' }}">
               <div class="review-field-card-header">
                 <label for="final-category" class="review-field-card-title">Category</label>
-                <div style="display:flex;align-items:center;gap:0.35rem;">
+                <div style="display:flex;align-items:center;gap:0.35rem;flex-wrap:wrap;">
+                  @if(!empty($voiceProvenance['category']['filled']))
+                    @if(!empty($voiceProvenance['category']['edited']))
+                      <span class="review-badge review-badge-amber" style="font-size:0.72rem;"><i class="fa-solid fa-pen" style="font-size:0.65rem;"></i> Edited after recording</span>
+                    @else
+                      <span class="review-badge review-badge-blue" style="font-size:0.72rem;"><i class="fa-solid fa-microphone" style="font-size:0.65rem;"></i> From recording</span>
+                    @endif
+                  @endif
                   <span class="review-badge review-badge-outline-green" data-comparison-badge hidden></span>
                   <span class="review-badge {{ $categoryFinalState === 'Accepted' ? 'review-badge-green' : ($categoryFinalState === 'Edited' ? 'review-badge-amber' : ($categoryFinalState === 'AI suggested' ? 'review-badge-blue' : 'review-badge-gray')) }}"
                         data-final-state>{{ $categoryFinalState }}</span>
@@ -690,7 +744,7 @@
                   @if($residentCategory)
                     <strong data-resident-display>{{ $residentCategory->name }}</strong>
                   @else
-                    <span class="review-not-provided">Not provided</span>
+                    <span class="review-not-provided">Not chosen by resident</span>
                   @endif
                 </div>
                 <div>
@@ -795,7 +849,16 @@
                  data-review-required="false" data-reviewed="true">
               <div class="review-field-card-header">
                 <label for="final-purok" class="review-field-card-title">Purok</label>
-                <span class="review-badge review-badge-gray" data-final-state>Resident</span>
+                <div style="display:flex;align-items:center;gap:0.35rem;flex-wrap:wrap;">
+                  @if(!empty($voiceProvenance['purok']['filled']))
+                    @if(!empty($voiceProvenance['purok']['edited']))
+                      <span class="review-badge review-badge-amber" style="font-size:0.72rem;"><i class="fa-solid fa-pen" style="font-size:0.65rem;"></i> Edited after recording</span>
+                    @else
+                      <span class="review-badge review-badge-blue" style="font-size:0.72rem;"><i class="fa-solid fa-microphone" style="font-size:0.65rem;"></i> From recording</span>
+                    @endif
+                  @endif
+                  <span class="review-badge review-badge-gray" data-final-state>Resident</span>
+                </div>
               </div>
               <div class="review-field-card-values">
                 <div>
@@ -827,7 +890,16 @@
                  data-review-required="false" data-reviewed="true">
               <div class="review-field-card-header">
                 <label for="final-landmark" class="review-field-card-title">Landmark</label>
-                <span class="review-badge review-badge-gray" data-final-state>Resident</span>
+                <div style="display:flex;align-items:center;gap:0.35rem;flex-wrap:wrap;">
+                  @if(!empty($voiceProvenance['landmark']['filled']))
+                    @if(!empty($voiceProvenance['landmark']['edited']))
+                      <span class="review-badge review-badge-amber" style="font-size:0.72rem;"><i class="fa-solid fa-pen" style="font-size:0.65rem;"></i> Edited after recording</span>
+                    @else
+                      <span class="review-badge review-badge-blue" style="font-size:0.72rem;"><i class="fa-solid fa-microphone" style="font-size:0.65rem;"></i> From recording</span>
+                    @endif
+                  @endif
+                  <span class="review-badge review-badge-gray" data-final-state>Resident</span>
+                </div>
               </div>
               <div class="review-field-card-values">
                 <div>
@@ -860,8 +932,18 @@
                data-reviewed="{{ $descriptionReviewed ? 'true' : 'false' }}">
             <div class="review-field-card" style="display: flex; flex-direction: column;">
               <div class="review-field-card-header" style="border-bottom: 1px solid var(--line); padding-bottom: 0.5rem;">
-                <div style="display:flex;align-items:center;gap:0.5rem;">
+                <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
                   <span class="review-field-card-title" style="font-size:0.92rem;">Incident Description</span>
+                  @if(!empty($voiceProvenance['description']['filled']))
+                    @if(!empty($voiceProvenance['description']['edited']))
+                      <span class="review-badge review-badge-amber" style="font-size:0.72rem;"><i class="fa-solid fa-pen" style="font-size:0.65rem;"></i> Edited after recording</span>
+                    @else
+                      <span class="review-badge review-badge-blue" style="font-size:0.72rem;"><i class="fa-solid fa-microphone" style="font-size:0.65rem;"></i> From recording</span>
+                    @endif
+                  @endif
+                  @if($voiceAudio && $voiceAudio->ai_description && trim($voiceAudio->ai_description) !== trim($residentDescription))
+                    <span class="review-badge review-badge-amber" style="font-size:0.72rem;" title="Resident modified description after voice recording"><i class="fa-solid fa-user-pen"></i> Edited by resident</span>
+                  @endif
                   <span class="review-badge review-badge-outline-green" data-comparison-badge hidden></span>
                   <span class="review-badge {{ $descriptionFinalState === 'Accepted' ? 'review-badge-green' : ($descriptionFinalState === 'Edited' ? 'review-badge-amber' : ($descriptionFinalState === 'AI suggested' ? 'review-badge-blue' : 'review-badge-gray')) }}"
                         data-final-state>{{ $descriptionFinalState }}</span>
@@ -2318,7 +2400,11 @@
       urgencyGateHint.innerHTML = `<i class="fa-solid ${missingUrgency ? 'fa-lock' : 'fa-check'}" aria-hidden="true"></i> <span>${missingUrgency ? 'Required to route' : 'Ready to route'}</span>`;
     }
 
+    const hasUnverifiedAudio = root.dataset.hasUnverifiedAudio === 'true';
     const reasons = [];
+    if (hasUnverifiedAudio) {
+      reasons.push('Audio verification required before routing.');
+    }
     if (remaining > 0) reasons.push(`Review ${remaining} more field${remaining === 1 ? '' : 's'}.`);
     if (missingCategory || missingUrgency) {
       reasons.push(`Select ${missingCategory && missingUrgency ? 'Category and Urgency' : (missingCategory ? 'Category' : 'Urgency')}.`);
@@ -2328,7 +2414,7 @@
       if (routeButton) routeButton.disabled = true;
       const missingAgency = !agencySelect?.value;
       if (referralSubmit) {
-        referralSubmit.disabled = missingCategory || missingUrgency || missingAgency;
+        referralSubmit.disabled = hasUnverifiedAudio || missingCategory || missingUrgency || missingAgency;
       }
       if (missingAgency) reasons.push('Choose an agency.');
     } else {
@@ -2336,7 +2422,7 @@
       const missingOffice = Boolean(routeButton && !officeSelect?.value);
       if (missingOffice) reasons.push('Choose an office.');
       if (routeButton) {
-        routeButton.disabled = missingCategory || missingUrgency || missingOffice;
+        routeButton.disabled = hasUnverifiedAudio || missingCategory || missingUrgency || missingOffice;
       }
     }
 
@@ -2358,6 +2444,10 @@
     if (card2GateReason) {
       if (root.dataset.isAfterRoute === 'true') {
         card2GateReason.hidden = true;
+      } else if (hasUnverifiedAudio) {
+        card2GateReason.textContent = 'Route gate: Audio verification required before routing';
+        card2GateReason.className = 'review-gate-hint review-card2-gate-summary is-missing';
+        card2GateReason.hidden = false;
       } else if (missingCategory || missingUrgency) {
         card2GateReason.textContent = `Route gate: Select ${missingCategory && missingUrgency ? 'Category & Urgency' : (missingCategory ? 'Category' : 'Urgency')} to route`;
         card2GateReason.className = 'review-gate-hint review-card2-gate-summary is-missing';

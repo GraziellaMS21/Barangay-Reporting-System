@@ -69,13 +69,91 @@ class PhoneReportController extends Controller
             ]);
 
             if (! empty($validated['audio_token'])) {
-                ReportAudio::query()
+                $reportAudio = ReportAudio::query()
                     ->where('token', $validated['audio_token'])
-                    ->update([
+                    ->first();
+
+                if ($reportAudio) {
+                    $extracted = is_array($reportAudio->extracted_data) ? $reportAudio->extracted_data : [];
+
+                    $provenance = [];
+
+                    // Description provenance
+                    if (filled($extracted['description'] ?? null)) {
+                        $origDesc = trim((string) ($extracted['description'] ?? ''));
+                        $currentDesc = trim((string) ($validated['description'] ?? ''));
+                        $isEdited = $origDesc !== '' && $origDesc !== $currentDesc;
+                        $provenance['description'] = [
+                            'filled' => true,
+                            'edited' => $isEdited,
+                        ];
+                    }
+
+                    // Category provenance
+                    if (filled($extracted['category_id'] ?? null) || filled($extracted['category'] ?? null)) {
+                        $origCatId = $extracted['category_id'] ?? null;
+                        $currentCatId = $validated['category_id'] ?? null;
+                        $isEdited = (string) $origCatId !== (string) $currentCatId;
+                        $provenance['category'] = [
+                            'filled' => true,
+                            'edited' => $isEdited,
+                        ];
+                    }
+
+                    // Purok provenance
+                    if (filled($extracted['purok_id'] ?? null)) {
+                        $origPurokId = $extracted['purok_id'] ?? null;
+                        $currentPurokId = $validated['purok_id'] ?? null;
+                        $isEdited = (string) $origPurokId !== (string) $currentPurokId;
+                        $provenance['purok'] = [
+                            'filled' => true,
+                            'edited' => $isEdited,
+                        ];
+                    }
+
+                    // Landmark provenance
+                    if (filled($extracted['landmark'] ?? null)) {
+                        $origLandmark = trim((string) ($extracted['landmark'] ?? ''));
+                        $currentLandmark = trim((string) ($validated['landmark'] ?? ''));
+                        $isEdited = $origLandmark !== $currentLandmark;
+                        $provenance['landmark'] = [
+                            'filled' => true,
+                            'edited' => $isEdited,
+                        ];
+                    }
+
+                    // Emergency provenance
+                    if (! empty($extracted['emergency'])) {
+                        $origEmg = (bool) ($extracted['emergency'] ?? false);
+                        $currentEmg = ! empty($validated['is_emergency']);
+                        $provenance['emergency'] = [
+                            'filled' => true,
+                            'edited' => $origEmg !== $currentEmg,
+                        ];
+                    }
+
+                    // Contact fields: flags only, never values
+                    if (filled($extracted['caller_name'] ?? null)) {
+                        $provenance['reporter_name'] = [
+                            'filled' => true,
+                            'edited' => trim((string) ($extracted['caller_name'] ?? '')) !== trim((string) ($validated['caller_name'] ?? '')),
+                        ];
+                    }
+                    if (filled($extracted['caller_phone'] ?? null)) {
+                        $provenance['reporter_contact'] = [
+                            'filled' => true,
+                            'edited' => trim((string) ($extracted['caller_phone'] ?? '')) !== trim((string) ($validated['caller_phone'] ?? '')),
+                        ];
+                    }
+
+                    $reportAudio->update([
                         'report_id' => $report->id,
                         'uploaded_by' => auth()->id(),
                         'origin' => ReportAudio::ORIGIN_STAFF,
+                        'provenance' => $provenance,
+                        'ai_description' => $reportAudio->ai_description ?: ($extracted['description'] ?? null),
                     ]);
+                }
             }
 
             StatusLog::create([

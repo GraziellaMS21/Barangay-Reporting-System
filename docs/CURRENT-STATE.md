@@ -40,7 +40,7 @@ The project codebase currently operates across two primary branches:
 | **WS4: Summons, Hearings & Deadlines** | **Done** (in `dev`) | Sequential summons, working-day deadlines (15-day mediation + 15-day conciliation), hearings scheduler, amicable settlement recording, CFA & endorsement printables, Secretary dashboard. |
 | **WS5: Agency Portal & Referrals** | **Done** (in `dev`) | Outside agency registration with ID upload, admin approval, Agency Portal inbox (`/agency/referrals`), referral case dossier attachments, 3-day follow-up tracking. |
 | **WS6 (Stretch): Legacy File Import** | **Done** (in `dev`) | Ingestion wizard for historical records (last 4 years) from CSV/Excel without AI, interactive column mapping, chunked commit, and batch rollback (`/admin/imports`). |
-| **WS7: Voice Intake Prototype** | **Phase A & B Done** (in `dev`) | "Record first, AI fills form" intake. Phase A: Shared backend (`POST /report/voice/analyze`, `POST /admin/reports/phone/analyze`), settings, normalization, MIME validation, 5 mock scenarios. Phase B: Staff phone intake (`GET /admin/reports/phone`) record-first layout, consent gate + script, player, staff transcript panel, pre-fill badges, "Not provided" placeholders, clarity banners, emergency prompt. |
+| **WS7: Voice Intake Prototype** | **Phase A, B & C Done** (in `dev`) | "Record first, AI fills form" intake. Phase A: Shared backend (`POST /report/voice/analyze`, `POST /admin/reports/phone/analyze`), settings, normalization, MIME validation, 5 mock scenarios. Phase B: Staff phone intake (`GET /admin/reports/phone`) record-first layout, consent gate + script, player, staff transcript panel, pre-fill badges, "Not provided" placeholders, clarity banners, emergency prompt. Phase C: Resident voice intake ("Quick report by voice" strip, consent line, category optional, form pre-fill with "From recording" badges, auto-expanding contact sections, anonymous drop, review page provenance chips & "Edited by resident" markers). |
 ---
 
 ## 2. Verified Code Gaps (Target Design vs. Codebase)
@@ -249,9 +249,21 @@ The following specific gaps exist between the current codebase and the canonical
     - Settings: `voice.extract_contact_from_audio`, `voice.resident_extract_contact`, `voice.resident_recording_enabled`, `voice.daily_analyze_limit`, `voice.audio_retention_days` (retention counted from report closure for attached audio; 24h for unattached).
     - Migration: `2026_12_02_800001_add_consent_recorded_by_to_reports_table.php` (`consent_recorded_by` on `reports`).
     - Canned mock mode (`full`, `no_contact`, `partial`, `unclear`, `emergency`).
-  - **Phase B (Staff "Log Phone Report" UI)**: [Pending] Record-first layout, consent gate + script, record or dictate, audio player + transcript panel, pre-fill with "From recording"/"Not provided".
-  - **Phase C (Resident Form UI)**: [Pending] Resident recorder with consent line, abuse limits surfaced as friendly messages, anonymous drop, replay of own audio, manual fallback.
-  - **Phase D (Review Page & Final Docs Pass)**: [Pending] "Not provided" on review page, "Edited" marker, verification end-to-end checks, accuracy test checklist.
+  - **Phase B (Staff "Log Phone Report" UI) [DONE]**:
+    - Record-first intake layout (`resources/views/admin/reports/phone.blade.php`) with verbal consent gate strictly ABOVE recorder and read-aloud script card.
+    - Staff audio modes: record call on speakerphone or dictate summary, preview player, collapsible transcript panel ("What was said").
+    - Pre-fill engine with "From recording" badges (dynamic removal on edit), "Not provided" placeholders, and manual typed text preservation.
+  - **Phase C (Resident Form UI) [DONE]**:
+    - "Quick report by voice" strip at top of single-card resident form with secondary link "or fill in the form yourself below".
+    - Consent line ("My recording is processed by AI and seen by barangay staff only") with button "I agree, start recording" setting `voice_consent_at`.
+    - Category made optional ("Choose a category (optional)"), nullable validation, and graceful unclassified handling.
+    - Strict anonymity: server drops caller contact and client immediately clears AI-filled contact inputs and badges when anonymous is toggled.
+    - Provenance JSON (`filled`, `edited`) and original AI description stored on `report_audios` (zero contact values in provenance).
+  - **Phase D (Review Page & Final Docs Pass) [DONE]**:
+    - Review page (`/admin/reports/{report}`): "Not provided" (muted italic) rendered for unstated caller contact and location fields; source badges ("Voice report", "Phone intake"); provenance chips ("From recording", "Edited after recording", "Edited by resident", "Not chosen by resident").
+    - End-to-end `needs_verification` flow: prominent amber banner, audio player, verification form (`POST /admin/reports/{report}/audio/verify`), unverified draft tag, client-side route button disabling, and server-side transition blocking.
+    - Clean exports and print slips: CSV exports (`/admin/reports/export`, `/admin/cases/export/csv`) and printable tracking slips emit empty strings (`""`) for unstated/missing fields and never output UI placeholder "Not provided".
+    - Accuracy benchmark protocol documented in `docs/ACADEMIC_DOCS_UPDATE.md` for Chapter 6 academic evidence.
 - **Scope & Security**:
   - Private disk audio storage (`storage/app/private/audio/`), authenticated streaming endpoint (`GET /admin/reports/{report}/audio`), and automated retention purge command (`app:purge-audio`).
   - Strict Human-in-the-Loop Uncertainty Rule: uncertain or failed audio (`needs_verification`, `failed`) never auto-fills report fields (all "Not provided") and blocks "Confirm and route" until human staff listen and verify.

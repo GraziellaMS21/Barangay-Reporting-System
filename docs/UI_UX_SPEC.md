@@ -403,24 +403,29 @@ Used for: Official Summons, Case Endorsements, Referral Letters, Amicable Settle
 ### Pattern K: Voice Reporting & Verification Components (Planned Prototype)
 
 #### 1. Audio Recorder Component (`<x-voice.recorder>`)
-- **Resident Form Placement**: Embedded directly above the incident description textarea in the single-card resident form as an optional, non-intrusive container ("Record instead of typing").
+- **Resident Form Placement ("Quick Report by Voice" Strip)**: Located in a dedicated strip at the **TOP** of the single-card resident form, directly above *"Choose a category (optional)"*, with an anchor link *"or fill in the form yourself below ↓"*.
+- **Consent Line & Button Label**: Explicit consent notice placed directly above the record button: *"My recording is processed by AI and seen by barangay staff only"* with primary button label *"I agree, start recording"*. Sets `voice_consent_at` timestamp. The bottom Data Privacy Notice checkbox is **never** auto-ticked.
 - **States & Visual Progressions**:
-  1. `idle`: Displays a button with microphone icon (`fa-solid fa-microphone`) labeled *"Record your report"* alongside an *"Upload audio file"* fallback link.
-  2. `asking_permission`: Displays an informational prompt (*"Allow microphone access when prompted by your browser"*).
-  3. `recording`: Pulsing red recording dot, live countdown timer (`0:00 / 1:00`), live audio level indicator bars (Web Audio API `AnalyserNode`), and high-contrast *"Done / Stop"* (primary) and *"Cancel"* (ghost) buttons. Enforces maximum duration (`voice.max_seconds`, default 60s).
-  4. `recorded`: Audio preview player with waveform/scrubber, *"Re-record"* button, and *"Transcribe audio"* button.
-  5. `transcribing`: Processing spinner with status label *"Transcribing audio with AI..."*. Releases microphone access immediately.
-  6. `transcribed`: Text automatically populates into the incident description textarea. Surfaces a green confirmation banner: *"Check and fix the text before you submit"*.
-  7. `uncertain`: When `transcript_status` is `needs_verification`, surfaces an amber warning card rendering the exact mandatory copy:
-     > *"We couldn't understand this recording clearly. Type a short description, or send the recording and barangay staff will listen to it."*
-     Guessed text is **never** inserted into the description textarea. The user may type their own description, re-record, or submit with the recording for staff verification.
-  8. `error`: Displays a red alert banner with error message (microphone denied, unsupported browser codec, network timeout) with a retry button and automatic fallback to audio file upload.
-  9. `upload_fallback`: Standard accessible file upload input accepting `audio/*` (`audio/webm`, `audio/mp4`, `audio/ogg`, `audio/wav`; max 10 MB).
+  1. `idle`: Displays the consent line, primary record button (`fa-solid fa-microphone`), *"Upload audio file"* fallback link, and *"Load demo sample"* button (rotating between `full`, `partial`, `no_contact`, `emergency`, and `unclear` scenarios).
+  2. `asking_permission`: Displays an informational prompt (*"Allow microphone access when prompted by your browser"*). Friendly alert if microphone access is denied.
+  3. `recording`: Pulsing red recording dot, live countdown timer (`00:00 / 02:00`), live audio level indicator bars (Web Audio API `AnalyserNode`), and high-contrast *"Done / Stop"* (primary) and *"Cancel"* (ghost) buttons. Enforces maximum duration (`voice.max_seconds`, default 120s) with auto-stop. Cross-browser codec compatibility (`audio/webm;codecs=opus` on Chrome, `audio/mp4` on Safari).
+  4. `transcribing`: Processing spinner with status label *"Listening to your recording..."*. Releases microphone stream immediately.
+  5. `done`: Audio preview player with scrubber, *"Discard & record again"* link, and aria-live feedback banner:
+     - Clear: *"Filled {N} field(s) from your recording. Please check them."* (green banner).
+     - Partial: *"Parts of this recording were unclear. Please check every field."* (amber banner).
+     - Unclear / Failed / Throttled / Limit: *"We couldn't understand this recording. Please type your report or record again."* (amber banner; leaves form empty).
+- **Form Pre-Fill Engine ("From recording" & "Not provided")**:
+  - Pre-fills **only empty fields**; never overwrites user-typed inputs. Re-recording only updates previously AI-filled, unedited fields.
+  - Adds an emerald *"From recording"* badge with microphone icon to filled fields; badge dynamically disappears as soon as the resident edits the field.
+  - Spoken PII isolation: Description textarea receives sanitized, PII-free `description`, never the raw transcript.
+  - Category chip: Pre-selected if speaker clearly described that problem type, marked "From recording", and can be deselected.
+  - Safety alert: Pre-ticks *"Someone is in danger right now"* with *"From recording, please confirm"* badge and reveals 911 emergency prompt. Untickable by resident.
+  - Contact auto-expand: If caller name, phone, or email are extracted, automatically expands collapsed `<details class="card-collapsible">` sections.
+  - Strict anonymity: If resident toggles anonymous mode on after voice fill, AI-filled contact inputs and badges are immediately cleared.
 - **Mobile & Accessibility Rules**:
   - Full responsiveness down to 375 px viewport with zero horizontal overflow.
-  - All interactive controls (record, stop, play, clear) enforce a minimum touch target of 44 px $\times$ 44 px.
-  - Screen reader announcements via `aria-live="polite"` regions for timer, status changes, and errors.
-  - Feedback is never color-alone (pairs icons, text labels, and border styles).
+  - All interactive controls enforce a minimum touch target of 44 px $\times$ 44 px.
+  - Screen reader announcements via `aria-live="polite"` regions.
   - Browser microphone streams are explicitly closed on stop, cancel, window `pagehide`, and `turbo:before-render`.
 
 #### 2. Staff Hotline Phone Intake Form (`GET /admin/reports/phone`)
@@ -450,11 +455,15 @@ Used for: Official Summons, Case Endorsements, Referral Letters, Amicable Settle
   - Submits through standard `POST /admin/reports/phone` storing `consent_at = now()` and `consent_recorded_by = auth()->id()`.
   - Confirmation screen displays generated tracking code (`BRG-XXXXXX`) with one-click copy button and quick-action links (*"Open in Queue"*, *"Log another call"*).
 
-#### 3. Staff Review Page Voice Card
+#### 3. Staff Review Page Voice Card & Provenance Chips
 - Rendered in the 3-way triage workspace if `reports.source` is `voice` or `phone_log`.
 - Features an embedded HTML5 audio player streaming from `GET /admin/reports/{report}/audio` with HTTP Range scrubbing.
 - Displays `transcript_status` badge (`done`, `needs_verification`, `failed`, `mock`) and detected language.
-- If the resident edited the AI transcript before submitting, displays an *"Edited by resident"* badge with side-by-side comparison of the original transcript.
+- **Audio Provenance Chips**: On Category, Purok, Landmark, and Incident Description cards, displays a small chip:
+  - *"From recording"* (emerald/blue chip with microphone icon) when the value was accepted directly from recording.
+  - *"Edited after recording"* (amber chip with pencil icon) when the resident or staff modified the field after voice intake.
+- **Optional Category Handling**: If the resident did not select a category on the form, the Category card displays *"Not chosen by resident"* next to the AI suggestion. Forward routing remains blocked until staff select and confirm a category.
+- **Edited by Resident Marker**: If the resident edited the problem description after voice transcription, displays an *"Edited by resident"* marker on the Incident Description comparison row.
 - **Verification Banner & Action**: When `transcript_status` is `needs_verification` or `failed`, displays an amber callout banner:
   > *"Voice report needs verification. Listen to the recording and confirm or enter what was said before routing."*
   Provides an inline text input to confirm or enter the verified transcript, and an action button (*"Verify transcript"*). Blocks "Confirm and route" until verified. Verification logs `verified_by`, `verified_at`, and an audit event.

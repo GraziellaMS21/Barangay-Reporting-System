@@ -9,7 +9,7 @@ Testing standards, CLI commands, test suite organization, and the client demonst
 Tests execute in an isolated SQLite `:memory:` database with dummy mail drivers and mocked Gemini API clients.
 
 ```sh
-# Run entire test suite (320 tests, 2,144 assertions as of 2026-11-24)
+# Run entire test suite (337 tests, 2,253 assertions as of 2026-11-24)
 php artisan test
 
 # Run a specific feature test file
@@ -103,6 +103,17 @@ The test suite extends `Tests\TestCase` and is organized into functional feature
   - Pre-fill markup: "From recording" badge, "Not provided" muted placeholders, and helper prompts for unstated required fields.
   - Clarity banners: partial clarity banner and unclear audio verification banner.
   - Emergency 911 prompt and pre-checked emergency confirmation.
+- `tests/Feature/Voice/ResidentVoiceIntakeTest.php`:
+  - Resident report intake with optional category: submits successfully with `category_id = null`, verifies null-safety across routing, priority calculation, and status logs.
+  - Resident reporting view: verifies "Quick report by voice" strip at top, consent line and button label, "Choose a category (optional)" title without required asterisk, and hidden strip when `voice.resident_recording_enabled = false`.
+  - Resident voice analysis: returns suggested category and extracted contact when enabled, strictly excludes raw transcript and urgency, drops contact details on anonymous submissions.
+  - Audio provenance and review page: asserts `report_audios.provenance` JSON and `ai_description` storage, and verifies staff review page renders "From recording", "Edited after recording", "Edited by resident", and "Not chosen by resident".
+- `tests/Feature/Voice/VoiceReviewAndVerificationTest.php`:
+  - Review page rendering: verifies "Not provided" (muted italic: `.review-not-provided`) displays for null contact and location fields; verifies source badges ("Voice report", "Phone intake") in page header.
+  - Verification banner & action: verifies prominent amber banner, audio player, verification form, unverified draft tag, and `data-has-unverified-audio="true"`.
+  - Routing blocking & unblocking: asserts that forward routing attempts (`PATCH /admin/reports/{report}/route`) are strictly blocked when audio needs verification; asserts that staff verification (`POST /admin/reports/{report}/audio/verify`) updates description, logs audit event, clears unverified draft, and unblocks routing.
+  - Provenance badges: verifies review page displays "From recording", "Edited after recording", "Edited by resident", and "Not chosen by resident".
+  - Data export cleanliness: verifies `/admin/reports/export` CSV stream outputs empty strings (`""`) for unstated/missing fields and never emits UI placeholder "Not provided".
 - `tests/Feature/Voice/AudioPurgeCommandTest.php`:
   - `php artisan app:purge-audio`: verifies audio files older than `voice.audio_retention_days` (counted from report closure for attached audio) and orphaned uploads older than 24h are deleted from the `private` disk while transcript text and report records are preserved.
   - Audit logging: asserts audit log entries are generated for all audio streaming, verification, and purge events.

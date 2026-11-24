@@ -83,7 +83,24 @@ All foundation and core functional modules have been implemented and verified on
     - [x] Emergency 911 prompt and pre-checked emergency confirmation.
     - [x] Form submission saving `consent_recorded_by = auth()->id()` alongside `consent_at`.
     - [x] Comprehensive test suites: `tests/Feature/Voice/StaffPhoneReportIntakeUiTest.php` (8 tests) and updated `tests/Feature/Voice/PhoneReportIntakeTest.php`.
-  - [ ] **Phase C: Resident form UI**:
-    - Resident recorder with consent line, abuse limits surfaced as friendly messages, `voice.resident_recording_enabled` toggle handling, anonymous drop, no category/urgency pre-fill, replay own audio, manual fallback.
-  - [ ] **Phase D: Review page + final docs pass**:
-    - "Not provided" on review page, "Edited" marker, `needs_verification` handling checks end to end, exports/print stay blank, accuracy-test checklist (Chapter 6 evidence).
+  - [x] **Phase C: Resident form UI**:
+    - [x] "Quick report by voice" strip at top of single-card resident form with secondary "or fill in the form yourself below" link.
+    - [x] Explicit consent line directly above the strip's record button ("My recording is processed by AI and seen by barangay staff only") with button label "I agree, start recording" (setting `voice_consent_at`; Data Privacy checkbox never auto-ticked).
+    - [x] Category made optional on resident form ("Choose a category (optional)"), nullable validation, and graceful unclassified handling.
+    - [x] Dynamic pre-fill engine: PII-free description, category chip selection with deselect ability, emergency checkbox pre-tick with "From recording, please confirm", purok, landmark, and contact inputs.
+    - [x] "From recording" badge placement and dynamic removal on user edit.
+    - [x] Auto-expanding collapsed contact sections ("More details", "Get updates") when contact details are extracted.
+    - [x] Strict anonymity: immediate UI clearing of AI-filled contact inputs and server-side drop when anonymous is checked.
+    - [x] Clarity handling (friendly banners for clear, partial, and unclear/failed audio).
+    - [x] Provenance JSON and original AI description persistence on `report_audios` (never storing contact values in provenance).
+    - [x] Admin review page provenance chips ("From recording", "Edited after recording", "Edited by resident", "Not chosen by resident").
+    - [x] Comprehensive test suite: `tests/Feature/Voice/ResidentVoiceIntakeTest.php` (7 tests, all passing) and updated `tests/Feature/Voice/VoiceAnalyzeTest.php`.
+  - [x] **Phase D: Review page + final docs pass**:
+    - [x] "Not provided" (muted italic: `.review-not-provided`) rendered on review page (`/admin/reports/{report}`) for unstated caller contact (name, phone, email) and location details on voice and phone-log reports.
+    - [x] Source badges ("Voice report", "Phone intake") displayed prominently in review page header.
+    - [x] End-to-end `needs_verification` flow: prominent amber banner, audio player preview, verification form (`POST /admin/reports/{report}/audio/verify`), unverified draft tag, client-side route button disabling, and server-side transition blocking.
+    - [x] Verification action: staff verify audio, update report description, log audit trail, clear unverified draft status, and unblock forward routing.
+    - [x] Clean data exports: CSV exports (`/admin/reports/export`, `/admin/cases/export/csv`) and printable tracking slips emit empty strings (`""`) for unstated/missing fields and never output UI placeholder "Not provided".
+    - [x] Accuracy-test checklist and benchmark evaluation protocol documented in `docs/ACADEMIC_DOCS_UPDATE.md` for Chapter 6 academic evidence.
+    - [x] Comprehensive test suite: `tests/Feature/Voice/VoiceReviewAndVerificationTest.php` (7 tests, all passing).
+    - [x] Full test suite and Pint linting verification.

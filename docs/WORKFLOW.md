@@ -445,3 +445,14 @@ Voice intake provides a "record first, AI fills the form" intake workflow for bo
 - **Action Blocking**: "Confirm and route" and all forward transitions are strictly blocked until an authorized staff member listens to the audio and either confirms the unverified draft or inputs the verified text (stored as the staff description; the resident's original input is never overwritten). The verifier's user ID and timestamp (`verified_by`, `verified_at`) are logged.
 - **No New Statuses**: Voice verification is implemented strictly within the existing human-in-the-loop review gate. It adds **no new report status** and **no automatic transition**.
 - **Queue Representation**: On the report queue, reports needing audio verification display a small microphone indicator beside the tracking code and a Next Action hint (`Verify audio`), without increasing row height or requiring an extra table column.
+
+### 12.3 Resident Voice Intake & Optional Category Flow
+- **Quick Report by Voice**: Positioned at the top of the resident form. Citizens consent to AI analysis via *"My recording is processed by AI and seen by barangay staff only"* before recording.
+- **Optional Category**: Category selection is optional ("Choose a category (optional)"). Citizens can submit without selecting a category.
+- **Unclassified Handling**: If submitted without a category (`category_id = null`), the report is accepted into `submitted`. The downstream asynchronous text-classification AI pipeline suggests a candidate category for staff review.
+- **Route Gate Integrity**: Forward routing remains strictly blocked until staff manually select and confirm the final Category and Urgency on the review workspace. The review page displays *"Not chosen by resident"* next to the AI category suggestion.
+- **Provenance Tracking**: AI-filled fields (`description`, `category`, `purok`, `landmark`, `emergency`, contact flags) are recorded with submit-time `edited` flags on `report_audios.provenance`. Never stores contact values in provenance JSON.
+
+### 12.4 Export and Review Page Integrity
+- **Review Page Field Display**: On `/admin/reports/{report}`, unstated contact fields (`caller_name`, `caller_phone`, `caller_email`) and unstated location fields on voice and phone-log reports display muted italic *"Not provided"* (`.review-not-provided`). Anonymous reports display *"Not stated (anonymous report)"* without revealing or attempting to parse identities.
+- **Export and Print Cleanliness**: When generating CSV reports (`GET /admin/reports/export`, `GET /admin/cases/export/csv`) or printable report slips (`/reports/{report}/print`), unstated or unverified fields are emitted strictly as empty/blank strings (`""`). The UI placeholder string *"Not provided"* and verification draft tags are never written into data exports or printed receipts.

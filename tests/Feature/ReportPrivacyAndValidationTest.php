@@ -484,15 +484,20 @@ class ReportPrivacyAndValidationTest extends TestCase
             ->assertNotFound();
     }
 
-    public function test_report_submission_requires_category_id(): void
+    /**
+     * Phase C Amendment: Category is now explicitly optional on the resident report form ("Choose a category (optional)").
+     * Submitting without category is accepted with category_id = null; downstream AI pipeline suggests category for staff review.
+     */
+    public function test_report_submission_allows_optional_category_id(): void
     {
-        $this->post(route('reports.store'), [
+        $response = $this->post(route('reports.store'), [
             'description' => 'A valid description of more than 10 characters.',
             'landmark' => 'Near the basketball court',
-        ])
-            ->assertSessionHasErrors(['category_id' => 'Please choose a category for this report.']);
+        ]);
 
-        $this->assertDatabaseCount('reports', 0);
+        $response->assertRedirect();
+        $this->assertDatabaseCount('reports', 1);
+        $this->assertNull(Report::latest('id')->first()->category_id);
     }
 
     public function test_rapid_duplicate_report_submission_redirects_to_existing_report(): void

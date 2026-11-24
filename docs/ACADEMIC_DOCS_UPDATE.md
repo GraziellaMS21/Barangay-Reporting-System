@@ -120,7 +120,7 @@ Relationships: **Escalate Case** `<<include>>` **Issue Summons** history check; 
 
 | Item | Status |
 | :--- | :--- |
-| Voice call reporting (UR-04, FR-22) | Prototype: record and transcribe (no telephony) |
+| Voice call reporting (UR-04, FR-22) | Prototype: record-first intake (resident web + staff hotline), AI form field extraction, optional category, human verification gate, zero auto-routing, no telephony |
 | Live telephony, softphone integration, and live call recording | Deferred, not built |
 | SMS notifications | Deferred, not built (email only) |
 | Dialect-specific acoustic speech models | Deferred, not built (uses generalized cloud transcription with staff verification for uncertain audio) |
@@ -139,7 +139,7 @@ Relationships: **Escalate Case** `<<include>>` **Issue Summons** history check; 
 | **1.1 Product Overview** | Add one paragraph: the system now has an administrative foundation (first-time setup, fiscal year, personnel and signatories, per-employee permissions), a case management module (parties, summons, hearings, escalation), and an external agency portal for referrals |
 | **1.3 Background of the Client** | Add the adviser-driven needs: records tied to a fiscal year, official signatories on documents, case records with complainants and respondents, summons tracking, and referrals shared with outside agencies |
 | **1.4 Proposed Solution** and **1.4.1 Product Summary** | Rewrite from "two layers" to **three layers**; add Layer 3 below. Keep the principle "The AI suggests, the rules route, the officials decide" |
-| **1.4.2 List of Features** (Table 1.1) | Add a **Layer 3, Barangay Administration and Case Management** block with the rows below. In "Notifications" delete "and SMS" (email only). In "Voice Call Reporting" update to "Voice reporting prototype (record and transcribe, no telephony); real telephony, live call recording, and softphone remain deferred". In "Staff Review Queue and Case Management" add "(problem reports)" to avoid confusion with cases. Update the intro sentence and the table number/caption if the count changes |
+| **1.4.2 List of Features** (Table 1.1) | Add a **Layer 3, Barangay Administration and Case Management** block with the rows below. In "Notifications" delete "and SMS" (email only). In "Voice Call Reporting" update to "Voice reporting prototype (record-first intake for resident form and staff hotline, AI pre-fills form with human verification, category optional, no telephony); real telephony, live call recording, and softphone remain deferred". In "Staff Review Queue and Case Management" add "(problem reports)" to avoid confusion with cases. Update the intro sentence and the table number/caption if the count changes |
 | **List of Tables / Table of Contents** | Refresh page numbers and the feature count after the edit |
 
 **New Table 1.1 rows (Layer 3):**
@@ -172,3 +172,52 @@ Also check the "Intended User" column: add **External Agency** wherever it appli
 | Cross-check IDs between the Blueprint, `API.md`, and `PROJECT.md` | Lead | Week 3 | Before the demo |
 
 Rules: keep the existing fonts, tables, and page headers; regenerate the PDF after editing; mark any requirement that depends on an unanswered question with "(pending barangay confirmation)" until the secretary answers; update the documents again after the placeholder swap (`TEAM_WORKSTREAMS.md` section 8).
+
+---
+
+## 4. Voice Intake Accuracy-Test Checklist (Chapter 6 Academic Evidence)
+
+Empirical evaluation protocol for multimodal speech intake and structured field extraction in Barangay Calarian, Zamboanga City. Serves as primary experimental evidence for Chapter 6 (Testing, Evaluation, and Results).
+
+### 4.1 Evaluation Objectives
+1. **Linguistic Robustness**: Evaluate transcription fidelity and concept accuracy across the quad-lingual spoken landscape of Zamboanga City: **Filipino (Tagalog)**, **Bisaya (Cebuano)**, **Chavacano (Zamboangueño)**, and **Philippine English**.
+2. **Field Extraction Accuracy**: Measure extraction precision and recall across core report entities (`description`, `category`, `purok`, `landmark`, `caller_name`, `caller_phone`, and `is_emergency`).
+3. **Privacy & PII Isolation**: Confirm zero spoken contact details leak into the report description or resident payload, and 100% of contact fields drop when anonymous mode is engaged.
+4. **Uncertainty Rule Adherence**: Confirm 100% compliance with the core mandate: unclear audio, low clarity, acoustic noise, or invalid format yields `needs_verification` with empty fields and forward routing strictly blocked.
+
+---
+
+### 4.2 Benchmark Test Dataset Matrix (12 Test Scenarios)
+
+| ID | Language / Dialect | Acoustic Environment | Incident Scenario | Stated Fields | Expected Clarity | Expected Outcome & Verification |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **TC-V01** | Filipino (Tagalog) | Clean audio (quiet room) | Clogged drainage overflowing onto walkway in Purok 2 | Name, Phone, Purok, Landmark, Category | `clear` | Pre-fills description, category `drainage`, purok `Purok 2`, landmark, caller details. Badges show "From recording". |
+| **TC-V02** | Bisaya (Cebuano) | Clean audio | Guba nga dalan (pothole/road damage) near public market | Purok, Landmark, Problem description | `clear` | Pre-fills description, category `road_damage`, purok, landmark. Caller name/phone marked "Not provided". |
+| **TC-V03** | Chavacano | Moderate background (outdoor breeze) | Basura hinde pa ta recoji na Purok 4 | Purok, Problem description | `clear` | Pre-fills description, category `garbage`, purok `Purok 4`. Landmark and caller details marked "Not provided". |
+| **TC-V04** | Taglish (Code-switched) | Phone speakerphone artifact | Broken streetlight causing dark alleyway | Name, Phone, Purok, Street | `clear` | Pre-fills description, category `streetlight`, purok, landmark, and contact details. |
+| **TC-V05** | English (Philippine) | Clean audio | Severe flooding trapping residents (Emergency) | Name, Phone, Purok, Danger keyword | `clear` | Pre-fills description, category `flooding`, ticks emergency with "From recording, please confirm", surfaces 911 hotline banner. |
+| **TC-V06** | Bislish (Bisaya + English) | Traffic noise | Fallen tree blocking driveway, no injuries | Purok, Problem description | `partial` | Pre-fills stated fields; displays amber partial clarity banner: *"Parts of this recording were unclear. Please listen again and check every field."* |
+| **TC-V07** | Filipino (Tagalog) | Low volume / muffled | Leaking water pipe, speaker forgets to state purok | Problem description, Landmark only | `clear` | Pre-fills description and landmark. Purok helper indicates *"Not mentioned in the recording, please choose it."* Required gate enforces purok selection before submission. |
+| **TC-V08** | Chavacano | Ambient street noise (tricycle engine) | Disputa de terreno / property boundary (walk-in advice) | Description, caller name | `partial` | Pre-fills description and name. Category left unselected (optional). Category card displays *"Not chosen by resident"*. |
+| **TC-V09** | Heavy static / Inaudible | Heavy phone line static / wind distortion | Unintelligible caller audio | None | `unclear` | Sets `transcript_status = needs_verification`, all form fields empty ("Not provided"), routing blocked until staff listens and verifies. |
+| **TC-V10** | Non-standard dialect / Mumble | Low signal-to-noise ratio | Mumbled speech in unknown dialect | None | `unclear` | Zero hallucination. Sets `needs_verification`. Resident form shows friendly fallback encouraging typing or re-recording. |
+| **TC-V11** | Filipino (Anonymous) | Clean audio | Citizen reports illegal dumping, explicitly says *"Huwag nyo po ilagay pangalan ko"* | Caller states name in audio, but ticks Anonymous | `clear` | Strict Anonymity Rule: Server drops caller name and phone from resident response; form fields stay blank; audio stores zero contact provenance. |
+| **TC-V12** | Bisaya (Edited by Citizen) | Clean audio | Damaged culvert; user records audio then modifies text box to add extra context | All fields | `clear` | Review page displays `"From recording"` for unmodified fields and `"Edited by resident"` on the Incident Description card. |
+
+---
+
+### 4.3 Evaluation Metrics for Thesis Chapter 6
+
+1. **Word Error Rate (WER)**:
+   $$\text{WER} = \frac{S + D + I}{N}$$
+   Target: $\le 15\%$ on Clean Filipino/English; $\le 25\%$ on Bisaya/Chavacano with regional accents.
+2. **Concept & Intent Accuracy**:
+   $$\text{Concept Accuracy} = \frac{\text{Correctly Extracted Core Problem Concepts}}{\text{Total Stated Problem Concepts}} \times 100\%$$
+   Target: $\ge 90\%$ across all clear recordings.
+3. **Entity Extraction Precision & Recall**:
+   - Calculated independently for `category`, `purok`, `landmark`, `caller_name`, and `caller_phone`.
+   - Recall target: $\ge 85\%$ for explicitly spoken entities.
+   - Precision target: $\ge 95\%$ (strict prohibition against inventing unstated entities).
+4. **Safety & Uncertainty Gate Compliance**:
+   - Hallucination Rate on Unclear Audio: Target **0.0%**. Every ambiguous or unclear audio MUST yield `needs_verification`.
+   - Forward Transition Prevention: 100% of unverified audio reports must be blocked from routing until human staff verification.

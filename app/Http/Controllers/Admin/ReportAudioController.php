@@ -61,9 +61,11 @@ class ReportAudioController extends Controller
             auth()->user()
         );
 
-        return back()->with('toast', [
-            'type' => 'success',
-            'message' => 'Voice audio verified and report description updated.',
-        ]);
+        return back()
+            ->with('success', 'Voice audio verified and report description updated.')
+            ->with('toast', [
+                'type' => 'success',
+                'message' => 'Voice audio verified and report description updated.',
+            ]);
     }
 }

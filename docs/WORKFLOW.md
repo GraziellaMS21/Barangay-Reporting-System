@@ -408,7 +408,7 @@ To ensure operational consistency across UI redesigns (queue filters, action pan
 
 | Report Status | Staff's Operational Job | Primary Action | Secondary / Exception Actions |
 | :--- | :--- | :--- | :--- |
-| **`submitted`** | Initial intake & comparative triage (Resident vs. AI). | **Confirm and Route** (verifies category, urgency, office) | Ask reporter for info (`needs_info`), Flag emergency, Take no action (`no_action`), Mark duplicate (`merged`). |
+| **`submitted`** | Initial intake & comparative triage (Resident vs. AI). | **Confirm and Route** (verifies category, urgency, office); *for reports with unverified audio, shows **Listen and verify** as primary action prior to routing* | Ask reporter for info (`needs_info`), Flag emergency, Take no action (`no_action`), Mark duplicate (`merged`). |
 | **`under_review`** | In-depth triage, jurisdiction verification, and assignment. | **Route Internally** or **Prepare Referral** | Ask reporter for info, Take no action, Flag emergency, Mark duplicate. |
 | **`needs_info`** | Awaiting resident clarification response. | **Review Clarification** (resumes to `under_review`) | Re-route internally, Take no action with `resident_unreachable`, Re-ask info. |
 | **`routed`** | Formal assignment dispatch to Tanods / maintenance crew. | **Start Work** (transitions to `in_progress`) | Re-assign office or personnel, Prepare referral, Ask info, Take no action. |
@@ -420,3 +420,24 @@ To ensure operational consistency across UI redesigns (queue filters, action pan
 | **`merged`** | Consolidated secondary duplicate incident. | **View Canonical Parent** | Staff-only recovery unmerge (`under_review`). |
 | **`no_action`** | Non-actionable report with mandatory reason code. | **View Reason & Justification** | Reopen/recover report (`in_progress` or `reopened`). |
 | **`emergency_flagged`** | High-priority safety coordination with 911 / CDRRMO. | **Dispatch Emergency Response** (`in_progress`) | Transfer to review (`under_review`), Conclude redirection (`no_action` with `emergency_redirected`). |
+
+---
+
+## 12. Voice Report Handling (Planned Prototype)
+
+### 12.1 Lifecycle Integration & Transcript Statuses
+Voice intake adds an asynchronous audio recording or file upload to reports (`reports.source` of `voice` or `phone_log`), with audio records stored in `report_audios`. Transcript status is tracked via `report_audios.transcript_status`:
+- `pending`: Audio uploaded/recorded; awaiting Gemini transcription.
+- `done`: Clean, high-confidence transcript generated; automatically populated into description for user review before submission.
+- `needs_verification`: Speech was unclear, only partially understood, empty, or spoken in a dialect not reliably parsed (e.g. Chavacano/mixed Bisaya).
+- `failed`: Technical error, network timeout, or invalid transcription response.
+- `mock`: Generated canned transcript in local demo/test mode (`voice.mock_transcription` enabled).
+
+### 12.2 Human-in-the-Loop Verification Gate
+**Core Rule**: **If the audio is uncertain or the AI cannot understand it, nothing is guessed and the decision goes to staff.**
+- **No Guessed Text**: When `transcript_status` is `needs_verification` or `failed`, the system never inserts guessed text into the report description. A partial transcript, if any, is stored solely as an "unverified draft".
+- **Report Acceptance**: The report is never blocked. It enters `submitted` with `source = voice` or `phone_log`. If the reporter typed nothing, a system placeholder description is stored: `"Voice report - transcript unavailable; staff to listen to the recording"`.
+- **Review Gate**: The report is flagged as "needs staff verification". On the review page, a prominent banner appears: *"Voice report needs verification. Listen to the recording and confirm or enter what was said before routing."*
+- **Action Blocking**: "Confirm and route" and all forward transitions are strictly blocked until an authorized staff member listens to the audio and either confirms the unverified draft or inputs the corrected text (stored as the staff description; the resident's original input is never overwritten). The verifier's user ID and timestamp (`verified_by`, `verified_at`) are logged.
+- **No New Statuses**: Voice verification is implemented strictly within the existing human-in-the-loop review gate. It adds **no new report status** and **no automatic transition**.
+- **Queue Representation**: On the report queue, reports needing audio verification display a small microphone indicator beside the tracking code and a Next Action hint (`Verify audio`), without increasing row height or requiring an extra table column.

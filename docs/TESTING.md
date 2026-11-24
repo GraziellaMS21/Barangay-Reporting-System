@@ -74,6 +74,28 @@ The test suite extends `Tests\TestCase` and is organized into functional feature
 - `tests/Feature/Imports/LegacyImportTest.php` (WS6): Sample 100-row Excel import, mapping preview, conflict detection, batch rollback.
 - `tests/Feature/Auth/UserRolePositionReworkTest.php`: Canonical role validation, `personnel` role migration, seeder idempotency, confidential case isolation.
 
+### Planned Tests (WS7: Voice Reporting Prototype)
+The following test suites are planned for WS7 implementation (do not alter existing test counts):
+- `tests/Feature/Voice/VoiceTranscriptionTest.php`:
+  - Public transcription endpoint validation: duration limit ($\le 60\text{s}$), file size limit ($\le 10\text{MB}$), MIME type validation (`audio/webm`, `audio/mp4`, `audio/ogg`, `audio/wav`).
+  - Rate-limiting verification (`throttle:5,1`).
+  - Gemini transcription fakes: success (`done`), uncertain speech (`needs_verification`), unreadable audio/timeout (`failed`).
+  - PII isolation assertion: verifies zero reporter PII (name, phone, email) is serialized in audio transcription payloads.
+  - The Uncertainty Rule: asserts that when `transcript_status` is `needs_verification` or `failed`, guessed text is never inserted as the primary description, the report is accepted into `submitted` with a placeholder description, and "Confirm and route" is blocked until verified.
+- `tests/Feature/Voice/VoiceAudioSecurityTest.php`:
+  - Audio streaming authorization: verifies `GET /admin/reports/{report}/audio` requires `auth`, `role:staff`, and `reports.view`.
+  - HTTP Range header verification (206 Partial Content) and `Cache-Control: private, no-store`.
+  - Data privacy assertion: verifies voice audio tokens and files are strictly absent from public map endpoints, `/api/nearby-reports`, notification emails, and resident tracking views.
+- `tests/Feature/Voice/PhoneReportIntakeTest.php`:
+  - Permission enforcement: verifies `/admin/reports/phone` requires `reports.log_phone` permission.
+  - Mandatory verbal consent validation (`verbal_consent = true`).
+  - Generated tracking code response with copyable payload.
+- `tests/Feature/Voice/AudioPurgeCommandTest.php`:
+  - `php artisan app:purge-audio`: verifies audio files older than `voice.audio_retention_days` and orphaned uploads older than 24h are deleted from the `private` disk while transcript text and report records are preserved.
+  - Audit logging: asserts audit log entries are generated for all audio streaming, verification, and purge events.
+- `tests/Feature/Voice/VoiceMockModeTest.php`:
+  - Offline demo mode: asserts canned transcripts (`transcript_status = mock`) are returned when `voice.mock_transcription` is enabled or Gemini key is absent.
+
 ---
 
 ## 3. Client Demonstration Runbook (10-Step Demo Script)
@@ -87,6 +109,7 @@ Use this step-by-step walkthrough for thesis defenses, official client demonstra
    - Open `/` in a browser resized to a phone viewport ($375\text{px}$).
    - Highlight the single-card layout, emergency 911 hotline prompt, and data privacy notice.
    - Fill out an incident report (e.g., Taglish drainage complaint, attached photo, map pin in Calarian).
+   - *(Optional Planned WS7 Demo)*: Demonstrate the optional "Record instead of typing" recorder. In demo mode with `voice.demo_sample_enabled` or `local` environment, click "Use sample recording" to demonstrate canned transcription without requiring microphone hardware or an active Gemini API key. Show text populating into description for review and editing before submission.
    - Submit and display the generated `BRG-XXXXXX` tracking code.
 3. **Staff Triage & AI Comparison**:
    - Log in at `/login` as staff (`staff@calarian.gov.ph` / `password123`).
@@ -121,6 +144,9 @@ Use this step-by-step walkthrough for thesis defenses, official client demonstra
     - Test global search across all fiscal years with hyphens (`11-001-2026`).
     - Run system backup under `/admin/settings/backups`.
     - Open `/admin/settings/pending` to show the register of items awaiting final confirmation from official barangay blank forms.
+
+> [!NOTE]
+> **Planned Speech Transcription Accuracy Evaluation (WS7)**: Prior to final pilot sign-off, a manual transcription accuracy benchmark is planned using 10–15 real-world audio recordings per supported language (English, Filipino, Bisaya, and Chavacano). Recordings will be evaluated on core semantic meaning and location accuracy rather than literal word-for-word parity.
 
 ---
 

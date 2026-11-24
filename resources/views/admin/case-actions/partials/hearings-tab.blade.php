@@ -32,7 +32,7 @@
                     <label class="block font-semibold text-slate-700 mb-1">Presided By</label>
                     <select name="presided_by_personnel_id" class="w-full rounded border border-slate-300 p-2 text-xs bg-white">
                         <option value="">Select Official / Lupon Member...</option>
-                        @foreach(\App\Models\Personnel::query()->where('is_active', true)->orderBy('first_name')->get() as $p)
+                        @foreach(\App\Models\Personnel::query()->where('is_active', true)->orderBy('full_name')->get() as $p)
                             <option value="{{ $p->id }}">{{ $p->full_name }} ({{ $p->position?->name ?? 'Lupon' }})</option>
                         @endforeach
                     </select>

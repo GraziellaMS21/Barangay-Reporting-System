@@ -51,7 +51,7 @@ class CaseEscalationController extends Controller
 
         $personnel = Personnel::query()
             ->where('is_active', true)
-            ->orderBy('first_name')
+            ->orderBy('full_name')
             ->get();
 
         return view('admin.case-actions.escalation.create', [

@@ -7,6 +7,7 @@ use App\Models\CaseType;
 use App\Models\Category;
 use App\Models\FiscalYear;
 use App\Models\Permission;
+use App\Models\Personnel;
 use App\Models\Purok;
 use App\Models\Report;
 use App\Models\User;
@@ -236,6 +237,11 @@ class CaseDocketAndManagementTest extends TestCase
             'status' => CaseStatus::FILED,
         ]);
 
+        Personnel::factory()->create([
+            'full_name' => 'Hon. Maria Clara',
+            'is_active' => true,
+        ]);
+
         $response = $this->get("/admin/cases/{$case->id}");
         $response->assertOk();
         $response->assertSee('CASE-2026-9999');
@@ -243,6 +249,7 @@ class CaseDocketAndManagementTest extends TestCase
         $response->assertSee('Overview');
         $response->assertSee('Parties');
         $response->assertSee('Summons');
+        $response->assertSee('Hon. Maria Clara');
 
         // Audit view logged
         $this->assertDatabaseHas('audit_logs', [

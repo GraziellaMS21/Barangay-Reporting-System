@@ -25,12 +25,18 @@ class EscalationTest extends TestCase
             'filed_on' => now()->toDateString(), // filed today -> 1 working day elapsed, < 15
         ]);
 
+        Personnel::factory()->create([
+            'full_name' => 'Captain Andres Bonifacio',
+            'is_active' => true,
+        ]);
+
         $response = $this->actingAs($admin)->get(route('admin.cases.escalations.create', $case));
 
         $response->assertOk()
             ->assertSee('Escalate Case & Issue CFA', false)
             ->assertSee('Conciliation Period Not Completed')
-            ->assertSee('Officials decide whether to proceed');
+            ->assertSee('Officials decide whether to proceed')
+            ->assertSee('Captain Andres Bonifacio');
     }
 
     public function test_case_can_be_escalated_and_creates_cfa_record(): void

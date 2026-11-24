@@ -369,6 +369,37 @@ Used for: Official Summons, Case Endorsements, Referral Letters, Amicable Settle
 
 ---
 
+### Pattern J: Compact Queue Rows (`.data-table-queue`)
+- **Container & Layout**: Table layout is `table-fixed` across full width (`w-full`), never wrapped in horizontal scrollbars (`overflow-x-auto` forbidden).
+- **Target Row Height**: ~50 px row height on `lg`+ viewports (down from legacy ~120 px), allowing 8-10 reports to be visible above the fold on a 1366x768 screen.
+- **Two-Line Data Density**:
+  - **Column 1: Select** (`2.5rem` / `w-10`): Centered checkbox; header includes select-all toggle with indeterminate support.
+  - **Column 2: Report** (flexible width):
+    - *Line 1*: Monospace tracking code (`text-blue-700 font-mono font-bold text-xs`) with stretched link (`after:absolute after:inset-0 after:z-10`), optional emergency warning icon, priority badge (only for `Critical` in red and `High` in amber), reopened count badge, screen-reader text (`<span class="sr-only">Priority: ...</span>`), and one-line truncated description (`truncate`).
+    - *Line 2*: Muted metadata (`text-[11px] text-slate-500`): `Category · Purok · short relative age` (e.g. `Road damage · Purok 1 · 3h ago`). Full ISO timestamp provided in tooltip `title`.
+  - **Column 3: Status** (`10.5rem`): Single clean status badge without icons (`:show-icon="false"`), preventing label truncation. Column header is sortable and includes "?" legend modal toggle. Hidden on mobile (`hidden md:table-cell`).
+  - **Column 4: Next Action** (`13rem`):
+    - *Line 1*: Bold action name (`text-xs font-semibold text-slate-800 truncate`).
+    - *Line 2*: Muted actor name (`text-[11px] text-slate-500`, omitted if matching assignee) with inline bold red due text (`Overdue 9h` with `title="Overdue"`).
+  - **Column 5: Assignee** (`8rem`, `xl:w-44`): 28 px circular avatar displaying at most 2 uppercase initials stripped of honorifics (e.g. "Hon. Eduardo V. Alvarez" → `EA`, unassigned renders dashed circle with `—`). Full name appears on `xl`+ screens. Sortable by assignee.
+  - **Column 6: Actions** (`3.5rem`): Kebab (`...`) dropdown menu (`relative z-20`) providing secondary actions ("Assign to me", "Change status", "Ask for info", "Mark urgent"). Legacy separate "Review" button is removed.
+- **Row Clickability & Accessibility**: Entire row is clickable via stretched link on the tracking code anchor (`after:absolute after:inset-0 after:z-10`), enabling native Ctrl/Cmd-click, middle-click, and Tab/Enter keyboard navigation. Interactive controls (checkboxes, kebab toggles) have `relative z-20` so clicking them never triggers navigation.
+- **Priority Signaling & Left Stripe**: Rows feature a 4 px left border stripe (`border-l-4 border-l-red-600` for Critical, `border-l-amber-500` for High, transparent otherwise). Color is never the sole indicator; `sr-only` priority text is rendered on every row.
+- **Toolbar & Density Toggle**:
+  - Toolbar features live report count, emergency pin toggle (`pin=1`), Export CSV button, and a segmented "Compact / Comfortable" density toggle (`#density-compact`, `#density-comfortable`).
+  - Density selection persists in `localStorage.getItem('queue_density')` and applies `.is-comfortable` to `.data-table-queue` (increasing vertical padding to `0.85rem`).
+- **Bulk Action Bar**: Appears above the table when 1 or more rows are selected. Includes selected count, quick assign, status change, "Confirm & route" button, and a "Clear" button.
+- **Mobile Card Transformation (< 768 px)**: Below `md` (375 px viewport), the table switches to CSS grid cards:
+  - Header is hidden; `<tr>` becomes an elevated card (`border border-line rounded-xl p-3`).
+  - Select checkbox anchors to top right (`top-3 right-3 z-20`).
+  - *Line 1*: Tracking code, priority/emergency badges, and inline status badge.
+  - *Line 2*: Description clamped to 2 lines max (`line-clamp-2`).
+  - *Line 3*: Meta line (`Category · Purok · age`).
+  - *Line 4*: 3-column bottom bar: Next action (left), Assignee avatar (center), Kebab menu (right).
+  - Zero horizontal scroll (`scrollWidth <= innerWidth`).
+
+---
+
 ### Responsive Rules Summary (All Patterns)
 1. **Title Row**: Under 768 px, action buttons wrap below the page title. Under 480 px, the primary button expands to 100% full width.
 2. **Tables**: Wrap inside an `overflow-x-auto` card container. The first identifier column pins sticky left with an elevation divider.

@@ -91,6 +91,24 @@
     'no_action' => 'No further action taken by the barangay.',
     'emergency_flagged' => 'Possible emergency; needs immediate staff review.',
   ];
+
+  $getInitials = function (?string $name): string {
+      if (!$name) return '—';
+      $clean = preg_replace('/^(hon\.|dr\.|engr\.|atty\.)\s+/i', '', trim($name));
+      $words = preg_split('/\s+/', $clean);
+      if (count($words) >= 2) {
+          return strtoupper(mb_substr($words[0], 0, 1) . mb_substr(end($words), 0, 1));
+      }
+      return strtoupper(mb_substr($clean, 0, 2));
+  };
+
+  $getShortAge = function (\Illuminate\Support\Carbon $dt): string {
+      $sec = max(1, now()->diffInSeconds($dt));
+      if ($sec < 3600) return max(1, (int) round($sec / 60)) . 'm ago';
+      if ($sec < 86400) return (int) round($sec / 3600) . 'h ago';
+      if ($sec < 2592000) return (int) round($sec / 86400) . 'd ago';
+      return $dt->format('M j');
+  };
 @endphp
 
 <x-ui.queue-filters
@@ -116,6 +134,10 @@
 <div class="queue-toolbar">
   <span class="queue-count">{{ $reports->total() }} report{{ $reports->total() === 1 ? '' : 's' }}</span>
   <span class="queue-spacer"></span>
+  <div class="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-0.5 text-xs select-none" role="group" aria-label="Row density">
+    <button type="button" id="density-compact" class="density-btn px-2.5 py-1 rounded-md font-medium transition-colors text-slate-700 bg-white shadow-xs" data-density="compact">Compact</button>
+    <button type="button" id="density-comfortable" class="density-btn px-2.5 py-1 rounded-md font-medium transition-colors text-slate-500 hover:text-slate-800" data-density="comfortable">Comfortable</button>
+  </div>
   <label class="queue-pin-toggle">
     <input type="checkbox" class="table-checkbox"
       onchange="window.location='{{ route($queueRoute, array_merge($baseParams, ['pin' => request('pin') === '1' ? '0' : '1'])) }}'"
@@ -142,6 +164,9 @@
   </select>
   <button type="submit" name="action" value="status" class="bulk-btn">Apply status</button>
   <span class="bulk-spacer"></span>
+  <button type="button" id="bulk-clear-btn" class="bulk-btn">
+    <i class="fa-solid fa-xmark mr-1" aria-hidden="true"></i> Clear
+  </button>
   <button type="submit" formaction="{{ route('admin.reports.bulk-confirm') }}"
     class="bulk-btn" onclick="return confirm('Confirm and route selected reports?');">
     <i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Confirm &amp; route
@@ -149,15 +174,25 @@
 </form>
 
 <div class="table-wrap">
-  <table class="data-table data-table-queue">
+  <table class="data-table data-table-queue table-fixed w-full">
     <thead>
       <tr>
-        <th scope="col" style="width:2.25rem;">
+        <th scope="col" style="width:2.5rem;" class="queue-th-select">
           <input type="checkbox" class="table-checkbox" id="select-all-checkbox" aria-label="Select all reports">
         </th>
-        <th scope="col" style="width:26%;">Incident &amp; Category</th>
-        <th scope="col" style="width:12%;">Location</th>
-        <th scope="col" class="sortable" style="width:11%;">
+        <th scope="col" class="queue-th-report">
+          <div class="flex items-center justify-between gap-2">
+            <span>Report</span>
+            <a href="{{ $urgencySort['url'] }}" class="text-xs font-normal text-slate-500 hover:text-blue-700 flex items-center gap-1" title="Sort by priority">
+              <span>Priority</span>
+              <span class="sort-indicator {{ $urgencySort['active'] ? '' : 'idle' }}" aria-hidden="true">
+                {{ $urgencySort['active'] ? ($urgencySort['ascending'] ? '▲' : '▼') : '⇅' }}
+              </span>
+              @if($urgencySort['active'])<span class="sr-only">(sorted by priority {{ $urgencySort['ascending'] ? 'ascending' : 'descending' }})</span>@endif
+            </a>
+          </div>
+        </th>
+        <th scope="col" class="sortable queue-th-status" style="width:10.5rem;">
           <span class="th-status">
             <a href="{{ $statusSort['url'] }}">Status
               <span class="sort-indicator {{ $statusSort['active'] ? '' : 'idle' }}" aria-hidden="true">
@@ -172,22 +207,17 @@
             </button>
           </span>
         </th>
-        <th scope="col" class="sortable" style="width:10%;">
-          <a href="{{ $urgencySort['url'] }}">Priority
-            <span class="sort-indicator {{ $urgencySort['active'] ? '' : 'idle' }}" aria-hidden="true">
-              {{ $urgencySort['active'] ? ($urgencySort['ascending'] ? '▲' : '▼') : '⇅' }}
-            </span>
-            @if($urgencySort['active'])<span class="sr-only">(sorted {{ $urgencySort['ascending'] ? 'ascending' : 'descending' }})</span>@endif
-          </a>
-        </th>
-        <th scope="col" style="width:20%;">Next Action</th>
-        <th scope="col" class="sortable" style="width:15%;">
-          <a href="{{ $submittedSort['url'] }}">Assignee &amp; Action
+        <th scope="col" class="queue-th-next" style="width:13rem;">Next Action</th>
+        <th scope="col" class="sortable queue-th-assignee" style="width:8rem;">
+          <a href="{{ $submittedSort['url'] }}">Assignee
             <span class="sort-indicator {{ $submittedSort['active'] ? '' : 'idle' }}" aria-hidden="true">
               {{ $submittedSort['active'] ? ($submittedSort['ascending'] ? '▲' : '▼') : '⇅' }}
             </span>
             @if($submittedSort['active'])<span class="sr-only">(sorted {{ $submittedSort['ascending'] ? 'ascending' : 'descending' }})</span>@endif
           </a>
+        </th>
+        <th scope="col" class="queue-th-actions" style="width:3.5rem;">
+          <span class="sr-only">Actions</span>
         </th>
       </tr>
     </thead>
@@ -198,168 +228,154 @@
           $isClosed = in_array($report->status, \App\Models\Report::CLOSED_STATUSES, true);
           $isEmergency = $report->is_emergency || $report->status === 'emergency_flagged';
           $next = $report->getNextAction();
+          $urgency = strtolower($report->urgency ?? 'low');
+          $priorityStripe = match($urgency) {
+              'critical' => 'border-l-4 border-l-red-600',
+              'high' => 'border-l-4 border-l-amber-500',
+              default => 'border-l-4 border-l-transparent',
+          };
+          $isAssigneeActor = $report->assignee && strcasecmp(trim($report->assignee->name), trim($next['actor'])) === 0;
         @endphp
-        <tr data-report-row="{{ $report->id }}" data-href="{{ route('admin.reports.show', $report) }}" class="queue-row cursor-pointer hover:bg-slate-50 transition-colors {{ $isEmergency ? 'is-emergency-row' : '' }}">
-          <td data-label="Select">
+        <tr data-report-row="{{ $report->id }}" data-href="{{ route('admin.reports.show', $report) }}" class="queue-row relative group hover:bg-slate-50/90 transition-colors {{ $priorityStripe }} {{ $isEmergency ? 'is-emergency-row' : '' }}">
+          <td class="queue-col-select relative z-20 text-center" data-label="Select">
             <input type="checkbox" name="report_ids[]" value="{{ $report->id }}"
               class="report-checkbox table-checkbox" form="queue-bulk-form"
               aria-label="Select report {{ $report->tracking_code }}">
           </td>
-          <td data-label="Incident">
-            <div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;">
-              <a href="{{ route('admin.reports.show', $report) }}" class="cell-report-code font-mono font-bold text-blue-700">{{ $report->tracking_code }}</a>
+          <td class="queue-col-report" data-label="Report">
+            <div class="flex items-center gap-1.5 min-w-0">
               @if($isEmergency)
-                <span class="status-badge b-red" style="font-size:0.7rem;padding:0.1rem 0.45rem;">
-                  <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Emergency
-                </span>
+                <i class="fa-solid fa-triangle-exclamation text-red-600 text-xs shrink-0" title="Emergency" aria-hidden="true"></i>
+              @endif
+              <a href="{{ route('admin.reports.show', $report) }}"
+                 class="cell-report-code font-mono text-xs font-bold text-blue-700 hover:text-blue-900 hover:underline shrink-0 after:absolute after:inset-0 after:z-10 focus:outline-none focus:ring-2 focus:ring-blue-600 rounded">
+                {{ $report->tracking_code }}
+              </a>
+              @if($urgency === 'critical')
+                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700 uppercase tracking-wide shrink-0">Critical</span>
+              @elseif($urgency === 'high')
+                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 uppercase tracking-wide shrink-0">High</span>
               @endif
               @if($report->reopened_count > 0)
-                <span class="status-badge b-gold" title="Reopened" style="font-size:0.7rem;padding:0.1rem 0.45rem;">
-                  <i class="fa-solid fa-arrow-rotate-left" aria-hidden="true"></i> Reopened
+                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 shrink-0" title="Reopened">
+                  <i class="fa-solid fa-arrow-rotate-left mr-0.5" aria-hidden="true"></i>Reopened
                 </span>
               @endif
-              @if($report->category)
-                <span class="dashboard-category-tag" style="font-size:0.72rem;">{{ $report->category->name }}</span>
-              @else
-                <span class="cell-muted" style="font-size:0.72rem;">No category</span>
-              @endif
-            </div>
-            <p class="cell-report-desc" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word;margin-top:0.25rem;color:#334155;font-size:0.83rem;line-height:1.4;">{{ $report->summary ?: $report->description }}</p>
-          </td>
-          <td data-label="Location">
-            <div style="font-weight:600;display:flex;align-items:center;gap:0.35rem;color:var(--ink);font-size:0.85rem;">
-              <i class="fa-solid fa-location-dot" style="color:var(--blue);font-size:0.75rem;" aria-hidden="true"></i>
-              <span>{{ $report->purok?->name ?? '—' }}</span>
-            </div>
-            @if($report->landmark)
-              <div class="cell-muted" style="font-size:0.75rem;margin-top:0.2rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;" title="{{ $report->landmark }}">
-                {{ $report->landmark }}
-              </div>
-            @endif
-          </td>
-          <td data-label="Status">
-            <x-status-badge :status="$report->status" />
-          </td>
-          <td data-label="Priority">
-              @php
-                $uClass = match(strtolower($report->urgency ?? '')) {
-                  'critical' => 'priority-chip-critical',
-                  'high' => 'priority-chip-high',
-                  'medium' => 'priority-chip-medium',
-                  'low' => 'priority-chip-low',
-                  default => 'priority-chip-low'
-                };
-              @endphp
-              <span class="priority-chip {{ $uClass }}" title="Priority Score: {{ $report->priority_score ?? 0 }}">
-                P{{ $report->priority_score ?? 0 }} · {{ $report->urgency ?: 'Low' }}
+              <span class="sr-only">Priority: {{ ucfirst($urgency) }}</span>
+              <span class="text-xs text-slate-700 truncate" title="{{ $report->summary ?: $report->description }}">
+                {{ $report->summary ?: $report->description }}
               </span>
+              {{-- Mobile status badge --}}
+              <span class="md:hidden ml-auto shrink-0 relative z-20">
+                <x-status-badge :status="$report->status" :show-icon="false" class="text-xs" />
+              </span>
+            </div>
+            <div class="text-[11px] text-slate-500 truncate mt-0.5">
+              <span>{{ $report->category?->name ?? 'No category' }}</span>
+              <span class="text-slate-300">·</span>
+              <span>{{ $report->purok?->name ?? '—' }}</span>
+              <span class="text-slate-300">·</span>
+              <span title="{{ $report->created_at->format('M j, Y g:i A') }}">{{ $getShortAge($report->created_at) }}</span>
+            </div>
           </td>
-          <td data-label="Next Action">
-            <div class="next-action-cell" style="display:flex;flex-direction:column;gap:0.25rem;">
-              <div style="display:inline-flex;align-items:center;gap:0.35rem;flex-wrap:wrap;">
-                <span class="next-actor-pill tone-{{ $next['actor_tone'] }}">
-                  {{ $next['actor'] }}
-                </span>
-                <span class="next-action-text" style="font-size:0.8rem;font-weight:600;color:var(--ink);">
-                  {{ $next['action'] }}
-                </span>
-              </div>
+          <td class="queue-col-status hidden md:table-cell" data-label="Status">
+            <x-status-badge :status="$report->status" :show-icon="false" class="text-xs" />
+          </td>
+          <td class="queue-col-next" data-label="Next Action">
+            <div class="text-xs font-semibold text-slate-800 truncate" title="{{ $next['action'] }}">{{ $next['action'] }}</div>
+            <div class="text-[11px] text-slate-500 truncate mt-0.5">
+              @if(!$isAssigneeActor)
+                <span>{{ $next['actor'] }}</span>
+              @endif
               @if($next['due_text'])
-                <div>
-                  <span class="next-due-pill tone-{{ $next['due_tone'] }}" @if($next['due_tone'] === 'red') title="Overdue" @endif>
-                    <i class="fa-solid fa-clock" aria-hidden="true" style="font-size:0.68rem;"></i>
-                    <span>{{ $next['due_text'] }}</span>
-                  </span>
-                </div>
+                @if(!$isAssigneeActor)<span class="text-slate-300">·</span>@endif
+                <span class="text-red-600 font-semibold" @if($next['due_tone'] === 'red') title="Overdue" @endif>{{ $next['due_text'] }}</span>
+              @elseif($isAssigneeActor)
+                <span class="text-slate-400">Assigned</span>
               @endif
             </div>
           </td>
-          <td data-label="Assignee &amp; Action" class="cell-submitted">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;flex-wrap:wrap;">
+          <td class="queue-col-assignee" data-label="Assignee">
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="inline-flex items-center justify-center w-7 h-7 rounded-full text-[11px] font-bold shrink-0 {{ $report->assignee ? 'bg-blue-100 text-blue-700' : 'border border-dashed border-slate-300 text-slate-400 bg-slate-50' }}"
+                    title="{{ $report->assignee?->name ?? 'Unassigned' }}"
+                    aria-label="{{ $report->assignee?->name ?? 'Unassigned' }}">{{ $getInitials($report->assignee?->name) }}</span>
               @if($report->assignee)
-                <span class="cell-assignee" title="{{ $report->assignee->name }}">
-                  <span class="assignee-initials" aria-hidden="true">{{ \Illuminate\Support\Str::initials($report->assignee->name) }}</span>
-                  <span class="assignee-name" style="max-width:105px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ $report->assignee->name }}</span>
+                <span class="hidden xl:inline text-xs text-slate-700 font-medium truncate max-w-[110px]" title="{{ $report->assignee->name }}">
+                  {{ $report->assignee->name }}
                 </span>
               @else
-                <span class="cell-assignee" title="Unassigned">
-                  <span class="assignee-initials unassigned" aria-hidden="true">—</span>
-                  <span class="cell-muted assignee-name">Unassigned</span>
-                </span>
+                <span class="hidden xl:inline text-xs text-slate-400">Unassigned</span>
               @endif
-              <span class="cell-age" style="font-size:0.75rem;color:#64748b;font-weight:600;">{{ $report->created_at->diffForHumans(null, true) }} ago</span>
             </div>
-            <div class="row-actions" style="display:flex;align-items:center;gap:0.35rem;margin-top:0.35rem;">
-              <a class="btn btn-navy btn-small" style="padding:0.25rem 0.65rem;font-size:0.78rem;font-weight:700;" href="{{ route('admin.reports.show', $report) }}">
-                Review
-              </a>
-              <div class="kebab">
-                <button type="button" class="kebab-toggle" data-kebab-toggle
-                  aria-haspopup="true" aria-expanded="false"
-                  aria-label="More actions for {{ $report->tracking_code }}">
-                  <i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i>
-                </button>
-                <div class="kebab-menu" hidden>
-                  <form method="POST" action="{{ route('admin.reports.assign', $report) }}">
-                    @csrf
-                    @method('PATCH')
-                    <input type="hidden" name="assigned_to" value="{{ auth()->id() }}">
-                    <button type="submit" class="kebab-item" @disabled($report->assigned_to === auth()->id())>
-                      <i class="fa-solid fa-user-plus" aria-hidden="true"></i> Assign to me
-                    </button>
-                  </form>
-                  <form method="POST" action="{{ route('admin.reports.status', $report) }}">
-                    @csrf
-                    @method('PATCH')
-                    <select name="status" class="kebab-status-select" aria-label="New status for {{ $report->tracking_code }}">
-                      <option value="">Change status…</option>
-                      @foreach(\App\Models\Report::MANUAL_STATUSES as $manualStatus)
-                        <option value="{{ $manualStatus }}" @disabled($manualStatus === $report->status)>{{ $statusLabels[$manualStatus] }}</option>
-                      @endforeach
-                    </select>
-                    <select name="no_action_reason" class="kebab-reason-select" style="display:none;margin-top:0.35rem;width:100%;font-size:0.8rem;padding:0.35rem;border:1px solid var(--line);border-radius:6px;" aria-label="Reason code for no action">
-                      <option value="">Reason for no action…</option>
-                      @foreach(\App\Models\Report::NO_ACTION_REASONS as $reasonCode => $reasonLabel)
-                        <option value="{{ $reasonCode }}">{{ $reasonLabel }}</option>
-                      @endforeach
-                    </select>
-                    <input type="text" name="note" maxlength="500" placeholder="Note (required for no action)">
-                    <button type="submit" class="kebab-item">
-                      <i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> Apply status
-                    </button>
-                  </form>
-                  <button type="button" class="kebab-item"
-                    data-chat-open data-report-id="{{ $report->id }}"
-                    data-chat-tracking="{{ $report->tracking_code }}"
-                    data-chat-category="{{ $report->category?->name ?? 'Category not assigned' }}"
-                    data-chat-status="{{ \App\Models\Report::STATUSES[$report->status] ?? $report->status }}"
-                    data-chat-summary="{{ \Illuminate\Support\Str::limit($report->summary ?: $report->description, 160) }}">
-                    <i class="fa-solid fa-comment-dots" aria-hidden="true"></i> Ask for info
-                    @if($unreadCount > 0)
-                      <span class="review-info-summary-unread">{{ $unreadCount }}</span>
-                    @endif
+          </td>
+          <td class="queue-col-actions relative z-20 text-center" data-label="Actions">
+            <div class="kebab">
+              <button type="button" class="kebab-toggle text-slate-400 hover:text-slate-700 p-1 rounded hover:bg-slate-100 transition-colors" data-kebab-toggle
+                aria-haspopup="true" aria-expanded="false"
+                aria-label="More actions for {{ $report->tracking_code }}">
+                <i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i>
+              </button>
+              <div class="kebab-menu" hidden>
+                <form method="POST" action="{{ route('admin.reports.assign', $report) }}">
+                  @csrf
+                  @method('PATCH')
+                  <input type="hidden" name="assigned_to" value="{{ auth()->id() }}">
+                  <button type="submit" class="kebab-item" @disabled($report->assigned_to === auth()->id())>
+                    <i class="fa-solid fa-user-plus" aria-hidden="true"></i> Assign to me
                   </button>
-                  @if(!$isEmergency && !$isClosed)
-                    <form method="POST" action="{{ route('admin.reports.emergency', $report) }}"
-                      data-confirm-submit="Flag this report as an emergency concern?">
-                      @csrf
-                      @method('PATCH')
-                      <input type="hidden" name="confirm" value="1">
-                      <button type="submit" class="kebab-item">
-                        <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Mark urgent
-                      </button>
-                    </form>
+                </form>
+                <form method="POST" action="{{ route('admin.reports.status', $report) }}">
+                  @csrf
+                  @method('PATCH')
+                  <select name="status" class="kebab-status-select" aria-label="New status for {{ $report->tracking_code }}">
+                    <option value="">Change status…</option>
+                    @foreach(\App\Models\Report::MANUAL_STATUSES as $manualStatus)
+                      <option value="{{ $manualStatus }}" @disabled($manualStatus === $report->status)>{{ $statusLabels[$manualStatus] }}</option>
+                    @endforeach
+                  </select>
+                  <select name="no_action_reason" class="kebab-reason-select" style="display:none;margin-top:0.35rem;width:100%;font-size:0.8rem;padding:0.35rem;border:1px solid var(--line);border-radius:6px;" aria-label="Reason code for no action">
+                    <option value="">Reason for no action…</option>
+                    @foreach(\App\Models\Report::NO_ACTION_REASONS as $reasonCode => $reasonLabel)
+                      <option value="{{ $reasonCode }}">{{ $reasonLabel }}</option>
+                    @endforeach
+                  </select>
+                  <input type="text" name="note" maxlength="500" placeholder="Note (required for no action)">
+                  <button type="submit" class="kebab-item">
+                    <i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> Apply status
+                  </button>
+                </form>
+                <button type="button" class="kebab-item"
+                  data-chat-open data-report-id="{{ $report->id }}"
+                  data-chat-tracking="{{ $report->tracking_code }}"
+                  data-chat-category="{{ $report->category?->name ?? 'Category not assigned' }}"
+                  data-chat-status="{{ \App\Models\Report::STATUSES[$report->status] ?? $report->status }}"
+                  data-chat-summary="{{ \Illuminate\Support\Str::limit($report->summary ?: $report->description, 160) }}">
+                  <i class="fa-solid fa-comment-dots" aria-hidden="true"></i> Ask for info
+                  @if($unreadCount > 0)
+                    <span class="review-info-summary-unread">{{ $unreadCount }}</span>
                   @endif
-                </div>
+                </button>
+                @if(!$isEmergency && !$isClosed)
+                  <form method="POST" action="{{ route('admin.reports.emergency', $report) }}"
+                    data-confirm-submit="Flag this report as an emergency concern?">
+                    @csrf
+                    @method('PATCH')
+                    <input type="hidden" name="confirm" value="1">
+                    <button type="submit" class="kebab-item">
+                      <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Mark urgent
+                    </button>
+                  </form>
+                @endif
               </div>
             </div>
           </td>
         </tr>
       @empty
         <tr>
-          <td colspan="6" class="table-empty" data-label="">
-            <i class="fa-regular fa-folder-open" aria-hidden="true"></i>
-            <p>No reports match your filters.</p>
+          <td colspan="6" class="table-empty text-center py-8 text-slate-500" data-label="">
+            <i class="fa-regular fa-folder-open text-3xl mb-2 text-slate-400 block" aria-hidden="true"></i>
+            <p class="text-sm font-medium">No reports match your filters.</p>
           </td>
         </tr>
       @endforelse
@@ -402,6 +418,7 @@
 
   const bulkForm = document.getElementById('queue-bulk-form');
   const bulkCount = document.getElementById('bulk-count');
+  const bulkClearBtn = document.getElementById('bulk-clear-btn');
   const selectAll = document.getElementById('select-all-checkbox');
 
   const checkedBoxes = () => document.querySelectorAll('.report-checkbox:checked');
@@ -411,8 +428,9 @@
     if (bulkForm) bulkForm.style.display = count > 0 ? 'flex' : 'none';
     if (bulkCount) bulkCount.textContent = count;
     if (selectAll) {
-      selectAll.checked = count > 0;
-      selectAll.indeterminate = count > 0 && count < document.querySelectorAll('.report-checkbox').length;
+      const allBoxes = document.querySelectorAll('.report-checkbox');
+      selectAll.checked = allBoxes.length > 0 && count === allBoxes.length;
+      selectAll.indeterminate = count > 0 && count < allBoxes.length;
     }
   };
 
@@ -425,9 +443,56 @@
     });
   }
 
+  if (bulkClearBtn) {
+    bulkClearBtn.addEventListener('click', () => {
+      document.querySelectorAll('.report-checkbox').forEach((box) => {
+        box.checked = false;
+      });
+      updateBulkBar();
+    });
+  }
+
   document.querySelectorAll('.report-checkbox').forEach((box) => {
     box.addEventListener('change', updateBulkBar);
   });
+
+  // Density toggle with localStorage persistence
+  const table = document.querySelector('.data-table-queue');
+  const btnCompact = document.getElementById('density-compact');
+  const btnComfortable = document.getElementById('density-comfortable');
+  const setDensity = (density) => {
+    if (!table) return;
+    if (density === 'comfortable') {
+      table.classList.add('is-comfortable');
+      if (btnComfortable) {
+        btnComfortable.classList.add('bg-white', 'text-slate-700', 'shadow-xs');
+        btnComfortable.classList.remove('text-slate-500');
+      }
+      if (btnCompact) {
+        btnCompact.classList.remove('bg-white', 'text-slate-700', 'shadow-xs');
+        btnCompact.classList.add('text-slate-500');
+      }
+    } else {
+      table.classList.remove('is-comfortable');
+      if (btnCompact) {
+        btnCompact.classList.add('bg-white', 'text-slate-700', 'shadow-xs');
+        btnCompact.classList.remove('text-slate-500');
+      }
+      if (btnComfortable) {
+        btnComfortable.classList.remove('bg-white', 'text-slate-700', 'shadow-xs');
+        btnComfortable.classList.add('text-slate-500');
+      }
+    }
+    try {
+      localStorage.setItem('queue_density', density);
+    } catch (e) {}
+  };
+
+  const savedDensity = localStorage.getItem('queue_density') || 'compact';
+  setDensity(savedDensity);
+
+  if (btnCompact) btnCompact.addEventListener('click', () => setDensity('compact'));
+  if (btnComfortable) btnComfortable.addEventListener('click', () => setDensity('comfortable'));
 
   // Kebab menus: open one at a time, close on outside click or Escape.
   const closeKebabs = (except) => {
@@ -476,7 +541,7 @@
     });
   });
 
-  // Whole-row clickability: navigate to show page on click except interactive children
+  // Whole-row clickability fallback for non-anchor clicks
   document.querySelectorAll('tr[data-href]').forEach((row) => {
     row.addEventListener('click', (event) => {
       if (event.target.closest('input, button, select, a, .kebab, label, [data-chat-open]')) {

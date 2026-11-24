@@ -1,4 +1,4 @@
-@props(['status'])
+@props(['status', 'showIcon' => true])
 
 @php
     $config = match($status) {
@@ -71,6 +71,8 @@
 @endphp
 
 <span {{ $attributes->merge(['class' => 'status-badge ' . $config['class']]) }}>
-    <i class="fa-solid {{ $config['icon'] }} mr-1.5" aria-hidden="true"></i>
+    @if($showIcon)
+        <i class="fa-solid {{ $config['icon'] }} mr-1.5" aria-hidden="true"></i>
+    @endif
     <span>{{ $config['label'] }}</span>
 </span>

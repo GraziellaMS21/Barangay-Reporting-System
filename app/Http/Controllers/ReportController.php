@@ -37,7 +37,12 @@ class ReportController extends Controller
 
         $data = $request->validate([
             'report_type' => ['nullable', 'string', 'in:emergency,non_emergency'],
-            'category_id' => ['required', 'exists:categories,id'],
+            'category_id' => ['nullable', 'exists:categories,id'],
+            'voice_fields_filled' => ['nullable', 'array'],
+            'voice_fields_filled.*' => ['string'],
+            'voice_field_edited_reporter_name' => ['nullable', 'boolean'],
+            'voice_field_edited_reporter_contact' => ['nullable', 'boolean'],
+            'voice_field_edited_reporter_email' => ['nullable', 'boolean'],
             'answers' => ['nullable', 'array'],
             'is_ongoing' => ['nullable', 'boolean'],
             'people_at_risk' => ['nullable', 'boolean'],
@@ -132,17 +137,23 @@ class ReportController extends Controller
         $consentAt = ($request->boolean('consent') || ! $request->has('has_consent_field')) ? now() : null;
 
         // Server-side duplicate protection against rapid re-submits or double clicks
-        $recentDuplicate = Report::query()
+        $recentDuplicateQuery = Report::query()
             ->where('description', $data['description'])
-            ->where('category_id', $data['category_id'])
-            ->where('created_at', '>=', now()->subSeconds(20))
-            ->first();
+            ->where('created_at', '>=', now()->subSeconds(20));
+
+        if (! empty($data['category_id'])) {
+            $recentDuplicateQuery->where('category_id', $data['category_id']);
+        } else {
+            $recentDuplicateQuery->whereNull('category_id');
+        }
+
+        $recentDuplicate = $recentDuplicateQuery->first();
 
         if ($recentDuplicate) {
             return redirect()->route('reports.success', $recentDuplicate->tracking_code);
         }
 
-        $report = DB::transaction(function () use ($data, $photoPaths, $reportType, $isEmergency, $isAnonymous, $consentAt) {
+        $report = DB::transaction(function () use ($data, $request, $photoPaths, $reportType, $isEmergency, $isAnonymous, $consentAt) {
             $fiscalYear = app(FiscalYearService::class)->forNewRecord();
             $fiscalYear = app(FiscalYearService::class)->forNewRecord();
             $report = Report::create([
@@ -151,6 +162,9 @@ class ReportController extends Controller
                 'source' => ! empty($data['audio_token']) ? Report::SOURCE_VOICE : Report::SOURCE_WEB,
                 'report_type' => $reportType,
                 'category_id' => $data['category_id'] ?? null,
+                'resident_category_id' => $data['category_id'] ?? null,
+                'resident_purok_id' => $data['purok_id'] ?? null,
+                'resident_landmark' => $data['landmark'] ?? null,
                 'answers' => $data['answers'] ?? null,
                 'is_ongoing' => (bool) ($data['is_ongoing'] ?? false),
                 'is_recurring' => (bool) ($data['is_recurring'] ?? false),
@@ -178,12 +192,96 @@ class ReportController extends Controller
             }
 
             if (! empty($data['audio_token'])) {
-                ReportAudio::query()
+                $reportAudio = ReportAudio::query()
                     ->where('token', $data['audio_token'])
-                    ->update([
+                    ->first();
+
+                if ($reportAudio) {
+                    $extracted = is_array($reportAudio->extracted_data) ? $reportAudio->extracted_data : [];
+                    $clientFilled = (array) ($request->input('voice_fields_filled') ?? []);
+
+                    $provenance = [];
+
+                    // Description provenance
+                    if (in_array('description', $clientFilled, true) || filled($extracted['description'] ?? null)) {
+                        $origDesc = trim((string) ($extracted['description'] ?? ''));
+                        $currentDesc = trim((string) ($data['description'] ?? ''));
+                        $isEdited = $origDesc !== '' && $origDesc !== $currentDesc;
+                        $provenance['description'] = [
+                            'filled' => true,
+                            'edited' => $isEdited,
+                        ];
+                    }
+
+                    // Category provenance
+                    if (in_array('category', $clientFilled, true) || filled($extracted['category_id'] ?? null) || filled($extracted['category'] ?? null)) {
+                        $origCatId = $extracted['category_id'] ?? null;
+                        $currentCatId = $data['category_id'] ?? null;
+                        $isEdited = (string) $origCatId !== (string) $currentCatId;
+                        $provenance['category'] = [
+                            'filled' => true,
+                            'edited' => $isEdited,
+                        ];
+                    }
+
+                    // Purok provenance
+                    if (in_array('purok', $clientFilled, true) || filled($extracted['purok_id'] ?? null)) {
+                        $origPurokId = $extracted['purok_id'] ?? null;
+                        $currentPurokId = $data['purok_id'] ?? null;
+                        $isEdited = (string) $origPurokId !== (string) $currentPurokId;
+                        $provenance['purok'] = [
+                            'filled' => true,
+                            'edited' => $isEdited,
+                        ];
+                    }
+
+                    // Landmark provenance
+                    if (in_array('landmark', $clientFilled, true) || filled($extracted['landmark'] ?? null)) {
+                        $origLandmark = trim((string) ($extracted['landmark'] ?? ''));
+                        $currentLandmark = trim((string) ($data['landmark'] ?? ''));
+                        $isEdited = $origLandmark !== $currentLandmark;
+                        $provenance['landmark'] = [
+                            'filled' => true,
+                            'edited' => $isEdited,
+                        ];
+                    }
+
+                    // Emergency provenance
+                    if (in_array('emergency', $clientFilled, true) || ! empty($extracted['emergency'])) {
+                        $origEmg = (bool) ($extracted['emergency'] ?? false);
+                        $provenance['emergency'] = [
+                            'filled' => true,
+                            'edited' => $origEmg !== $isEmergency,
+                        ];
+                    }
+
+                    // Contact fields: flags only, never values
+                    if (in_array('reporter_name', $clientFilled, true)) {
+                        $provenance['reporter_name'] = [
+                            'filled' => true,
+                            'edited' => $request->boolean('voice_field_edited_reporter_name'),
+                        ];
+                    }
+                    if (in_array('reporter_contact', $clientFilled, true)) {
+                        $provenance['reporter_contact'] = [
+                            'filled' => true,
+                            'edited' => $request->boolean('voice_field_edited_reporter_contact'),
+                        ];
+                    }
+                    if (in_array('reporter_email', $clientFilled, true)) {
+                        $provenance['reporter_email'] = [
+                            'filled' => true,
+                            'edited' => $request->boolean('voice_field_edited_reporter_email'),
+                        ];
+                    }
+
+                    $reportAudio->update([
                         'report_id' => $report->id,
                         'origin' => ReportAudio::ORIGIN_RESIDENT,
+                        'provenance' => $provenance,
+                        'ai_description' => $reportAudio->ai_description ?: ($extracted['description'] ?? null),
                     ]);
+                }
             }
 
             StatusLog::create([

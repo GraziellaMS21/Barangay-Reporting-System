@@ -21,17 +21,25 @@
 
   {{-- Hidden input for form submission --}}
   <input type="hidden" name="audio_token" id="{{ $recorderId }}_token" value="">
+  <input type="hidden" name="voice_consent_at" id="{{ $recorderId }}_consent_at" value="">
+
+  @if($origin === 'resident')
+    <div class="voice-consent-line" style="display:flex;align-items:center;gap:0.4rem;font-size:0.82rem;color:#475569;margin-bottom:0.5rem;">
+      <i class="fa-solid fa-shield-halved" style="color:var(--blue);"></i>
+      <span>My recording is processed by AI and seen by barangay staff only</span>
+    </div>
+  @endif
 
   {{-- Top Action / Idle Bar --}}
   <div class="voice-idle-state" style="display:flex;align-items:center;flex-wrap:wrap;gap:0.75rem;">
     <button type="button" class="voice-btn-record"
-            style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.5rem 0.9rem;border-radius:0.5rem;font-size:0.875rem;font-weight:600;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;cursor:pointer;transition:all 0.15s ease;">
+            style="min-height:44px;display:inline-flex;align-items:center;gap:0.5rem;padding:0.55rem 1rem;border-radius:0.5rem;font-size:0.875rem;font-weight:600;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;cursor:pointer;transition:all 0.15s ease;">
       <i class="fa-solid fa-microphone" style="color:#2563eb;"></i>
-      <span>Record voice note</span>
+      <span>{{ $origin === 'resident' ? 'I agree, start recording' : 'Record voice note' }}</span>
       <span style="font-size:0.75rem;opacity:0.8;font-weight:400;">(max {{ $maxSeconds }}s)</span>
     </button>
 
-    <label class="voice-btn-upload" style="display:inline-flex;align-items:center;gap:0.4rem;padding:0.5rem 0.85rem;border-radius:0.5rem;font-size:0.85rem;font-weight:500;background:#f8fafc;color:#475569;border:1px solid #cbd5e1;cursor:pointer;">
+    <label class="voice-btn-upload" style="min-height:44px;display:inline-flex;align-items:center;gap:0.4rem;padding:0.55rem 0.85rem;border-radius:0.5rem;font-size:0.85rem;font-weight:500;background:#f8fafc;color:#475569;border:1px solid #cbd5e1;cursor:pointer;">
       <i class="fa-solid fa-upload"></i>
       <span>Upload audio file</span>
       <input type="file" accept="audio/*" class="voice-file-input" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0;">
@@ -39,7 +47,7 @@
 
     @if($demoSampleEnabled)
       <button type="button" class="voice-btn-demo"
-              style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.5rem 0.75rem;border-radius:0.5rem;font-size:0.8rem;background:#f1f5f9;color:#64748b;border:1px dashed #94a3b8;cursor:pointer;">
+              style="min-height:44px;display:inline-flex;align-items:center;gap:0.35rem;padding:0.55rem 0.75rem;border-radius:0.5rem;font-size:0.8rem;background:#f1f5f9;color:#64748b;border:1px dashed #94a3b8;cursor:pointer;">
         <i class="fa-solid fa-flask"></i> Load demo sample
       </button>
     @endif
@@ -219,6 +227,11 @@
       return;
     }
 
+    const consentAtInput = container.querySelector('#{{ $recorderId }}_consent_at');
+    if (consentAtInput) {
+      consentAtInput.value = new Date().toISOString();
+    }
+
     audioChunks = [];
     secondsElapsed = 0;
     timerEl.textContent = `00:00 / ${formatTime(maxSec)}`;
@@ -296,12 +309,21 @@
     showState('idle');
   }
 
-  async function uploadAndTranscribe(blob, durationSec) {
+  async function uploadAndTranscribe(blob, durationSec, mockScenario = null) {
     showState('processing');
 
     const formData = new FormData();
-    formData.append('audio', blob, 'recording.webm');
+    const ext = (blob.type && blob.type.includes('mp4')) ? 'mp4' : 'webm';
+    formData.append('audio', blob, 'recording.' + ext);
     if (durationSec) formData.append('duration_seconds', durationSec);
+
+    const anonCb = document.getElementById('is_anonymous');
+    if (anonCb && anonCb.checked) {
+      formData.append('anonymous', '1');
+    }
+    if (mockScenario) {
+      formData.append('mock_scenario', mockScenario);
+    }
 
     try {
       const response = await fetch(endpointUrl, {
@@ -374,12 +396,17 @@
     uploadAndTranscribe(file, 10);
   });
 
+  let demoIndex = 0;
+  const demoScenarios = ['full', 'partial', 'no_contact', 'emergency', 'unclear'];
+
   if (btnDemo) {
     btnDemo.addEventListener('click', () => {
       // Create empty mock audio buffer
       const mockWav = new Uint8Array([82,73,70,70,36,0,0,0,87,65,86,69,102,109,116,32,16,0,0,0,1,0,1,0,68,172,0,0,136,88,1,0,2,0,16,0,100,97,116,97,0,0,0,0]);
       const blob = new Blob([mockWav], { type: 'audio/wav' });
-      uploadAndTranscribe(blob, 15);
+      const scenario = demoScenarios[demoIndex % demoScenarios.length];
+      demoIndex++;
+      uploadAndTranscribe(blob, 15, scenario);
     });
   }
 })();

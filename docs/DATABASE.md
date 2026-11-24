@@ -622,6 +622,9 @@ Stores voice recording files, technical audio metadata, transcription state, and
 | `unverified_draft` | `boolean`, default `false` | Flag | True if transcript is unverified and cannot be used as primary report description. |
 | `transcript_language` | `string(20)`, nullable | e.g. `en`, `fil`, `ceb`, `cbk` | Language detected by transcription model. |
 | `transcript_status` | `string(30)` | `pending`, `done`, `needs_verification`, `failed`, `mock` | Current transcription pipeline state. |
+| `extracted_data` | `json`, nullable | Non-contact extraction | Persists non-contact candidate fields (`description`, `category`, `purok`, `landmark`, `emergency`) for unattached audio. |
+| `ai_description` | `text`, nullable | Original AI description | Stores verbatim AI problem statement to compute "Edited by resident" marker. |
+| `provenance` | `json`, nullable | Audit mapping | Stores submit-time tracking JSON: `{field_name: {filled: bool, edited: bool}}`. Never stores contact values. |
 | `error` | `text`, nullable | Nullable | Error or timeout message if status is `failed`. |
 | `transcribed_at` | `timestamp`, nullable | Nullable | Timestamp when AI transcription completed. |
 | `verified_by` | `bigint unsigned`, nullable | FK -> `users.id`, nullable | Staff user who verified the uncertain audio. |

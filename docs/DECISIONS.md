@@ -365,7 +365,7 @@
     6. *Zero PII Logging*: Transcripts and extracted contact details are never logged in application logs or audit logs (log IDs and statuses only).
     7. *Settings Governance*:
        - `voice.extract_contact_from_audio` (default `true`; applies to STAFF channel).
-       - `voice.resident_extract_contact` (default `false`; residents type their own contact details).
+       - `voice.resident_extract_contact` (default `true`, amended in Decision 80; residents may have contact extracted unless anonymous mode is on).
        - `voice.resident_recording_enabled` (default `true`; when false, resident recorder is hidden and form is manual only).
        - `voice.daily_analyze_limit` (integer; when reached, analyze endpoints return a friendly manual entry fallback with no Gemini call).
        - `voice.audio_retention_days` (default `90` days, counted from report closure for attached audio; unattached audio keeps the 24-hour expiry).
@@ -373,3 +373,18 @@
        > **Honest Documentation Note**: Turning contact extraction off stops contact details from being extracted or pre-filled in the form, but the audio file is still sent to Gemini for transcription and incident analysis, so the speech model still hears anything spoken in the recording.
     8. *Abuse Limits & Throttling*: Resident analyze endpoint enforces per-IP throttling (3 requests per 10 minutes), maximum duration of 120 seconds, maximum file size of 10 MB, and server-side real MIME type verification (rejects non-audio files with HTTP 422).
     9. *Human Governance*: Every extracted field is labeled "From recording", fully editable, and unstated fields display "Not provided". The AI outputs remain advisory until manually submitted by the user.
+
+---
+
+### Decision 80: Resident Voice Note Fills Resident Report Form (Phase C)
+- **Status**: Accepted
+- **Date**: 2026-11-24
+- **Context**: Phase A delivered the shared multimodal voice analyze backend, and Phase B delivered the staff "Log phone report" intake UI. Phase C connects resident voice recording directly to form field pre-filling ("record first, AI fills the form") on the public reporting interface (`GET /`).
+- **Decisions & Formal Amendments**:
+  1. *Category Pre-Selection Amendment*: Formally amends the general "no pre-selected category" rule solely for voice intake: when a resident records a voice note, if the speaker explicitly and clearly describes an active problem type, the matching category chip is pre-selected as an editable suggestion marked "From recording", and can be deselected by the citizen. If unclear or unstated, no category is selected.
+  2. *Optional Category on Resident Form*: The category selection on the resident form is made explicitly optional ("Choose a category (optional)"). Database columns `reports.category_id` and `reports.resident_category_id` were already nullable; validation rules now enforce `nullable` instead of `required`. Unclassified reports trigger the downstream text classification AI pipeline on submit, and staff confirm the final category. On the admin review page, unclassified reports display "Not chosen by resident". Forward routing remains gated until staff confirm a category and urgency.
+  3. *Contact Extraction Default Amendment*: Amends `voice.resident_extract_contact` default to `true` (still `is_confirmed = false` with `<x-ui.pending-badge>`). Spoken caller name, phone number, and email populate the collapsed contact sections and auto-expand them. Strict anonymity wins: if anonymous mode is toggled, contact details are dropped on the server and cleared in the UI.
+  4. *Spoken PII Isolation Maintained*: The raw transcript is server-side only (`report_audios.transcript`, staff-only) and is never returned to the resident endpoint. The incident description textarea receives only the sanitized PII-free `description`. Downstream text analysis and duplicate detection continue receiving only the final description submitted by the citizen, never the raw transcript.
+  5. *Audio Provenance & Audit Trail*: `report_audios` stores `extracted_data` (non-contact extraction for unattached audio), `ai_description`, and `provenance` JSON (recording field flags and `edited` booleans). Contact values are never stored in provenance JSON. The admin review page displays "From recording" or "Edited after recording" chips and an "Edited by resident" marker.
+  6. *Uncertain Audio Safeguards*: Reaffirms **Decision 78**: unclear, failed, or invalid JSON recordings fill no fields, display a friendly message, and prompt manual entry. Reports submitted without a description require staff verification before routing.
+- **Consequences**: Resident report completion is accelerated; spoken details populate fields with visual provenance; unclassified cases are handled safely; privacy and human governance are preserved.

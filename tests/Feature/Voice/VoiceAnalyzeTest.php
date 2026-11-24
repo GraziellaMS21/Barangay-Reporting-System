@@ -317,6 +317,10 @@ class VoiceAnalyzeTest extends TestCase
         $this->assertContains('urgency', $notStated);
     }
 
+    /**
+     * Phase C Amendment: Resident analyze endpoint may now include validated category slug & id
+     * as an editable suggestion, but strictly NEVER returns raw transcript or urgency.
+     */
     public function test_resident_analyze_endpoint_never_returns_raw_transcript_or_category_urgency(): void
     {
         Http::fake([
@@ -360,9 +364,9 @@ class VoiceAnalyzeTest extends TestCase
             ->assertJson([
                 'ok' => true,
                 'purok' => 'Purok 2',
-                'category' => null,
-                'category_id' => null,
-                'urgency' => null,
+                'category' => 'garbage',
+                'category_id' => $this->category->id,
+                'urgency' => null, // Urgency strictly omitted for residents
             ]);
 
         // Assert raw transcript is strictly excluded from resident response

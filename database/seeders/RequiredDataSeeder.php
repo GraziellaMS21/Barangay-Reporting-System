@@ -281,7 +281,7 @@ class RequiredDataSeeder extends Seeder
             ],
             [
                 'key' => 'voice.resident_extract_contact',
-                'value' => 'false',
+                'value' => 'true',
                 'type' => 'boolean',
                 'group' => 'voice',
                 'label' => 'Extract Contact on Resident Voice Reports',

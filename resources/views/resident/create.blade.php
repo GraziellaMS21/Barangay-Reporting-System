@@ -25,6 +25,9 @@
 
 @section('content')
   @php
+    $masterVoiceEnabled = filter_var(\App\Models\Setting::value('voice.enabled') ?? config('voice.enabled', true), FILTER_VALIDATE_BOOLEAN);
+    $residentVoiceEnabled = $masterVoiceEnabled && filter_var(\App\Models\Setting::value('voice.resident_recording_enabled') ?? config('voice.resident_recording_enabled', true), FILTER_VALIDATE_BOOLEAN);
+
     // Ensure "Other" / "Others" category is always at the last position
     $sortedCategories = $categories->sortBy(function($c) {
         $slug = strtolower($c->slug ?? '');
@@ -101,6 +104,21 @@
     .emergency-pill-strip .emg-action-btn:hover {
       background: #b91c1c;
       transform: translateY(-1px);
+    }
+
+    .from-recording-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      background: #ecfdf5;
+      color: #065f46;
+      border: 1px solid #a7f3d0;
+      border-radius: 999px;
+      padding: 0.15rem 0.55rem;
+      font-size: 0.72rem;
+      font-weight: 700;
+      margin-left: 0.4rem;
+      vertical-align: middle;
     }
 
     .lang-segmented-control {
@@ -597,17 +615,40 @@
       @csrf
       <input type="hidden" name="has_consent_field" value="1">
       <input type="hidden" name="report_type" id="report_type_input" value="non_emergency">
-      <input type="hidden" name="category_id" id="category_id_input" value="{{ old('category_id') }}" required>
+      <input type="hidden" name="category_id" id="category_id_input" value="{{ old('category_id') }}">
       <input type="hidden" name="lat" id="lat" value="{{ old('lat') }}">
       <input type="hidden" name="lng" id="lng" value="{{ old('lng') }}">
       <input type="hidden" name="is_ongoing" id="is_ongoing" value="{{ old('is_ongoing') !== null ? old('is_ongoing') : '' }}">
       <input type="hidden" name="is_recurring" id="is_recurring" value="{{ old('is_recurring') !== null ? old('is_recurring') : '' }}">
+      <div id="voice-provenance-container"></div>
+
+      @if($residentVoiceEnabled)
+        <!-- Quick Report by Voice Strip -->
+        <div id="voice-intake-strip" style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:14px;padding:1.15rem 1.25rem;margin-bottom:1.75rem;">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.75rem;">
+            <div style="display:flex;align-items:center;gap:0.5rem;">
+              <div style="width:28px;height:28px;border-radius:50%;background:#eff6ff;color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:0.85rem;">
+                <i class="fa-solid fa-bolt"></i>
+              </div>
+              <strong style="font-size:0.95rem;color:var(--ink);">Quick report by voice</strong>
+            </div>
+            <a href="#category-heading" style="font-size:0.8rem;color:#64748b;text-decoration:none;">
+              or fill in the form yourself below &darr;
+            </a>
+          </div>
+
+          {{-- Clarity / Feedback Banner inside strip --}}
+          <div id="resident-voice-clarity-banner" style="display:none;margin-bottom:0.75rem;padding:0.75rem 0.9rem;border-radius:8px;font-size:0.84rem;" aria-live="polite"></div>
+
+          <x-voice.recorder target-input="description" origin="resident" analyze-url="{{ route('reports.voice.analyze') }}" />
+        </div>
+      @endif
 
       <!-- 1. Category Selection (Others guaranteed at last) -->
-      <div class="card-section-heading">
+      <div class="card-section-heading" id="category-heading">
         <div class="card-section-icon"><i class="fa-solid fa-tags"></i></div>
         <h2 class="card-section-title">
-          <span data-i18n="choose_category">Choose a category</span> <span style="color:var(--red);" aria-hidden="true">*</span>
+          <span data-i18n="choose_category">Choose a category (optional)</span>
         </h2>
       </div>
 
@@ -644,7 +685,6 @@
           <i class="fa-solid fa-align-left" style="color:var(--blue);"></i>
           <span id="description-label" data-i18n="lbl_description">What is the problem?</span> <span style="color:var(--red);">*</span>
         </label>
-        <x-voice.recorder target-input="description" origin="resident" />
         <textarea id="description" name="description" rows="4" required minlength="10" maxlength="2000"
           placeholder="Please describe the issue in detail...">{{ old('description') }}</textarea>
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-top:0.35rem;">
@@ -948,7 +988,7 @@
         emg_call_prompt: "Please contact emergency services immediately using the numbers below:",
         emg_back_btn: "Return to report", emg_inline: "Emergency contacts",
         where_is_it: "Where is it?", photo_updates: "Photo and updates",
-        choose_category: "Choose a category", lbl_optional: "(optional)",
+        choose_category: "Choose a category (optional)", lbl_optional: "(optional)",
         lbl_description: "What is the problem?", lbl_explain_more: "Explain more",
         placeholder_explain_more: "Add any other details that can help the staff.",
         hint_description: "You may write in English, Filipino, Bisaya, or Chavacano (minimum 10 characters).",
@@ -978,7 +1018,7 @@
         emg_call_prompt: "Makipag-ugnayan kaagad sa mga numero sa ibaba:",
         emg_back_btn: "Bumalik sa ulat", emg_inline: "Mga emergency contact",
         where_is_it: "Saan ito?", photo_updates: "Larawan at updates",
-        choose_category: "Pumili ng kategorya", lbl_optional: "(opsyonal)",
+        choose_category: "Pumili ng kategorya (opsyonal)", lbl_optional: "(opsyonal)",
         lbl_description: "Ano ang problema?", lbl_explain_more: "Ipaliwanag pa",
         placeholder_explain_more: "Magdagdag ng iba pang detalye na makakatulong sa kawani.",
         hint_description: "Maaari kang sumulat sa Tagalog/Filipino, English, Bisaya, o Chavacano (hindi bababa sa 10 titik).",
@@ -1705,6 +1745,271 @@
     if (nearbyModalEl) {
       nearbyModalEl.addEventListener('click', (e) => {
         if (e.target === nearbyModalEl) nearbyModalEl.close();
+      });
+    }
+
+    // Phase C: Resident Voice Intake Integration
+    const voiceStrip = document.getElementById('voice-intake-strip');
+    const clarityBanner = document.getElementById('resident-voice-clarity-banner');
+    const voiceProvenanceContainer = document.getElementById('voice-provenance-container');
+    const filledByVoice = new Set();
+    const contactFieldsEdited = new Set();
+
+    function updateVoiceProvenanceInputs() {
+      if (!voiceProvenanceContainer) return;
+      voiceProvenanceContainer.innerHTML = '';
+      filledByVoice.forEach(field => {
+        const inp = document.createElement('input');
+        inp.type = 'hidden';
+        inp.name = 'voice_fields_filled[]';
+        inp.value = field;
+        voiceProvenanceContainer.appendChild(inp);
+      });
+      ['reporter_name', 'reporter_contact', 'reporter_email'].forEach(field => {
+        if (contactFieldsEdited.has(field)) {
+          const inp = document.createElement('input');
+          inp.type = 'hidden';
+          inp.name = 'voice_field_edited_' + field;
+          inp.value = '1';
+          voiceProvenanceContainer.appendChild(inp);
+        }
+      });
+    }
+
+    function removeVoiceBadge(field) {
+      document.querySelectorAll(`.from-recording-badge[data-field="${field}"]`).forEach(el => el.remove());
+    }
+
+    function addVoiceBadge(field, targetEl, text = 'From recording') {
+      removeVoiceBadge(field);
+      const badge = document.createElement('span');
+      badge.className = 'from-recording-badge';
+      badge.dataset.field = field;
+      badge.innerHTML = `<i class="fa-solid fa-microphone"></i> ${text}`;
+      if (targetEl) {
+        if (targetEl.tagName === 'LABEL' || targetEl.classList.contains('card-section-title') || targetEl.classList.contains('cat-chip')) {
+          targetEl.appendChild(badge);
+        } else if (targetEl.parentElement) {
+          const lbl = targetEl.parentElement.querySelector('label') || targetEl.parentElement;
+          lbl.appendChild(badge);
+        }
+      }
+    }
+
+    window.addEventListener('voice-analyzed', function(e) {
+      const data = e.detail;
+      if (!data) return;
+
+      const isUnclear = data.status === 'needs_verification' || data.status === 'failed' || data.is_unclear || data.clarity === 'unclear';
+      const isPartial = data.is_partial || data.clarity === 'partial';
+
+      // 1. Show clarity banner
+      if (clarityBanner) {
+        clarityBanner.style.display = 'block';
+        if (isUnclear) {
+          clarityBanner.style.background = '#fffbeb';
+          clarityBanner.style.border = '1px solid #fde68a';
+          clarityBanner.style.color = '#92400e';
+          clarityBanner.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> We couldn\'t understand this recording. Please type your report or record again.';
+        } else if (isPartial) {
+          clarityBanner.style.background = '#fffbeb';
+          clarityBanner.style.border = '1px solid #fde68a';
+          clarityBanner.style.color = '#92400e';
+          clarityBanner.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Parts of this recording were unclear. Please check every field.';
+        }
+      }
+
+      if (isUnclear) {
+        // Unclear: do not prefill any fields
+        return;
+      }
+
+      let filledCount = 0;
+
+      // 2. Problem description
+      const descEl = document.getElementById('description');
+      if (descEl && data.description) {
+        if (!descEl.value || descEl.value.trim() === '' || descEl.dataset.aiFilled === 'true') {
+          descEl.value = data.description;
+          descEl.dataset.aiFilled = 'true';
+          descEl.dispatchEvent(new Event('input', { bubbles: true }));
+          const descLabel = document.getElementById('description-label');
+          addVoiceBadge('description', descLabel ? descLabel.parentElement : descEl);
+          filledByVoice.add('description');
+          filledCount++;
+        }
+      }
+
+      // 3. Category
+      if (data.category || data.category_id) {
+        const catInput = document.getElementById('category_id_input');
+        if (!catInput.value || catInput.dataset.aiFilled === 'true') {
+          const targetChip = document.querySelector(`.cat-chip[data-cat-slug="${data.category}"]`) ||
+                             document.querySelector(`.cat-chip[data-cat-id="${data.category_id}"]`);
+          if (targetChip) {
+            const catId = parseInt(targetChip.dataset.catId, 10);
+            selectCategory(catId);
+            catInput.dataset.aiFilled = 'true';
+            addVoiceBadge('category', targetChip);
+            filledByVoice.add('category');
+            filledCount++;
+          }
+        }
+      }
+
+      // 4. Emergency / People at risk
+      if (data.emergency) {
+        const emgCb = document.getElementById('people_at_risk_cb');
+        if (emgCb) {
+          emgCb.checked = true;
+          toggleDanger(true);
+          emgCb.dataset.aiFilled = 'true';
+          const dangerBox = emgCb.closest('.danger-callout-box');
+          addVoiceBadge('people_at_risk', dangerBox ? dangerBox.querySelector('span') : emgCb, 'From recording, please confirm');
+          filledByVoice.add('emergency');
+          filledCount++;
+        }
+      }
+
+      // 5. Purok
+      if (data.purok_id) {
+        const purokSel = document.getElementById('purok_id');
+        if (purokSel && (!purokSel.value || purokSel.dataset.aiFilled === 'true')) {
+          purokSel.value = data.purok_id;
+          purokSel.dataset.aiFilled = 'true';
+          purokSel.dispatchEvent(new Event('change', { bubbles: true }));
+          addVoiceBadge('purok', purokSel.parentElement ? purokSel.parentElement.querySelector('label') : purokSel);
+          filledByVoice.add('purok');
+          filledCount++;
+        }
+      }
+
+      // 6. Landmark
+      if (data.landmark) {
+        const landmarkInp = document.getElementById('landmark');
+        if (landmarkInp && (!landmarkInp.value || landmarkInp.value.trim() === '' || landmarkInp.dataset.aiFilled === 'true')) {
+          landmarkInp.value = data.landmark;
+          landmarkInp.dataset.aiFilled = 'true';
+          addVoiceBadge('landmark', landmarkInp.parentElement ? landmarkInp.parentElement.querySelector('label') : landmarkInp);
+          filledByVoice.add('landmark');
+          filledCount++;
+        }
+      }
+
+      // 7. Contact Fields (Name, Phone, Email)
+      let contactExpanded = false;
+      const anonCb = document.getElementById('is_anonymous');
+      const isAnon = anonCb && anonCb.checked;
+
+      if (!isAnon) {
+        const nameInp = document.getElementById('reporter_name');
+        if (nameInp && data.caller_name && (!nameInp.value || nameInp.value.trim() === '' || nameInp.dataset.aiFilled === 'true')) {
+          nameInp.value = data.caller_name;
+          nameInp.dataset.aiFilled = 'true';
+          addVoiceBadge('reporter_name', nameInp.parentElement ? nameInp.parentElement.querySelector('label') : nameInp);
+          filledByVoice.add('reporter_name');
+          filledCount++;
+          contactExpanded = true;
+        }
+
+        const phoneInp = document.getElementById('reporter_contact');
+        if (phoneInp && data.caller_phone && (!phoneInp.value || phoneInp.value.trim() === '' || phoneInp.dataset.aiFilled === 'true')) {
+          phoneInp.value = data.caller_phone;
+          phoneInp.dataset.aiFilled = 'true';
+          addVoiceBadge('reporter_contact', phoneInp.parentElement ? phoneInp.parentElement.querySelector('label') : phoneInp);
+          filledByVoice.add('reporter_contact');
+          filledCount++;
+          contactExpanded = true;
+        }
+
+        const emailInp = document.getElementById('reporter_email');
+        if (emailInp && data.caller_email && (!emailInp.value || emailInp.value.trim() === '' || emailInp.dataset.aiFilled === 'true')) {
+          emailInp.value = data.caller_email;
+          emailInp.dataset.aiFilled = 'true';
+          addVoiceBadge('reporter_email', emailInp.parentElement ? emailInp.parentElement.querySelector('label') : emailInp);
+          filledByVoice.add('reporter_email');
+          filledCount++;
+          contactExpanded = true;
+        }
+      }
+
+      // Auto-expand collapsed section if any contact was filled
+      if (contactExpanded) {
+        document.querySelectorAll('details.card-collapsible').forEach(d => {
+          if (d.querySelector('#reporter_name') || d.querySelector('#reporter_email')) {
+            d.open = true;
+          }
+        });
+      }
+
+      // 8. Success Banner if clear
+      if (!isUnclear && !isPartial && clarityBanner) {
+        clarityBanner.style.background = '#ecfdf5';
+        clarityBanner.style.border = '1px solid #a7f3d0';
+        clarityBanner.style.color = '#065f46';
+        clarityBanner.innerHTML = `<i class="fa-solid fa-circle-check"></i> Filled ${filledCount} field${filledCount === 1 ? '' : 's'} from your recording. Please check them.`;
+      }
+
+      updateVoiceProvenanceInputs();
+    });
+
+    // Reset event
+    window.addEventListener('voice-reset', function() {
+      if (clarityBanner) {
+        clarityBanner.style.display = 'none';
+        clarityBanner.innerHTML = '';
+      }
+      filledByVoice.forEach(field => removeVoiceBadge(field));
+      filledByVoice.clear();
+      contactFieldsEdited.clear();
+      updateVoiceProvenanceInputs();
+    });
+
+    // User edits remove "From recording" badge
+    ['description', 'landmark', 'purok_id', 'reporter_name', 'reporter_contact', 'reporter_email'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('input', function() {
+          if (this.dataset.aiFilled === 'true') {
+            this.dataset.aiFilled = 'false';
+            removeVoiceBadge(id === 'purok_id' ? 'purok' : id);
+            if (['reporter_name', 'reporter_contact', 'reporter_email'].includes(id)) {
+              contactFieldsEdited.add(id);
+            }
+            updateVoiceProvenanceInputs();
+          }
+        });
+      }
+    });
+
+    // Category deselect/change removes badge
+    document.querySelectorAll('.cat-chip').forEach(chip => {
+      chip.addEventListener('click', function() {
+        const catInput = document.getElementById('category_id_input');
+        if (catInput && catInput.dataset.aiFilled === 'true') {
+          catInput.dataset.aiFilled = 'false';
+          removeVoiceBadge('category');
+          updateVoiceProvenanceInputs();
+        }
+      });
+    });
+
+    // Anonymous toggle immediately clears AI-filled contact fields
+    const anonCheckbox = document.getElementById('is_anonymous');
+    if (anonCheckbox) {
+      anonCheckbox.addEventListener('change', function() {
+        if (this.checked) {
+          ['reporter_name', 'reporter_contact', 'reporter_email'].forEach(id => {
+            const inp = document.getElementById(id);
+            if (inp && inp.dataset.aiFilled === 'true') {
+              inp.value = '';
+              inp.dataset.aiFilled = 'false';
+              removeVoiceBadge(id);
+              filledByVoice.delete(id);
+            }
+          });
+          updateVoiceProvenanceInputs();
+        }
       });
     }
   </script>

@@ -284,7 +284,7 @@ Protected by `auth`, `role:staff`, `permission:imports.manage`.
 
 | Method | URI | Route Name | Middleware / Permission | Purpose | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `POST` | `/report/voice/analyze` | `reports.voice.analyze` | `public`, `throttle:3,10` | Resident voice intake: analyzes audio, returns candidate pre-fill fields (omits transcript, category, urgency; drops contact on anonymous). | Implemented |
+| `POST` | `/report/voice/analyze` | `reports.voice.analyze` | `public`, `throttle:3,10` | Resident voice intake: analyzes audio, returns candidate pre-fill fields (includes category suggestion if clearly described; strictly omits raw transcript and urgency; drops contact on anonymous). | Implemented |
 | `POST` | `/admin/reports/phone/analyze` | `admin.reports.phone.analyze` | `auth`, `role:staff`, `permission:reports.log_phone` | Staff phone intake: analyzes audio, returns transcript, extracted contact details, category & urgency suggestions. | Implemented |
 | `POST` | `/report/voice/transcribe` | `reports.voice.transcribe` | `public`, `throttle:5,1` | Legacy raw transcription endpoint (backward compatibility). | Implemented |
 | `GET` | `/admin/reports/phone` | `admin.reports.phone.create` | `auth`, `role:staff`, `permission:reports.log_phone` | Renders the hotline phone complaint intake form. | Implemented |
@@ -351,15 +351,15 @@ Protected by `auth`, `role:staff`, `permission:imports.manage`.
     "purok": "Purok 2",
     "purok_id": 2,
     "landmark": "Near school",
-    "category": null,
-    "category_id": null,
+    "category": "garbage",
+    "category_id": 1,
     "urgency": null,
     "emergency": false,
     "wants_anonymous": false,
     "not_stated": ["caller_email"]
   }
   ```
-  *(Note: Raw `transcript` is omitted entirely; `category` and `urgency` are strictly `null` to avoid biasing resident selection; if anonymous mode is requested, all contact details are returned as `null`)*.
+  *(Note: Raw `transcript` is omitted entirely; `urgency` is strictly `null` as resident form has no urgency field; `category` may be returned as an editable suggestion labeled "From recording" if clearly described in audio; if anonymous mode is requested, all contact details are returned as `null`)*.
 
 - **Response - Unclear Audio (`transcript_status = needs_verification`)**:
   ```json

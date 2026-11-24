@@ -113,7 +113,7 @@ class VoiceAnalyzeService
         // 6. Contact extraction permission check per channel
         $extractContact = $origin === ReportAudio::ORIGIN_STAFF
             ? filter_var(Setting::value('voice.extract_contact_from_audio') ?? config('voice.extract_contact_from_audio', true), FILTER_VALIDATE_BOOLEAN)
-            : filter_var(Setting::value('voice.resident_extract_contact') ?? config('voice.resident_extract_contact', false), FILTER_VALIDATE_BOOLEAN);
+            : filter_var(Setting::value('voice.resident_extract_contact') ?? config('voice.resident_extract_contact', true), FILTER_VALIDATE_BOOLEAN);
 
         // 7. Extract data (Mock mode or Gemini API call)
         $isMock = (bool) config('voice.mock_transcription', false) || $mockScenario !== null;
@@ -145,6 +145,18 @@ class VoiceAnalyzeService
                 default => ReportAudio::STATUS_DONE,
             };
 
+        $nonContactExtraction = [
+            'description' => $normalized['description'] ?? '',
+            'category' => $normalized['category'] ?? null,
+            'category_id' => $normalized['category_id'] ?? null,
+            'purok' => $normalized['purok'] ?? null,
+            'purok_id' => $normalized['purok_id'] ?? null,
+            'landmark' => $normalized['landmark'] ?? null,
+            'emergency' => (bool) ($normalized['emergency'] ?? false),
+            'wants_anonymous' => (bool) ($normalized['wants_anonymous'] ?? false),
+            'not_stated' => $normalized['not_stated'] ?? [],
+        ];
+
         $audio->update([
             'transcript' => $normalized['transcript'] ?? '',
             'transcript_language' => $normalized['language'] ?? null,
@@ -152,6 +164,8 @@ class VoiceAnalyzeService
             'unverified_draft' => in_array($audioStatus, [ReportAudio::STATUS_NEEDS_VERIFICATION, ReportAudio::STATUS_FAILED], true),
             'error' => $rawExtraction['confidence_note'] ?? null,
             'transcribed_at' => now(),
+            'extracted_data' => $nonContactExtraction,
+            'ai_description' => $normalized['description'] ?? '',
         ]);
 
         // Log operation without transcripts or extracted PII
@@ -426,7 +440,8 @@ class VoiceAnalyzeService
 
         // Resident channel:
         // - Raw transcript is NEVER returned
-        // - Category and urgency are NEVER pre-selected (must remain null)
+        // - Category may be returned as suggestion (validated slug or null)
+        // - Urgency is NEVER returned (must remain null)
         // - If resident toggled anonymous or model found wants_anonymous: DROP caller details on server!
         $dropContact = $isAnonymous || $normalized['wants_anonymous'];
 
@@ -434,8 +449,8 @@ class VoiceAnalyzeService
             'caller_name' => $dropContact ? null : $normalized['caller_name'],
             'caller_phone' => $dropContact ? null : $normalized['caller_phone'],
             'caller_email' => $dropContact ? null : $normalized['caller_email'],
-            'category_id' => null,
-            'category' => null,
+            'category_id' => $normalized['category_id'],
+            'category' => $normalized['category'],
             'urgency' => null,
         ]);
     }

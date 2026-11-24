@@ -41,6 +41,9 @@ class ReportAudio extends Model
         'transcript_status',
         'error',
         'transcribed_at',
+        'extracted_data',
+        'ai_description',
+        'provenance',
         'verified_by',
         'verified_at',
         'uploaded_by',
@@ -54,6 +57,8 @@ class ReportAudio extends Model
             'size_bytes' => 'integer',
             'duration_seconds' => 'integer',
             'transcribed_at' => 'datetime',
+            'extracted_data' => 'array',
+            'provenance' => 'array',
             'verified_at' => 'datetime',
             'expires_at' => 'datetime',
         ];

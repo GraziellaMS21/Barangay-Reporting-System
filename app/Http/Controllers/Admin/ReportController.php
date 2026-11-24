@@ -46,9 +46,14 @@ class ReportController extends Controller
         $validated = $this->validateQueueFilters($request);
 
         $statusFilter = $validated['status'] ?? null;
-        $emergencyOnly = ($validated['emergency'] ?? null) === '1';
+        $emergencyOnly = (string) ($validated['emergency'] ?? '') === '1';
         $currentStage = $validated['stage'] ?? 'all';
         $assignedToFilter = $validated['assigned_to'] ?? null;
+        $isMyCases = (string) ($validated['my_cases'] ?? '') === '1' || $request->routeIs('admin.reports.my-cases');
+
+        if ($isMyCases) {
+            $assignedToFilter = (string) auth()->id();
+        }
 
         if ($statusFilter === 'emergency_flagged') {
             $emergencyOnly = true;
@@ -63,7 +68,12 @@ class ReportController extends Controller
 
         $reports = $query->paginate(15)->withQueryString();
 
-        $statusCounts = Report::query()
+        $baseCountQuery = Report::query();
+        if ($isMyCases) {
+            $baseCountQuery->where('assigned_to', auth()->id());
+        }
+
+        $statusCounts = (clone $baseCountQuery)
             ->selectRaw('status, count(*) as count')
             ->groupBy('status')
             ->pluck('count', 'status');
@@ -79,11 +89,11 @@ class ReportController extends Controller
             ]);
 
         $myCasesCount = Report::query()->where('assigned_to', auth()->id())->whereNotIn('status', Report::CLOSED_STATUSES)->count();
-        $overdueCount = Report::query()->whereNotNull('due_at')->where('due_at', '<', now())->whereNotIn('status', Report::CLOSED_STATUSES)->count();
+        $overdueCount = (clone $baseCountQuery)->whereNotNull('due_at')->where('due_at', '<', now())->whereNotIn('status', Report::CLOSED_STATUSES)->count();
         $stageCounts->put('my_cases', $myCasesCount);
         $stageCounts->put('overdue', $overdueCount);
 
-        $emergencyCount = Report::query()
+        $emergencyCount = (clone $baseCountQuery)
             ->where(fn ($emergencyQuery) => $emergencyQuery
                 ->where('is_emergency', true)
                 ->orWhere('status', 'emergency_flagged'))
@@ -133,6 +143,7 @@ class ReportController extends Controller
             'stage' => ['nullable', Rule::in([...array_keys(Report::STATUS_GROUPS), 'my_cases', 'overdue'])],
             'status' => ['nullable', Rule::in(['all', ...array_keys(Report::STATUSES)])],
             'emergency' => ['nullable', Rule::in(['0', '1'])],
+            'my_cases' => ['nullable', Rule::in(['0', '1'])],
             'purok_id' => ['nullable', 'integer', Rule::exists('puroks', 'id')],
             'category_id' => ['nullable', 'integer', Rule::exists('categories', 'id')],
             'assigned_to' => ['nullable', 'string'],
@@ -181,7 +192,7 @@ class ReportController extends Controller
             ])
             ->with(['purok:id,name', 'category:id,name', 'assignee:id,name', 'office:id,name', 'activeReferral.office:id,name', 'aiResult', 'duplicateSuggestions']);
 
-        if ($currentStage === 'my_cases') {
+        if ((string) ($validated['my_cases'] ?? '') === '1' || $currentStage === 'my_cases') {
             $query->where('assigned_to', auth()->id())->whereNotIn('status', Report::CLOSED_STATUSES);
         } elseif ($currentStage === 'overdue') {
             $query->whereNotNull('due_at')->where('due_at', '<', now())->whereNotIn('status', Report::CLOSED_STATUSES);
@@ -199,7 +210,7 @@ class ReportController extends Controller
                 ->orWhere('status', 'emergency_flagged'));
         }
 
-        if (($validated['overdue'] ?? null) === '1') {
+        if ((string) ($validated['overdue'] ?? '') === '1') {
             $query->whereNotNull('due_at')->where('due_at', '<', now())->whereNotIn('status', Report::CLOSED_STATUSES);
         }
 
@@ -306,11 +317,9 @@ class ReportController extends Controller
             ]);
     }
 
-    public function myCases(Request $request): View
+    public function myCases(Request $request): RedirectResponse
     {
-        $request->merge(['assigned_to' => (string) $request->user()->id]);
-
-        return $this->index($request);
+        return redirect()->route('admin.reports.index', array_merge($request->query(), ['my_cases' => '1']), 302);
     }
 
     private function stageForStatus(string $status): ?string

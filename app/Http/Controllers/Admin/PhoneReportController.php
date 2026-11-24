@@ -65,6 +65,7 @@ class PhoneReportController extends Controller
                 'is_anonymous' => empty($validated['caller_name']),
                 'preferred_contact' => ! empty($validated['caller_phone']) ? 'phone' : 'none',
                 'consent_at' => now(),
+                'consent_recorded_by' => auth()->id(),
             ]);
 
             if (! empty($validated['audio_token'])) {

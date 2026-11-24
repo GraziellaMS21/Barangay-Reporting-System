@@ -295,24 +295,24 @@ UI reference: `docs/UI_UX_SPEC.md` section 4 (WS6)
 
 ---
 
-### WS7 (Planned Prototype): Voice Reporting Prototype (Record and Transcribe)
+### WS7: Voice Reporting Prototype (Record-First Intake)
 
 UI reference: `docs/UI_UX_SPEC.md` Pattern K; Architecture: `docs/ARCHITECTURE.md` Section 2 & 5.
 
-**Goal:** Provide an asynchronous audio recording and transcription prototype for residents and hotline desk officers without telephony.
+**Goal:** Provide "record first, AI fills the form" audio intake for residents and hotline desk officers without telephony.
 
-- **Status**: Planned (not yet implemented)
-- **Migration Prefix**: `2026_12_01_70NNNN_`
-- **Routes**: `routes/resident.php` (`POST /report/voice/transcribe`), `routes/staff.php` (`GET/POST /admin/reports/phone`, `GET /admin/reports/{report}/audio`, `POST /admin/reports/{report}/audio/verify`).
+- **Status**: In Progress (Phase A Backend Delivered; Phases B–D Pending)
+- **Migration Prefix**: `2026_12_01_70NNNN_`, `2026_12_02_80NNNN_`
+- **Routes**: `routes/resident.php` (`POST /report/voice/analyze`, `POST /report/voice/transcribe`), `routes/staff.php` (`POST /admin/reports/phone/analyze`, `GET/POST /admin/reports/phone`, `GET /admin/reports/{report}/audio`, `POST /admin/reports/{report}/audio/verify`).
 - **Permissions**: `reports.log_phone` (granted to `staff_full` preset and admin).
 - **In-Scope**:
-  - Resident: Optional `<x-voice.recorder>` in report form with audio file upload fallback (max `voice.max_seconds`, default 60s).
-  - Staff: "Record phone report" form for hotline desk officers with mandatory verbal consent checkbox.
+  - Resident: "Record report" intake with audio file upload fallback (max `voice.max_seconds`, default 120s), single Gemini call pre-fills form, unstated fields display "Not provided", PII dropped on anonymous mode.
+  - Staff: "Record phone report" hotline form with mandatory verbal consent checkbox (`consent_recorded_by`), speakerphone recording or post-call dictation, audio player + transcript panel.
   - Storage: Audio stored strictly on `private` disk (`storage/app/private/audio/`) with UUID tokens.
-  - AI Pipeline: Gemini audio transcription (audio in, text out; untrusted data; no PII). Text populated into description for review/editing before submit.
-  - The Key Rule: If audio is uncertain or failed (`transcript_status = needs_verification | failed`), guessed text is never inserted into description; report is accepted into `submitted` with placeholder; review gate blocks "Confirm and route" until staff verify audio.
-  - Scheduled Retention: Command `app:purge-audio` deletes expired audio (> `voice.audio_retention_days`) and orphaned uploads (> 24h) while retaining transcript and report.
-  - Mock Mode: Offline mock mode (`voice.mock_transcription` or local sample button).
+  - AI Pipeline: Gemini audio intake analysis returning verbatim transcript and PII-free description plus structured fields (`GeminiService::analyzeVoice()`).
+  - The Key Rule: If audio is uncertain or failed (`transcript_status = needs_verification | failed`), guessed text is never inserted; fields show "Not provided"; review gate blocks "Confirm and route" until staff verify audio.
+  - Scheduled Retention: Command `app:purge-audio` deletes expired audio (default 90 days counted from report closure for attached audio; 24h for unattached) while retaining transcript and report.
+  - Mock Mode: Offline mock mode (`full`, `no_contact`, `partial`, `unclear`, `emergency`).
 - **Out-of-Scope (Deferred)**: Real telephony/SIP trunking, live two-way call recording, SMS gateway broadcasting, dialect-specific acoustic speech models, real-time streaming transcription.
 - **Dependencies on Existing Services**: `GeminiService`, private storage disk, `ReportStatusService` review gate, Turbo layout lifecycle hooks.
 - **Acceptance Criteria**:

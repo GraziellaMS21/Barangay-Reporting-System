@@ -199,6 +199,7 @@ class Report extends Model
         'is_anonymous',
         'preferred_contact',
         'consent_at',
+        'consent_recorded_by',
         'assigned_to',
         'due_at',
         'escalated_at',
@@ -225,6 +226,11 @@ class Report extends Model
             'escalated_at' => 'datetime',
             'resolution_confirmed_at' => 'datetime',
         ];
+    }
+
+    public function consentRecordedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'consent_recorded_by');
     }
 
     public function scopeOpen(Builder $query): Builder

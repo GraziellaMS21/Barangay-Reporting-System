@@ -40,7 +40,7 @@ The project codebase currently operates across two primary branches:
 | **WS4: Summons, Hearings & Deadlines** | **Done** (in `dev`) | Sequential summons, working-day deadlines (15-day mediation + 15-day conciliation), hearings scheduler, amicable settlement recording, CFA & endorsement printables, Secretary dashboard. |
 | **WS5: Agency Portal & Referrals** | **Done** (in `dev`) | Outside agency registration with ID upload, admin approval, Agency Portal inbox (`/agency/referrals`), referral case dossier attachments, 3-day follow-up tracking. |
 | **WS6 (Stretch): Legacy File Import** | **Done** (in `dev`) | Ingestion wizard for historical records (last 4 years) from CSV/Excel without AI, interactive column mapping, chunked commit, and batch rollback (`/admin/imports`). |
-| **Users, Roles & Seeders Rework** | **Done** (in `dev`) | Coarse role canonicalization (`admin`, `staff`, `agency`), `hasOneThrough` position relation, `RequiredDataSeeder` reference data isolation (0 users/reports), updated `app:empty` and `app:demo`. |
+| **WS7: Voice Intake Prototype** | **Phase A & B Done** (in `dev`) | "Record first, AI fills form" intake. Phase A: Shared backend (`POST /report/voice/analyze`, `POST /admin/reports/phone/analyze`), settings, normalization, MIME validation, 5 mock scenarios. Phase B: Staff phone intake (`GET /admin/reports/phone`) record-first layout, consent gate + script, player, staff transcript panel, pre-fill badges, "Not provided" placeholders, clarity banners, emergency prompt. |
 ---
 
 ## 2. Verified Code Gaps (Target Design vs. Codebase)
@@ -239,12 +239,21 @@ The following specific gaps exist between the current codebase and the canonical
 
 ## 6. Planned Features & Prototypes
 
-### Voice Reporting Prototype (WS7) [Implemented]
-- **Status**: Implemented (Record-and-transcribe prototype complete with zero telephony dependencies).
-- **Scope**:
-  - Resident optional "Record instead of typing" container (`<x-voice.recorder>`) with audio file upload fallback.
-  - Desk officer "Record phone report" hotline form (`GET/POST /admin/reports/phone`) with mandatory verbal consent checkbox (`reports.log_phone` permission).
+### Voice Reporting Prototype (WS7) [Implemented - Record-First Phase A Complete]
+- **Status**: Implemented (Record-first voice intake backend complete; Phase A delivered; Phases B–D planned).
+- **Phased Implementation**:
+  - **Phase A (Shared Backend) [DONE]**:
+    - `VoiceAnalyzeService` shared service and `GeminiService::analyzeVoice()` single-call multimodal extraction (returning transcript + structured candidate fields).
+    - Endpoints: `POST /report/voice/analyze` (resident intake: rate-limited at 3 per 10m, PII dropped on anonymous mode, raw transcript and category/urgency suggestions withheld) and `POST /admin/reports/phone/analyze` (staff hotline intake: requires `permission:reports.log_phone`, returns transcript, category/urgency suggestions, and extracted caller contact).
+    - Normalization & validation: Philippine mobile formats (09XXXXXXXXX), puroks against active database records, active categories, urgency values.
+    - Settings: `voice.extract_contact_from_audio`, `voice.resident_extract_contact`, `voice.resident_recording_enabled`, `voice.daily_analyze_limit`, `voice.audio_retention_days` (retention counted from report closure for attached audio; 24h for unattached).
+    - Migration: `2026_12_02_800001_add_consent_recorded_by_to_reports_table.php` (`consent_recorded_by` on `reports`).
+    - Canned mock mode (`full`, `no_contact`, `partial`, `unclear`, `emergency`).
+  - **Phase B (Staff "Log Phone Report" UI)**: [Pending] Record-first layout, consent gate + script, record or dictate, audio player + transcript panel, pre-fill with "From recording"/"Not provided".
+  - **Phase C (Resident Form UI)**: [Pending] Resident recorder with consent line, abuse limits surfaced as friendly messages, anonymous drop, replay of own audio, manual fallback.
+  - **Phase D (Review Page & Final Docs Pass)**: [Pending] "Not provided" on review page, "Edited" marker, verification end-to-end checks, accuracy test checklist.
+- **Scope & Security**:
   - Private disk audio storage (`storage/app/private/audio/`), authenticated streaming endpoint (`GET /admin/reports/{report}/audio`), and automated retention purge command (`app:purge-audio`).
-  - Google Gemini multimodal transcription pipeline with offline mock fallback and uncertainty handling (`needs_verification` gate).
-  - Asynchronous Gemini transcription with the strict Human-in-the-Loop Uncertainty Rule: uncertain or failed audio (`needs_verification`, `failed`) never auto-fills report description and blocks "Confirm and route" until human staff listen and verify.
+  - Strict Human-in-the-Loop Uncertainty Rule: uncertain or failed audio (`needs_verification`, `failed`) never auto-fills report fields (all "Not provided") and blocks "Confirm and route" until human staff listen and verify.
+  - Zero PII logging: transcripts and caller contact details are never logged in application or audit logs.
   - Real telephony, softphone dialers, live call recording, SMS broadcasts, and dialect-specific acoustic speech models remain deferred.

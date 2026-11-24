@@ -424,12 +424,31 @@ Used for: Official Summons, Case Endorsements, Referral Letters, Amicable Settle
   - Browser microphone streams are explicitly closed on stop, cancel, window `pagehide`, and `turbo:before-render`.
 
 #### 2. Staff Hotline Phone Intake Form (`GET /admin/reports/phone`)
-- Follows Pattern B single-column form architecture.
+- Follows Pattern B single-column form architecture with a **Record-First Intake** workflow.
 - Opened from a dedicated button (*"Record phone report"*) on the Report Queue header toolbar (requires `reports.log_phone` permission; no new sidebar item).
-- Captures caller name (optional), contact number (optional), purok (required), category/landmark, and issue description.
-- Embeds `<x-voice.recorder>` allowing the desk officer to record call audio or dictate spoken notes.
-- Mandatory verbal consent checkbox: *"I certify that the caller provided verbal consent to record this report and process incident details under RA 10173."*
-- Confirmation screen displays generated tracking code (`BRG-XXXXXX`) with one-click copy button and quick-action links (*"Open in Queue"*, *"Log another call"*).
+- **Secondary Manual Link**: Header features a *"Fill in manually instead"* anchor link directly to Step 2 for desk officers who choose not to record.
+- **Staff Audio Reality**: Acknowledges no direct telephony infrastructure; desk officers either record the call on speakerphone or dictate a summary after the call. UI instruction states: *"Record the call (speakerphone) or dictate a summary"*. The recorder is not labeled optional.
+- **Verbal Consent Gate & Script**:
+  - Mandatory verbal consent checkbox strictly **ABOVE** the audio recorder: *"I certify that the caller gave verbal consent to record and process this report under RA 10173."*
+  - Read-aloud spoken script card displayed for desk officers: *"Before we begin, do you give consent for this call to be recorded and processed to log your barangay report under the Data Privacy Act?"*
+  - Recorder controls remain disabled (`pointer-events-none opacity-50`) until the verbal consent checkbox is checked.
+- **Clarity & Emergency Banners**:
+  - **Partial Clarity**: Displays an amber warning banner: *"Parts of this recording were unclear. Please listen again and check every field."*
+  - **Unclear / Verification**: When audio cannot be transcribed or clarity is unclear, displays: *"We couldn't understand this recording clearly. Listen again and enter the details."* Pre-filled fields remain unset ("Not provided").
+  - **Emergency Prompt**: When emergency indicators are detected in audio, surfaces a red emergency callout banner advising immediate 911/hotline dispatch, and pre-ticks the emergency checkbox with a *"From recording, please confirm"* badge.
+- **Audio Review & Staff Transcript Panel**:
+  - Embedded HTML5 audio player preview for verifying recorded audio prior to submission.
+  - Collapsible staff-only transcript panel (*"What was said"*) displaying raw verbatim transcript (`report_audios.transcript`).
+- **Pre-Fill Engine ("From recording" & "Not provided")**:
+  - AI-filled inputs display an emerald *"From recording"* badge with microphone icon.
+  - Badges dynamically disappear as soon as staff edit or type in a field.
+  - Fields not mentioned in recording display a muted italic *"Not provided"* placeholder and remain `null`.
+  - Required unstated fields (Purok, Description) show helper cues: *"Not mentioned in recording, please choose/enter it"*.
+  - Manual edits by staff are strictly preserved across re-recordings (only previously AI-filled, unedited fields are updated).
+  - Spoken PII isolation: The description textarea receives the PII-free sanitized `description`, never the raw transcript.
+- **Submission & Consent Attribution**:
+  - Submits through standard `POST /admin/reports/phone` storing `consent_at = now()` and `consent_recorded_by = auth()->id()`.
+  - Confirmation screen displays generated tracking code (`BRG-XXXXXX`) with one-click copy button and quick-action links (*"Open in Queue"*, *"Log another call"*).
 
 #### 3. Staff Review Page Voice Card
 - Rendered in the 3-way triage workspace if `reports.source` is `voice` or `phone_log`.

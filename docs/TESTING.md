@@ -9,7 +9,7 @@ Testing standards, CLI commands, test suite organization, and the client demonst
 Tests execute in an isolated SQLite `:memory:` database with dummy mail drivers and mocked Gemini API clients.
 
 ```sh
-# Run entire test suite (288 tests, 1,955 assertions as of 2026-11-24)
+# Run entire test suite (320 tests, 2,144 assertions as of 2026-11-24)
 php artisan test
 
 # Run a specific feature test file
@@ -74,13 +74,18 @@ The test suite extends `Tests\TestCase` and is organized into functional feature
 - `tests/Feature/Imports/LegacyImportTest.php` (WS6): Sample 100-row Excel import, mapping preview, conflict detection, batch rollback.
 - `tests/Feature/Auth/UserRolePositionReworkTest.php`: Canonical role validation, `personnel` role migration, seeder idempotency, confidential case isolation.
 
-### Planned Tests (WS7: Voice Reporting Prototype)
-The following test suites are planned for WS7 implementation (do not alter existing test counts):
+### Voice Reporting & Phone Intake Suite (WS7: Record-First Prototype)
+- `tests/Feature/Voice/VoiceAnalyzeTest.php`:
+  - Staff analyze endpoint (`POST /admin/reports/phone/analyze`): requires `reports.log_phone` permission; full multimodal extraction with Gemini mock/fakes; returns transcript, suggestions (category & urgency), extracted caller contact.
+  - Resident analyze endpoint (`POST /report/voice/analyze`): rate-limiting (`throttle:3,10`); never returns raw transcript; never pre-selects category or urgency; strips contact details on anonymous submissions; daily limit fallback.
+  - Normalization & validation: Philippine mobile formats (`09XXXXXXXXX`), active purok lookup, active category validation, urgency constraint (`Low`, `Medium`, `High`, `Critical`).
+  - Clarity handling: `clear`, `partial` (with notice banner), `unclear` (blocks pre-filling, sets `needs_verification` and `unverified_draft`).
+  - Abuse protection: real MIME verification, duration constraint ($\le 120\text{s}$), daily limit check.
+  - Audio retention purge: attached audio retention counted from report closure date (90 days).
 - `tests/Feature/Voice/VoiceTranscriptionTest.php`:
   - Public transcription endpoint validation: duration limit ($\le 60\text{s}$), file size limit ($\le 10\text{MB}$), MIME type validation (`audio/webm`, `audio/mp4`, `audio/ogg`, `audio/wav`).
   - Rate-limiting verification (`throttle:5,1`).
   - Gemini transcription fakes: success (`done`), uncertain speech (`needs_verification`), unreadable audio/timeout (`failed`).
-  - PII isolation assertion: verifies zero reporter PII (name, phone, email) is serialized in audio transcription payloads.
   - The Uncertainty Rule: asserts that when `transcript_status` is `needs_verification` or `failed`, guessed text is never inserted as the primary description, the report is accepted into `submitted` with a placeholder description, and "Confirm and route" is blocked until verified.
 - `tests/Feature/Voice/VoiceAudioSecurityTest.php`:
   - Audio streaming authorization: verifies `GET /admin/reports/{report}/audio` requires `auth`, `role:staff`, and `reports.view`.
@@ -88,13 +93,19 @@ The following test suites are planned for WS7 implementation (do not alter exist
   - Data privacy assertion: verifies voice audio tokens and files are strictly absent from public map endpoints, `/api/nearby-reports`, notification emails, and resident tracking views.
 - `tests/Feature/Voice/PhoneReportIntakeTest.php`:
   - Permission enforcement: verifies `/admin/reports/phone` requires `reports.log_phone` permission.
-  - Mandatory verbal consent validation (`verbal_consent = true`).
+  - Mandatory verbal consent validation (`verbal_consent = true`) and staff recorder tracking (`consent_recorded_by`).
   - Generated tracking code response with copyable payload.
+- `tests/Feature/Voice/StaffPhoneReportIntakeUiTest.php`:
+  - Staff "Log phone report" UI verification: requires `reports.log_phone` permission.
+  - Record-first workflow: verbal consent gate strictly ABOVE recorder, read-aloud spoken script card, recorder locked until verbal consent checked.
+  - Secondary manual link ("Fill in manually instead") allows desk officers to skip audio recording.
+  - Staff audio reality: displays "Record the call (speakerphone) or dictate a summary" without optional label.
+  - Pre-fill markup: "From recording" badge, "Not provided" muted placeholders, and helper prompts for unstated required fields.
+  - Clarity banners: partial clarity banner and unclear audio verification banner.
+  - Emergency 911 prompt and pre-checked emergency confirmation.
 - `tests/Feature/Voice/AudioPurgeCommandTest.php`:
-  - `php artisan app:purge-audio`: verifies audio files older than `voice.audio_retention_days` and orphaned uploads older than 24h are deleted from the `private` disk while transcript text and report records are preserved.
+  - `php artisan app:purge-audio`: verifies audio files older than `voice.audio_retention_days` (counted from report closure for attached audio) and orphaned uploads older than 24h are deleted from the `private` disk while transcript text and report records are preserved.
   - Audit logging: asserts audit log entries are generated for all audio streaming, verification, and purge events.
-- `tests/Feature/Voice/VoiceMockModeTest.php`:
-  - Offline demo mode: asserts canned transcripts (`transcript_status = mock`) are returned when `voice.mock_transcription` is enabled or Gemini key is absent.
 
 ---
 

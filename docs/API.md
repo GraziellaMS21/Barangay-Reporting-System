@@ -280,53 +280,122 @@ Protected by `auth`, `role:staff`, `permission:imports.manage`.
 
 ---
 
-## 7. Planned Routes (Voice Prototype — WS7)
+## 7. Voice Intake & Analysis Routes (Record-First Pipeline)
 
-> [!NOTE]
-> All routes below are **Planned (not yet implemented)**. Route names and URLs are tentative and will be finalized in `docs/ROUTES.snapshot.json` upon implementation via `php artisan route:list --json > docs/ROUTES.snapshot.json`.
-
-| Method | Tentative URI | Tentative Route Name | Middleware / Permission | Purpose | Status |
+| Method | URI | Route Name | Middleware / Permission | Purpose | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `POST` | `/report/voice/transcribe` | `reports.voice.transcribe` | `public`, `throttle:5,1` | Uploads raw audio recording or audio file; returns transcript token and state. | Planned |
-| `GET` | `/admin/reports/phone` | `admin.reports.phone.create` | `auth`, `role:staff`, `permission:reports.log_phone` | Renders the hotline phone complaint intake form. | Planned |
-| `POST` | `/admin/reports/phone` | `admin.reports.phone.store` | `auth`, `role:staff`, `permission:reports.log_phone` | Submits telephone report with verbal consent and audio token. | Planned |
-| `GET` | `/admin/reports/{report}/audio` | `admin.reports.audio` | `auth`, `role:staff`, `permission:reports.view` | Streams private audio with HTTP Range support (`Cache-Control: private, no-store`). | Planned |
-| `POST` | `/admin/reports/{report}/audio/verify` | `admin.reports.audio.verify` | `auth`, `role:staff`, `permission:reports.view` | Staff listens to uncertain audio, confirms/inputs text, and clears review gate. | Planned |
+| `POST` | `/report/voice/analyze` | `reports.voice.analyze` | `public`, `throttle:3,10` | Resident voice intake: analyzes audio, returns candidate pre-fill fields (omits transcript, category, urgency; drops contact on anonymous). | Implemented |
+| `POST` | `/admin/reports/phone/analyze` | `admin.reports.phone.analyze` | `auth`, `role:staff`, `permission:reports.log_phone` | Staff phone intake: analyzes audio, returns transcript, extracted contact details, category & urgency suggestions. | Implemented |
+| `POST` | `/report/voice/transcribe` | `reports.voice.transcribe` | `public`, `throttle:5,1` | Legacy raw transcription endpoint (backward compatibility). | Implemented |
+| `GET` | `/admin/reports/phone` | `admin.reports.phone.create` | `auth`, `role:staff`, `permission:reports.log_phone` | Renders the hotline phone complaint intake form. | Implemented |
+| `POST` | `/admin/reports/phone` | `admin.reports.phone.store` | `auth`, `role:staff`, `permission:reports.log_phone` | Submits telephone report with verbal consent (`consent_recorded_by`) and audio token. | Implemented |
+| `GET` | `/admin/reports/{report}/audio` | `admin.reports.audio` | `auth`, `role:staff`, `permission:reports.view` | Streams private audio with HTTP Range support (`Cache-Control: private, no-store`). | Implemented |
+| `POST` | `/admin/reports/{report}/audio/verify` | `admin.reports.audio.verify` | `auth`, `role:staff`, `permission:reports.view` | Staff listens to uncertain audio, confirms/inputs text, and clears review gate. | Implemented |
 
 ### Request & Response Specifications
 
-#### 1. Public Transcription Endpoint (`POST /report/voice/transcribe`)
+#### 1. Voice Analyze Endpoints (`POST /report/voice/analyze` and `POST /admin/reports/phone/analyze`)
 - **Request**: `multipart/form-data`
-  - `audio`: Required audio file (max 10 MB, duration $\le 60\text{s}$, MIME `audio/webm`, `audio/mp4`, `audio/ogg`, or `audio/wav`).
-- **Response - Success (`transcript_status = done`)**:
+  - `audio`: Required audio file (max 10 MB, verified audio MIME: `audio/webm`, `audio/ogg`, `audio/wav`, `audio/mp4`, `audio/mpeg`, `video/webm`).
+  - `duration_seconds`: Optional integer ($\le 120\text{s}$).
+  - `anonymous`: Optional boolean (resident endpoint; when true, server drops caller contact).
+  - `mock_scenario`: Optional string (`full`, `no_contact`, `partial`, `unclear`, `emergency`) for testing and offline evaluation.
+- **Limits & Abuse Prevention**:
+  - Per-IP rate limiting: 3 requests per 10 minutes on resident endpoint (`throttle:3,10`).
+  - Daily analysis limit: `voice.daily_analyze_limit` (default 100); when reached, returns fallback without calling Gemini.
+  - Resident toggle: `voice.resident_recording_enabled`; when false, returns disabled fallback.
+
+- **Response - Staff Success (`clarity = clear` or `partial`)**:
   ```json
   {
+    "ok": true,
     "token": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
     "status": "done",
-    "transcript": "May sirang kalsada at baradong kanal sa tapat ng purok hall...",
+    "clarity": "clear",
+    "is_partial": false,
+    "is_unclear": false,
+    "notice": null,
     "language": "fil",
-    "duration_seconds": 28
+    "transcript": "Magandang umaga, ako si Maria Santos, 09171234567. May tambak na basura sa Purok 2 malapit sa school...",
+    "description": "May tambak na basura sa Purok 2 malapit sa school na hindi nahahakot.",
+    "caller_name": "Maria Santos",
+    "caller_phone": "09171234567",
+    "caller_email": "maria@example.com",
+    "purok": "Purok 2",
+    "purok_id": 2,
+    "landmark": "Near school",
+    "category": "garbage",
+    "category_id": 3,
+    "urgency": "High",
+    "emergency": false,
+    "wants_anonymous": false,
+    "not_stated": []
   }
   ```
-  *(Text is automatically inserted into description textarea for reporter review)*.
-- **Response - Uncertain (`transcript_status = needs_verification`)**:
+
+- **Response - Resident Success (PII Isolated & Suggestions Hidden)**:
   ```json
   {
+    "ok": true,
+    "token": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "status": "done",
+    "clarity": "clear",
+    "is_partial": false,
+    "is_unclear": false,
+    "notice": null,
+    "language": "fil",
+    "description": "May tambak na basura sa Purok 2 malapit sa school na hindi nahahakot.",
+    "caller_name": "Maria Santos",
+    "caller_phone": "09171234567",
+    "caller_email": null,
+    "purok": "Purok 2",
+    "purok_id": 2,
+    "landmark": "Near school",
+    "category": null,
+    "category_id": null,
+    "urgency": null,
+    "emergency": false,
+    "wants_anonymous": false,
+    "not_stated": ["caller_email"]
+  }
+  ```
+  *(Note: Raw `transcript` is omitted entirely; `category` and `urgency` are strictly `null` to avoid biasing resident selection; if anonymous mode is requested, all contact details are returned as `null`)*.
+
+- **Response - Unclear Audio (`transcript_status = needs_verification`)**:
+  ```json
+  {
+    "ok": true,
     "token": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
     "status": "needs_verification",
-    "unverified_draft": "May sirang... [unintelligible]",
-    "language": "fil",
-    "message": "We couldn't understand this recording clearly. Type a short description, or send the recording and barangay staff will listen to it."
+    "clarity": "unclear",
+    "is_partial": false,
+    "is_unclear": true,
+    "notice": "We couldn't clearly transcribe parts of your voice note. Barangay staff will listen and review it before processing.",
+    "language": null,
+    "description": "",
+    "caller_name": null,
+    "caller_phone": null,
+    "caller_email": null,
+    "purok": null,
+    "purok_id": null,
+    "landmark": null,
+    "category": null,
+    "category_id": null,
+    "urgency": null,
+    "emergency": false,
+    "wants_anonymous": false,
+    "not_stated": ["caller_name", "caller_phone", "caller_email", "purok", "landmark", "category", "urgency", "description"]
   }
   ```
-  *(Guessed text is NEVER inserted as description; report is accepted with placeholder if empty, and staff must verify)*.
-- **Response - Error (`transcript_status = failed`)**:
+  *(No candidate fields are pre-filled; unstated fields show "Not provided"; report is accepted into `submitted` with placeholder if empty, and staff must verify before routing)*.
+
+- **Response - Fallback (Daily Limit or Feature Disabled)**:
   ```json
   {
-    "token": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-    "status": "failed",
-    "error": "Transcription timeout or unreadable audio format.",
-    "message": "We couldn't understand this recording clearly. Type a short description, or send the recording and barangay staff will listen to it."
+    "ok": false,
+    "status": "limit_reached",
+    "fallback": true,
+    "message": "The daily voice analysis limit has been reached. Please fill in the report details manually."
   }
   ```
 

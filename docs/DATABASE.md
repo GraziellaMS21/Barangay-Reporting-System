@@ -119,6 +119,7 @@ erDiagram
 - `preferred_contact` (enum: `email`, `phone`, `none`, default: `none`)
 - `is_anonymous` (boolean, default: false)
 - `consent_at` (timestamp, nullable) — Mandatory privacy consent
+- `consent_recorded_by` (foreignId `users`, nullable) — Staff officer certifying verbal consent on phone hotline intake
 - `office_id` (foreignId `offices`, nullable)
 - `assigned_to` (foreignId `users`, nullable)
 - `reviewed_by` (foreignId `users`, nullable)
@@ -629,8 +630,21 @@ Stores voice recording files, technical audio metadata, transcription state, and
 | `expires_at` | `timestamp`, nullable | Indexed | Retention expiry timestamp based on `voice.audio_retention_days` or 24h for unattached. |
 | `timestamps` | `timestamp` | `created_at`, `updated_at` | Standard Eloquent timestamps. |
 
-### `reports.source` (Column Addition)
+### `reports.source` and `reports.consent_recorded_by` (Column Additions)
 - Added to `reports` table:
   - Column: `source`
   - Type: `string(20)`, default `'web'`
   - Allowed values: `'web'` (resident typed web submission), `'voice'` (resident voice recording), `'phone_log'` (staff hotline phone intake).
+  - Column: `consent_recorded_by` (migration `2026_12_02_800001_add_consent_recorded_by_to_reports_table.php`)
+  - Type: `foreignId('users')`, nullable, on delete null
+  - Purpose: Tracks the authorized staff user ID who certified caller verbal consent during hotline phone intake.
+
+### Voice Settings Keys (`settings` table placeholders)
+- `voice.enabled` (boolean, default `true`): Master switch for voice intake endpoints.
+- `voice.max_seconds` (integer, default `120`): Max duration in seconds.
+- `voice.audio_retention_days` (integer, default `90`): Retention period in days (counted from report closure for attached audio; 24h for unattached audio).
+- `voice.demo_sample_enabled` (boolean, default `false`): UI button for demo sample audio.
+- `voice.extract_contact_from_audio` (boolean, default `true`): Staff channel setting to extract spoken caller contact.
+- `voice.resident_extract_contact` (boolean, default `false`): Resident channel setting to extract caller contact (default false).
+- `voice.resident_recording_enabled` (boolean, default `true`): Toggles recorder on resident report form.
+- `voice.daily_analyze_limit` (integer, default `100`): Max AI voice analyses per day before fallback to manual entry.

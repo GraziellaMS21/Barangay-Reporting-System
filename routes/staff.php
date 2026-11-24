@@ -6,12 +6,14 @@ use App\Http\Controllers\Admin\PhoneReportController;
 use App\Http\Controllers\Admin\ReferralController;
 use App\Http\Controllers\Admin\ReportAudioController;
 use App\Http\Controllers\Admin\ReportController as AdminReportController;
+use App\Http\Controllers\VoiceAnalyzeController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin,staff'])->group(function () {
     Route::get('/reports', [AdminReportController::class, 'index'])->name('reports.index');
     Route::get('/reports/phone', [PhoneReportController::class, 'create'])->middleware('permission:reports.log_phone')->name('reports.phone.create');
     Route::post('/reports/phone', [PhoneReportController::class, 'store'])->middleware('permission:reports.log_phone')->name('reports.phone.store');
+    Route::post('/reports/phone/analyze', [VoiceAnalyzeController::class, 'analyzeStaff'])->middleware('permission:reports.log_phone')->name('reports.phone.analyze');
     Route::post('/reports/bulk-confirm', [AdminReportController::class, 'bulkConfirm'])->name('reports.bulk-confirm');
     Route::post('/reports/bulk-action', [AdminReportController::class, 'bulkAction'])->name('reports.bulk-action');
     Route::get('/reports/export', [AdminReportController::class, 'export'])->name('reports.export');

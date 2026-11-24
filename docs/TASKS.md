@@ -60,14 +60,30 @@ All foundation and core functional modules have been implemented and verified on
   - Receive the physical blank forms from the Barangay Secretary (Summons notice, CFA form, Amicable Settlement agreement, DILG annual report layout).
   - Confirm pending items at `/admin/settings/pending` and update Blade print views to remove `<x-ui.draft-watermark>`.
 
-### Task 7: Voice Reporting Prototype (WS7)
-- **Goal**: Implement an asynchronous audio recording and transcription prototype for residents and hotline desk officers without telephony infrastructure.
-- **Scope**:
-  - **Resident Recorder**: Embed optional `<x-voice.recorder>` component in single-card report form with audio file upload fallback (MediaRecorder API, max `voice.max_seconds` [default 60s], lifecycle cleanup on Turbo navigation).
-  - **Staff Hotline Intake**: Build "Record phone report" form (`GET/POST /admin/reports/phone`) accessible via Report Queue toolbar button, requiring `reports.log_phone` permission and mandatory verbal consent certification checkbox.
-  - **Asynchronous Transcription Pipeline**: Implement `GeminiService::transcribeAudio()`, returning `{transcript, language, unclear, confidence_note}` without transmitting reporter PII.
-  - **The Uncertainty Rule & Verification Gate**: Enforce that when `transcript_status` is `needs_verification` or `failed`, guessed text is never inserted into the description textarea; report enters `submitted` with a system placeholder description, and "Confirm and route" is blocked until authorized staff listen to the audio recording and verify or correct the text.
-  - **Private Storage & Purging**: Store audio files strictly on `private` disk (`storage/app/private/audio/`); implement authenticated streaming endpoint (`GET /admin/reports/{report}/audio` with HTTP Range and `Cache-Control: private, no-store`); implement scheduled command `app:purge-audio` deleting expired audio (> `voice.audio_retention_days` [default 90d]) and unattached uploads (> 24h).
-  - **Demo & Mock Support**: Provide offline mock mode (`voice.mock_transcription` or sample button in demo/local environment) for defense demonstrations without live API keys or microphone hardware.
-  - **Comprehensive Tests**: Build unit and feature test suites covering endpoint validation, rate-limiting, Gemini fakes, PII isolation, gate blocking on uncertain transcripts, audio streaming permissions, purge command, and audit logging.
-  - **Docs Follow-Up**: Run follow-up documentation pass to update status from Planned to Implemented, record final route snapshot via `php artisan route:list --json > docs/ROUTES.snapshot.json`, and update real permission/test counts.
+### Task 7: Voice Reporting Prototype (WS7) — Record-First Intake
+- **Goal**: Implement "record first, AI fills the form" intake for residents and hotline desk officers without telephony infrastructure.
+- **Phases**:
+  - [x] **Phase A: Shared Backend (No UI)**:
+    - [x] Inspection & discovery (clarified PII isolation amendment, consent tracking, empty description root cause).
+    - [x] Added `consent_recorded_by` nullable foreign key to `reports` table (migration `2026_12_02_800001_add_consent_recorded_by_to_reports_table.php`).
+    - [x] Configured settings: `voice.extract_contact_from_audio` (default true), `voice.resident_extract_contact` (default false), `voice.resident_recording_enabled` (default true), `voice.daily_analyze_limit` (default 100), `voice.audio_retention_days` (default 90, counted from report closure for attached audio).
+    - [x] Added `GeminiService::analyzeVoice()` single-call multimodal extraction returning transcript, description without PII, and structured form fields in strict JSON with prompt-injection defense.
+    - [x] Built `VoiceAnalyzeService` with MIME validation, duration capping (120s), daily limit fallback, Philippine phone normalization (`09XXXXXXXXX`), purok/category/urgency validation, and mock scenarios (`full`, `no_contact`, `partial`, `unclear`, `emergency`).
+    - [x] Built endpoints: `POST /report/voice/analyze` (resident) and `POST /admin/reports/phone/analyze` (staff).
+    - [x] Updated audio retention purge: attached audio retention counted from report closure date; unattached keeps 24h expiry.
+    - [x] Comprehensive test suite: `tests/Feature/Voice/VoiceAnalyzeTest.php` (13 tests, all passing).
+    - [x] Regenerated `docs/ROUTES.snapshot.json` and updated documentation suite.
+  - [x] **Phase B: Staff "Log phone report" UI**:
+    - [x] Record-first intake layout (`resources/views/admin/reports/phone.blade.php`) with secondary "Fill in manually instead" bypass link.
+    - [x] Verbal consent gate strictly ABOVE recorder with read-aloud script card; recorder disabled until checked.
+    - [x] Staff audio mode support ("Record call (speakerphone) or dictate a summary") without optional labeling.
+    - [x] Audio player preview and collapsible staff-only transcript panel ("What was said") with raw transcript.
+    - [x] Pre-fill engine with "From recording" badges (dynamic badge removal on input edit), "Not provided" placeholder styling, and preservation of manually typed text across re-recordings.
+    - [x] Clarity handling (partial banner and unclear verification banner; unclear sets `needs_verification` with empty fields).
+    - [x] Emergency 911 prompt and pre-checked emergency confirmation.
+    - [x] Form submission saving `consent_recorded_by = auth()->id()` alongside `consent_at`.
+    - [x] Comprehensive test suites: `tests/Feature/Voice/StaffPhoneReportIntakeUiTest.php` (8 tests) and updated `tests/Feature/Voice/PhoneReportIntakeTest.php`.
+  - [ ] **Phase C: Resident form UI**:
+    - Resident recorder with consent line, abuse limits surfaced as friendly messages, `voice.resident_recording_enabled` toggle handling, anonymous drop, no category/urgency pre-fill, replay own audio, manual fallback.
+  - [ ] **Phase D: Review page + final docs pass**:
+    - "Not provided" on review page, "Edited" marker, `needs_verification` handling checks end to end, exports/print stay blank, accuracy-test checklist (Chapter 6 evidence).

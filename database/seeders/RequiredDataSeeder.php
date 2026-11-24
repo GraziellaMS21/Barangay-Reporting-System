@@ -279,6 +279,36 @@ class RequiredDataSeeder extends Seeder
                 'source_question' => 'Extract caller contact details from voice recording?',
                 'is_confirmed' => false,
             ],
+            [
+                'key' => 'voice.resident_extract_contact',
+                'value' => 'false',
+                'type' => 'boolean',
+                'group' => 'voice',
+                'label' => 'Extract Contact on Resident Voice Reports',
+                'description' => 'Allows AI to extract contact details on resident voice reports (default false; residents type contact details).',
+                'source_question' => 'Extract contact details on resident voice reports?',
+                'is_confirmed' => false,
+            ],
+            [
+                'key' => 'voice.resident_recording_enabled',
+                'value' => 'true',
+                'type' => 'boolean',
+                'group' => 'voice',
+                'label' => 'Enable Resident Voice Recording Intake',
+                'description' => 'When disabled, resident report form hides recorder and remains manual only.',
+                'source_question' => 'Enable voice recording for residents?',
+                'is_confirmed' => false,
+            ],
+            [
+                'key' => 'voice.daily_analyze_limit',
+                'value' => '100',
+                'type' => 'integer',
+                'group' => 'voice',
+                'label' => 'Daily Voice Analysis Limit',
+                'description' => 'Maximum number of voice recordings analyzed by AI per day before falling back to manual entry.',
+                'source_question' => 'Daily voice analysis limit',
+                'is_confirmed' => false,
+            ],
         ];
 
         foreach ($settings as $s) {

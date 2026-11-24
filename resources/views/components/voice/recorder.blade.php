@@ -1,7 +1,9 @@
 @props([
     'targetInput' => 'description',
     'origin' => 'resident',
-    'maxSeconds' => (int) config('voice.max_seconds', 60),
+    'maxSeconds' => (int) config('voice.max_seconds', 120),
+    'analyzeUrl' => null,
+    'consentCheckboxId' => null,
 ])
 
 @php
@@ -12,6 +14,8 @@
 <div id="{{ $recorderId }}" class="voice-recorder-wrapper" style="margin-bottom:1rem;"
      data-target-input="{{ $targetInput }}"
      data-transcribe-url="{{ route('reports.voice.transcribe') }}"
+     data-analyze-url="{{ $analyzeUrl }}"
+     data-consent-checkbox-id="{{ $consentCheckboxId }}"
      data-csrf="{{ csrf_token() }}"
      data-max-seconds="{{ $maxSeconds }}">
 
@@ -111,8 +115,11 @@
   const targetInputId = container.dataset.targetInput;
   const targetInput = document.getElementById(targetInputId);
   const transcribeUrl = container.dataset.transcribeUrl;
+  const analyzeUrl = container.dataset.analyzeUrl;
+  const endpointUrl = analyzeUrl || transcribeUrl;
+  const consentCheckboxId = container.dataset.consentCheckboxId;
   const csrfToken = container.dataset.csrf;
-  const maxSec = parseInt(container.dataset.maxSeconds, 10) || 60;
+  const maxSec = parseInt(container.dataset.maxSeconds, 10) || 120;
 
   const tokenInput = container.querySelector('#{{ $recorderId }}_token');
   const idleState = container.querySelector('.voice-idle-state');
@@ -121,6 +128,7 @@
   const readyState = container.querySelector('.voice-ready-state');
   const btnRecord = container.querySelector('.voice-btn-record');
   const fileInput = container.querySelector('.voice-file-input');
+  const uploadLabel = container.querySelector('.voice-btn-upload');
   const btnDemo = container.querySelector('.voice-btn-demo');
   const btnStop = container.querySelector('.voice-btn-stop');
   const btnCancel = container.querySelector('.voice-btn-cancel');
@@ -130,6 +138,33 @@
   const audioPreview = container.querySelector('.voice-audio-preview');
   const noticeCard = container.querySelector('.voice-notice-card');
   const noticeText = container.querySelector('.voice-notice-text');
+
+  // Consent checkbox integration
+  if (consentCheckboxId) {
+    const consentCb = document.getElementById(consentCheckboxId);
+    function syncConsentState() {
+      if (!consentCb) return;
+      const isGranted = consentCb.checked;
+      btnRecord.disabled = !isGranted;
+      btnRecord.style.opacity = isGranted ? '1' : '0.5';
+      btnRecord.style.cursor = isGranted ? 'pointer' : 'not-allowed';
+
+      fileInput.disabled = !isGranted;
+      if (uploadLabel) {
+        uploadLabel.style.opacity = isGranted ? '1' : '0.5';
+        uploadLabel.style.cursor = isGranted ? 'pointer' : 'not-allowed';
+      }
+      if (btnDemo) {
+        btnDemo.disabled = !isGranted;
+        btnDemo.style.opacity = isGranted ? '1' : '0.5';
+        btnDemo.style.cursor = isGranted ? 'pointer' : 'not-allowed';
+      }
+    }
+    if (consentCb) {
+      consentCb.addEventListener('change', syncConsentState);
+      syncConsentState();
+    }
+  }
 
   let mediaRecorder = null;
   let audioStream = null;
@@ -269,7 +304,7 @@
     if (durationSec) formData.append('duration_seconds', durationSec);
 
     try {
-      const response = await fetch(transcribeUrl, {
+      const response = await fetch(endpointUrl, {
         method: 'POST',
         headers: {
           'X-CSRF-TOKEN': csrfToken,
@@ -280,15 +315,20 @@
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Transcription failed');
+        throw new Error(errorData.message || 'Analysis failed');
       }
 
       const data = await response.json();
 
-      tokenInput.value = data.token;
+      tokenInput.value = data.token || '';
       audioPreview.src = URL.createObjectURL(blob);
 
-      if (data.status === 'needs_verification' || data.status === 'failed' || data.unclear) {
+      // Dispatch event for parent intake forms (record-first flow)
+      const eventPayload = Object.assign({}, data, { blob: blob });
+      window.dispatchEvent(new CustomEvent('voice-analyzed', { detail: eventPayload }));
+      container.dispatchEvent(new CustomEvent('voice-analyzed', { bubbles: true, detail: eventPayload }));
+
+      if (data.status === 'needs_verification' || data.status === 'failed' || data.unclear || data.is_unclear) {
         noticeCard.style.display = 'block';
         if (data.notice) noticeText.textContent = data.notice;
         // Uncertainty Rule: do not insert guessed text. If empty, put standard note.
@@ -298,7 +338,11 @@
         }
       } else {
         noticeCard.style.display = 'none';
-        if (targetInput && data.transcript && (!targetInput.value || targetInput.value.trim() === '')) {
+        if (targetInput && data.description && (!targetInput.value || targetInput.value.trim() === '' || targetInput.dataset.aiFilled === 'true')) {
+          targetInput.value = data.description;
+          targetInput.dataset.aiFilled = 'true';
+          targetInput.dispatchEvent(new Event('input', { bubbles: true }));
+        } else if (targetInput && data.transcript && (!targetInput.value || targetInput.value.trim() === '')) {
           targetInput.value = data.transcript;
           targetInput.dispatchEvent(new Event('input', { bubbles: true }));
         }
@@ -306,7 +350,7 @@
 
       showState('ready');
     } catch (err) {
-      alert('Could not transcribe audio: ' + err.message);
+      alert('Could not process audio: ' + err.message);
       showState('idle');
     }
   }
@@ -319,6 +363,8 @@
     tokenInput.value = '';
     audioPreview.src = '';
     noticeCard.style.display = 'none';
+    window.dispatchEvent(new CustomEvent('voice-reset'));
+    container.dispatchEvent(new CustomEvent('voice-reset', { bubbles: true }));
     showState('idle');
   });
 

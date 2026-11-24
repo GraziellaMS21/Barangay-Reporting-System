@@ -4,6 +4,7 @@ namespace App\Services\Voice;
 
 use App\Models\Report;
 use App\Models\ReportAudio;
+use App\Models\Setting;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\GeminiService;
@@ -114,22 +115,46 @@ class VoiceService
 
     /**
      * Purge expired audio files from private disk.
+     * Unattached audio keeps existing expiry (24h orphaned or past expires_at).
+     * Attached audio retention (default 90 days) is counted from report closure.
      */
     public function purgeExpired(): int
     {
-        $expired = ReportAudio::query()
+        $retentionDays = (int) (Setting::value('voice.audio_retention_days') ?? config('voice.audio_retention_days', 90));
+        $closureCutoff = now()->subDays($retentionDays);
+
+        // 1. Unattached audio past expires_at
+        $expiredUnattached = ReportAudio::query()
+            ->whereNull('report_id')
             ->whereNotNull('expires_at')
             ->where('expires_at', '<=', now())
             ->where('disk_path', '!=', '[purged]')
             ->get();
 
+        // 2. Orphaned unattached audio (> 24 hours)
         $orphaned = ReportAudio::query()
             ->whereNull('report_id')
             ->where('created_at', '<=', now()->subHours(24))
             ->where('disk_path', '!=', '[purged]')
             ->get();
 
-        $allToPurge = $expired->concat($orphaned)->unique('id');
+        // 3. Attached audio where parent report is closed and closure date is past retention period
+        $expiredAttached = ReportAudio::query()
+            ->whereNotNull('report_id')
+            ->where('disk_path', '!=', '[purged]')
+            ->whereHas('report', function ($query) use ($closureCutoff) {
+                $query->whereIn('status', Report::CLOSED_STATUSES)
+                    ->where(function ($sub) use ($closureCutoff) {
+                        $sub->where('resolved_at', '<=', $closureCutoff)
+                            ->orWhere(function ($s2) use ($closureCutoff) {
+                                $s2->whereNull('resolved_at')
+                                    ->where('updated_at', '<=', $closureCutoff);
+                            });
+                    });
+            })
+            ->get();
+
+        $allToPurge = $expiredUnattached->concat($orphaned)->concat($expiredAttached)->unique('id');
         $purgedCount = 0;
 
         foreach ($allToPurge as $item) {

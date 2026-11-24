@@ -55,7 +55,8 @@ The application follows a **Modular Monolithic MVC Pattern** built on Laravel 13
 | Service Class | Location | Primary Responsibilities |
 | :--- | :--- | :--- |
 | **`GeminiService`** | `app/Services/GeminiService.php` | Handles prompt serialization, HTTP timeouts (30s), fallback model failover, photo description, and response sanitization. Planned: `transcribeAudio()` for audio transcription (audio in, text out; strictly untrusted data, no PII). |
-| **`VoiceService`** *(Planned)* | `app/Services/Voice/VoiceService.php` | Manages voice recording ingestion, audio format/duration validation, private disk storage, unverified draft tracking, and staff verification audit logging. |
+| **`VoiceService`** | `app/Services/Voice/VoiceService.php` | Manages voice recording storage on private disk, retention purge calculation (90 days from report closure), unverified draft tracking, and staff verification audit logging. |
+| **`VoiceAnalyzeService`** | `app/Services/Voice/VoiceAnalyzeService.php` | Shared backend for voice intake analysis across resident and staff channels: validates real audio MIME types/durations, coordinates single-call Gemini extraction, normalizes fields (phone, name, purok, category, urgency), enforces channel-specific PII/transcript privacy rules, and provides mock modes and abuse fallbacks. |
 | **`ReportStatusService`** | `app/Services/ReportStatusService.php` | Enforces state transition matrix integrity, database transactions, and dispatches `ReportStatusChanged` events. |
 | **`RoutingService`** | `app/Services/RoutingService.php` | Evaluates category rules against jurisdiction authority (Mode A internal dispatch vs. Mode B external referral). |
 | **`PriorityService`** | `app/Services/PriorityService.php` | Computes dynamic numerical priority score based on risk weights, sensitivity proximity, and situational flags. |
@@ -210,10 +211,13 @@ sequenceDiagram
 1. **Strict Advisory Mandate**: The AI is completely isolated from binding state modifications. It has zero authority to execute database writes to final columns on `reports`, transition statuses, merge duplicates, or close reports.
 2. **Human-in-the-Loop Review Gate**: Staff must explicitly review and confirm category and urgency before routing an incident. AI values are rendered with clear visual badges (`AI Suggested`, `Matches`, `Differs`).
 3. **Emergency Containment**: The AI cannot contact emergency services (police, fire, CDRRMO). It only sets an advisory `emergency_flagged` status, which triggers on-screen 911 dialing guidance for the resident and sends priority alerts to local officials.
-4. **Voice Transcription Boundaries (Planned Prototype)**:
-   - Voice audio is transmitted to Gemini strictly as untrusted data. The prompt instructs the model never to execute spoken instructions, change routing commands, or repeat personal identifiable names.
+4. **Voice Intake & Form Fill Architecture ("Record First, AI Fills the Form")**:
+   - Spoken audio is analyzed by `VoiceAnalyzeService` via a single Gemini call returning both raw `transcript` and PII-free `description` plus candidate structured fields (`caller_name`, `caller_phone`, `caller_email`, `purok`, `landmark`, `category`, `urgency`, `emergency`, `not_stated`).
+   - **Endpoints**:
+     - Resident intake: `POST /report/voice/analyze` (rate-limited at 3 per 10m; never returns raw transcript; never pre-selects category or urgency; strips contact info on anonymous reports).
+     - Staff hotline intake: `POST /admin/reports/phone/analyze` (requires `permission:reports.log_phone`; returns raw transcript, category & urgency suggestions, and extracted contact details).
    - **Key Rule**: **If the audio is uncertain or the AI cannot understand it, nothing is guessed and the decision goes to staff.**
-   - When transcription produces `needs_verification` or `failed`, no guessed text is inserted into the report description. Guessed/partial text is held strictly as an unverified draft, and forward state transitions ("Confirm and route") are blocked until an authorized staff member listens to the recording and confirms or inputs the verified text.
+   - When transcription produces `needs_verification` or `failed`, no pre-filled fields are provided (all "Not provided"). Guessed/partial text is held strictly as an unverified draft, and forward state transitions ("Confirm and route") are blocked until an authorized staff member listens to the recording and confirms or inputs the verified text.
 
 ---
 

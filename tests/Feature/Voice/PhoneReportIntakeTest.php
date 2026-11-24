@@ -111,6 +111,8 @@ class PhoneReportIntakeTest extends TestCase
         $this->assertEquals('Maria Santos', $report->reporter_name);
         $this->assertEquals('09181234567', $report->reporter_contact);
         $this->assertEquals('submitted', $report->status);
+        $this->assertEquals($this->authorizedStaff->id, $report->consent_recorded_by);
+        $this->assertNotNull($report->consent_at);
 
         $this->assertDatabaseHas('report_audios', [
             'id' => $audio->id,

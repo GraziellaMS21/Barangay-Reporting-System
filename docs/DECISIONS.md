@@ -355,13 +355,21 @@
 - **Decision**: Adopt Option 3. Rework voice reporting across resident intake and staff hotline intake to "record first, AI fills the form".
 - **Amendment to PII Isolation Rule (Voice Only)**:
   - This decision formally AMENDS the strict PII isolation rule solely for voice intake: typed reporter fields entered into form inputs are still NEVER sent to external AI APIs. However, spoken audio recordings are sent to Google Gemini under explicit user consent to extract spoken contact information and incident details.
-  - Strict PII safeguards for voice:
-    1. *Explicit Consent Gate*: Staff recorder is locked until the mandatory caller verbal consent checkbox is ticked; resident recorder displays an explicit consent notice directly above the record button.
-    2. *Private Storage Only*: Audio recordings are stored strictly on the private disk (`storage/app/private/audio/`) and are never exposed publicly or streamed to unauthorized actors.
-    3. *No Downstream PII Reuse*: Extracted contact details are never re-sent to Gemini in downstream text classification or duplicate detection prompts.
-    4. *Server-Side Anonymous Drop*: If the resident toggles anonymous mode or the speaker explicitly requests anonymity, `caller_name`, `caller_phone`, and `caller_email` are dropped on the server and never stored.
-    5. *Zero PII Logging*: Transcripts and extracted contact details are never logged in application logs or audit logs (log IDs and statuses only).
-    6. *Configurable Toggle*: Setting `voice.extract_contact_from_audio` (default `true`, `is_confirmed = false`) allows disabling contact extraction entirely.
-    7. *Automated Purge*: Private audio files are purged after `voice.audio_retention_days` (default 90 days) by `app:purge-audio`.
-    8. *Uncertainty Rule Preserved*: If audio is unclear (`clarity = 'unclear'`), no fields are guessed (all set to "Not provided"), and routing remains blocked until staff verify (Decision 78).
-    9. *Human Governance*: Every extracted field is labeled "From recording", fully editable, and requires manual form submission by the resident or desk officer.
+  - References existing uncertain-audio decision (**Decision 78**): if audio is unclear (`clarity = 'unclear'`), empty, or invalid JSON, nothing is guessed (`status = 'needs_verification'`), all fields remain "Not provided", and forward routing remains blocked until staff listen and verify.
+  - Strict PII safeguards and operational rules for voice:
+    1. *Consent Text and Recorded Consent*: Staff recorder is locked until the mandatory caller verbal consent checkbox is ticked (shown with a short verbal script read aloud); resident recorder displays an explicit consent notice directly above the record button. Consent timestamp is saved in `consent_at` and staff user ID is saved in `consent_recorded_by`.
+    2. *Staff-Only Transcript*: Raw `transcript` is staff-only, stored in `report_audios.transcript`, and returned ONLY by the staff analyze endpoint (`/admin/reports/phone/analyze`). The resident endpoint (`/report/voice/analyze`) never returns the raw transcript.
+    3. *PII-Free Description for the Form*: The model returns both `transcript` (verbatim speech) AND `description` (the civic problem statement in speaker's language with caller name, phone number, email, and personal contact details completely REMOVED). The form description textarea receives `description`, never the raw transcript.
+    4. *No Downstream PII Reuse*: Extracted contact details and raw transcripts are never re-sent to Gemini in downstream text classification, formal executive summary prompts, or duplicate detection. Spoken PII stays out of public views and the anonymous flow.
+    5. *Server-Side Anonymous Drop*: If the resident toggles anonymous mode or the speaker explicitly requests anonymity (`wants_anonymous`), `caller_name`, `caller_phone`, and `caller_email` are dropped on the server and never stored. `wants_anonymous` is returned as a hint only.
+    6. *Zero PII Logging*: Transcripts and extracted contact details are never logged in application logs or audit logs (log IDs and statuses only).
+    7. *Settings Governance*:
+       - `voice.extract_contact_from_audio` (default `true`; applies to STAFF channel).
+       - `voice.resident_extract_contact` (default `false`; residents type their own contact details).
+       - `voice.resident_recording_enabled` (default `true`; when false, resident recorder is hidden and form is manual only).
+       - `voice.daily_analyze_limit` (integer; when reached, analyze endpoints return a friendly manual entry fallback with no Gemini call).
+       - `voice.audio_retention_days` (default `90` days, counted from report closure for attached audio; unattached audio keeps the 24-hour expiry).
+       > [!NOTE]
+       > **Honest Documentation Note**: Turning contact extraction off stops contact details from being extracted or pre-filled in the form, but the audio file is still sent to Gemini for transcription and incident analysis, so the speech model still hears anything spoken in the recording.
+    8. *Abuse Limits & Throttling*: Resident analyze endpoint enforces per-IP throttling (3 requests per 10 minutes), maximum duration of 120 seconds, maximum file size of 10 MB, and server-side real MIME type verification (rejects non-audio files with HTTP 422).
+    9. *Human Governance*: Every extracted field is labeled "From recording", fully editable, and unstated fields display "Not provided". The AI outputs remain advisory until manually submitted by the user.

@@ -50,21 +50,24 @@ Coarse access tier is governed strictly by `users.role` with three allowed value
 ### Information Flow
 - **Resident Submits (Required)**: Category (none preselected), description (minimum 10 characters; English, Filipino, Bisaya, or Chavacano), at least one location method (device GPS, tapped pin, draggable pin, or purok/landmark), and consent checkbox (`consent_at`).
 - **Resident Submits (Optional)**: Up to 5 photos (JPG/PNG, combined max 5 MB, compressed client-side), reporter name, mobile number, email address, anonymous toggle (which discards and hides contact fields), a single safety checkbox (*"Someone is in danger right now"*), and an optional **voice recording** ("Record instead of typing" recorder with audio file upload fallback, max `voice.max_seconds` [default 60s]).
-- **Staff Submits (Hotline Phone Reports)**: Desk officers log incoming telephone complaints via the "Record phone report" form (`reports.log_phone` permission required), capturing optional audio, caller details, and mandatory verbal consent confirmation.
-- **Voice Ingestion & Transcription Pipeline**:
-  - Recorded or uploaded audio is stored strictly on the private disk with randomized filenames.
-  - Transcribed asynchronously by Google Gemini (audio data in, text out).
-  - Clean transcripts (`transcript_status = done`) are inserted into the description textarea for the reporter to check, edit, and confirm before submission.
-  - On submission, the final edited description runs through the standard text triage analysis pipeline.
+- **Staff Submits (Hotline Phone Reports)**: Desk officers log incoming telephone complaints via the "Record phone report" form (`reports.log_phone` permission required), capturing optional audio, caller details, and mandatory verbal consent confirmation (`consent_recorded_by`).
+- **Voice Intake & Form Fill Flow ("Record First, AI Fills the Form")**:
+  - The recording comes FIRST and drives the form. A dedicated single Gemini call analyzes the speech audio and returns the verbatim transcript plus structured candidate fields (`caller_name`, `caller_phone`, `caller_email`, `wants_anonymous`, `purok`, `landmark`, `category`, `urgency`, `emergency`, `not_stated`).
+  - The form is then pre-filled; every AI-filled field is labeled "From recording" and remains fully editable; every field not stated by the speaker displays muted italic "Not provided" (stored as `NULL`, never the literal string).
+  - The speech model returns BOTH raw `transcript` (what was said, lightly cleaned, same language, not translated) AND `description` (the problem statement in the speaker's language with the caller's name, phone numbers, email, and personal contact details completely REMOVED). The form description textarea receives `description`, never the raw transcript.
+  - Raw `transcript` is staff-only, stored in `report_audios.transcript`, and returned ONLY by the staff analyze endpoint (`/admin/reports/phone/analyze`). The resident analyze endpoint (`/report/voice/analyze`) never returns the raw transcript, and never pre-selects category or urgency.
+  - Recorded or uploaded audio is stored strictly on the private disk with randomized UUID filenames.
   - `reports.source` records report origin (`web`, `voice`, or `phone_log`).
   - Audio records live in `report_audios` with status tracking (`pending`, `done`, `needs_verification`, `failed`, `mock`).
-  - **The Key Rule**: **If the audio is uncertain or the AI cannot understand it, nothing is guessed and the decision goes to staff.** When `transcript_status` is `needs_verification` or `failed`, no guessed text is inserted; the report is accepted into `submitted` with a system placeholder description, flagged for staff verification, and blocked from routing until staff listen to the recording and verify or enter the text.
+  - **The Key Uncertainty Rule**: **If the audio is uncertain or the AI cannot understand it, nothing is guessed and the decision goes to staff.** When `clarity = 'unclear'`, empty transcript, invalid JSON, or API timeout/error occurs, `transcript_status` is set to `needs_verification` (or `failed`); NO fields are pre-filled (all remain "Not provided"), partial text is kept only as an unverified draft, and forward routing remains blocked until authorized staff listen to the recording and verify the content.
 - **AI Output (Stored Separately in `report_ai_results`)**: Suggested category, urgency (Low/Medium/High/Critical), summary, photo description, photo-text mismatch flag, emergency flag, key facts.
 - **Staff Add**: Final category and urgency, assigned office and staff member, internal notes (staff-only), resolution proofs (up to 5 images), audio verification notes/timestamps, and mandatory explanation notes for referrals, merges, or `no_action`.
-- **System Logs**: Every status transition, every staff override of an AI-suggested value, and every audio access/verification action (who, when, old value, new value, note).
+- **System Logs**: Every status transition, every staff override of an AI-suggested value, and every audio access/verification action (who, when, old value, new value, note). Transcripts and extracted contact details are never logged in application or audit logs.
 
 ### Data Privacy (Republic Act 10173 - Data Privacy Act of 2012)
-1. **PII Isolation**: Reporter name, phone number, and email are staff-only. They are **never** transmitted to Google Gemini or third-party APIs.
+1. **PII Isolation & Voice Intake Rule**:
+   - For standard web reporting, typed reporter name, phone number, and email are staff-only and are **never** transmitted to Google Gemini or third-party APIs.
+   - For voice intake (Decision 79), spoken audio is sent to Google Gemini under explicit user consent to extract spoken contact information and incident details. Spoken PII is strictly stripped from the returned `description`, raw transcripts are staff-only and never reused in downstream text triage prompts or public views, anonymous submissions drop contact details on the server, and no transcripts or PII are logged in application or audit logs.
 2. **Audio Data Privacy (Planned Prototype)**:
    - Voice recordings are stored strictly on the private storage disk (`storage/app/private/audio/`) with cryptographically random filenames.
    - Audio is streamed strictly via an authenticated, permission-checked endpoint (`GET /admin/reports/{report}/audio` with HTTP Range support and `Cache-Control: private, no-store`).
@@ -168,10 +171,14 @@ Every value below lives in the database (`settings` table or reference seed tabl
 | `priority.sensitive_place` | `integer` | `25` | `priority` | Settings | Priority score weight for sensitive place proximity |
 | `priority.supporting_reports` | `integer` | `8` | `priority` | Settings | Priority score weight for supporting reports count |
 | `priority.age_days` | `integer` | `2` | `priority` | Settings | Priority score weight for age in days |
-| `voice.enabled` | `boolean` | `true` | `voice` | Unconfirmed | Master toggle for voice recording & transcription |
-| `voice.max_seconds` | `integer` | `60` | `voice` | Unconfirmed | Maximum voice recording duration in seconds |
-| `voice.audio_retention_days` | `integer` | `90` | `voice` | Unconfirmed | Audio file retention before automated purge |
+| `voice.enabled` | `boolean` | `true` | `voice` | Unconfirmed | Master toggle for voice recording & intake |
+| `voice.max_seconds` | `integer` | `120` | `voice` | Unconfirmed | Maximum voice recording duration in seconds |
+| `voice.audio_retention_days` | `integer` | `90` | `voice` | Unconfirmed | Audio file retention days (counted from report closure for attached audio) |
 | `voice.demo_sample_enabled` | `boolean` | `false` | `voice` | Unconfirmed | Enables bundled sample audio button for offline demo |
+| `voice.extract_contact_from_audio` | `boolean` | `true` | `voice` | Unconfirmed | Allows AI to extract spoken caller contact on staff phone reports |
+| `voice.resident_extract_contact` | `boolean` | `false` | `voice` | Unconfirmed | Allows AI to extract contact on resident recordings (default false; residents type contact) |
+| `voice.resident_recording_enabled` | `boolean` | `true` | `voice` | Unconfirmed | Enables voice recorder on resident report form |
+| `voice.daily_analyze_limit` | `integer` | `100` | `voice` | Unconfirmed | Daily limit for AI voice analyses before falling back to manual entry |
 
 ### 8.2 Seed-Table Placeholders (`is_confirmed = false`)
 
@@ -238,4 +245,4 @@ The following operational questions were surfaced during the Barangay Secretary 
 4. Staff can review AI recommendations, compare side-by-side with resident inputs, and make final decisions before routing.
 5. Issues outside barangay authority generate structured external referrals (`REF-YYYY-NNNN`) with printable letters and tracking.
 6. Resolution requires proof photos and staff notes, transitioning to `awaiting_confirmation` until the resident confirms or reopens.
-7. Voice reporting allows resident recording and staff phone call logging; audio is stored strictly on private disk and is never exposed publicly; a voice report with an unclear or failed transcript (`needs_verification` or `failed`) is accepted into `submitted` with a placeholder description but blocked from routing until authorized staff listen to the recording and verify the content.
+7. Voice reporting provides "record first, AI fills the form" intake for resident reporting and staff hotline intake; a recording pre-fills the form with "From recording" labels; unstated fields show "Not provided"; unclear audio is never guessed (`needs_verification`), keeping fields empty and blocking routing until staff verify; resident anonymous reports drop and never store spoken contact details; raw transcripts are staff-only.

@@ -423,21 +423,25 @@ To ensure operational consistency across UI redesigns (queue filters, action pan
 
 ---
 
-## 12. Voice Report Handling (Planned Prototype)
+## 12. Voice Report Handling (Record-First Pipeline)
 
 ### 12.1 Lifecycle Integration & Transcript Statuses
-Voice intake adds an asynchronous audio recording or file upload to reports (`reports.source` of `voice` or `phone_log`), with audio records stored in `report_audios`. Transcript status is tracked via `report_audios.transcript_status`:
-- `pending`: Audio uploaded/recorded; awaiting Gemini transcription.
-- `done`: Clean, high-confidence transcript generated; automatically populated into description for user review before submission.
-- `needs_verification`: Speech was unclear, only partially understood, empty, or spoken in a dialect not reliably parsed (e.g. Chavacano/mixed Bisaya).
-- `failed`: Technical error, network timeout, or invalid transcription response.
-- `mock`: Generated canned transcript in local demo/test mode (`voice.mock_transcription` enabled).
+Voice intake provides a "record first, AI fills the form" intake workflow for both resident submissions (`reports.source = voice`) and staff hotline phone intake (`reports.source = phone_log`), with audio records stored in `report_audios`. Transcript status is tracked via `report_audios.transcript_status`:
+- `pending`: Audio uploaded/recorded; awaiting Gemini analysis.
+- `done`: Clean, high-confidence analysis completed; form fields pre-filled with "From recording" labels.
+- `partial`: Partially clear audio; fields stated in intelligible sections are pre-filled, with an advisory banner warning staff or residents to review carefully.
+- `needs_verification`: Speech was unclear, empty, invalid JSON, or spoken in an unrecognized dialect. No candidate fields are pre-filled (all show "Not provided"); forward routing transitions are blocked until staff listen and verify.
+- `failed`: Technical error, network timeout, or unreadable audio container format.
+- `mock`: Generated canned extractions for local demo/testing mode (`voice.mock_transcription` enabled or mock scenario requested).
 
 ### 12.2 Human-in-the-Loop Verification Gate
 **Core Rule**: **If the audio is uncertain or the AI cannot understand it, nothing is guessed and the decision goes to staff.**
-- **No Guessed Text**: When `transcript_status` is `needs_verification` or `failed`, the system never inserts guessed text into the report description. A partial transcript, if any, is stored solely as an "unverified draft".
-- **Report Acceptance**: The report is never blocked. It enters `submitted` with `source = voice` or `phone_log`. If the reporter typed nothing, a system placeholder description is stored: `"Voice report - transcript unavailable; staff to listen to the recording"`.
+- **Record First, AI Fills the Form**: The recording comes first and drives the form. One Gemini call extracts candidate form fields (`caller_name`, `caller_phone`, `caller_email`, `purok`, `landmark`, `category`, `urgency`, `emergency`, `not_stated`). AI-filled fields are labeled "From recording" and are editable. Unstated fields display muted italic "Not provided" (stored as `NULL`).
+- **PII-Free Description**: The model returns both raw `transcript` and cleaned `description` (with caller names, phone numbers, and emails removed). The description input receives `description`, never the raw transcript.
+- **Staff-Only Transcript**: Raw transcript is returned only by the staff intake endpoint (`/admin/reports/phone/analyze`) and is stored in `report_audios.transcript`. The resident endpoint never returns it.
+- **No Guessed Text on Unclear Audio**: When `transcript_status` is `needs_verification` or `failed`, no pre-filled values are populated. All fields display "Not provided". A partial transcript, if any, is stored solely as an "unverified draft".
+- **Report Acceptance**: The report is never blocked from submission. It enters `submitted` with `source = voice` or `phone_log`. If the reporter typed nothing, a system placeholder description is stored: `"(Voice recording attached — needs staff audio verification)"`.
 - **Review Gate**: The report is flagged as "needs staff verification". On the review page, a prominent banner appears: *"Voice report needs verification. Listen to the recording and confirm or enter what was said before routing."*
-- **Action Blocking**: "Confirm and route" and all forward transitions are strictly blocked until an authorized staff member listens to the audio and either confirms the unverified draft or inputs the corrected text (stored as the staff description; the resident's original input is never overwritten). The verifier's user ID and timestamp (`verified_by`, `verified_at`) are logged.
+- **Action Blocking**: "Confirm and route" and all forward transitions are strictly blocked until an authorized staff member listens to the audio and either confirms the unverified draft or inputs the verified text (stored as the staff description; the resident's original input is never overwritten). The verifier's user ID and timestamp (`verified_by`, `verified_at`) are logged.
 - **No New Statuses**: Voice verification is implemented strictly within the existing human-in-the-loop review gate. It adds **no new report status** and **no automatic transition**.
 - **Queue Representation**: On the report queue, reports needing audio verification display a small microphone indicator beside the tracking code and a Next Action hint (`Verify audio`), without increasing row height or requiring an extra table column.

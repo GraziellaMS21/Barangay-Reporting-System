@@ -11,6 +11,8 @@ return [
                 'templates.manage',
                 'personnel.manage',
                 'users.manage',
+                'reports.view',
+                'reports.log_phone',
                 'reports_center.view',
                 'reports_center.export',
                 'cases.view',

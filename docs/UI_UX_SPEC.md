@@ -353,6 +353,22 @@ Used for: Official Summons, Case Endorsements, Referral Letters, Amicable Settle
 
 ---
 
+### Pattern I: Queue Filter Bar (`<x-ui.queue-filters>`)
+- **Container**: Single white elevated card (`bg-white border border-slate-200 rounded-2xl shadow-sm p-4 sm:p-5 space-y-4`). Eliminates legacy dark navy container and floating emergency pills.
+- **Row 1 (Lifecycle Status Tabs)**: Mutually exclusive status tabs (`All`, `Needs review`, `In progress`, `Waiting on others`, `Done`).
+  - Active tab: 2 px dark bottom border (`border-slate-900 font-bold text-slate-900`) and solid dark count pill (`bg-slate-900 text-white rounded-full px-2 py-0.5`).
+  - Inactive tabs: Transparent border with muted count pill (`bg-slate-100 text-slate-600 rounded-full px-2 py-0.5`).
+  - Responsive: Renders as horizontal underline tab strip on `lg` (>= 1024 px); collapses to a single select dropdown (`Status: All (19)`) below 1024 px.
+- **Row 2 (Search & Secondary Popover)**: Full-width search bar (`flex-1 min-w-[200px]`), secondary "Filters" drawer button with active count badge, and a single dark primary "Apply" button (`bg-slate-900 text-white`).
+- **Row 3 (Toggles & Active Filter Chips)**:
+  - Independent quick-filter toggle chips: `My cases`, `Overdue`, and `Emergency` (neutral when inactive and count 0; red when active or count > 0).
+  - Removable active secondary filter chips with `✕` dismiss icons (Purok, Category, Status, Assignee, Fiscal Year, Search term).
+  - "Clear all" link resets all secondary filters and chips back to the active stage.
+- **Navigation Architecture**: "My Cases" is an independent filter chip on the queue, **not a sidebar item**. The sidebar retains only the centralized "Report Queue" (`admin.reports.*`), while `/admin/my-cases` issues a 302 redirect to `/admin/reports?my_cases=1`.
+- **Scoped Counts Mandate**: When `my_cases` is active, all tab counts in Row 1 dynamically scope to the current authenticated user's assigned cases so tab counts match the exact number of rows displayed.
+
+---
+
 ### Responsive Rules Summary (All Patterns)
 1. **Title Row**: Under 768 px, action buttons wrap below the page title. Under 480 px, the primary button expands to 100% full width.
 2. **Tables**: Wrap inside an `overflow-x-auto` card container. The first identifier column pins sticky left with an elevation divider.
@@ -1178,6 +1194,7 @@ Used for: Official Summons, Case Endorsements, Referral Letters, Amicable Settle
 | `<x-ui.kpi-card>` | `title`, `value`, `icon`, `url`, `trend` | Standard dashboard card | Static | Standardized executive dashboard tile with bottom-left drilldown link. |
 | `<x-ui.signatory-block>`| `documentType`, `incumbents` | 2 or 3 equal columns | Draft, verified | Letterhead signature block printing blank rules when signatories are unconfirmed. |
 | `<x-ui.tab-bar>` | `tabs` (array), `active` | Underline border style | Active, inactive | Segmented tab strip highlighting active section with 2 px blue bottom border. |
+| `<x-ui.queue-filters>` | `currentStage`, `stageCounts`, `statusFilter`, `emergencyOnly`, `emergencyCount`, `isMyCases`, `myCasesCount`, `overdueOnly`, `overdueCount` | 3-row white card | Responsive (tabs >= 1024px, select < 1024px) | Unified queue filter bar. My cases is a toggle chip, not a sidebar item; tab counts scope to active view. |
 | `<x-ui.stepper>` | `steps` (array), `current` | Horizontal (desktop), vertical (mobile) | Pending, active, completed | Step progression bar for multi-step wizards and agency referral progress tracking. |
 
 > [!NOTE]

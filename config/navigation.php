@@ -31,14 +31,7 @@ return [
                     'route' => 'admin.reports.index',
                     'icon' => 'fa-solid fa-inbox',
                     'permission' => null,
-                    'active_pattern' => 'admin.reports.index',
-                ],
-                [
-                    'label' => 'My Cases',
-                    'route' => 'admin.reports.my-cases',
-                    'icon' => 'fa-solid fa-user-check',
-                    'permission' => null,
-                    'active_pattern' => 'admin.reports.my-cases',
+                    'active_pattern' => 'admin.reports.*',
                 ],
                 [
                     'label' => 'Barangay Cases',

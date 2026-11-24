@@ -21,7 +21,7 @@
       <i class="fa-solid fa-inbox" aria-hidden="true"></i>
       <span>Report queue</span>
     </a>
-    <a href="{{ route('admin.reports.my-cases') }}" class="dashboard-action-btn">
+    <a href="{{ route('admin.reports.index', ['my_cases' => 1]) }}" class="dashboard-action-btn">
       <i class="fa-solid fa-user-check" aria-hidden="true"></i>
       <span>My cases</span>
     </a>

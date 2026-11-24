@@ -277,3 +277,77 @@ Protected by `auth`, `role:staff`, `permission:imports.manage`.
 | `GET` | `/admin/imports/{id}/preview` | `admin.imports.preview` | `permission:imports.manage` | Preview parsed rows and duplicate warnings. | Built |
 | `POST` | `/admin/imports/{id}/commit` | `admin.imports.commit` | `permission:imports.manage` | Commit rows in chunks (original case numbers). | Built |
 | `POST` | `/admin/imports/{id}/rollback` | `admin.imports.rollback` | `permission:imports.manage` | Roll back committed batch completely. | Built |
+
+---
+
+## 7. Planned Routes (Voice Prototype — WS7)
+
+> [!NOTE]
+> All routes below are **Planned (not yet implemented)**. Route names and URLs are tentative and will be finalized in `docs/ROUTES.snapshot.json` upon implementation via `php artisan route:list --json > docs/ROUTES.snapshot.json`.
+
+| Method | Tentative URI | Tentative Route Name | Middleware / Permission | Purpose | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `POST` | `/report/voice/transcribe` | `reports.voice.transcribe` | `public`, `throttle:5,1` | Uploads raw audio recording or audio file; returns transcript token and state. | Planned |
+| `GET` | `/admin/reports/phone` | `admin.reports.phone.create` | `auth`, `role:staff`, `permission:reports.log_phone` | Renders the hotline phone complaint intake form. | Planned |
+| `POST` | `/admin/reports/phone` | `admin.reports.phone.store` | `auth`, `role:staff`, `permission:reports.log_phone` | Submits telephone report with verbal consent and audio token. | Planned |
+| `GET` | `/admin/reports/{report}/audio` | `admin.reports.audio` | `auth`, `role:staff`, `permission:reports.view` | Streams private audio with HTTP Range support (`Cache-Control: private, no-store`). | Planned |
+| `POST` | `/admin/reports/{report}/audio/verify` | `admin.reports.audio.verify` | `auth`, `role:staff`, `permission:reports.view` | Staff listens to uncertain audio, confirms/inputs text, and clears review gate. | Planned |
+
+### Request & Response Specifications
+
+#### 1. Public Transcription Endpoint (`POST /report/voice/transcribe`)
+- **Request**: `multipart/form-data`
+  - `audio`: Required audio file (max 10 MB, duration $\le 60\text{s}$, MIME `audio/webm`, `audio/mp4`, `audio/ogg`, or `audio/wav`).
+- **Response - Success (`transcript_status = done`)**:
+  ```json
+  {
+    "token": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "status": "done",
+    "transcript": "May sirang kalsada at baradong kanal sa tapat ng purok hall...",
+    "language": "fil",
+    "duration_seconds": 28
+  }
+  ```
+  *(Text is automatically inserted into description textarea for reporter review)*.
+- **Response - Uncertain (`transcript_status = needs_verification`)**:
+  ```json
+  {
+    "token": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "status": "needs_verification",
+    "unverified_draft": "May sirang... [unintelligible]",
+    "language": "fil",
+    "message": "We couldn't understand this recording clearly. Type a short description, or send the recording and barangay staff will listen to it."
+  }
+  ```
+  *(Guessed text is NEVER inserted as description; report is accepted with placeholder if empty, and staff must verify)*.
+- **Response - Error (`transcript_status = failed`)**:
+  ```json
+  {
+    "token": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "status": "failed",
+    "error": "Transcription timeout or unreadable audio format.",
+    "message": "We couldn't understand this recording clearly. Type a short description, or send the recording and barangay staff will listen to it."
+  }
+  ```
+
+#### 2. Hotline Phone Report Submission (`POST /admin/reports/phone`)
+- **Request**:
+  - `audio_token`: UUID token (optional if officer typed notes directly).
+  - `caller_name`: String (optional).
+  - `caller_contact`: String (optional).
+  - `purok_id`: Foreign key (required).
+  - `description`: Text (required; officer notes or verified transcript).
+  - `verbal_consent`: Boolean `true` (required checkbox certifying verbal consent).
+
+#### 3. Audio Streaming Endpoint (`GET /admin/reports/{report}/audio`)
+- **Headers**:
+  - `Range: bytes=0-` (supported for seeking/scrubbing).
+  - Returns `206 Partial Content` with `Content-Range`, `Content-Type: audio/webm` (or matching mime), `Cache-Control: private, no-store`.
+  - Responds `403 Forbidden` if user lacks `reports.view` or report has no audio.
+  - Never accessible on unauthenticated public routes.
+
+#### 4. Staff Audio Verification (`POST /admin/reports/{report}/audio/verify`)
+- **Request**:
+  - `verified_description`: Text (required; confirmed transcript or corrected text).
+  - `verification_note`: Text (optional).
+- **Response**: Redirect back to report review page with success toast. Unblocks "Confirm and route" action.

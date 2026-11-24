@@ -65,7 +65,7 @@
     <x-ui.kpi-card title="Newly Filed" :value="$caseMetrics['cases_filed']" color="slate" icon="fa-solid fa-file-circle-plus" />
     <x-ui.kpi-card title="Settled" :value="$caseMetrics['cases_settled']" color="green" icon="fa-solid fa-handshake" />
     <x-ui.kpi-card title="Escalated / CFA" :value="$caseMetrics['ready_for_next']" color="amber" icon="fa-solid fa-gavel" />
-    <x-ui.kpi-card title="Avg Days to Settle" :value="$caseMetrics['avg_days_to_settle']" color="blue" icon="fa-solid fa-clock" subtitle="Days" />
+    <x-ui.kpi-card title="Avg Days to Settle" :value="$caseMetrics['avg_days_to_settle']" color="blue" icon="fa-solid fa-clock" unit="days" />
     <x-ui.kpi-card title="Overdue Cases" :value="$caseMetrics['overdue_cases']" :color="$caseMetrics['overdue_cases'] > 0 ? 'red' : 'green'" icon="fa-solid fa-calendar-xmark" />
   </div>
 </section>

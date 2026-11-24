@@ -63,7 +63,7 @@
                                 <x-ui.badge variant="success" dot>Completed</x-ui.badge>
                             </td>
                             <td data-label="Action" class="py-3.5 px-4 text-right">
-                                <a href="{{ route('admin.backups.download', ['file' => $b['filename']]) }}"
+                                <a href="{{ route('admin.backups.download', ['file' => $b['filename']]) }}" data-turbo="false"
                                     class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors">
                                     <i class="fa-solid fa-download text-xs"></i>
                                     <span>Download</span>

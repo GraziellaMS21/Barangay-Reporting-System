@@ -10,11 +10,11 @@
         subtitle="Import historical cases, blotter entries, and parties across the last {{ count($allowedYears) - 1 }} record years ({{ min($allowedYears) }}–{{ max($allowedYears) }}) without consuming active numbering sequences."
     >
         <x-slot:actions>
-            <x-ui.button variant="secondary" href="{{ route('admin.imports.template', ['format' => 'csv']) }}">
+            <x-ui.button variant="secondary" href="{{ route('admin.imports.template', ['format' => 'csv']) }}" data-turbo="false">
                 <i class="fa-solid fa-file-csv" aria-hidden="true"></i>
                 <span>CSV Template</span>
             </x-ui.button>
-            <x-ui.button variant="secondary" href="{{ route('admin.imports.template') }}">
+            <x-ui.button variant="secondary" href="{{ route('admin.imports.template') }}" data-turbo="false">
                 <i class="fa-solid fa-file-excel text-emerald-700" aria-hidden="true"></i>
                 <span>Download Blank Template (.xlsx)</span>
             </x-ui.button>

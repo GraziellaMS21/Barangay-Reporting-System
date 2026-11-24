@@ -60,7 +60,7 @@
                     {{ $gen->generatedBy?->name ?? 'System' }}
                 </td>
                 <td class="px-4 py-3 text-right">
-                    <x-ui.button size="sm" variant="secondary" :href="route('admin.reports-center.download', $gen)">
+                    <x-ui.button size="sm" variant="secondary" :href="route('admin.reports-center.download', $gen)" data-turbo="false">
                         <i class="fa-solid fa-download"></i> Download
                     </x-ui.button>
                 </td>

@@ -308,7 +308,7 @@
       @checked(request('pin') === '1')>
     Pin emergencies to top
   </label>
-  <a class="btn btn-navy btn-small" href="{{ route('admin.reports.export', $exportParams) }}">
+  <a class="btn btn-navy btn-small" href="{{ route('admin.reports.export', $exportParams) }}" data-turbo="false">
     <i class="fa-solid fa-file-csv" aria-hidden="true"></i> Export CSV
   </a>
 </div>

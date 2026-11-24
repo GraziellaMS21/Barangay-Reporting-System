@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="csrf-token" content="{{ csrf_token() }}">
+  <meta name="turbo-cache-control" content="no-cache">
+  <meta name="turbo-prefetch" content="false">
   @php
     $currentUser = auth()->user();
     $isAdmin = $currentUser?->isAdmin() ?? false;
@@ -40,7 +42,7 @@
   @vite(['resources/css/app.css', 'resources/js/app.js'])
   @stack('head')
 </head>
-<x-hall-background>
+<x-hall-background data-turbo="{{ config('features.admin_turbo', true) ? 'true' : 'false' }}">
   <div class="staff-shell">
     @php
       $adminNav = config('navigation.admin', []);

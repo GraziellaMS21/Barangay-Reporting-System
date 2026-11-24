@@ -18,6 +18,7 @@
     },
     "dependencies": {
         "@fortawesome/fontawesome-free": "^7.3.1",
+        "@hotwired/turbo": "^8.0.23",
         "chart.js": "^4.6.1",
         "leaflet": "^1.9.4"
     }

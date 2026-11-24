@@ -238,4 +238,32 @@ class AgencyWorkflowTest extends TestCase
         $response->assertSessionHasErrors('email');
         $this->assertGuest();
     }
+
+    public function test_agency_layout_includes_scoped_turbo_controls(): void
+    {
+        $office = Office::create(['name' => 'CSWDO Zamboanga', 'type' => 'external', 'is_external' => true, 'is_active' => true]);
+        $user = User::factory()->create([
+            'email' => 'cswdo-turbo@agency.gov.ph',
+            'password' => bcrypt('password123'),
+            'role' => 'agency',
+            'office_id' => $office->id,
+            'is_active' => true,
+            'email_verified_at' => now(),
+        ]);
+        AgencyRegistration::factory()->create([
+            'user_id' => $user->id,
+            'office_id' => $office->id,
+            'status' => 'approved',
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('agency.referrals.index'))
+            ->assertOk()
+            ->assertSee('<meta name="turbo-cache-control" content="no-cache">', false)
+            ->assertSee('<meta name="turbo-prefetch" content="false">', false)
+            ->assertSee('data-turbo="true"', false)
+            ->assertSee('id="staff-sidebar"', false)
+            ->assertSee('data-turbo-permanent', false)
+            ->assertSee('action="'.route('logout').'" data-turbo="false"', false);
+    }
 }

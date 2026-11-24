@@ -136,7 +136,8 @@
                                  formaction="{{ route('admin.reports-center.export', $template->key) }}"
                                  formmethod="POST"
                                  name="format"
-                                 value="pdf">
+                                 value="pdf"
+                                 data-turbo="false">
                         <i class="fa-solid fa-file-pdf"></i> Export PDF
                     </x-ui.button>
 
@@ -145,7 +146,8 @@
                                  formaction="{{ route('admin.reports-center.export', $template->key) }}"
                                  formmethod="POST"
                                  name="format"
-                                 value="xlsx">
+                                 value="xlsx"
+                                 data-turbo="false">
                         <i class="fa-solid fa-file-excel"></i> Export Excel
                     </x-ui.button>
 
@@ -154,14 +156,16 @@
                                  formaction="{{ route('admin.reports-center.export', $template->key) }}"
                                  formmethod="POST"
                                  name="format"
-                                 value="csv">
+                                 value="csv"
+                                 data-turbo="false">
                         <i class="fa-solid fa-file-csv"></i> Export CSV
                     </x-ui.button>
                 @endcan
 
                 <x-ui.button variant="primary"
                              :href="route('admin.reports-center.show', array_merge(['key' => $template->key, 'print' => 1], $filters))"
-                             target="_blank">
+                             target="_blank"
+                             data-turbo="false">
                     <i class="fa-solid fa-print"></i> Print
                 </x-ui.button>
             </div>

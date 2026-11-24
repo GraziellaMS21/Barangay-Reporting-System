@@ -18,7 +18,7 @@
     $initial = str($currentUser?->name ?? 'U')->substr(0, 1)->upper();
 @endphp
 
-<aside id="staff-sidebar" class="staff-sidebar {{ $theme === 'slate' ? 'staff-sidebar--slate' : '' }}" aria-label="Navigation">
+<aside id="staff-sidebar" class="staff-sidebar {{ $theme === 'slate' ? 'staff-sidebar--slate' : '' }}" aria-label="Navigation" data-turbo-permanent>
     <!-- Brand Header -->
     <header class="staff-sidebar-header">
         <a href="{{ $brandRoute }}" class="site-brand staff-sidebar-brand" title="{{ $brandTitle }} · {{ $brandSubtitle }}">

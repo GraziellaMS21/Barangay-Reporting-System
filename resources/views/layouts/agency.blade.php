@@ -4,11 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="csrf-token" content="{{ csrf_token() }}">
+  <meta name="turbo-cache-control" content="no-cache">
+  <meta name="turbo-prefetch" content="false">
   <title>@yield('title', 'Agency Portal') | Barangay Calarian</title>
   @vite(['resources/css/app.css', 'resources/js/app.js'])
   @stack('head')
 </head>
-<body class="bg-slate-50 text-slate-900 min-h-screen">
+<body class="bg-slate-50 text-slate-900 min-h-screen" data-turbo="{{ config('features.agency_turbo', true) ? 'true' : 'false' }}">
   @php
     $agencyUser = auth()->user();
     $agencyOffice = $agencyUser?->office;

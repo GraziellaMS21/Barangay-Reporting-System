@@ -9,7 +9,7 @@
         title="Pending Confirmations Register"
         subtitle="Review baseline assumptions and unconfirmed placeholder configurations awaiting official verification from the Barangay.">
         <x-slot:actions>
-            <x-ui.button href="{{ route('admin.pending.export') }}" variant="secondary">
+            <x-ui.button href="{{ route('admin.pending.export') }}" variant="secondary" data-turbo="false">
                 <i class="fa-solid fa-file-csv text-xs mr-1.5"></i>
                 <span>Export Register (CSV)</span>
             </x-ui.button>

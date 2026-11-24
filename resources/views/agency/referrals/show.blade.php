@@ -89,7 +89,7 @@
                     <span class="block text-[11px] text-slate-400">Uploaded {{ $att->created_at->format('M d, Y h:i A') }}</span>
                   </div>
                 </div>
-                <a href="{{ route('agency.referrals.attachments.download', [$referral, $att]) }}" class="inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-sm">
+                <a href="{{ route('agency.referrals.attachments.download', [$referral, $att]) }}" data-turbo="false" class="inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-sm">
                   <i class="fa-solid fa-download"></i> Download
                 </a>
               </li>

@@ -167,4 +167,40 @@ class StaffPagesTest extends TestCase
         $this->assertGreaterThan($filtersEndPosition, $mapCardPosition);
         $this->assertGreaterThan($mapCardPosition, $hotspotsCardPosition);
     }
+
+    public function test_authenticated_layouts_include_scoped_turbo_controls(): void
+    {
+        $staff = User::factory()->staff()->create();
+        $admin = User::factory()->admin()->create();
+
+        // Admin & Staff layouts have turbo-cache-control, data-turbo="true", permanent sidebar, and non-turbo logout
+        $this->actingAs($staff)
+            ->get(route('admin.dashboard'))
+            ->assertOk()
+            ->assertSee('<meta name="turbo-cache-control" content="no-cache">', false)
+            ->assertSee('<meta name="turbo-prefetch" content="false">', false)
+            ->assertSee('data-turbo="true"', false)
+            ->assertSee('id="staff-sidebar"', false)
+            ->assertSee('data-turbo-permanent', false)
+            ->assertSee('action="'.route('logout').'" data-turbo="false"', false);
+
+        // Export links have data-turbo="false"
+        $this->actingAs($admin)
+            ->get(route('admin.reports.index'))
+            ->assertOk()
+            ->assertSee('/admin/reports/export')
+            ->assertSee('data-turbo="false"', false);
+
+        $this->actingAs($admin)
+            ->get(route('admin.cases.index'))
+            ->assertOk()
+            ->assertSee(route('admin.cases.export-csv'))
+            ->assertSee('data-turbo="false"', false);
+
+        // Public and resident pages must NOT have Turbo enabled
+        $this->get(route('reports.create'))
+            ->assertOk()
+            ->assertDontSee('name="turbo-cache-control"', false)
+            ->assertDontSee('data-turbo="true"', false);
+    }
 }

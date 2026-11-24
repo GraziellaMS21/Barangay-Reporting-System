@@ -191,7 +191,7 @@ class RequiredDataSeeder extends Seeder
             ],
             [
                 'key' => 'numbering.case.format',
-                'value' => 'CASE-{YEAR}-{SEQ:5}',
+                'value' => '{MM}-{SEQ:3}-{YEAR}',
                 'type' => 'string',
                 'group' => 'numbering',
                 'label' => 'Case Number Format',

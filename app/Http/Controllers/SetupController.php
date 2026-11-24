@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\FiscalYear;
+use App\Models\Permission;
 use App\Models\Personnel;
 use App\Models\Position;
 use App\Models\Setting;
@@ -39,6 +40,23 @@ class SetupController extends Controller
     {
         if ($this->isCompleted()) {
             return redirect()->route('login');
+        }
+
+        if ($step === '5b') {
+            return view('setup.step5b', [
+                'currentStep' => '5b',
+                'steps' => [
+                    ['label' => 'Verification', 'step' => 1],
+                    ['label' => 'Admin Account', 'step' => 2],
+                    ['label' => 'Barangay Profile', 'step' => 3],
+                    ['label' => 'Fiscal Year', 'step' => 4],
+                    ['label' => 'Personnel & Review', 'step' => 5],
+                    ['label' => 'Staff Onboarding', 'step' => '5b'],
+                ],
+                'positions' => Position::orderBy('sort_order')->get(),
+                'presets' => config('permission_presets.presets', []),
+                'staffMembers' => User::where('role', 'staff')->get(),
+            ]);
         }
 
         $stepNum = (int) $step;
@@ -176,6 +194,48 @@ class SetupController extends Controller
             session(['setup_step' => 5]);
 
             return redirect()->route('setup.step', ['step' => 5])->with('success', "Fiscal year {$year} configured and activated.");
+        }
+
+        if ($step === '5b') {
+            if ($request->has('skip') || $request->input('action') === 'skip') {
+                return $this->finish($request);
+            }
+
+            if (Permission::count() === 0) {
+                app(RequiredDataSeeder::class)->run();
+            }
+
+            $validated = $request->validate([
+                'name' => ['required', 'string', 'max:255'],
+                'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+                'password' => ['required', 'string', 'min:8'],
+                'position_id' => ['nullable', 'exists:positions,id'],
+                'preset' => ['nullable', 'string', 'in:'.implode(',', array_keys(config('permission_presets.presets', [])))],
+            ]);
+
+            $staff = User::create([
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'password' => Hash::make($validated['password']),
+                'role' => 'staff',
+                'is_active' => true,
+                'must_change_password' => true,
+            ]);
+
+            if (! empty($validated['preset'])) {
+                $presetConfig = config("permission_presets.presets.{$validated['preset']}");
+                if (! empty($presetConfig['permissions'])) {
+                    $permissions = Permission::whereIn('slug', $presetConfig['permissions'])->get();
+                    $staff->permissions()->sync($permissions);
+                }
+            }
+
+            if ($request->has('add_another')) {
+                return redirect()->route('setup.step', ['step' => '5b'])
+                    ->with('success', "Staff account {$staff->name} provisioned. You may add another staff member or complete setup.");
+            }
+
+            return $this->finish($request);
         }
 
         if ($stepNum === 5) {

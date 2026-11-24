@@ -57,5 +57,25 @@ return [
                 'dashboard.view',
             ],
         ],
+        'vaw_focal' => [
+            'label' => 'VAW Focal Person / Desk Officer',
+            'description' => 'Dedicated access to dispute cases including confidential domestic violence cases, community reports, and reporting analytics.',
+            'permissions' => [
+                'cases.view',
+                'cases.view_confidential',
+                'reports.view',
+                'reports_center.view',
+                'dashboard.view',
+            ],
+        ],
+        'minor_kagawad' => [
+            'label' => 'Kagawad Handling Disputes with Minors (BCPC)',
+            'description' => 'Access to review cases involving minors and child protection disputes with dashboard analytics.',
+            'permissions' => [
+                'cases.view',
+                'cases.view_confidential',
+                'dashboard.view',
+            ],
+        ],
     ],
 ];

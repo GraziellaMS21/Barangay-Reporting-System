@@ -266,12 +266,14 @@
             <div class="text-center space-y-1">
                 <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Prepared by</p>
                 <div class="h-14 flex items-end justify-center"><div class="w-44 border-b border-slate-400"></div></div>
-                <p class="text-xs text-slate-600">Barangay Secretary</p>
+                <p class="text-xs font-semibold text-slate-700">Authorized Signature</p>
+                <p class="text-[11px] text-slate-500">Barangay Official</p>
             </div>
             <div class="text-center space-y-1">
                 <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Approved by</p>
                 <div class="h-14 flex items-end justify-center"><div class="w-44 border-b border-slate-400"></div></div>
-                <p class="text-xs text-slate-600">Punong Barangay</p>
+                <p class="text-xs font-semibold text-slate-700">Authorized Signature</p>
+                <p class="text-[11px] text-slate-500">Barangay Official</p>
             </div>
         @endforelse
     </div>

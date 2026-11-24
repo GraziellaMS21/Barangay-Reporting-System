@@ -41,16 +41,22 @@
         </div>
     </div>
 
-    <form method="POST" action="{{ route('setup.finish') }}" class="flex items-center justify-between pt-6 border-t border-slate-100">
+    <form method="POST" action="{{ route('setup.finish') }}" class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-6 border-t border-slate-100">
         @csrf
         <a href="{{ route('setup.step', ['step' => 4]) }}" class="text-sm font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-1.5">
             <i class="fa-solid fa-arrow-left text-xs"></i>
             <span>Back</span>
         </a>
-        <x-ui.button type="submit" variant="amber">
-            <i class="fa-solid fa-check text-xs mr-1.5"></i>
-            <span>Complete Setup</span>
-        </x-ui.button>
+        <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+            <a href="{{ route('setup.step', ['step' => '5b']) }}" class="px-4 py-2 text-xs font-semibold text-blue-700 hover:text-blue-800 border border-blue-200 rounded-lg bg-blue-50 shadow-sm hover:bg-blue-100 flex items-center gap-1.5">
+                <i class="fa-solid fa-user-plus text-xs"></i>
+                <span>Add Staff Accounts (Optional)</span>
+            </a>
+            <x-ui.button type="submit" variant="amber">
+                <i class="fa-solid fa-check text-xs mr-1.5"></i>
+                <span>Complete Setup</span>
+            </x-ui.button>
+        </div>
     </form>
 </div>
 @endsection

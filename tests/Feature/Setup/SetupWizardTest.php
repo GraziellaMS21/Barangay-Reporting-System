@@ -4,6 +4,7 @@ namespace Tests\Feature\Setup;
 
 use App\Models\FiscalYear;
 use App\Models\Setting;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -87,6 +88,46 @@ class SetupWizardTest extends TestCase
         $this->withoutSetup();
 
         $response = $this->post(route('setup.finish'));
+        $response->assertRedirect(route('login'));
+
+        $setting = Setting::where('key', 'system.setup_completed')->first();
+        $this->assertNotNull($setting);
+        $this->assertTrue(filter_var($setting->value, FILTER_VALIDATE_BOOLEAN));
+    }
+
+    public function test_step_5b_renders_and_allows_provisioning_staff_with_preset(): void
+    {
+        $this->withoutSetup();
+
+        $response = $this->get(route('setup.step', ['step' => '5b']));
+        $response->assertOk()
+            ->assertSeeText('Step 5b: Staff Onboarding & Role Presets')
+            ->assertSeeText('VAW Focal Person / Desk Officer')
+            ->assertSeeText('Kagawad Handling Disputes with Minors (BCPC)');
+
+        $postResponse = $this->post(route('setup.store', ['step' => '5b']), [
+            'name' => 'Kagawad BCPC Officer',
+            'email' => 'bcpc.officer@calarian.gov.ph',
+            'password' => 'password123',
+            'preset' => 'minor_kagawad',
+        ]);
+
+        $postResponse->assertRedirect(route('login'));
+
+        $user = User::where('email', 'bcpc.officer@calarian.gov.ph')->first();
+        $this->assertNotNull($user);
+        $this->assertEquals('staff', $user->role);
+        $this->assertTrue($user->hasPermission('cases.view_confidential'));
+    }
+
+    public function test_step_5b_can_be_skipped_to_complete_setup(): void
+    {
+        $this->withoutSetup();
+
+        $response = $this->post(route('setup.store', ['step' => '5b']), [
+            'skip' => '1',
+        ]);
+
         $response->assertRedirect(route('login'));
 
         $setting = Setting::where('key', 'system.setup_completed')->first();

@@ -57,7 +57,7 @@ class NumberingService
     {
         $default = match ($type) {
             'referral' => 'REF-{YEAR}-{SEQ:4}',
-            'case' => 'CASE-{YEAR}-{SEQ:5}',
+            'case' => '{MM}-{SEQ:3}-{YEAR}',
             'blotter' => '{MM}-{SEQ:3}-{YEAR}',
             'summons' => 'SUM-{YEAR}-{SEQ:4}',
             default => strtoupper($type).'-{YEAR}-{SEQ:4}',

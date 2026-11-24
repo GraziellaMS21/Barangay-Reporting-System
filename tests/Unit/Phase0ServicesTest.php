@@ -93,7 +93,7 @@ class Phase0ServicesTest extends TestCase
         $this->assertEquals('REF-2028-0002', $next2);
 
         $case1 = $numbering->next('case', $fy);
-        $this->assertEquals('CASE-2028-00001', $case1);
+        $this->assertEquals(now()->format('m').'-001-2028', $case1);
     }
 
     public function test_fiscal_year_guard(): void

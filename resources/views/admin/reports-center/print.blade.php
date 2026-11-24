@@ -134,12 +134,14 @@
             <div class="signatory-col">
                 <div style="font-size: 8.5pt; color: #475569; text-transform: uppercase;">Prepared by</div>
                 <div class="sig-line"></div>
-                <div style="font-size: 8.5pt; color: #475569;">Barangay Secretary</div>
+                <div style="font-size: 8.5pt; color: #475569;">Authorized Signature</div>
+                <div style="font-size: 8pt; color: #64748b;">Barangay Official</div>
             </div>
             <div class="signatory-col">
                 <div style="font-size: 8.5pt; color: #475569; text-transform: uppercase;">Approved by</div>
                 <div class="sig-line"></div>
-                <div style="font-size: 8.5pt; color: #475569;">Punong Barangay</div>
+                <div style="font-size: 8.5pt; color: #475569;">Authorized Signature</div>
+                <div style="font-size: 8pt; color: #64748b;">Barangay Official</div>
             </div>
         @endforelse
     </div>

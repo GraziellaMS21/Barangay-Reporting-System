@@ -146,4 +146,80 @@ class ReportQueueTest extends TestCase
 
         $this->assertSame(0, $response->viewData('emergencyCount'));
     }
+
+    public function test_compact_queue_rows_layout_and_priority_badges(): void
+    {
+        $staff = User::factory()->staff()->create([
+            'name' => 'Hon. Eduardo V. Alvarez',
+        ]);
+
+        $criticalReport = Report::factory()->create([
+            'tracking_code' => 'BRG-CRIT01',
+            'status' => 'under_review',
+            'urgency' => 'critical',
+            'assigned_to' => $staff->id,
+            'due_at' => now()->subHours(4),
+        ]);
+
+        $highReport = Report::factory()->create([
+            'tracking_code' => 'BRG-HIGH01',
+            'status' => 'submitted',
+            'urgency' => 'high',
+            'assigned_to' => null,
+        ]);
+
+        $mediumReport = Report::factory()->create([
+            'tracking_code' => 'BRG-MED001',
+            'status' => 'submitted',
+            'urgency' => 'medium',
+            'assigned_to' => null,
+        ]);
+
+        $lowReport = Report::factory()->create([
+            'tracking_code' => 'BRG-LOW001',
+            'status' => 'submitted',
+            'urgency' => 'low',
+            'assigned_to' => null,
+        ]);
+
+        $response = $this->actingAs($staff)
+            ->get(route('admin.reports.index'))
+            ->assertOk();
+
+        // Row link target
+        $response->assertSee(route('admin.reports.show', $criticalReport), false);
+        $response->assertSee(route('admin.reports.show', $highReport), false);
+
+        // Priority badges: rendered for High and Critical
+        $response->assertSee('<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700 uppercase tracking-wide shrink-0">Critical</span>', false);
+        $response->assertSee('<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 uppercase tracking-wide shrink-0">High</span>', false);
+
+        // Priority badges NOT shown for Medium or Low
+        $response->assertDontSee('uppercase tracking-wide shrink-0">Medium</span>', false);
+        $response->assertDontSee('uppercase tracking-wide shrink-0">Low</span>', false);
+
+        // sr-only priority text on every row
+        $response->assertSee('<span class="sr-only">Priority: Critical</span>', false);
+        $response->assertSee('<span class="sr-only">Priority: High</span>', false);
+        $response->assertSee('<span class="sr-only">Priority: Medium</span>', false);
+        $response->assertSee('<span class="sr-only">Priority: Low</span>', false);
+
+        // Row left stripe classes for Critical and High
+        $response->assertSee('border-l-4 border-l-red-600', false);
+        $response->assertSee('border-l-4 border-l-amber-500', false);
+
+        // Initials fallback strips honorifics and limits to at most 2 characters ("Hon. Eduardo V. Alvarez" -> "EA", not "HEVA")
+        $response->assertSee('>EA</span>', false);
+        $response->assertDontSee('>HEVA</span>', false);
+
+        // Unassigned avatar uses dash fallback
+        $response->assertSee('>—</span>', false);
+
+        // Kebab menu is present on each row with accessible toggle button
+        $response->assertSee('aria-label="More actions for '.$criticalReport->tracking_code.'"', false);
+        $response->assertSee('aria-label="More actions for '.$highReport->tracking_code.'"', false);
+
+        // Overdue text rendered in Next Action cell
+        $response->assertSee('title="Overdue"', false);
+    }
 }

@@ -15,6 +15,12 @@ class Report extends Model
 {
     use BelongsToFiscalYear, HasFactory;
 
+    public const SOURCE_WEB = 'web';
+
+    public const SOURCE_VOICE = 'voice';
+
+    public const SOURCE_PHONE_LOG = 'phone_log';
+
     public const STATUSES = [
         'submitted' => 'Submitted',
         'under_review' => 'Under Review',
@@ -156,6 +162,7 @@ class Report extends Model
         'fiscal_year_id',
         'tracking_code',
         'status',
+        'source',
         'no_action_reason',
         'description',
         'staff_description',
@@ -317,6 +324,25 @@ class Report extends Model
         return $this->hasMany(ResolutionProof::class);
     }
 
+    public function audio(): HasOne
+    {
+        return $this->hasOne(ReportAudio::class)->latestOfMany('id');
+    }
+
+    public function audios(): HasMany
+    {
+        return $this->hasMany(ReportAudio::class);
+    }
+
+    public function hasUnverifiedAudio(): bool
+    {
+        if (! $this->relationLoaded('audio')) {
+            $this->load('audio');
+        }
+
+        return $this->audio !== null && $this->audio->needsVerification();
+    }
+
     public function feedback(): HasOne
     {
         return $this->hasOne(Feedback::class);
@@ -369,6 +395,16 @@ class Report extends Model
                 'action' => 'Immediate response',
                 'due_text' => $dueText ?? 'Urgent',
                 'due_tone' => 'red',
+            ];
+        }
+
+        if ($this->hasUnverifiedAudio()) {
+            return [
+                'actor' => 'Staff',
+                'actor_tone' => 'amber',
+                'action' => 'Verify audio',
+                'due_text' => $dueText,
+                'due_tone' => 'amber',
             ];
         }
 

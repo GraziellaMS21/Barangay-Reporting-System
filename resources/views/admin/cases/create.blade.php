@@ -31,6 +31,19 @@
         </div>
     @endif
 
+    @if(isset($sourceIntake) && $sourceIntake)
+        <div class="p-4 bg-blue-50 border-l-4 border-blue-600 rounded-r-lg text-sm text-blue-900 flex items-start justify-between">
+            <div>
+                <p class="font-semibold flex items-center gap-2">
+                    <i class="fa-solid fa-inbox text-blue-600"></i>
+                    <span>Docketing from Resident Complaint Intake #{{ $sourceIntake->id }}</span>
+                </p>
+                <p class="text-xs text-blue-800 mt-0.5">Complainant, respondent, and 5Ws narrative have been prefilled from citizen submission. Review and verify parties before docketing.</p>
+            </div>
+            <span class="text-xs font-mono font-semibold bg-blue-100 text-blue-800 px-2.5 py-1 rounded">{{ $sourceIntake->case_type_suggestion ?? 'Complaint' }}</span>
+        </div>
+    @endif
+
     @if ($errors->any())
         <div class="p-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg text-sm text-red-800">
             <p class="font-semibold mb-1">Please correct the following errors:</p>
@@ -47,6 +60,10 @@
         @if($sourceReport)
             <input type="hidden" name="source_report_id" value="{{ $sourceReport->id }}">
             <input type="hidden" name="source" value="online_report">
+        @endif
+        @if(isset($sourceIntake) && $sourceIntake)
+            <input type="hidden" name="source_intake_id" value="{{ $sourceIntake->id }}">
+            <input type="hidden" name="source" value="complaint_intake">
         @endif
 
         <!-- Card A: Case Particulars -->
@@ -98,7 +115,7 @@
                         type="date"
                         name="incident_date"
                         id="incident_date"
-                        value="{{ old('incident_date') }}"
+                        value="{{ old('incident_date', isset($sourceIntake) && $sourceIntake->when_happened ? $sourceIntake->when_happened->format('Y-m-d') : null) }}"
                         max="{{ now()->toDateString() }}"
                         class="w-full text-sm border border-slate-300 rounded-md p-2 focus:ring-1 focus:ring-blue-500"
                     />
@@ -128,7 +145,7 @@
                         type="text"
                         name="incident_location"
                         id="incident_location"
-                        value="{{ old('incident_location', $sourceReport?->location) }}"
+                        value="{{ old('incident_location', $sourceReport?->location ?? (isset($sourceIntake) ? $sourceIntake->where_happened : null)) }}"
                         placeholder="e.g. Near Purok 3 Basketball Court"
                         class="w-full text-sm border border-slate-300 rounded-md p-2 focus:ring-1 focus:ring-blue-500"
                     />
@@ -155,6 +172,12 @@
                 <label for="narrative" class="block text-xs font-semibold text-slate-700 mb-1">
                     Complaint Narrative <span class="text-red-500">*</span>
                 </label>
+                @php
+                    $defaultNarrative = $sourceReport?->description;
+                    if (isset($sourceIntake) && $sourceIntake) {
+                        $defaultNarrative = $sourceIntake->what_happened . "\n\nCircumstances: " . $sourceIntake->why_how_happened . "\n\nRights Violated: " . $sourceIntake->rights_violated . "\n\nRelief Requested: " . $sourceIntake->relief_requested;
+                    }
+                @endphp
                 <textarea
                     name="narrative"
                     id="narrative"
@@ -163,7 +186,7 @@
                     minlength="20"
                     placeholder="Enter detailed facts of the dispute as narrated by the complainant (minimum 20 characters)..."
                     class="w-full text-sm border border-slate-300 rounded-md p-2 focus:ring-1 focus:ring-blue-500"
-                >{{ old('narrative', $sourceReport?->description) }}</textarea>
+                >{{ old('narrative', $defaultNarrative) }}</textarea>
                 <p class="text-[11px] text-slate-500 mt-1">Minimum 20 characters required.</p>
             </div>
 
@@ -520,5 +543,25 @@
             row.remove();
         }
     }
+
+    @if(isset($sourceIntake) && $sourceIntake)
+        document.addEventListener('DOMContentLoaded', function() {
+            // Auto-populate Complainant from Intake
+            document.getElementById('modal-role').value = 'complainant';
+            document.getElementById('modal-fullname').value = @json($sourceIntake->complainant_name);
+            document.getElementById('modal-contact').value = @json($sourceIntake->complainant_contact ?? '');
+            document.getElementById('modal-address').value = @json($sourceIntake->complainant_address ?? '');
+            document.getElementById('modal-residency').value = @json($sourceIntake->complainant_residency_claim ?? 'resident');
+            saveNewPartyFromModal();
+
+            // Auto-populate Respondent from Intake
+            document.getElementById('modal-role').value = 'respondent';
+            document.getElementById('modal-fullname').value = @json($sourceIntake->respondent_name);
+            document.getElementById('modal-contact').value = @json($sourceIntake->respondent_contact ?? '');
+            document.getElementById('modal-address').value = @json($sourceIntake->respondent_address ?? '');
+            document.getElementById('modal-residency').value = 'unverified';
+            saveNewPartyFromModal();
+        });
+    @endif
 </script>
 @endsection

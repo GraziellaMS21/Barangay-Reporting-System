@@ -9,6 +9,7 @@ use App\Models\CaseNote;
 use App\Models\CaseParty;
 use App\Models\CaseStatusLog;
 use App\Models\CaseType;
+use App\Models\ComplaintIntake;
 use App\Models\Party;
 use App\Models\Purok;
 use App\Models\Report;
@@ -93,6 +94,18 @@ class CaseController extends Controller
 
         $cases = $query->paginate(20)->withQueryString();
 
+        $activeTab = $request->query('tab', 'docket');
+        $pendingIntakesCount = ComplaintIntake::query()->where('status', 'pending')->count();
+        $pendingIntakes = null;
+
+        if ($activeTab === 'pending_intake') {
+            $pendingIntakes = ComplaintIntake::query()
+                ->where('status', 'pending')
+                ->latest('submitted_at')
+                ->paginate(20)
+                ->withQueryString();
+        }
+
         $caseTypes = CaseType::query()->where('is_active', true)->orderBy('sort_order')->get();
         $puroks = Purok::query()->orderBy('name')->get();
         $staffMembers = User::query()->where('is_active', true)->orderBy('name')->get()
@@ -109,7 +122,10 @@ class CaseController extends Controller
             'purokId',
             'residency',
             'assignedTo',
-            'search'
+            'search',
+            'activeTab',
+            'pendingIntakesCount',
+            'pendingIntakes'
         ));
     }
 
@@ -174,11 +190,14 @@ class CaseController extends Controller
         $sourceReportId = $request->query('source_report_id');
         $sourceReport = $sourceReportId ? Report::find($sourceReportId) : null;
 
+        $sourceIntakeId = $request->query('intake_id');
+        $sourceIntake = $sourceIntakeId ? ComplaintIntake::find($sourceIntakeId) : null;
+
         $caseTypes = CaseType::query()->where('is_active', true)->orderBy('sort_order')->get();
         $puroks = Purok::query()->orderBy('name')->get();
         $fieldConfigs = CaseFieldConfig::query()->where('is_visible', true)->orderBy('sort_order')->get()->groupBy('entity');
 
-        return view('admin.cases.create', compact('sourceReport', 'caseTypes', 'puroks', 'fieldConfigs'));
+        return view('admin.cases.create', compact('sourceReport', 'sourceIntake', 'caseTypes', 'puroks', 'fieldConfigs'));
     }
 
     /**
@@ -194,8 +213,9 @@ class CaseController extends Controller
             'purok_id' => ['nullable', 'exists:puroks,id'],
             'title' => ['nullable', 'string', 'max:150'],
             'narrative' => ['required', 'string', 'min:20', 'max:5000'],
-            'source' => ['nullable', 'string', 'in:walk_in,online_report,referral,other'],
+            'source' => ['nullable', 'string', 'in:walk_in,online_report,complaint_intake,referral,other'],
             'source_report_id' => ['nullable', 'exists:reports,id'],
+            'source_intake_id' => ['nullable', 'exists:complaint_intakes,id'],
             'is_confidential' => ['nullable', 'boolean'],
             'parties' => ['required', 'array', 'min:2'],
             'parties.*.role' => ['required', 'in:complainant,respondent,witness'],
@@ -250,6 +270,18 @@ class CaseController extends Controller
                 'encoded_by' => $request->user()->id,
                 'is_confidential' => (bool) ($validated['is_confidential'] ?? false),
             ]);
+
+            if (! empty($validated['source_intake_id'])) {
+                $intake = ComplaintIntake::find($validated['source_intake_id']);
+                if ($intake) {
+                    $intake->update([
+                        'status' => 'docketed',
+                        'case_id' => $case->id,
+                        'reviewed_by' => $request->user()->id,
+                        'reviewed_at' => now(),
+                    ]);
+                }
+            }
 
             // Attach parties
             foreach ($validated['parties'] as $partyInput) {

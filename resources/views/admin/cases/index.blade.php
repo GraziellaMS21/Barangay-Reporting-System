@@ -25,6 +25,29 @@
         </x-slot:actions>
     </x-ui.page-header>
 
+    <!-- Docket vs Pending Intakes Tab Strip -->
+    <div class="border-b border-slate-200 flex gap-6">
+        <a href="{{ route('admin.cases.index') }}" 
+           class="pb-3 text-sm font-semibold border-b-2 flex items-center gap-2 {{ ($activeTab ?? 'docket') !== 'pending_intake' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700' }}">
+            <i class="fa-solid fa-scale-balanced"></i>
+            <span>Cases Docket</span>
+        </a>
+        <a href="{{ route('admin.cases.index', ['tab' => 'pending_intake']) }}" 
+           class="pb-3 text-sm font-semibold border-b-2 flex items-center gap-2 {{ ($activeTab ?? 'docket') === 'pending_intake' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700' }}">
+            <i class="fa-solid fa-inbox"></i>
+            <span>Pending Intakes</span>
+            @if(!empty($pendingIntakesCount) && $pendingIntakesCount > 0)
+                <span class="px-2 py-0.5 text-xs font-bold rounded-full bg-amber-100 text-amber-800">
+                    {{ $pendingIntakesCount }}
+                </span>
+            @endif
+        </a>
+    </div>
+
+    @if(($activeTab ?? 'docket') === 'pending_intake')
+        @include('admin.cases.partials.pending-intakes-tab')
+    @else
+
     <!-- Filters Card -->
     <x-ui.card class="p-4 bg-white border border-slate-200">
         <form method="GET" action="{{ route('admin.cases.index') }}" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 text-sm">
@@ -228,6 +251,8 @@
             </x-slot:footer>
         @endif
     </x-ui.table>
+    @endif
 
+    @include('admin.cases.partials.reject-intake-modal')
 </div>
 @endsection

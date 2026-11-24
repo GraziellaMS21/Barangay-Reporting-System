@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\CaseController;
 use App\Http\Controllers\Admin\CaseFieldConfigController;
+use App\Http\Controllers\Admin\CaseIntakeController;
 use App\Http\Controllers\Admin\CaseTypeController;
 use App\Http\Controllers\Admin\PartyController;
 use Illuminate\Support\Facades\Route;
@@ -59,6 +60,14 @@ Route::middleware(['auth', 'role:staff'])->prefix('admin')->name('admin.')->grou
             Route::post('/{case}/status', [CaseController::class, 'status'])->name('status');
             Route::post('/{case}/assign', [CaseController::class, 'assign'])->name('assign');
             Route::post('/{case}/notes', [CaseController::class, 'storeNote'])->name('notes.store');
+        });
+
+        // Citizen Pending Intakes
+        Route::middleware(['permission:cases.view'])->group(function () {
+            Route::get('/intakes/{intake}', [CaseIntakeController::class, 'show'])->name('intakes.show');
+        });
+        Route::middleware(['permission:cases.edit'])->group(function () {
+            Route::post('/intakes/{intake}/reject', [CaseIntakeController::class, 'reject'])->name('intakes.reject');
         });
     });
 });

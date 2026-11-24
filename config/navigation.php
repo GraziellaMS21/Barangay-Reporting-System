@@ -27,14 +27,14 @@ return [
             'section' => 'Intake & Cases',
             'items' => [
                 [
-                    'label' => 'Report Queue',
+                    'label' => 'Community reports',
                     'route' => 'admin.reports.index',
                     'icon' => 'fa-solid fa-inbox',
                     'permission' => null,
                     'active_pattern' => 'admin.reports.*',
                 ],
                 [
-                    'label' => 'Barangay Cases',
+                    'label' => 'Cases & Blotter',
                     'route' => 'admin.cases.index',
                     'icon' => 'fa-solid fa-scale-balanced',
                     'permission' => 'cases.view',

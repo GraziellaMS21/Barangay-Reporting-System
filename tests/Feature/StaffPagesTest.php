@@ -228,7 +228,7 @@ class StaffPagesTest extends TestCase
             ->get(route('admin.reports.index', ['my_cases' => 1]))
             ->assertOk();
 
-        $response->assertSee('title="Report Queue"', false);
+        $response->assertSee('title="Community reports"', false);
     }
 
     public function test_queue_filters_component_renders_tabs_chips_and_scoped_counts(): void

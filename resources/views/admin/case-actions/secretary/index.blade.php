@@ -152,38 +152,38 @@
                 <p class="mt-0.5">All active mediation and conciliation cases are well within their 15 working days timeline.</p>
             </div>
         @else
-            <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-                <table class="w-full text-left text-xs">
+            <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <table class="w-full text-left text-xs table-fixed responsive-card-table">
                     <thead class="border-b border-slate-200 bg-slate-50 text-slate-600 font-semibold uppercase tracking-wider">
                         <tr>
-                            <th class="py-3 px-4">Case Docket</th>
-                            <th class="py-3 px-4">Parties</th>
-                            <th class="py-3 px-4">Current Status</th>
-                            <th class="py-3 px-4">Deadline Status</th>
-                            <th class="py-3 px-4">Deadline Date</th>
-                            <th class="py-3 px-4 text-right">Actions</th>
+                            <th class="py-3 px-4 w-[24%]">Case Docket</th>
+                            <th class="py-3 px-4 w-[24%]">Parties</th>
+                            <th class="py-3 px-4 w-[14%]">Current Status</th>
+                            <th class="py-3 px-4 w-[16%]">Deadline Status</th>
+                            <th class="py-3 px-4 w-[12%]">Deadline Date</th>
+                            <th class="py-3 px-4 w-[10%] text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100 text-slate-700">
                         @foreach($casesOverdue->merge($casesNearDeadline) as $c)
                             @php $od = $c->overdue_info; @endphp
                             <tr class="hover:bg-slate-50/70 transition-colors">
-                                <td class="py-3 px-4">
+                                <td data-label="Case Docket" class="py-3 px-4">
                                     <a href="{{ route('admin.cases.show', $c) }}" class="font-bold text-blue-600 hover:underline">
                                         {{ $c->case_number }}
                                     </a>
                                     <p class="text-[11px] text-slate-500 truncate max-w-xs">{{ $c->title }}</p>
                                 </td>
-                                <td class="py-3 px-4">
+                                <td data-label="Parties" class="py-3 px-4">
                                     <span class="font-medium text-slate-800">C: {{ $c->complainants->pluck('full_name')->first() ?? 'N/A' }}</span>
                                     <span class="block text-slate-500 text-[11px]">R: {{ $c->respondents->pluck('full_name')->first() ?? 'N/A' }}</span>
                                 </td>
-                                <td class="py-3 px-4">
+                                <td data-label="Current Status" class="py-3 px-4">
                                     <span class="rounded px-2 py-0.5 text-[11px] font-semibold bg-slate-100 text-slate-700">
                                         {{ \App\Support\CaseStatus::label($c->status) }}
                                     </span>
                                 </td>
-                                <td class="py-3 px-4">
+                                <td data-label="Deadline Status" class="py-3 px-4">
                                     @if($od['is_overdue'])
                                         <span class="rounded bg-red-100 px-2 py-0.5 text-[11px] font-bold text-red-800">
                                             Overdue {{ $od['days_overdue'] }} d
@@ -198,10 +198,10 @@
                                         </span>
                                     @endif
                                 </td>
-                                <td class="py-3 px-4 whitespace-nowrap text-slate-600 font-medium">
+                                <td data-label="Deadline Date" class="py-3 px-4 text-slate-600 font-medium">
                                     {{ $od['deadline_on'] ? \Carbon\Carbon::parse($od['deadline_on'])->format('M d, Y') : 'N/A' }}
                                 </td>
-                                <td class="py-3 px-4 text-right whitespace-nowrap">
+                                <td data-label="Actions" class="py-3 px-4 text-right">
                                     <a href="{{ route('admin.cases.show', $c) }}" class="inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-2.5 py-1 font-semibold text-slate-700 hover:bg-slate-50 shadow-sm">
                                         Open Case
                                     </a>

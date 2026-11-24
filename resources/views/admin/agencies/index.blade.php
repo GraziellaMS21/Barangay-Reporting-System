@@ -57,17 +57,17 @@
     </nav>
   </div>
 
-  <div class="table-wrap overflow-x-auto">
-    <table class="data-table data-table-cards w-full text-left border-collapse">
+  <div class="table-wrap overflow-hidden">
+    <table class="data-table data-table-cards w-full text-left border-collapse" style="table-layout:fixed;">
       <thead>
         <tr class="bg-slate-50/80 text-slate-500 text-xs font-semibold uppercase tracking-wider">
-          <th class="py-3 px-5 rounded-l-lg">Agency / Department</th>
-          <th class="py-3 px-5">Representative</th>
-          <th class="py-3 px-5">Office</th>
-          <th class="py-3 px-5">Role</th>
-          <th class="py-3 px-5">Status</th>
-          <th class="py-3 px-5">Submitted</th>
-          <th class="py-3 px-5 text-right rounded-r-lg"><span class="sr-only">Actions</span></th>
+          <th class="py-3 px-5 rounded-l-lg w-[24%]">Agency / Department</th>
+          <th class="py-3 px-5 w-[22%]">Representative</th>
+          <th class="py-3 px-5 w-[16%]">Office</th>
+          <th class="py-3 px-5 w-[10%]">Role</th>
+          <th class="py-3 px-5 w-[12%]">Status</th>
+          <th class="py-3 px-5 w-[10%]">Submitted</th>
+          <th class="py-3 px-5 text-right rounded-r-lg w-[6%]"><span class="sr-only">Actions</span></th>
         </tr>
       </thead>
       <tbody class="divide-y divide-slate-100">

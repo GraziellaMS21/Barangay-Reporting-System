@@ -80,15 +80,15 @@
                     <p class="text-xs text-slate-500">Every dispute where this individual was named as complainant, respondent, or witness</p>
                 </div>
 
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-slate-200 text-left text-xs">
+                <div class="overflow-hidden">
+                    <table class="w-full divide-y divide-slate-200 text-left text-xs table-fixed responsive-card-table">
                         <thead class="bg-slate-50 font-bold text-slate-500 uppercase">
                             <tr>
-                                <th class="py-2.5 px-3">Role</th>
-                                <th class="py-2.5 px-3">Case No.</th>
-                                <th class="py-2.5 px-3">Classification</th>
-                                <th class="py-2.5 px-3">Filing Date</th>
-                                <th class="py-2.5 px-3">Status</th>
+                                <th class="py-2.5 px-3 w-[15%]">Role</th>
+                                <th class="py-2.5 px-3 w-[22%]">Case No.</th>
+                                <th class="py-2.5 px-3 w-[25%]">Classification</th>
+                                <th class="py-2.5 px-3 w-[18%]">Filing Date</th>
+                                <th class="py-2.5 px-3 w-[20%]">Status</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 bg-white">
@@ -96,19 +96,19 @@
                                 @php $c = $cp->case; @endphp
                                 @if($c)
                                     <tr class="hover:bg-slate-50">
-                                        <td class="py-2.5 px-3 font-semibold capitalize text-slate-800">
+                                        <td data-label="Role" class="py-2.5 px-3 font-semibold capitalize text-slate-800">
                                             <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold {{ $cp->role === 'complainant' ? 'bg-emerald-100 text-emerald-800' : ($cp->role === 'respondent' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700') }}">
                                                 {{ $cp->role }}
                                             </span>
                                         </td>
-                                        <td class="py-2.5 px-3 font-mono font-bold text-blue-600">
+                                        <td data-label="Case No." class="py-2.5 px-3 font-mono font-bold text-blue-600">
                                             <a href="{{ route('admin.cases.show', $c) }}" class="hover:underline">
                                                 {{ $c->case_number }}
                                             </a>
                                         </td>
-                                        <td class="py-2.5 px-3 text-slate-600">{{ $c->caseType?->name ?? 'Dispute' }}</td>
-                                        <td class="py-2.5 px-3 text-slate-500">{{ $c->filed_on?->format('M d, Y') ?? 'N/A' }}</td>
-                                        <td class="py-2.5 px-3">
+                                        <td data-label="Classification" class="py-2.5 px-3 text-slate-600 truncate">{{ $c->caseType?->name ?? 'Dispute' }}</td>
+                                        <td data-label="Filing Date" class="py-2.5 px-3 text-slate-500">{{ $c->filed_on?->format('M d, Y') ?? 'N/A' }}</td>
+                                        <td data-label="Status" class="py-2.5 px-3">
                                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700">
                                                 {{ \App\Support\CaseStatus::label($c->status) }}
                                             </span>

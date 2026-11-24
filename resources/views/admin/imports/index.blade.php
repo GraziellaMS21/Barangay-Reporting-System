@@ -77,10 +77,10 @@
                         $badgeColor = $statusColors[$batch->status] ?? 'slate';
                     @endphp
                     <tr class="hover:bg-slate-50 transition-colors">
-                        <td class="py-3 px-4 font-mono font-semibold text-slate-900">
+                        <td data-label="Batch #" class="py-3 px-4 font-mono font-semibold text-slate-900">
                             #{{ $batch->id }}
                         </td>
-                        <td class="py-3 px-4">
+                        <td data-label="File & Source Preset" class="py-3 px-4">
                             <div class="font-medium text-slate-900">{{ $batch->filename }}</div>
                             @if($batch->source_name)
                                 <div class="text-xs text-slate-500 mt-0.5">
@@ -88,10 +88,10 @@
                                 </div>
                             @endif
                         </td>
-                        <td class="py-3 px-4 text-sm text-slate-700">
+                        <td data-label="Target Year" class="py-3 px-4 text-sm text-slate-700">
                             {{ $batch->target_fiscal_year ? 'FY '.$batch->target_fiscal_year : 'From Filed Date' }}
                         </td>
-                        <td class="py-3 px-4 text-xs text-slate-600 space-y-0.5">
+                        <td data-label="Row Summary" class="py-3 px-4 text-xs text-slate-600 space-y-0.5">
                             <div>Total: <strong class="text-slate-900">{{ $stats['total_rows'] ?? 0 }}</strong></div>
                             <div class="flex flex-wrap gap-2">
                                 <span class="text-emerald-700">Valid: {{ $stats['valid'] ?? 0 }}</span>
@@ -102,16 +102,16 @@
                                 @endif
                             </div>
                         </td>
-                        <td class="py-3 px-4">
+                        <td data-label="Status" class="py-3 px-4">
                             <x-ui.badge :color="$badgeColor" :dot="true">
                                 {{ ucfirst(str_replace('_', ' ', $batch->status)) }}
                             </x-ui.badge>
                         </td>
-                        <td class="py-3 px-4 text-xs text-slate-600">
+                        <td data-label="Uploaded By" class="py-3 px-4 text-xs text-slate-600">
                             <div class="font-medium text-slate-800">{{ $batch->user?->name ?? 'System' }}</div>
                             <div>{{ $batch->created_at?->format('Y-m-d H:i') }}</div>
                         </td>
-                        <td class="py-3 px-4 text-right">
+                        <td data-label="Actions" class="py-3 px-4 text-right">
                             <div class="inline-flex items-center justify-end gap-2">
                                 @if($batch->status === 'uploaded')
                                     <x-ui.button size="sm" variant="primary" href="{{ route('admin.imports.map', $batch) }}">

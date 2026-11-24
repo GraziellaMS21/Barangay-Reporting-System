@@ -41,7 +41,7 @@
 
         @foreach($positions as $position)
             <tr class="hover:bg-slate-50">
-                <td class="px-4 py-3 font-semibold text-slate-900">
+                <td data-label="Position Title" class="px-4 py-3 font-semibold text-slate-900">
                     <div class="flex items-center gap-2 flex-wrap">
                         <span>{{ $position->name }}</span>
                         @if(! $position->is_confirmed)
@@ -51,21 +51,21 @@
                         @endif
                     </div>
                 </td>
-                <td class="px-4 py-3 font-mono text-xs text-slate-600">{{ $position->code }}</td>
-                <td class="px-4 py-3 text-center">
+                <td data-label="Code" class="px-4 py-3 font-mono text-xs text-slate-600">{{ $position->code }}</td>
+                <td data-label="Signatory Default" class="px-4 py-3 text-center">
                     @if($position->is_signatory_default)
                         <i class="fa-solid fa-circle-check text-emerald-600" aria-label="Yes"></i>
                     @else
                         <span class="text-slate-400">—</span>
                     @endif
                 </td>
-                <td class="px-4 py-3 text-right text-slate-600">{{ $position->sort_order }}</td>
-                <td class="px-4 py-3">
+                <td data-label="Order" class="px-4 py-3 text-right text-slate-600">{{ $position->sort_order }}</td>
+                <td data-label="Status" class="px-4 py-3">
                     <x-ui.badge :color="$position->is_active ? 'green' : 'slate'" :dot="true">
                         {{ $position->is_active ? 'Active' : 'Inactive' }}
                     </x-ui.badge>
                 </td>
-                <td class="px-4 py-3 text-right">
+                <td data-label="Actions" class="px-4 py-3 text-right">
                     <div class="inline-flex items-center justify-end gap-2">
                         <x-ui.button size="sm" variant="secondary" :href="route('admin.positions.edit', $position)">
                             Edit

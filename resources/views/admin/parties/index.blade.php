@@ -85,8 +85,8 @@
 
     <!-- Master Directory Table -->
     <x-ui.card class="overflow-hidden border border-slate-200">
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+        <div class="overflow-hidden">
+            <table class="w-full divide-y divide-slate-200 text-left text-sm table-fixed responsive-card-table">
                 <thead class="bg-slate-50 text-xs font-bold text-slate-500 uppercase tracking-wider">
                     <tr>
                         <th scope="col" class="py-3.5 pl-4 pr-3 sm:pl-6 w-[26%]">Name</th>
@@ -101,7 +101,7 @@
                     @forelse($parties as $party)
                         <tr class="hover:bg-slate-50/80 transition-colors">
                             <!-- Name & Alias -->
-                            <td class="py-3.5 pl-4 pr-3 sm:pl-6 font-medium text-slate-900 text-xs">
+                            <td data-label="Name" class="py-3.5 pl-4 pr-3 sm:pl-6 font-medium text-slate-900 text-xs">
                                 <a href="{{ route('admin.parties.show', $party) }}" class="font-bold text-blue-600 hover:underline">
                                     {{ $party->full_name }}
                                 </a>
@@ -111,7 +111,7 @@
                             </td>
 
                             <!-- Residency Badge -->
-                            <td class="px-3 py-3.5 text-xs whitespace-nowrap">
+                            <td data-label="Residency" class="px-3 py-3.5 text-xs whitespace-nowrap">
                                 @php
                                     $resColor = match($party->residency_status) {
                                         'resident' => 'green',
@@ -125,7 +125,7 @@
                             </td>
 
                             <!-- Purok / Origin -->
-                            <td class="px-3 py-3.5 text-xs text-slate-600">
+                            <td data-label="Purok / Origin" class="px-3 py-3.5 text-xs text-slate-600">
                                 @if($party->residency_status === 'resident')
                                     <span>{{ $party->purok?->name ?? 'Calarian' }}</span>
                                 @else
@@ -134,7 +134,7 @@
                             </td>
 
                             <!-- Contact -->
-                            <td class="px-3 py-3.5 text-xs text-slate-600">
+                            <td data-label="Contact" class="px-3 py-3.5 text-xs text-slate-600">
                                 <div>{{ $party->contact_number ?: 'None' }}</div>
                                 @if($party->email)
                                     <div class="text-[11px] text-slate-400">{{ $party->email }}</div>
@@ -142,14 +142,14 @@
                             </td>
 
                             <!-- Cases Lifetime Count -->
-                            <td class="px-3 py-3.5 text-xs text-right font-bold text-slate-800">
+                            <td data-label="Cases" class="px-3 py-3.5 text-xs text-right font-bold text-slate-800">
                                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-slate-100 font-mono">
                                     {{ $party->cases_count }}
                                 </span>
                             </td>
 
                             <!-- Actions -->
-                            <td class="py-3.5 pl-3 pr-4 sm:pr-6 text-right whitespace-nowrap text-xs">
+                            <td data-label="Actions" class="py-3.5 pl-3 pr-4 sm:pr-6 text-right whitespace-nowrap text-xs">
                                 <div class="flex items-center justify-end gap-2">
                                     <a href="{{ route('admin.parties.show', $party) }}" class="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium transition-colors">
                                         Profile

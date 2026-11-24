@@ -57,8 +57,8 @@
                 </div>
             </x-slot:headerActions>
 
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse text-sm">
+            <div class="overflow-hidden">
+                <table class="w-full text-left border-collapse text-sm table-fixed responsive-card-table">
                     <thead>
                         <tr class="border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase bg-slate-50/50">
                             <th class="py-2.5 px-4 w-[28%]">Setting</th>
@@ -70,16 +70,16 @@
                     <tbody class="divide-y divide-slate-100">
                         @foreach($pendingSettings as $s)
                             <tr class="hover:bg-slate-50/80">
-                                <td class="py-3 px-4 font-medium text-slate-900 text-xs">
+                                <td data-label="Setting" class="py-3 px-4 font-medium text-slate-900 text-xs">
                                     {{ $s->label ?? $s->key }}
                                 </td>
-                                <td class="py-3 px-4 font-mono text-xs text-blue-700 break-all">
+                                <td data-label="Current Value" class="py-3 px-4 font-mono text-xs text-blue-700 break-all">
                                     {{ $s->value }}
                                 </td>
-                                <td class="py-3 px-4 text-xs text-slate-500">
+                                <td data-label="Question Reference" class="py-3 px-4 text-xs text-slate-500">
                                     {{ $s->source_question ?? 'N/A' }}
                                 </td>
-                                <td class="py-3 px-4 text-right">
+                                <td data-label="Action" class="py-3 px-4 text-right">
                                     <form method="POST" action="{{ route('admin.pending.confirm') }}" class="inline">
                                         @csrf
                                         <input type="hidden" name="type" value="setting">
@@ -122,8 +122,8 @@
                 </div>
             </x-slot:headerActions>
 
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse text-sm">
+            <div class="overflow-hidden">
+                <table class="w-full text-left border-collapse text-sm table-fixed responsive-card-table">
                     <thead>
                         <tr class="border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase bg-slate-50/50">
                             <th class="py-2.5 px-4 w-[28%]">Role / Assignment</th>
@@ -135,16 +135,16 @@
                     <tbody class="divide-y divide-slate-100">
                         @foreach($pendingPositions as $p)
                             <tr class="hover:bg-slate-50/80">
-                                <td class="py-3 px-4 font-medium text-slate-900 text-xs">
+                                <td data-label="Role / Assignment" class="py-3 px-4 font-medium text-slate-900 text-xs">
                                     Position: {{ $p->name }}
                                 </td>
-                                <td class="py-3 px-4 font-mono text-xs text-slate-700">
+                                <td data-label="Assigned Position / Code" class="py-3 px-4 font-mono text-xs text-slate-700">
                                     {{ $p->code }}
                                 </td>
-                                <td class="py-3 px-4 text-xs text-slate-500">
+                                <td data-label="Scope" class="py-3 px-4 text-xs text-slate-500">
                                     Official Position
                                 </td>
-                                <td class="py-3 px-4 text-right">
+                                <td data-label="Action" class="py-3 px-4 text-right">
                                     <form method="POST" action="{{ route('admin.pending.confirm') }}" class="inline">
                                         @csrf
                                         <input type="hidden" name="type" value="position">
@@ -159,16 +159,16 @@
 
                         @foreach($pendingSignatories as $sa)
                             <tr class="hover:bg-slate-50/80">
-                                <td class="py-3 px-4 font-medium text-slate-900 text-xs">
+                                <td data-label="Role / Assignment" class="py-3 px-4 font-medium text-slate-900 text-xs">
                                     Signatory: {{ ucwords(str_replace('_', ' ', $sa->document_type)) }} ({{ $sa->role_label }})
                                 </td>
-                                <td class="py-3 px-4 text-xs text-blue-700 font-semibold">
+                                <td data-label="Assigned Position / Code" class="py-3 px-4 text-xs text-blue-700 font-semibold">
                                     {{ $sa->position?->name ?? 'Default PB / Secretary' }}
                                 </td>
-                                <td class="py-3 px-4 text-xs text-slate-500">
+                                <td data-label="Scope" class="py-3 px-4 text-xs text-slate-500">
                                     Legal Transmittal Signer
                                 </td>
-                                <td class="py-3 px-4 text-right">
+                                <td data-label="Action" class="py-3 px-4 text-right">
                                     <form method="POST" action="{{ route('admin.pending.confirm') }}" class="inline">
                                         @csrf
                                         <input type="hidden" name="type" value="signatory">
@@ -211,8 +211,8 @@
                 </div>
             </x-slot:headerActions>
 
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse text-sm">
+            <div class="overflow-hidden">
+                <table class="w-full text-left border-collapse text-sm table-fixed responsive-card-table">
                     <thead>
                         <tr class="border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase bg-slate-50/50">
                             <th class="py-2.5 px-4 w-[28%]">Entity</th>
@@ -224,16 +224,16 @@
                     <tbody class="divide-y divide-slate-100">
                         @foreach($pendingCaseTypes as $ct)
                             <tr class="hover:bg-slate-50/80">
-                                <td class="py-3 px-4 font-medium text-slate-900 text-xs">
+                                <td data-label="Entity" class="py-3 px-4 font-medium text-slate-900 text-xs">
                                     Dispute: {{ $ct->name }}
                                 </td>
-                                <td class="py-3 px-4 font-mono text-xs text-slate-600">
+                                <td data-label="Name / System Key" class="py-3 px-4 font-mono text-xs text-slate-600">
                                     {{ $ct->slug }}
                                 </td>
-                                <td class="py-3 px-4 text-xs text-slate-500">
+                                <td data-label="Scope" class="py-3 px-4 text-xs text-slate-500">
                                     Katarungang Pambarangay
                                 </td>
-                                <td class="py-3 px-4 text-right">
+                                <td data-label="Action" class="py-3 px-4 text-right">
                                     <form method="POST" action="{{ route('admin.pending.confirm') }}" class="inline">
                                         @csrf
                                         <input type="hidden" name="type" value="case_type">
@@ -248,16 +248,16 @@
 
                         @foreach($pendingDestinations as $dest)
                             <tr class="hover:bg-slate-50/80">
-                                <td class="py-3 px-4 font-medium text-slate-900 text-xs">
+                                <td data-label="Entity" class="py-3 px-4 font-medium text-slate-900 text-xs">
                                     Escalation: {{ $dest->name }}
                                 </td>
-                                <td class="py-3 px-4 text-xs text-slate-600">
+                                <td data-label="Name / System Key" class="py-3 px-4 text-xs text-slate-600">
                                     Court / Prosecutor / Police
                                 </td>
-                                <td class="py-3 px-4 text-xs text-slate-500">
+                                <td data-label="Scope" class="py-3 px-4 text-xs text-slate-500">
                                     CFA Referral Destination
                                 </td>
-                                <td class="py-3 px-4 text-right">
+                                <td data-label="Action" class="py-3 px-4 text-right">
                                     <form method="POST" action="{{ route('admin.pending.confirm') }}" class="inline">
                                         @csrf
                                         <input type="hidden" name="type" value="destination">

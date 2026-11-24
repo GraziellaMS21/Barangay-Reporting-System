@@ -105,148 +105,129 @@
     </x-ui.card>
 
     <!-- Docket Table -->
-    <x-ui.card class="overflow-hidden border border-slate-200">
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
-                <thead class="bg-slate-50 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                    <tr>
-                        <th scope="col" class="py-3.5 pl-4 pr-3 sm:pl-6 w-[12%]">Case No.</th>
-                        <th scope="col" class="px-3 py-3.5 w-[9%]">Filed</th>
-                        <th scope="col" class="px-3 py-3.5 w-[13%]">Type</th>
-                        <th scope="col" class="px-3 py-3.5 w-[17%]">Complainant(s)</th>
-                        <th scope="col" class="px-3 py-3.5 w-[17%]">Respondent(s)</th>
-                        <th scope="col" class="px-3 py-3.5 w-[10%]">Status</th>
-                        <th scope="col" class="px-3 py-3.5 w-[8%] text-center">Summons</th>
-                        <th scope="col" class="px-3 py-3.5 w-[8%]">Assigned</th>
-                        <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-6 w-[6%] text-right">Actions</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-200 bg-white text-slate-700">
-                    @forelse($cases as $case)
-                        @php
-                            $summonsCount = $case->activeSummons->count();
-                            $summonsLimit = (int) setting('cases.summons_limit', 3);
-                            $isEligible = ($summonsCount >= $summonsLimit && in_array($case->status, [\App\Support\CaseStatus::FILED, \App\Support\CaseStatus::IN_MEDIATION, \App\Support\CaseStatus::UNSETTLED], true));
-                        @endphp
-                        <tr class="hover:bg-slate-50/80 transition-colors">
-                            <!-- Case No. -->
-                            <td class="py-3 pl-4 pr-3 sm:pl-6 font-mono font-semibold text-xs text-blue-600 whitespace-nowrap">
-                                <a href="{{ route('admin.cases.show', $case) }}" class="hover:underline flex items-center gap-1.5">
-                                    <span>{{ $case->case_number }}</span>
-                                    @if($case->is_confidential)
-                                        <i class="fa-solid fa-lock text-red-500 text-xs" title="Confidential Case"></i>
-                                    @endif
-                                </a>
-                                @if($case->title)
-                                    <div class="text-[11px] text-slate-500 font-normal font-sans truncate max-w-[160px] mt-0.5">{{ $case->title }}</div>
-                                @endif
-                            </td>
+    <x-ui.table>
+        <x-slot:header>
+            <tr>
+                <th scope="col" class="py-3 pl-4 pr-3 sm:pl-6 w-[34%] sm:w-[26%] md:w-[24%] lg:w-[22%]">Case No. &amp; Details</th>
+                <th scope="col" class="hidden sm:table-cell px-3 py-3 w-[18%] md:w-[15%] lg:w-[14%]">Classification</th>
+                <th scope="col" class="px-3 py-3 w-[36%] sm:w-[32%] md:w-[30%] lg:w-[28%]">Parties</th>
+                <th scope="col" class="px-3 py-3 w-[20%] sm:w-[18%] md:w-[16%] lg:w-[16%]">Status</th>
+                <th scope="col" class="hidden xl:table-cell px-3 py-3 w-[12%]">Assigned</th>
+                <th scope="col" class="py-3 pl-3 pr-4 sm:pr-6 w-[10%] sm:w-[8%] text-right">Actions</th>
+            </tr>
+        </x-slot:header>
 
-                            <!-- Filed Date -->
-                            <td class="px-3 py-3 text-xs text-slate-500 whitespace-nowrap">
-                                {{ $case->filed_on?->format('M d, Y') ?? 'N/A' }}
-                            </td>
+        @forelse($cases as $case)
+            @php
+                $summonsCount = $case->activeSummons->count();
+                $summonsLimit = (int) setting('cases.summons_limit', 3);
+                $isEligible = ($summonsCount >= $summonsLimit && in_array($case->status, [\App\Support\CaseStatus::FILED, \App\Support\CaseStatus::IN_MEDIATION, \App\Support\CaseStatus::UNSETTLED], true));
+                $statusColors = [
+                    'filed' => 'blue',
+                    'in_mediation' => 'amber',
+                    'settled' => 'green',
+                    'unsettled' => 'red',
+                    'escalated' => 'red',
+                    'dismissed' => 'slate',
+                    'withdrawn' => 'slate',
+                ];
+                $currentColor = $statusColors[$case->status] ?? 'slate';
+            @endphp
+            <tr class="hover:bg-slate-50/80 transition-colors">
+                <!-- Case No. & Details -->
+                <td class="py-3 pl-4 pr-3 sm:pl-6 text-xs" data-label="Case No.">
+                    <a href="{{ route('admin.cases.show', $case) }}" class="font-mono font-bold text-blue-600 hover:underline inline-flex items-center gap-1.5">
+                        <span>{{ $case->case_number }}</span>
+                        @if($case->is_confidential)
+                            <i class="fa-solid fa-lock text-red-500 text-[10px]" title="Confidential Case"></i>
+                        @endif
+                    </a>
+                    @if($case->title)
+                        <div class="text-[11px] text-slate-700 font-medium truncate max-w-[180px] mt-0.5" title="{{ $case->title }}">{{ $case->title }}</div>
+                    @endif
+                    <div class="text-[10px] text-slate-400 mt-0.5">
+                        Filed {{ $case->filed_on?->format('M d, Y') ?? 'N/A' }}
+                    </div>
+                </td>
 
-                            <!-- Classification -->
-                            <td class="px-3 py-3 text-xs">
-                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-800">
-                                    {{ $case->caseType?->name ?? 'Unclassified' }}
-                                </span>
-                            </td>
+                <!-- Classification -->
+                <td class="hidden sm:table-cell px-3 py-3 text-xs" data-label="Type">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-800 line-clamp-2" title="{{ $case->caseType?->name ?? 'Unclassified' }}">
+                        {{ $case->caseType?->name ?? 'Unclassified' }}
+                    </span>
+                </td>
 
-                            <!-- Complainants -->
-                            <td class="px-3 py-3 text-xs">
-                                <div class="font-medium text-slate-900 truncate max-w-[180px]">
-                                    {{ $case->complainants->pluck('full_name')->join(', ') ?: 'None' }}
-                                </div>
-                                @if($case->purok)
-                                    <div class="text-[11px] text-slate-400">{{ $case->purok->name }}</div>
-                                @endif
-                            </td>
+                <!-- Parties (Complainant vs. Respondent) -->
+                <td class="px-3 py-3 text-xs" data-label="Parties">
+                    <div class="font-medium text-slate-900 truncate max-w-[200px]" title="Complainant(s): {{ $case->complainants->pluck('full_name')->join(', ') ?: 'None' }}">
+                        {{ $case->complainants->pluck('full_name')->join(', ') ?: 'None' }}
+                    </div>
+                    <div class="text-[10px] text-slate-400 my-0.5 italic">vs.</div>
+                    <div class="font-medium text-slate-700 truncate max-w-[200px]" title="Respondent(s): {{ $case->respondents->pluck('full_name')->join(', ') ?: 'None' }}">
+                        {{ $case->respondents->pluck('full_name')->join(', ') ?: 'None' }}
+                    </div>
+                    @if($case->purok)
+                        <div class="text-[10px] text-slate-400 mt-0.5">{{ $case->purok->name }}</div>
+                    @endif
+                </td>
 
-                            <!-- Respondents -->
-                            <td class="px-3 py-3 text-xs">
-                                <div class="font-medium text-slate-900 truncate max-w-[180px]">
-                                    {{ $case->respondents->pluck('full_name')->join(', ') ?: 'None' }}
-                                </div>
-                            </td>
+                <!-- Status & Summons -->
+                <td class="px-3 py-3 text-xs" data-label="Status">
+                    <div class="flex flex-col gap-1 items-start">
+                        <x-ui.badge :color="$currentColor" :dot="true">
+                            {{ \App\Support\CaseStatus::label($case->status) }}
+                        </x-ui.badge>
+                        @if($isEligible)
+                            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-800 border border-red-300" title="Eligible for Court Escalation (CFA)">
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                                <span>Summons {{ $summonsCount }}/{{ $summonsLimit }}</span>
+                            </span>
+                        @elseif($summonsCount > 0)
+                            <span class="text-[10px] text-slate-500 font-medium">
+                                Summons {{ $summonsCount }}/{{ $summonsLimit }}
+                            </span>
+                        @endif
+                    </div>
+                </td>
 
-                            <!-- Status Badge -->
-                            <td class="px-3 py-3 whitespace-nowrap">
-                                @php
-                                    $statusColors = [
-                                        'filed' => 'blue',
-                                        'in_mediation' => 'amber',
-                                        'settled' => 'green',
-                                        'unsettled' => 'red',
-                                        'escalated' => 'red',
-                                        'dismissed' => 'slate',
-                                        'withdrawn' => 'slate',
-                                    ];
-                                    $currentColor = $statusColors[$case->status] ?? 'slate';
-                                @endphp
-                                <x-ui.badge :color="$currentColor" :dot="true">
-                                    {{ \App\Support\CaseStatus::label($case->status) }}
-                                </x-ui.badge>
-                            </td>
+                <!-- Assigned Officer -->
+                <td class="hidden xl:table-cell px-3 py-3 text-xs text-slate-600 truncate max-w-[120px]" data-label="Assigned" title="{{ $case->assignedTo?->name ?? 'Unassigned' }}">
+                    {{ $case->assignedTo?->name ?? 'Unassigned' }}
+                </td>
 
-                            <!-- Summons Counter -->
-                            <td class="px-3 py-3 text-center whitespace-nowrap">
-                                @if($isEligible)
-                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-100 text-red-800 border border-red-300 animate-pulse" title="Eligible for Court Escalation (CFA)">
-                                        <i class="fa-solid fa-triangle-exclamation"></i>
-                                        <span>{{ $summonsCount }}/{{ $summonsLimit }}</span>
-                                    </span>
-                                @elseif($summonsCount === $summonsLimit - 1)
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800 border border-amber-200">
-                                        {{ $summonsCount }}/{{ $summonsLimit }}
-                                    </span>
-                                @else
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-700">
-                                        {{ $summonsCount }}/{{ $summonsLimit }}
-                                    </span>
-                                @endif
-                            </td>
-
-                            <!-- Assigned Officer -->
-                            <td class="px-3 py-3 text-xs text-slate-600 truncate max-w-[120px]">
-                                {{ $case->assignedTo?->name ?? 'Unassigned' }}
-                            </td>
-
-                            <!-- Actions -->
-                            <td class="py-3 pl-3 pr-4 sm:pr-6 text-right whitespace-nowrap text-xs">
-                                <div class="flex items-center justify-end gap-2">
-                                    <a href="{{ route('admin.cases.show', $case) }}" class="text-blue-600 hover:text-blue-900" title="View Docket">
-                                        <i class="fa-solid fa-folder-open"></i>
-                                    </a>
-                                    @can('cases.edit')
-                                        <a href="{{ route('admin.cases.edit', $case) }}" class="text-slate-500 hover:text-slate-800" title="Edit Case">
-                                            <i class="fa-solid fa-pen-to-square"></i>
-                                        </a>
-                                    @endcan
-                                </div>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="9" class="py-12">
-                                <x-ui.empty-state
-                                    title="No Blotter Cases Found"
-                                    description="No amicable dispute complaints match the active filter criteria for this fiscal year."
-                                />
-                            </td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
+                <!-- Actions -->
+                <td class="py-3 pl-3 pr-4 sm:pr-6 text-right text-xs" data-label="Actions">
+                    <div class="flex items-center justify-end gap-2">
+                        <a href="{{ route('admin.cases.show', $case) }}" class="p-1.5 rounded text-blue-600 hover:text-blue-900 hover:bg-blue-50 transition-colors" title="View Docket" aria-label="View Docket {{ $case->case_number }}">
+                            <i class="fa-solid fa-folder-open"></i>
+                        </a>
+                        @can('cases.edit')
+                            <a href="{{ route('admin.cases.edit', $case) }}" class="p-1.5 rounded text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors" title="Edit Case" aria-label="Edit Case {{ $case->case_number }}">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </a>
+                        @endcan
+                    </div>
+                </td>
+            </tr>
+        @empty
+            <tr>
+                <td colspan="6" class="py-12">
+                    <x-ui.empty-state
+                        title="No Blotter Cases Found"
+                        description="No amicable dispute complaints match the active filter criteria for this fiscal year."
+                    />
+                </td>
+            </tr>
+        @endforelse
 
         @if($cases->hasPages())
-            <div class="p-4 border-t border-slate-200 bg-slate-50">
-                {{ $cases->links() }}
-            </div>
+            <x-slot:footer>
+                <div class="p-3">
+                    {{ $cases->links() }}
+                </div>
+            </x-slot:footer>
         @endif
-    </x-ui.card>
+    </x-ui.table>
 
 </div>
 @endsection

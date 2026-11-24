@@ -30,8 +30,8 @@
     @endif
 
     <x-ui.card class="overflow-hidden border border-slate-200">
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+        <div class="overflow-hidden">
+            <table class="w-full divide-y divide-slate-200 text-left text-sm table-fixed responsive-card-table">
                 <thead class="bg-slate-50 text-xs font-bold text-slate-500 uppercase tracking-wider">
                     <tr>
                         <th class="py-3.5 pl-4 pr-3 sm:pl-6 w-[25%]">Classification Name</th>
@@ -44,7 +44,7 @@
                 <tbody class="divide-y divide-slate-200 bg-white text-slate-700">
                     @forelse($caseTypes as $type)
                         <tr class="hover:bg-slate-50/80 transition-colors">
-                            <td class="py-3.5 pl-4 pr-3 sm:pl-6 font-semibold text-slate-900 text-xs">
+                            <td data-label="Classification Name" class="py-3.5 pl-4 pr-3 sm:pl-6 font-semibold text-slate-900 text-xs">
                                 <div class="flex items-center gap-2">
                                     <span>{{ $type->name }}</span>
                                     @if(!$type->is_confirmed)
@@ -54,15 +54,15 @@
                                 <span class="text-[11px] font-mono text-slate-400 block mt-0.5">{{ $type->slug }}</span>
                             </td>
 
-                            <td class="px-3 py-3.5 text-xs text-slate-600">
+                            <td data-label="Description" class="px-3 py-3.5 text-xs text-slate-600">
                                 {{ $type->description ?: 'No description provided' }}
                             </td>
 
-                            <td class="px-3 py-3.5 text-xs text-center font-mono text-slate-500">
+                            <td data-label="Order" class="px-3 py-3.5 text-xs text-center font-mono text-slate-500">
                                 {{ $type->sort_order }}
                             </td>
 
-                            <td class="px-3 py-3.5 text-xs text-center">
+                            <td data-label="Status" class="px-3 py-3.5 text-xs text-center">
                                 @if($type->is_active)
                                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Active</span>
                                 @else
@@ -70,7 +70,7 @@
                                 @endif
                             </td>
 
-                            <td class="py-3.5 pl-3 pr-4 sm:pr-6 text-right whitespace-nowrap text-xs">
+                            <td data-label="Actions" class="py-3.5 pl-3 pr-4 sm:pr-6 text-right whitespace-nowrap text-xs">
                                 <div class="flex items-center justify-end gap-2">
                                     <a href="{{ route('admin.case-types.edit', $type) }}" class="text-blue-600 hover:text-blue-800 font-medium">
                                         Edit

@@ -166,14 +166,14 @@
         </div>
       </div>
 
-      <div class="table-wrap overflow-x-auto">
-        <table class="data-table data-table-cards w-full text-left border-collapse">
+      <div class="table-wrap overflow-hidden">
+        <table class="data-table data-table-cards w-full text-left border-collapse" style="table-layout:fixed;">
           <thead>
             <tr class="bg-slate-50/80 text-slate-500 text-xs font-semibold uppercase tracking-wider">
-              <th class="py-3 px-3.5 rounded-l-lg">Report</th>
-              <th class="py-3 px-3.5">Location</th>
-              <th class="py-3 px-3.5">Status</th>
-              <th class="py-3 px-3.5 text-right rounded-r-lg"><span class="sr-only">Actions</span></th>
+              <th class="py-3 px-3.5 rounded-l-lg w-[45%]">Report</th>
+              <th class="py-3 px-3.5 w-[25%]">Location</th>
+              <th class="py-3 px-3.5 w-[20%]">Status</th>
+              <th class="py-3 px-3.5 text-right rounded-r-lg w-[10%]"><span class="sr-only">Actions</span></th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
@@ -327,15 +327,15 @@
     </div>
   </div>
 
-  <div class="table-wrap overflow-x-auto">
-    <table class="data-table data-table-cards w-full text-left border-collapse">
+  <div class="table-wrap overflow-hidden">
+    <table class="data-table data-table-cards w-full text-left border-collapse" style="table-layout:fixed;">
       <thead>
         <tr class="bg-slate-50/80 text-slate-500 text-xs font-semibold uppercase tracking-wider">
-          <th class="py-3 px-3.5 rounded-l-lg">REF no.</th>
-          <th class="py-3 px-3.5">Agency</th>
-          <th class="py-3 px-3.5">Status</th>
-          <th class="py-3 px-3.5">Follow-up</th>
-          <th class="py-3 px-3.5 text-right rounded-r-lg"><span class="sr-only">Actions</span></th>
+          <th class="py-3 px-3.5 rounded-l-lg w-[28%]">REF no.</th>
+          <th class="py-3 px-3.5 w-[28%]">Agency</th>
+          <th class="py-3 px-3.5 w-[20%]">Status</th>
+          <th class="py-3 px-3.5 w-[16%]">Follow-up</th>
+          <th class="py-3 px-3.5 text-right rounded-r-lg w-[8%]"><span class="sr-only">Actions</span></th>
         </tr>
       </thead>
       <tbody class="divide-y divide-slate-100">

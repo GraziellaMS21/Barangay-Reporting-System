@@ -2080,7 +2080,7 @@ h3 {
 }
 
 .table-wrap {
-    overflow-x: auto;
+    overflow-x: hidden;
     border-radius: 18px;
     background: #fff;
     box-shadow: var(--shadow);
@@ -5441,7 +5441,8 @@ body.chat-modal-open {
 }
 
 .data-table-queue {
-    table-layout: auto;
+    table-layout: fixed;
+    width: 100%;
 }
 .data-table tbody tr.is-emergency-row {
     background: #fff8f8;
@@ -6619,4 +6620,68 @@ body.chat-modal-open {
     border: 1px solid #e2e8f0;
     position: relative;
     padding: 1.5rem 1.75rem;
+}
+
+/* ==========================================================================
+   Responsive Table Card Pattern (< 768px)
+   ========================================================================== */
+@media (max-width: 767px) {
+    .responsive-card-table {
+        display: block !important;
+        width: 100% !important;
+    }
+
+    .responsive-card-table thead {
+        display: none !important;
+    }
+
+    .responsive-card-table tbody {
+        display: grid !important;
+        gap: 0.75rem !important;
+        padding: 0.5rem !important;
+    }
+
+    .responsive-card-table tr {
+        display: block !important;
+        width: 100% !important;
+        border: 1px solid var(--line) !important;
+        border-radius: 12px !important;
+        padding: 0.75rem !important;
+        background: #fff !important;
+        box-shadow: 0 1px 3px rgb(15 23 42 / 4%) !important;
+    }
+
+    .responsive-card-table td {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        width: 100% !important;
+        padding: 0.35rem 0 !important;
+        border: 0 !important;
+        font-size: 0.82rem !important;
+    }
+
+    .responsive-card-table td::before {
+        content: attr(data-label);
+        display: inline-block;
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--mut);
+        margin-right: 0.75rem;
+        flex-shrink: 0;
+    }
+
+    .responsive-card-table td:not([data-label])::before,
+    .responsive-card-table td[data-label=""]::before {
+        display: none !important;
+    }
+
+    .responsive-card-table td:last-child {
+        margin-top: 0.4rem;
+        padding-top: 0.5rem !important;
+        border-top: 1px dashed var(--line) !important;
+        justify-content: flex-end !important;
+    }
 }

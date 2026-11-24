@@ -41,8 +41,8 @@
     </div>
 
     <x-ui.card>
-        <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse text-sm">
+        <div class="overflow-hidden">
+            <table class="w-full text-left border-collapse text-sm table-fixed responsive-card-table">
                 <thead>
                     <tr class="border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider bg-slate-50/50">
                         <th class="py-3 px-4 w-[25%]">Date</th>
@@ -57,16 +57,16 @@
                             $carbonDate = \Illuminate\Support\Carbon::parse($h['date']);
                         @endphp
                         <tr class="hover:bg-slate-50/80 transition-colors">
-                            <td class="py-3.5 px-4 font-mono font-semibold text-slate-900 text-xs">
+                            <td data-label="Date" class="py-3.5 px-4 font-mono font-semibold text-slate-900 text-xs">
                                 {{ $h['date'] }}
                             </td>
-                            <td class="py-3.5 px-4 text-xs text-slate-600">
+                            <td data-label="Day of Week" class="py-3.5 px-4 text-xs text-slate-600">
                                 {{ $carbonDate->format('l') }}
                             </td>
-                            <td class="py-3.5 px-4 text-sm font-medium text-slate-800">
+                            <td data-label="Holiday Description" class="py-3.5 px-4 text-sm font-medium text-slate-800">
                                 {{ $h['label'] }}
                             </td>
-                            <td class="py-3.5 px-4 text-right">
+                            <td data-label="Actions" class="py-3.5 px-4 text-right">
                                 <form method="POST" action="{{ route('admin.calendar.destroy', ['date' => $h['date']]) }}" onsubmit="return confirm('Remove this holiday?')">
                                     @csrf
                                     @method('DELETE')

@@ -34,8 +34,8 @@
     </div>
 
     <x-ui.card>
-        <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse text-sm">
+        <div class="overflow-hidden">
+            <table class="w-full text-left border-collapse text-sm table-fixed responsive-card-table">
                 <thead>
                     <tr class="border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider bg-slate-50/50">
                         <th class="py-3 px-4 w-[35%]">Backup Archive</th>
@@ -48,21 +48,21 @@
                 <tbody class="divide-y divide-slate-100">
                     @forelse($backups as $b)
                         <tr class="hover:bg-slate-50/80 transition-colors">
-                            <td class="py-3.5 px-4 font-mono font-semibold text-slate-900 text-xs flex items-center gap-2">
+                            <td data-label="Backup Archive" class="py-3.5 px-4 font-mono font-semibold text-slate-900 text-xs flex items-center gap-2">
                                 <i class="fa-solid fa-file-zipper text-blue-600 text-base"></i>
                                 <span>{{ $b['filename'] }}</span>
                             </td>
-                            <td class="py-3.5 px-4 text-xs text-slate-600">
+                            <td data-label="Creation Date" class="py-3.5 px-4 text-xs text-slate-600">
                                 {{ $b['created_at']->format('Y-m-d H:i:s') }}
                                 <span class="text-slate-400 text-[11px] block">({{ $b['created_at']->diffForHumans() }})</span>
                             </td>
-                            <td class="py-3.5 px-4 text-xs font-semibold text-slate-700">
+                            <td data-label="File Size" class="py-3.5 px-4 text-xs font-semibold text-slate-700">
                                 {{ $b['size'] }}
                             </td>
-                            <td class="py-3.5 px-4">
+                            <td data-label="Status" class="py-3.5 px-4">
                                 <x-ui.badge variant="success" dot>Completed</x-ui.badge>
                             </td>
-                            <td class="py-3.5 px-4 text-right">
+                            <td data-label="Action" class="py-3.5 px-4 text-right">
                                 <a href="{{ route('admin.backups.download', ['file' => $b['filename']]) }}"
                                     class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors">
                                     <i class="fa-solid fa-download text-xs"></i>

@@ -34,8 +34,8 @@
     @endif
 
     <x-ui.card>
-        <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse text-sm">
+        <div class="overflow-hidden">
+            <table class="w-full text-left border-collapse text-sm table-fixed responsive-card-table">
                 <thead>
                     <tr class="border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider bg-slate-50/50">
                         <th class="py-3 px-4 w-[12%]">Year</th>
@@ -50,16 +50,16 @@
                 <tbody class="divide-y divide-slate-100">
                     @forelse($years as $fy)
                         <tr class="hover:bg-slate-50/80 transition-colors">
-                            <td class="py-3.5 px-4 font-bold text-slate-900">
+                            <td data-label="Year" class="py-3.5 px-4 font-bold text-slate-900">
                                 {{ $fy->year }}
                             </td>
-                            <td class="py-3.5 px-4 text-slate-600 font-mono text-xs">
+                            <td data-label="Start Date" class="py-3.5 px-4 text-slate-600 font-mono text-xs">
                                 {{ $fy->starts_on?->format('Y-m-d') ?? "{$fy->year}-01-01" }}
                             </td>
-                            <td class="py-3.5 px-4 text-slate-600 font-mono text-xs">
+                            <td data-label="End Date" class="py-3.5 px-4 text-slate-600 font-mono text-xs">
                                 {{ $fy->ends_on?->format('Y-m-d') ?? "{$fy->year}-12-31" }}
                             </td>
-                            <td class="py-3.5 px-4">
+                            <td data-label="Status" class="py-3.5 px-4">
                                 @if($fy->status === 'active')
                                     <x-ui.badge variant="success" dot>Active</x-ui.badge>
                                 @elseif($fy->status === 'closed')
@@ -68,7 +68,7 @@
                                     <x-ui.badge variant="info">Inactive</x-ui.badge>
                                 @endif
                             </td>
-                            <td class="py-3.5 px-4 text-center">
+                            <td data-label="Locked" class="py-3.5 px-4 text-center">
                                 @if($fy->is_locked)
                                     <span class="inline-flex text-rose-600" title="Locked: read-only">
                                         <i class="fa-solid fa-lock text-xs"></i>
@@ -79,12 +79,12 @@
                                     </span>
                                 @endif
                             </td>
-                            <td class="py-3.5 px-4 text-xs text-slate-600">
+                            <td data-label="Records Scoped" class="py-3.5 px-4 text-xs text-slate-600">
                                 <span class="font-medium text-slate-800">{{ $fy->reports_count ?? 0 }}</span> rep,
                                 <span class="font-medium text-slate-800">{{ $fy->cases_count ?? 0 }}</span> cases,
                                 <span class="font-medium text-slate-800">{{ $fy->referrals_count ?? 0 }}</span> ref
                             </td>
-                            <td class="py-3.5 px-4 text-right">
+                            <td data-label="Actions" class="py-3.5 px-4 text-right">
                                 <div class="flex items-center justify-end gap-2">
                                     @if($fy->status !== 'active' && ! $fy->is_locked)
                                         <form method="POST" action="{{ route('admin.fiscal-years.activate', $fy) }}">

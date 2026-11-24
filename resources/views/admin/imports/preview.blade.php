@@ -157,7 +157,7 @@
                         ];
                     @endphp
                     <tr class="hover:bg-slate-50 align-top">
-                        <td class="py-3 px-4 font-mono text-xs text-slate-600">
+                        <td data-label="Row" class="py-3 px-4 font-mono text-xs text-slate-600">
                             <div>#{{ $row->row_number }}</div>
                             @if(!$isCommitted && in_array($row->status, ['valid', 'warning'], true))
                                 <label class="inline-flex items-center gap-1 mt-1 text-[11px] text-slate-500 cursor-pointer" title="Check to skip this row during commit">
@@ -166,7 +166,7 @@
                                 </label>
                             @endif
                         </td>
-                        <td class="py-3 px-4">
+                        <td data-label="Case No. & Type" class="py-3 px-4">
                             <div class="font-mono font-bold text-slate-900 text-sm">
                                 {{ $mapped['case_number'] ?: '— Missing —' }}
                             </div>
@@ -175,7 +175,7 @@
                                 · {{ $mapped['case_type'] ?? 'General' }}
                             </div>
                         </td>
-                        <td class="py-3 px-4 text-xs text-slate-700">
+                        <td data-label="Filed & FY" class="py-3 px-4 text-xs text-slate-700">
                             <div class="font-medium">{{ $mapped['filed_on'] ?? 'Invalid' }}</div>
                             @if(!empty($mapped['fiscal_year']))
                                 <span class="inline-block mt-0.5 px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold">
@@ -183,7 +183,7 @@
                                 </span>
                             @endif
                         </td>
-                        <td class="py-3 px-4 text-xs">
+                        <td data-label="Complainant" class="py-3 px-4 text-xs">
                             <div class="font-semibold text-slate-900">{{ $comp['full_name'] ?? '—' }}</div>
                             @if(!empty($comp['exact_party_id']))
                                 <span class="inline-flex items-center gap-1 text-emerald-700 font-medium mt-0.5">
@@ -197,7 +197,7 @@
                                 </span>
                             @endif
                         </td>
-                        <td class="py-3 px-4 text-xs">
+                        <td data-label="Respondent" class="py-3 px-4 text-xs">
                             <div class="font-semibold text-slate-900">{{ $resp['full_name'] ?? '—' }}</div>
                             @if(!empty($resp['exact_party_id']))
                                 <span class="inline-flex items-center gap-1 text-emerald-700 font-medium mt-0.5">
@@ -211,7 +211,7 @@
                                 </span>
                             @endif
                         </td>
-                        <td class="py-3 px-4 text-xs">
+                        <td data-label="Status" class="py-3 px-4 text-xs">
                             <x-ui.badge :color="$rowBadgeColors[$row->status] ?? 'slate'" :dot="true">
                                 {{ ucfirst($row->status) }}
                             </x-ui.badge>
@@ -219,7 +219,7 @@
                                 Case: <strong>{{ $caseStatusLabels[$mapped['status'] ?? 'filed'] ?? 'Filed' }}</strong>
                             </div>
                         </td>
-                        <td class="py-3 px-4 text-xs">
+                        <td data-label="Validation & Duplicate Flags" class="py-3 px-4 text-xs">
                             @if(empty($rowErrors))
                                 <span class="text-emerald-700 font-medium">
                                     <i class="fa-solid fa-check mr-1" aria-hidden="true"></i>Ready to import

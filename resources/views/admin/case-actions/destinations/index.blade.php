@@ -19,29 +19,29 @@
             <p class="mt-1 text-xs text-slate-500">Configure external courts, prosecutors, and agencies for case referral and CFA issuance.</p>
         </div>
     @else
-        <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-            <table class="w-full text-left text-xs">
+        <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <table class="w-full text-left text-xs table-fixed responsive-card-table">
                 <thead class="border-b border-slate-200 bg-slate-50 text-slate-600 font-semibold uppercase tracking-wider">
                     <tr>
-                        <th class="py-3 px-4">Order</th>
-                        <th class="py-3 px-4">Destination Name</th>
-                        <th class="py-3 px-4">Linked Office</th>
-                        <th class="py-3 px-4">Status</th>
-                        <th class="py-3 px-4 text-right">Actions</th>
+                        <th class="py-3 px-4 w-[10%]">Order</th>
+                        <th class="py-3 px-4 w-[35%]">Destination Name</th>
+                        <th class="py-3 px-4 w-[25%]">Linked Office</th>
+                        <th class="py-3 px-4 w-[15%]">Status</th>
+                        <th class="py-3 px-4 w-[15%] text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100 text-slate-700">
                     @foreach($destinations as $dest)
                         <tr class="hover:bg-slate-50/70 transition-colors">
-                            <td class="py-3 px-4 font-mono text-slate-400">{{ $dest->sort_order }}</td>
-                            <td class="py-3 px-4 font-bold text-slate-900">{{ $dest->name }}</td>
-                            <td class="py-3 px-4 text-slate-600">{{ $dest->office?->name ?? 'None' }}</td>
-                            <td class="py-3 px-4">
+                            <td data-label="Order" class="py-3 px-4 font-mono text-slate-400">{{ $dest->sort_order }}</td>
+                            <td data-label="Destination Name" class="py-3 px-4 font-bold text-slate-900">{{ $dest->name }}</td>
+                            <td data-label="Linked Office" class="py-3 px-4 text-slate-600">{{ $dest->office?->name ?? 'None' }}</td>
+                            <td data-label="Status" class="py-3 px-4">
                                 <span class="rounded px-2 py-0.5 text-[11px] font-semibold {{ $dest->is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600' }}">
                                     {{ $dest->is_active ? 'Active' : 'Inactive' }}
                                 </span>
                             </td>
-                            <td class="py-3 px-4 text-right whitespace-nowrap">
+                            <td data-label="Actions" class="py-3 px-4 text-right">
                                 <div class="inline-flex items-center gap-2">
                                     <a href="{{ route('admin.escalation-destinations.edit', $dest) }}" class="rounded border border-slate-300 bg-white px-2.5 py-1 font-semibold text-slate-700 hover:bg-slate-50 shadow-sm">
                                         Edit

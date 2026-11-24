@@ -89,7 +89,7 @@
 
         @foreach($personnelList as $person)
             <tr class="hover:bg-slate-50">
-                <td class="px-4 py-3">
+                <td data-label="Name" class="px-4 py-3">
                     <a href="{{ route('admin.personnel.show', $person) }}" class="font-bold text-slate-900 hover:text-blue-700">
                         {{ $person->full_name }}
                     </a>
@@ -99,30 +99,30 @@
                         </div>
                     @endif
                 </td>
-                <td class="px-4 py-3 text-slate-700">{{ $person->position?->name ?? 'Unassigned' }}</td>
-                <td class="px-4 py-3 text-slate-600 text-xs">
+                <td data-label="Position" class="px-4 py-3 text-slate-700">{{ $person->position?->name ?? 'Unassigned' }}</td>
+                <td data-label="Term" class="px-4 py-3 text-slate-600 text-xs">
                     {{ $person->term_start?->format('Y-m-d') ?? '—' }} — {{ $person->term_end?->format('Y-m-d') ?? 'Present' }}
                 </td>
-                <td class="px-4 py-3 text-center">
+                <td data-label="Signatory" class="px-4 py-3 text-center">
                     @if($person->is_signatory)
                         <i class="fa-solid fa-circle-check text-emerald-600" title="Authorized Signatory"></i>
                     @else
                         <span class="text-slate-400">—</span>
                     @endif
                 </td>
-                <td class="px-4 py-3 text-center">
+                <td data-label="Login" class="px-4 py-3 text-center">
                     @if($person->user_id)
                         <i class="fa-solid fa-user-check text-blue-600" title="Linked account: {{ $person->user?->email }}"></i>
                     @else
                         <span class="text-slate-400">—</span>
                     @endif
                 </td>
-                <td class="px-4 py-3">
+                <td data-label="Status" class="px-4 py-3">
                     <x-ui.badge :color="$person->is_active ? 'green' : 'slate'" :dot="true">
                         {{ $person->is_active ? 'Active' : 'Inactive' }}
                     </x-ui.badge>
                 </td>
-                <td class="px-4 py-3 text-right">
+                <td data-label="Actions" class="px-4 py-3 text-right">
                     <div class="inline-flex items-center justify-end gap-2">
                         <x-ui.button size="sm" variant="ghost" :href="route('admin.personnel.show', $person)">View</x-ui.button>
                         <x-ui.button size="sm" variant="secondary" :href="route('admin.personnel.edit', $person)">Edit</x-ui.button>

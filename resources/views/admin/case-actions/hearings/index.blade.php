@@ -45,47 +45,47 @@
             <p class="mt-1 text-xs text-slate-500">There are no hearings matching the selected filter.</p>
         </div>
     @else
-        <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-            <table class="w-full text-left text-xs">
+        <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <table class="w-full text-left text-xs table-fixed responsive-card-table">
                 <thead class="border-b border-slate-200 bg-slate-50 text-slate-600 font-semibold uppercase tracking-wider">
                     <tr>
-                        <th class="py-3 px-4">Date & Time</th>
-                        <th class="py-3 px-4">Case Docket</th>
-                        <th class="py-3 px-4">Parties</th>
-                        <th class="py-3 px-4">Venue</th>
-                        <th class="py-3 px-4">Presided By</th>
-                        <th class="py-3 px-4">Status</th>
-                        <th class="py-3 px-4 text-right">Actions</th>
+                        <th class="py-3 px-4 w-[16%]">Date & Time</th>
+                        <th class="py-3 px-4 w-[22%]">Case Docket</th>
+                        <th class="py-3 px-4 w-[22%]">Parties</th>
+                        <th class="py-3 px-4 w-[12%]">Venue</th>
+                        <th class="py-3 px-4 w-[12%]">Presided By</th>
+                        <th class="py-3 px-4 w-[8%]">Status</th>
+                        <th class="py-3 px-4 w-[8%] text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100 text-slate-700">
                     @foreach($hearings as $h)
                         <tr class="hover:bg-slate-50/70 transition-colors">
-                            <td class="py-3 px-4 whitespace-nowrap font-bold text-slate-900">
+                            <td data-label="Date & Time" class="py-3 px-4 font-bold text-slate-900">
                                 {{ $h->scheduled_at?->format('M d, Y · h:i A') }}
                             </td>
-                            <td class="py-3 px-4">
+                            <td data-label="Case Docket" class="py-3 px-4">
                                 <a href="{{ route('admin.cases.show', ['case' => $h->case, 'tab' => 'hearings']) }}" class="font-bold text-blue-600 hover:underline">
                                     {{ $h->case?->case_number }}
                                 </a>
                                 <p class="text-[11px] text-slate-500 truncate max-w-xs">{{ $h->case?->title }}</p>
                             </td>
-                            <td class="py-3 px-4">
+                            <td data-label="Parties" class="py-3 px-4">
                                 <span class="font-medium text-slate-800">C: {{ $h->case?->complainants?->pluck('full_name')->first() ?? 'N/A' }}</span>
                                 <span class="block text-slate-500 text-[11px]">R: {{ $h->case?->respondents?->pluck('full_name')->first() ?? 'N/A' }}</span>
                             </td>
-                            <td class="py-3 px-4 whitespace-nowrap">
+                            <td data-label="Venue" class="py-3 px-4">
                                 {{ $h->venue ?? 'Barangay Hall' }}
                             </td>
-                            <td class="py-3 px-4 whitespace-nowrap">
+                            <td data-label="Presided By" class="py-3 px-4">
                                 {{ $h->presidedBy?->full_name ?? 'Unassigned' }}
                             </td>
-                            <td class="py-3 px-4 whitespace-nowrap">
+                            <td data-label="Status" class="py-3 px-4">
                                 <span class="rounded px-2 py-0.5 text-[11px] font-semibold {{ $h->status === 'held' ? 'bg-emerald-100 text-emerald-800' : ($h->status === 'cancelled' ? 'bg-rose-100 text-rose-800' : 'bg-blue-100 text-blue-800') }}">
                                     {{ ucfirst($h->status) }}
                                 </span>
                             </td>
-                            <td class="py-3 px-4 text-right whitespace-nowrap">
+                            <td data-label="Actions" class="py-3 px-4 text-right">
                                 <a href="{{ route('admin.cases.show', ['case' => $h->case, 'tab' => 'hearings']) }}" class="inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-2.5 py-1 font-semibold text-slate-700 hover:bg-slate-50 shadow-sm">
                                     View Hearing
                                 </a>

@@ -73,7 +73,7 @@
             };
         @endphp
         <tr class="hover:bg-slate-50">
-            <td class="px-4 py-3 font-semibold text-slate-900">
+            <td data-label="Name" class="px-4 py-3 font-semibold text-slate-900">
                 {{ $u->name }}
                 @if($u->role === 'agency')
                     <div class="text-xs font-normal text-purple-700">{{ $u->office?->name ?? 'External Agency' }}</div>
@@ -81,11 +81,11 @@
                     <div class="text-xs font-normal text-slate-500">{{ $u->personnel->position->name }}</div>
                 @endif
             </td>
-            <td class="px-4 py-3 text-slate-700">{{ $u->email }}</td>
-            <td class="px-4 py-3">
+            <td data-label="Email" class="px-4 py-3 text-slate-700">{{ $u->email }}</td>
+            <td data-label="Role" class="px-4 py-3">
                 <x-ui.badge :color="$roleColor">{{ ucfirst($u->role) }}</x-ui.badge>
             </td>
-            <td class="px-4 py-3 text-xs text-slate-600">
+            <td data-label="Permissions" class="px-4 py-3 text-xs text-slate-600">
                 @if($u->role === 'admin')
                     <span class="font-semibold text-slate-800">All ({{ $totalPermissionsCount }} perms)</span>
                 @elseif($u->role === 'agency')
@@ -94,15 +94,15 @@
                     <span>{{ $u->permissions->count() }} perms</span>
                 @endif
             </td>
-            <td class="px-4 py-3">
+            <td data-label="Status" class="px-4 py-3">
                 <x-ui.badge :color="$u->is_active ? 'green' : 'slate'" :dot="true">
                     {{ $u->is_active ? 'Active' : 'Inactive' }}
                 </x-ui.badge>
             </td>
-            <td class="px-4 py-3 text-xs text-slate-500">
+            <td data-label="Last Login" class="px-4 py-3 text-xs text-slate-500">
                 {{ $u->last_login_at ? $u->last_login_at->diffForHumans() : 'Never' }}
             </td>
-            <td class="px-4 py-3 text-right">
+            <td data-label="Actions" class="px-4 py-3 text-right">
                 <div class="inline-flex items-center justify-end gap-1.5">
                     <x-ui.button size="sm" variant="secondary" :href="route('admin.users.edit', $u)">Edit</x-ui.button>
                     @if($u->role === 'staff')

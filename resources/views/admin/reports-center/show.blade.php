@@ -201,8 +201,8 @@
         </div>
     @endif
 
-    <div class="overflow-x-auto">
-        <table class="min-w-full border-collapse border border-slate-300 text-xs">
+    <div class="overflow-hidden">
+        <table class="w-full border-collapse border border-slate-300 text-xs table-fixed responsive-card-table">
             <thead class="bg-indigo-50 text-slate-800">
                 <tr>
                     @foreach($columns as $col)
@@ -216,7 +216,7 @@
                 @forelse($rows as $row)
                     <tr class="hover:bg-slate-50">
                         @foreach($columns as $col)
-                            <td class="border border-slate-300 px-3 py-2 text-{{ $col['align'] ?? 'left' }}">
+                            <td data-label="{{ $col['label'] }}" class="border border-slate-300 px-3 py-2 text-{{ $col['align'] ?? 'left' }}">
                                 {{ $row[$col['key']] ?? '—' }}
                             </td>
                         @endforeach

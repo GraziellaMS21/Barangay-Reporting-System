@@ -82,14 +82,14 @@
   </div>
 
   <div class="table-wrap">
-    <table class="data-table data-table-cards">
+    <table class="data-table data-table-cards responsive-card-table" style="table-layout:fixed;width:100%;">
       <thead>
         <tr>
-          <th scope="col" style="min-width:130px;">When</th>
-          <th scope="col" style="min-width:140px;">Activity &amp; Author</th>
-          <th scope="col" style="min-width:120px;">Record</th>
-          <th scope="col" style="min-width:180px;">Previous value</th>
-          <th scope="col" style="min-width:180px;">New value</th>
+          <th scope="col" style="width:16%;">When</th>
+          <th scope="col" style="width:18%;">Activity &amp; Author</th>
+          <th scope="col" style="width:16%;">Record</th>
+          <th scope="col" style="width:25%;">Previous value</th>
+          <th scope="col" style="width:25%;">New value</th>
         </tr>
       </thead>
       <tbody>
@@ -202,14 +202,14 @@
   </div>
 
   <div class="table-wrap">
-    <table class="data-table data-table-cards">
+    <table class="data-table data-table-cards responsive-card-table" style="table-layout:fixed;width:100%;">
       <thead>
         <tr>
-          <th scope="col" style="min-width:130px;">When</th>
-          <th scope="col" style="min-width:130px;">Who</th>
-          <th scope="col" style="min-width:140px;">Report</th>
-          <th scope="col" style="min-width:200px;">Change</th>
-          <th scope="col" style="min-width:200px;">Note</th>
+          <th scope="col" style="width:16%;">When</th>
+          <th scope="col" style="width:18%;">Who</th>
+          <th scope="col" style="width:18%;">Report</th>
+          <th scope="col" style="width:24%;">Change</th>
+          <th scope="col" style="width:24%;">Note</th>
         </tr>
       </thead>
       <tbody>

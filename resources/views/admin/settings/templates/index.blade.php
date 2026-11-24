@@ -24,8 +24,8 @@
     @endif
 
     <x-ui.card>
-        <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse text-sm">
+        <div class="overflow-hidden">
+            <table class="w-full text-left border-collapse text-sm table-fixed responsive-card-table">
                 <thead>
                     <tr class="border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider bg-slate-50/50">
                         <th class="py-3 px-4 w-[28%]">Title</th>
@@ -38,25 +38,25 @@
                 <tbody class="divide-y divide-slate-100">
                     @forelse($templates as $t)
                         <tr class="hover:bg-slate-50/80">
-                            <td class="py-3.5 px-4 font-semibold text-slate-900 text-xs">
+                            <td data-label="Title" class="py-3.5 px-4 font-semibold text-slate-900 text-xs">
                                 {{ $t->title }}
                             </td>
-                            <td class="py-3.5 px-4 text-xs">
+                            <td data-label="Kind" class="py-3.5 px-4 text-xs">
                                 <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-medium">
                                     {{ ucwords(str_replace('_', ' ', $t->kind)) }}
                                 </span>
                             </td>
-                            <td class="py-3.5 px-4 text-xs text-slate-600 truncate max-w-xs">
+                            <td data-label="Body Preview" class="py-3.5 px-4 text-xs text-slate-600 truncate max-w-xs">
                                 {{ Str::limit($t->body, 80) }}
                             </td>
-                            <td class="py-3.5 px-4 text-center">
+                            <td data-label="Status" class="py-3.5 px-4 text-center">
                                 @if($t->is_active)
                                     <x-ui.badge variant="success" dot>Active</x-ui.badge>
                                 @else
                                     <x-ui.badge variant="slate">Inactive</x-ui.badge>
                                 @endif
                             </td>
-                            <td class="py-3.5 px-4 text-right">
+                            <td data-label="Actions" class="py-3.5 px-4 text-right">
                                 <div class="flex items-center justify-end gap-2">
                                     <a href="{{ route('admin.templates.edit', $t) }}" class="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline">
                                         Edit

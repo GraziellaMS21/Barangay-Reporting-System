@@ -31,8 +31,8 @@
                     </div>
                 </div>
 
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+                <div class="overflow-hidden">
+                    <table class="w-full divide-y divide-slate-200 text-left text-sm table-fixed responsive-card-table">
                         <thead class="bg-white text-xs font-bold text-slate-500 uppercase tracking-wider">
                             <tr>
                                 <th class="py-3 pl-4 pr-3 sm:pl-6 w-[35%]">Field / Key</th>
@@ -45,13 +45,13 @@
                         <tbody class="divide-y divide-slate-200 bg-white text-slate-700">
                             @foreach($configs as $cfg)
                                 <tr class="hover:bg-slate-50/80 transition-colors">
-                                    <td class="py-3 pl-4 pr-3 sm:pl-6 text-xs">
+                                    <td data-label="Field / Key" class="py-3 pl-4 pr-3 sm:pl-6 text-xs">
                                         <input type="hidden" name="fields[{{ $fieldIndex }}][id]" value="{{ $cfg->id }}">
                                         <div class="font-bold text-slate-900">{{ $cfg->label }}</div>
                                         <span class="font-mono text-[11px] text-slate-400">{{ $cfg->field_key }}</span>
                                     </td>
 
-                                    <td class="px-3 py-3 text-center">
+                                    <td data-label="Required" class="px-3 py-3 text-center">
                                         <input
                                             type="checkbox"
                                             name="fields[{{ $fieldIndex }}][is_required]"
@@ -61,7 +61,7 @@
                                         />
                                     </td>
 
-                                    <td class="px-3 py-3 text-center">
+                                    <td data-label="Visible" class="px-3 py-3 text-center">
                                         <input
                                             type="checkbox"
                                             name="fields[{{ $fieldIndex }}][is_visible]"
@@ -71,7 +71,7 @@
                                         />
                                     </td>
 
-                                    <td class="px-3 py-3 text-xs">
+                                    <td data-label="Applies To" class="px-3 py-3 text-xs">
                                         <select name="fields[{{ $fieldIndex }}][applies_to]" class="text-xs border border-slate-300 rounded p-1 w-full focus:ring-1 focus:ring-blue-500">
                                             <option value="all" @selected($cfg->applies_to === 'all')>All Parties</option>
                                             <option value="resident" @selected($cfg->applies_to === 'resident')>Residents Only</option>
@@ -79,7 +79,7 @@
                                         </select>
                                     </td>
 
-                                    <td class="py-3 pl-3 pr-4 sm:pr-6 text-center text-xs">
+                                    <td data-label="Status" class="py-3 pl-3 pr-4 sm:pr-6 text-center text-xs">
                                         @if(!$cfg->is_confirmed)
                                             <x-ui.pending-badge />
                                         @else

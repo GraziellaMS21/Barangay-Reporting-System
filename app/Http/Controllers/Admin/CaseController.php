@@ -514,6 +514,56 @@ class CaseController extends Controller
     }
 
     /**
+     * Update pre-summons statutory KP eligibility screening checklist.
+     */
+    public function updateEligibility(Request $request, BarangayCase $case): RedirectResponse
+    {
+        $this->fiscalYearGuard->assertWritable($case);
+
+        $validated = $request->validate([
+            'same_barangay' => ['nullable', 'boolean'],
+            'kp_matter' => ['nullable', 'boolean'],
+            'non_confidential' => ['nullable', 'boolean'],
+            'residency_verified' => ['nullable', 'boolean'],
+        ]);
+
+        $checklist = [
+            'same_barangay' => (bool) ($request->has('same_barangay')),
+            'kp_matter' => (bool) ($request->has('kp_matter')),
+            'non_confidential' => (bool) ($request->has('non_confidential')),
+            'residency_verified' => (bool) ($request->has('residency_verified')),
+        ];
+
+        $old = $case->eligibility_checklist ?? [];
+        $case->update(['eligibility_checklist' => $checklist]);
+
+        $this->audit->log($request->user(), 'case.eligibility_updated', $case, $old, $checklist);
+
+        return redirect()->route('admin.cases.show', $case)
+            ->with('success', 'Pre-summons eligibility screening checklist updated.');
+    }
+
+    /**
+     * Update first meeting date to initiate statutory mediation clock.
+     */
+    public function updateFirstMeeting(Request $request, BarangayCase $case): RedirectResponse
+    {
+        $this->fiscalYearGuard->assertWritable($case);
+
+        $validated = $request->validate([
+            'first_meeting_on' => ['required', 'date'],
+        ]);
+
+        $old = ['first_meeting_on' => $case->first_meeting_on?->toDateString()];
+        $case->update(['first_meeting_on' => $validated['first_meeting_on']]);
+
+        $this->audit->log($request->user(), 'case.first_meeting_updated', $case, $old, ['first_meeting_on' => $validated['first_meeting_on']]);
+
+        return redirect()->route('admin.cases.show', $case)
+            ->with('success', 'First meeting date recorded. Statutory mediation clock initiated.');
+    }
+
+    /**
      * Hook to convert a problem report into a blotter case.
      */
     public function convertFromReport(Request $request, Report $report): RedirectResponse

@@ -38,6 +38,8 @@ class CaseEscalationController extends Controller
             ? "15 working days have not yet elapsed (Day {$overdue['day']} of 15). Mediation or conciliation period is still active. Complainant may request escalation early, and authorized officials decide whether to issue CFA."
             : null;
 
+        $hasNoPangkatWarning = empty($case->endorsed_to_pangkat_on) && empty($case->pangkat_chairman_personnel_id);
+
         $complainants = $case->caseParties()
             ->where('role', 'complainant')
             ->with('party')
@@ -59,6 +61,7 @@ class CaseEscalationController extends Controller
             'overdue' => $overdue,
             'hasSoftWarning' => $hasSoftWarning,
             'warningMessage' => $warningMessage,
+            'hasNoPangkatWarning' => $hasNoPangkatWarning,
             'complainants' => $complainants,
             'destinations' => $destinations,
             'personnel' => $personnel,

@@ -408,6 +408,14 @@ class RequiredDataSeeder extends Seeder
                 ['document_type' => 'referral_letter', 'role_label' => 'Approved by', 'position_id' => $pb->id, 'sort_order' => 2, 'is_confirmed' => false],
                 ['document_type' => 'settlement_agreement', 'role_label' => 'Attested by', 'position_id' => $pb->id, 'sort_order' => 1, 'is_confirmed' => false],
                 ['document_type' => 'settlement_agreement', 'role_label' => 'Approved by', 'position_id' => $pb->id, 'sort_order' => 2, 'is_confirmed' => false],
+                ['document_type' => 'certificate_to_file_action', 'role_label' => 'Prepared by', 'position_id' => $sec->id, 'sort_order' => 1, 'is_confirmed' => false],
+                ['document_type' => 'certificate_to_file_action', 'role_label' => 'Approved by', 'position_id' => $pb->id, 'sort_order' => 2, 'is_confirmed' => false],
+                ['document_type' => 'blotter_extract', 'role_label' => 'Prepared by', 'position_id' => $sec->id, 'sort_order' => 1, 'is_confirmed' => false],
+                ['document_type' => 'blotter_extract', 'role_label' => 'Approved by', 'position_id' => $pb->id, 'sort_order' => 2, 'is_confirmed' => false],
+                ['document_type' => 'complaint', 'role_label' => 'Prepared by', 'position_id' => $sec->id, 'sort_order' => 1, 'is_confirmed' => false],
+                ['document_type' => 'complaint', 'role_label' => 'Approved by', 'position_id' => $pb->id, 'sort_order' => 2, 'is_confirmed' => false],
+                ['document_type' => 'conciliation_notice', 'role_label' => 'Prepared by', 'position_id' => $sec->id, 'sort_order' => 1, 'is_confirmed' => false],
+                ['document_type' => 'conciliation_notice', 'role_label' => 'Approved by', 'position_id' => $pb->id, 'sort_order' => 2, 'is_confirmed' => false],
             ];
 
             foreach ($assignments as $assign) {

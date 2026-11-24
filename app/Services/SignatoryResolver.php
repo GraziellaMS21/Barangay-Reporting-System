@@ -27,12 +27,28 @@ class SignatoryResolver
      */
     public function forDocument(string $documentType, ?CarbonInterface $asOf = null, ?BarangayCase $case = null): array
     {
+        $normalizedType = match ($documentType) {
+            'cfa' => 'certificate_to_file_action',
+            'settlement' => 'settlement_agreement',
+            'hearing_notice' => 'conciliation_notice',
+            default => $documentType,
+        };
+
         $assignments = SignatoryAssignment::query()
             ->with('position')
-            ->where('document_type', $documentType)
+            ->where('document_type', $normalizedType)
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get();
+
+        if ($assignments->isEmpty() && $normalizedType !== $documentType) {
+            $assignments = SignatoryAssignment::query()
+                ->with('position')
+                ->where('document_type', $documentType)
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->get();
+        }
 
         if ($assignments->isEmpty()) {
             return [];
@@ -48,7 +64,7 @@ class SignatoryResolver
             }
 
             $label = self::ROLE_LABELS[strtolower($assignment->role_label)] ?? $assignment->role_label;
-            $person = $this->resolvePersonnelForAssignment($documentType, $assignment, $date, $case);
+            $person = $this->resolvePersonnelForAssignment($normalizedType, $assignment, $date, $case);
 
             $signatureDataUri = null;
             if ($person && ! empty($person->signature_path)) {

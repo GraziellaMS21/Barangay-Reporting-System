@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\CaseEscalationController;
+use App\Http\Controllers\Admin\CasePrintableController;
 use App\Http\Controllers\Admin\CaseSettlementController;
 use App\Http\Controllers\Admin\EscalationDestinationController;
 use App\Http\Controllers\Admin\HearingController;
@@ -51,6 +52,16 @@ Route::middleware(['auth', 'role:staff'])->prefix('admin')->name('admin.')->grou
             Route::post('/escalate', [CaseEscalationController::class, 'store'])->name('escalations.store');
             Route::get('/escalate/letter', [CaseEscalationController::class, 'letter'])->name('escalations.letter');
             Route::get('/escalate/cfa', [CaseEscalationController::class, 'cfa'])->name('escalations.cfa');
+        });
+
+        // Official Katarungang Pambarangay Printables (Task 11)
+        Route::middleware(['permission:cases.view'])->prefix('printables')->name('printables.')->group(function () {
+            Route::get('/blotter-extract', [CasePrintableController::class, 'blotterExtract'])->name('blotter-extract');
+            Route::get('/complaint', [CasePrintableController::class, 'complaint'])->name('complaint');
+            Route::get('/summons/{summons?}', [CasePrintableController::class, 'summons'])->name('summons');
+            Route::get('/conciliation-notice/{hearing?}', [CasePrintableController::class, 'conciliationNotice'])->name('conciliation-notice');
+            Route::get('/settlement', [CasePrintableController::class, 'settlement'])->name('settlement');
+            Route::get('/cfa', [CasePrintableController::class, 'cfa'])->name('cfa');
         });
     });
 });

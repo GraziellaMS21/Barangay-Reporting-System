@@ -37,7 +37,7 @@ class OverdueService
             ];
         }
 
-        $startDate = $case->filed_on ?? $case->created_at;
+        $startDate = $case->first_meeting_on ?? $case->filed_on ?? $case->created_at;
         $extension = (int) ($case->conciliation_extension_days ?? 0);
 
         if ($case->status === CaseStatus::UNSETTLED) {

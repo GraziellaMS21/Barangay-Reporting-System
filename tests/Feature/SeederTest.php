@@ -45,7 +45,7 @@ class SeederTest extends TestCase
         $this->assertSame(3, $templateCount);
 
         $signatoryCount = SignatoryAssignment::count();
-        $this->assertSame(8, $signatoryCount);
+        $this->assertSame(16, $signatoryCount);
 
         // Run second time to verify idempotency
         $this->seed(RequiredDataSeeder::class);

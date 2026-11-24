@@ -82,7 +82,7 @@
                         </div>
                     </div>
 
-                    <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+                    <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
                         <div>
                             <span class="text-slate-500">Presided By</span>
                             <p class="font-semibold text-slate-800">{{ $h->presidedBy?->full_name ?? 'Unassigned' }}</p>
@@ -92,10 +92,25 @@
                             <p class="font-semibold text-slate-800">{{ $h->summons?->summons_number ?? 'None' }}</p>
                         </div>
                         <div>
-                            <span class="text-slate-500">Recorded At</span>
-                            <p class="font-semibold text-slate-800">{{ $h->created_at?->format('M d, Y') }}</p>
+                            <span class="text-slate-500">Complainant Attendance</span>
+                            <p class="font-semibold {{ $h->complainant_attendance === 'failed_to_appear' ? 'text-rose-600' : ($h->complainant_attendance === 'appeared' ? 'text-emerald-700' : 'text-slate-800') }}">
+                                {{ ucfirst(str_replace('_', ' ', $h->complainant_attendance ?? 'pending')) }}
+                            </p>
+                        </div>
+                        <div>
+                            <span class="text-slate-500">Respondent Attendance</span>
+                            <p class="font-semibold {{ $h->respondent_attendance === 'failed_to_appear' ? 'text-rose-600' : ($h->respondent_attendance === 'appeared' ? 'text-emerald-700' : 'text-slate-800') }}">
+                                {{ ucfirst(str_replace('_', ' ', $h->respondent_attendance ?? 'pending')) }}
+                            </p>
                         </div>
                     </div>
+
+                    @if($h->respondent_barred_counterclaim)
+                        <div class="mt-2.5 flex items-center gap-2 p-2 rounded bg-rose-50 border border-rose-200 text-xs text-rose-800 font-medium">
+                            <i class="fa-solid fa-ban text-rose-600"></i>
+                            <span>Respondent Counterclaim Barred (Sec. 412(b)): Respondent willfully failed to appear. Counterclaim barred from court assertion per RA 7160. Pangkat conciliation required.</span>
+                        </div>
+                    @endif
 
                     @if($h->outcome_note)
                         <div class="mt-3 text-xs bg-slate-50 p-2.5 rounded border border-slate-200 text-slate-700">
@@ -121,6 +136,26 @@
                                                 <option value="reset" {{ $h->status === 'reset' ? 'selected' : '' }}>Reset / Rescheduled</option>
                                                 <option value="cancelled" {{ $h->status === 'cancelled' ? 'selected' : '' }}>Cancelled</option>
                                             </select>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label class="block font-semibold text-slate-700">Complainant</label>
+                                                <select name="complainant_attendance" class="w-full rounded border border-slate-300 p-1.5 text-xs">
+                                                    <option value="pending" {{ ($h->complainant_attendance ?? 'pending') === 'pending' ? 'selected' : '' }}>Pending</option>
+                                                    <option value="appeared" {{ ($h->complainant_attendance ?? '') === 'appeared' ? 'selected' : '' }}>Appeared</option>
+                                                    <option value="failed_to_appear" {{ ($h->complainant_attendance ?? '') === 'failed_to_appear' ? 'selected' : '' }}>Failed to Appear</option>
+                                                    <option value="excused" {{ ($h->complainant_attendance ?? '') === 'excused' ? 'selected' : '' }}>Excused</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label class="block font-semibold text-slate-700">Respondent</label>
+                                                <select name="respondent_attendance" class="w-full rounded border border-slate-300 p-1.5 text-xs">
+                                                    <option value="pending" {{ ($h->respondent_attendance ?? 'pending') === 'pending' ? 'selected' : '' }}>Pending</option>
+                                                    <option value="appeared" {{ ($h->respondent_attendance ?? '') === 'appeared' ? 'selected' : '' }}>Appeared</option>
+                                                    <option value="failed_to_appear" {{ ($h->respondent_attendance ?? '') === 'failed_to_appear' ? 'selected' : '' }}>Failed to Appear</option>
+                                                    <option value="excused" {{ ($h->respondent_attendance ?? '') === 'excused' ? 'selected' : '' }}>Excused</option>
+                                                </select>
+                                            </div>
                                         </div>
                                         <div>
                                             <label class="block font-semibold text-slate-700">Proceedings & Outcome Notes <span class="text-red-500">*</span></label>

@@ -28,6 +28,7 @@ class BarangayCase extends Model
         'title',
         'narrative',
         'filed_on',
+        'first_meeting_on',
         'complaint_started_on',
         'endorsed_to_pangkat_on',
         'conciliation_extension_days',
@@ -44,18 +45,21 @@ class BarangayCase extends Model
         'settlement_agreement_path',
         'outcome_note',
         'is_confidential',
+        'eligibility_checklist',
     ];
 
     protected function casts(): array
     {
         return [
             'filed_on' => 'date',
+            'first_meeting_on' => 'date',
             'complaint_started_on' => 'date',
             'endorsed_to_pangkat_on' => 'date',
             'incident_date' => 'date',
             'settled_on' => 'date',
             'settlement_amount' => 'decimal:2',
             'is_confidential' => 'boolean',
+            'eligibility_checklist' => 'array',
         ];
     }
 

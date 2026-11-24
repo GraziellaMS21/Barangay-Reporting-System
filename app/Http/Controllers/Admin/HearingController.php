@@ -149,21 +149,42 @@ class HearingController extends Controller
         $validated = $request->validate([
             'outcome_note' => ['required', 'string'],
             'status' => ['nullable', 'string', Rule::in(['scheduled', 'held', 'cancelled', 'reset'])],
+            'complainant_attendance' => ['nullable', 'string', Rule::in(['pending', 'appeared', 'failed_to_appear', 'excused'])],
+            'respondent_attendance' => ['nullable', 'string', Rule::in(['pending', 'appeared', 'failed_to_appear', 'excused'])],
         ]);
 
         $status = $validated['status'] ?? 'held';
+        $complainantAttendance = $validated['complainant_attendance'] ?? $hearing->complainant_attendance ?? 'pending';
+        $respondentAttendance = $validated['respondent_attendance'] ?? $hearing->respondent_attendance ?? 'pending';
+        $barredCounterclaim = $respondentAttendance === 'failed_to_appear';
 
         $hearing->update([
             'outcome_note' => $validated['outcome_note'],
             'status' => $status,
+            'complainant_attendance' => $complainantAttendance,
+            'respondent_attendance' => $respondentAttendance,
+            'respondent_barred_counterclaim' => $barredCounterclaim,
         ]);
+
+        if (empty($case->first_meeting_on) && ($status === 'held' || $complainantAttendance === 'appeared' || $respondentAttendance === 'appeared')) {
+            $case->update([
+                'first_meeting_on' => $hearing->scheduled_at->toDateString(),
+            ]);
+        }
 
         $this->auditLogger->log(
             $request->user(),
             'case.hearing_outcome_recorded',
             $case,
             [],
-            ['hearing_id' => $hearing->id, 'outcome_note' => $validated['outcome_note'], 'status' => $status]
+            [
+                'hearing_id' => $hearing->id,
+                'outcome_note' => $validated['outcome_note'],
+                'status' => $status,
+                'complainant_attendance' => $complainantAttendance,
+                'respondent_attendance' => $respondentAttendance,
+                'respondent_barred_counterclaim' => $barredCounterclaim,
+            ]
         );
 
         return redirect()->route('admin.cases.show', ['case' => $case, 'tab' => 'hearings'])

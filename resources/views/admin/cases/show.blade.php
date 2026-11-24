@@ -41,6 +41,41 @@
 
         <!-- Action Cluster -->
         <div class="flex items-center flex-wrap gap-2">
+            <!-- KP Legal Printables Dropdown -->
+            <details class="relative">
+                <summary class="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50 shadow-sm transition-colors">
+                    <i class="fa-solid fa-file-invoice text-blue-600"></i>
+                    <span>KP Legal Forms</span>
+                    <i class="fa-solid fa-chevron-down text-[10px] text-slate-400"></i>
+                </summary>
+                <div class="absolute right-0 mt-1 z-30 w-64 rounded-lg border border-slate-200 bg-white p-1.5 shadow-xl text-xs space-y-0.5">
+                    <a href="{{ route('admin.cases.printables.blotter-extract', $case) }}" target="_blank" class="flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-slate-100 text-slate-700">
+                        <i class="fa-solid fa-file-lines text-slate-400 w-4"></i>
+                        <span>Blotter Certified Extract</span>
+                    </a>
+                    <a href="{{ route('admin.cases.printables.complaint', $case) }}" target="_blank" class="flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-slate-100 text-slate-700">
+                        <i class="fa-solid fa-scale-balanced text-slate-400 w-4"></i>
+                        <span>Formal Complaint (KP Form 1)</span>
+                    </a>
+                    <a href="{{ route('admin.cases.printables.summons', $case) }}" target="_blank" class="flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-slate-100 text-slate-700">
+                        <i class="fa-solid fa-envelope-open-text text-slate-400 w-4"></i>
+                        <span>Summons Notice (KP Form 7)</span>
+                    </a>
+                    <a href="{{ route('admin.cases.printables.conciliation-notice', $case) }}" target="_blank" class="flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-slate-100 text-slate-700">
+                        <i class="fa-solid fa-calendar-check text-slate-400 w-4"></i>
+                        <span>Notice of Hearing (KP 8/9)</span>
+                    </a>
+                    <a href="{{ route('admin.cases.printables.settlement', $case) }}" target="_blank" class="flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-slate-100 text-slate-700">
+                        <i class="fa-solid fa-handshake text-slate-400 w-4"></i>
+                        <span>Amicable Settlement (KP 16)</span>
+                    </a>
+                    <a href="{{ route('admin.cases.printables.cfa', $case) }}" target="_blank" class="flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-slate-100 text-slate-700">
+                        <i class="fa-solid fa-certificate text-slate-400 w-4"></i>
+                        <span>Certification to File Action (KP 20)</span>
+                    </a>
+                </div>
+            </details>
+
             <a href="{{ route('admin.cases.print', $case) }}" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50 shadow-sm transition-colors">
                 <i class="fa-solid fa-print"></i>
                 <span>Print Docket</span>
@@ -357,6 +392,9 @@
 
         <!-- Right 1 Col: Metadata & Action Panels -->
         <div class="space-y-6">
+
+            <!-- Pre-Summons Screening & Mediation Clock -->
+            @include('admin.cases.partials.eligibility-card', ['case' => $case])
 
             <!-- Summons Progress Widget -->
             @includeIf('admin.case-actions.partials.summons-counter', ['case' => $case])

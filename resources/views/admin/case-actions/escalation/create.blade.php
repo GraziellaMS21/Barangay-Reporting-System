@@ -30,6 +30,23 @@
         </div>
     @endif
 
+    @if(!empty($hasNoPangkatWarning))
+        <div class="rounded-xl border border-amber-300 bg-amber-50 p-4 shadow-sm" role="alert">
+            <div class="flex items-start gap-3">
+                <i class="fa-solid fa-scale-unbalanced text-amber-600 text-lg mt-0.5"></i>
+                <div class="space-y-1">
+                    <h3 class="text-sm font-bold text-amber-900">Procedural Warning: Pangkat Conciliation Not Recorded</h3>
+                    <p class="text-xs text-amber-800 leading-relaxed">
+                        Under RA 7160 Sec. 410(b), failure of mediation before the Punong Barangay requires the constitution of the 3-member Pangkat Tagapagkasundo before issuing a Certificate to File Action, unless respondent willfully failed to appear or a statutory exception applies.
+                    </p>
+                    <p class="text-xs font-semibold text-amber-900 pt-1">
+                        Officials decide: You may proceed if non-appearance or statutory exception applies.
+                    </p>
+                </div>
+            </div>
+        </div>
+    @endif
+
     <form method="POST" action="{{ route('admin.cases.escalations.store', $case) }}" class="space-y-6">
         @csrf
 

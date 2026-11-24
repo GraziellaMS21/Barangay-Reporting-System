@@ -60,6 +60,8 @@ Route::middleware(['auth', 'role:staff'])->prefix('admin')->name('admin.')->grou
             Route::post('/{case}/status', [CaseController::class, 'status'])->name('status');
             Route::post('/{case}/assign', [CaseController::class, 'assign'])->name('assign');
             Route::post('/{case}/notes', [CaseController::class, 'storeNote'])->name('notes.store');
+            Route::post('/{case}/eligibility', [CaseController::class, 'updateEligibility'])->name('eligibility');
+            Route::post('/{case}/first-meeting', [CaseController::class, 'updateFirstMeeting'])->name('first-meeting');
         });
 
         // Citizen Pending Intakes

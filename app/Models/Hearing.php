@@ -19,6 +19,9 @@ class Hearing extends Model
         'venue',
         'presided_by_personnel_id',
         'status',
+        'complainant_attendance',
+        'respondent_attendance',
+        'respondent_barred_counterclaim',
         'outcome_note',
     ];
 
@@ -26,6 +29,7 @@ class Hearing extends Model
     {
         return [
             'scheduled_at' => 'datetime',
+            'respondent_barred_counterclaim' => 'boolean',
         ];
     }
 

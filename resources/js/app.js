@@ -252,10 +252,10 @@ if (siteMenuToggle && siteNavigation) {
 const staffMenuToggle = document.querySelector('.staff-menu-toggle');
 const staffSidebar = document.getElementById('staff-sidebar');
 const staffDrawerOverlay = document.querySelector('.staff-drawer-overlay');
-const staffMain = document.querySelector('.staff-main');
+const staffMain = document.querySelector('.staff-main, .agency-main');
 
 if (staffMenuToggle && staffSidebar && staffDrawerOverlay && staffMain) {
-  const mobileViewport = window.matchMedia('(max-width: 767px)');
+  const mobileViewport = window.matchMedia('(max-width: 1023px)');
   let isStaffMenuOpen = false;
 
   const focusableDrawerElements = () => Array.from(

@@ -3,7 +3,7 @@
 @section('title', 'Barangay Cases Docket')
 
 @section('content')
-<div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 space-y-6">
+<div class="w-full min-w-0 space-y-6">
 
     <!-- Page Header -->
     <x-ui.page-header
@@ -11,7 +11,7 @@
         subtitle="Official Katarungang Pambarangay blotter registry and conciliation records"
     >
         <x-slot:actions>
-            <a href="{{ route('admin.cases.export-csv', request()->query()) }}" class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
+            <a href="{{ route('admin.cases.export-csv', request()->query()) }}" class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors" data-turbo="false">
                 <i class="fa-solid fa-download"></i>
                 <span>Export CSV</span>
             </a>
@@ -27,9 +27,9 @@
 
     <!-- Filters Card -->
     <x-ui.card class="p-4 bg-white border border-slate-200">
-        <form method="GET" action="{{ route('admin.cases.index') }}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3 text-sm">
+        <form method="GET" action="{{ route('admin.cases.index') }}" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 text-sm">
             <!-- Search -->
-            <div class="lg:col-span-2">
+            <div class="sm:col-span-2 xl:col-span-2">
                 <label for="search" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Search Docket</label>
                 <div class="relative">
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
@@ -91,7 +91,7 @@
             </div>
 
             <!-- Filter Action Buttons -->
-            <div class="flex items-end gap-2">
+            <div class="flex items-end gap-2 sm:col-span-2 md:col-span-1 xl:col-span-1">
                 <button type="submit" class="flex-1 py-1.5 px-3 text-xs font-semibold text-white bg-slate-800 rounded-md hover:bg-slate-900 transition-colors">
                     Filter
                 </button>

@@ -400,6 +400,52 @@ Used for: Official Summons, Case Endorsements, Referral Letters, Amicable Settle
 
 ---
 
+### Pattern K: Voice Reporting & Verification Components (Planned Prototype)
+
+#### 1. Audio Recorder Component (`<x-voice.recorder>`)
+- **Resident Form Placement**: Embedded directly above the incident description textarea in the single-card resident form as an optional, non-intrusive container ("Record instead of typing").
+- **States & Visual Progressions**:
+  1. `idle`: Displays a button with microphone icon (`fa-solid fa-microphone`) labeled *"Record your report"* alongside an *"Upload audio file"* fallback link.
+  2. `asking_permission`: Displays an informational prompt (*"Allow microphone access when prompted by your browser"*).
+  3. `recording`: Pulsing red recording dot, live countdown timer (`0:00 / 1:00`), live audio level indicator bars (Web Audio API `AnalyserNode`), and high-contrast *"Done / Stop"* (primary) and *"Cancel"* (ghost) buttons. Enforces maximum duration (`voice.max_seconds`, default 60s).
+  4. `recorded`: Audio preview player with waveform/scrubber, *"Re-record"* button, and *"Transcribe audio"* button.
+  5. `transcribing`: Processing spinner with status label *"Transcribing audio with AI..."*. Releases microphone access immediately.
+  6. `transcribed`: Text automatically populates into the incident description textarea. Surfaces a green confirmation banner: *"Check and fix the text before you submit"*.
+  7. `uncertain`: When `transcript_status` is `needs_verification`, surfaces an amber warning card rendering the exact mandatory copy:
+     > *"We couldn't understand this recording clearly. Type a short description, or send the recording and barangay staff will listen to it."*
+     Guessed text is **never** inserted into the description textarea. The user may type their own description, re-record, or submit with the recording for staff verification.
+  8. `error`: Displays a red alert banner with error message (microphone denied, unsupported browser codec, network timeout) with a retry button and automatic fallback to audio file upload.
+  9. `upload_fallback`: Standard accessible file upload input accepting `audio/*` (`audio/webm`, `audio/mp4`, `audio/ogg`, `audio/wav`; max 10 MB).
+- **Mobile & Accessibility Rules**:
+  - Full responsiveness down to 375 px viewport with zero horizontal overflow.
+  - All interactive controls (record, stop, play, clear) enforce a minimum touch target of 44 px $\times$ 44 px.
+  - Screen reader announcements via `aria-live="polite"` regions for timer, status changes, and errors.
+  - Feedback is never color-alone (pairs icons, text labels, and border styles).
+  - Browser microphone streams are explicitly closed on stop, cancel, window `pagehide`, and `turbo:before-render`.
+
+#### 2. Staff Hotline Phone Intake Form (`GET /admin/reports/phone`)
+- Follows Pattern B single-column form architecture.
+- Opened from a dedicated button (*"Record phone report"*) on the Report Queue header toolbar (requires `reports.log_phone` permission; no new sidebar item).
+- Captures caller name (optional), contact number (optional), purok (required), category/landmark, and issue description.
+- Embeds `<x-voice.recorder>` allowing the desk officer to record call audio or dictate spoken notes.
+- Mandatory verbal consent checkbox: *"I certify that the caller provided verbal consent to record this report and process incident details under RA 10173."*
+- Confirmation screen displays generated tracking code (`BRG-XXXXXX`) with one-click copy button and quick-action links (*"Open in Queue"*, *"Log another call"*).
+
+#### 3. Staff Review Page Voice Card
+- Rendered in the 3-way triage workspace if `reports.source` is `voice` or `phone_log`.
+- Features an embedded HTML5 audio player streaming from `GET /admin/reports/{report}/audio` with HTTP Range scrubbing.
+- Displays `transcript_status` badge (`done`, `needs_verification`, `failed`, `mock`) and detected language.
+- If the resident edited the AI transcript before submitting, displays an *"Edited by resident"* badge with side-by-side comparison of the original transcript.
+- **Verification Banner & Action**: When `transcript_status` is `needs_verification` or `failed`, displays an amber callout banner:
+  > *"Voice report needs verification. Listen to the recording and confirm or enter what was said before routing."*
+  Provides an inline text input to confirm or enter the verified transcript, and an action button (*"Verify transcript"*). Blocks "Confirm and route" until verified. Verification logs `verified_by`, `verified_at`, and an audit event.
+
+#### 4. Report Queue Marker
+- On `/admin/reports`, voice reports display a small microphone icon (`fa-solid fa-microphone text-blue-600`) beside the tracking code.
+- Unverified voice reports display `Verify audio` in the Next Action cell with due/overdue styling, without adding a new table column or increasing row height (~48px maintained).
+
+---
+
 ### Responsive Rules Summary (All Patterns)
 1. **Title Row**: Under 768 px, action buttons wrap below the page title. Under 480 px, the primary button expands to 100% full width.
 2. **Tables**: Wrap inside an `overflow-x-auto` card container. The first identifier column pins sticky left with an elevation divider.
@@ -1227,6 +1273,7 @@ Used for: Official Summons, Case Endorsements, Referral Letters, Amicable Settle
 | `<x-ui.tab-bar>` | `tabs` (array), `active` | Underline border style | Active, inactive | Segmented tab strip highlighting active section with 2 px blue bottom border. |
 | `<x-ui.queue-filters>` | `currentStage`, `stageCounts`, `statusFilter`, `emergencyOnly`, `emergencyCount`, `isMyCases`, `myCasesCount`, `overdueOnly`, `overdueCount` | 3-row white card | Responsive (tabs >= 1024px, select < 1024px) | Unified queue filter bar. My cases is a toggle chip, not a sidebar item; tab counts scope to active view. |
 | `<x-ui.stepper>` | `steps` (array), `current` | Horizontal (desktop), vertical (mobile) | Pending, active, completed | Step progression bar for multi-step wizards and agency referral progress tracking. |
+| `<x-voice.recorder>` *(Planned)* | `maxDuration`, `audioToken`, `fallback` | Compact (resident), Full (desk officer) | Idle, requesting, recording, preview, transcribing, uncertain, error | Voice recording component using MediaRecorder API with audio file upload fallback and Turbo lifecycle cleanup. |
 
 > [!NOTE]
 > **Badge Color Matrix**: All status pill variants reference the authoritative status-to-token mappings in [`docs/CONVENTIONS.md`](file:///c:/githubFiles/Barangay-Reporting-System-1/docs/CONVENTIONS.md) Section 4.2.

@@ -269,6 +269,16 @@ class RequiredDataSeeder extends Seeder
                 'source_question' => 'Voice recorder demo sample mode',
                 'is_confirmed' => false,
             ],
+            [
+                'key' => 'voice.extract_contact_from_audio',
+                'value' => 'true',
+                'type' => 'boolean',
+                'group' => 'voice',
+                'label' => 'Extract Caller Contact from Voice Recordings',
+                'description' => 'Allows AI to extract spoken caller name and phone number from audio recordings into the intake form.',
+                'source_question' => 'Extract caller contact details from voice recording?',
+                'is_confirmed' => false,
+            ],
         ];
 
         foreach ($settings as $s) {

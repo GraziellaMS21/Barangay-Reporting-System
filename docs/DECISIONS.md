@@ -343,3 +343,25 @@
 - **Decision**: Adopt Option 3. Mandate the core rule: **If the audio is uncertain or the AI cannot understand it, nothing is guessed and the decision goes to staff.**
 - **Rationale**: Preserves the human-in-the-loop review mandate. Extends the existing review gate without creating new statuses, complex sub-states, or automatic routing.
 - **Consequences**: Unverified voice reports are never auto-routed or priority-downgraded. Category and urgency remain human decisions in the 3-way triage. The resident's original description is preserved, and staff corrections are recorded separately with audit timestamps.
+
+### Decision 79: Voice Reports: AI Extracts Form Fields, Including Spoken Caller Contact, from Audio
+- **Status**: Accepted
+- **Date**: 2026-11-24
+- **Context**: Initially, voice reporting was implemented as a form filled manually plus an optional audio recording that only transcribed into the description box. Both residents and hotline desk officers benefit from a "record first, AI fills the form" paradigm where speaking naturally extracts incident details into the form while preserving user review and verification.
+- **Options**:
+  1. *Keep voice as description-only transcription*: Maintain the recorder below manual fields and only transcribe verbatim text into the description field.
+  2. *Full automated intake without review*: Have AI directly create and submit the report from audio (rejected: violates "The AI suggests, the rules route, the officials decide").
+  3. *Record-first with structured field extraction and human verification (chosen)*: Place the voice recorder at the top as Step 1. A single Gemini call analyzes the audio and extracts verbatim transcript plus structured candidate fields (`caller_name`, `caller_phone`, `caller_email`, `purok`, `landmark`, `category`, `urgency`, `emergency`, `not_stated`). Pre-fill the form with "From recording" badges while keeping every field editable and showing "Not provided" for unstated items.
+- **Decision**: Adopt Option 3. Rework voice reporting across resident intake and staff hotline intake to "record first, AI fills the form".
+- **Amendment to PII Isolation Rule (Voice Only)**:
+  - This decision formally AMENDS the strict PII isolation rule solely for voice intake: typed reporter fields entered into form inputs are still NEVER sent to external AI APIs. However, spoken audio recordings are sent to Google Gemini under explicit user consent to extract spoken contact information and incident details.
+  - Strict PII safeguards for voice:
+    1. *Explicit Consent Gate*: Staff recorder is locked until the mandatory caller verbal consent checkbox is ticked; resident recorder displays an explicit consent notice directly above the record button.
+    2. *Private Storage Only*: Audio recordings are stored strictly on the private disk (`storage/app/private/audio/`) and are never exposed publicly or streamed to unauthorized actors.
+    3. *No Downstream PII Reuse*: Extracted contact details are never re-sent to Gemini in downstream text classification or duplicate detection prompts.
+    4. *Server-Side Anonymous Drop*: If the resident toggles anonymous mode or the speaker explicitly requests anonymity, `caller_name`, `caller_phone`, and `caller_email` are dropped on the server and never stored.
+    5. *Zero PII Logging*: Transcripts and extracted contact details are never logged in application logs or audit logs (log IDs and statuses only).
+    6. *Configurable Toggle*: Setting `voice.extract_contact_from_audio` (default `true`, `is_confirmed = false`) allows disabling contact extraction entirely.
+    7. *Automated Purge*: Private audio files are purged after `voice.audio_retention_days` (default 90 days) by `app:purge-audio`.
+    8. *Uncertainty Rule Preserved*: If audio is unclear (`clarity = 'unclear'`), no fields are guessed (all set to "Not provided"), and routing remains blocked until staff verify (Decision 78).
+    9. *Human Governance*: Every extracted field is labeled "From recording", fully editable, and requires manual form submission by the resident or desk officer.

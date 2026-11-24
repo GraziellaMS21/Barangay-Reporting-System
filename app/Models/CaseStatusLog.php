@@ -14,6 +14,13 @@ class CaseStatusLog extends Model
 
     public $timestamps = false;
 
+    protected static function booted(): void
+    {
+        static::creating(function (CaseStatusLog $log): void {
+            $log->created_at ??= now();
+        });
+    }
+
     protected $fillable = [
         'case_id',
         'user_id',

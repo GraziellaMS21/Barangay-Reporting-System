@@ -83,7 +83,7 @@
         <tbody>
             @foreach($case->statusLogs as $log)
                 <tr>
-                    <td>{{ $log->created_at->format('Y-m-d h:i A') }}</td>
+                    <td>{{ $log->created_at?->format('Y-m-d h:i A') ?? '—' }}</td>
                     <td style="font-weight: bold;">{{ \App\Support\CaseStatus::label($log->to_status) }}</td>
                     <td>{{ $log->note ?: 'Status updated' }}</td>
                 </tr>

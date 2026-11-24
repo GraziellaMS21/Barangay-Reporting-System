@@ -43,7 +43,7 @@
                                     CFA #{{ $esc->cfa_number ?? 'Pending Number' }}
                                     <span class="ml-2 text-xs font-normal text-slate-500">to {{ $esc->destination?->name ?? 'External Agency' }}</span>
                                 </h4>
-                                <p class="text-xs text-slate-500">Escalated on {{ $esc->escalated_at?->format('F d, Y · h:i A') ?? $esc->created_at->format('F d, Y') }}</p>
+                                <p class="text-xs text-slate-500">Escalated on {{ $esc->escalated_at?->format('F d, Y · h:i A') ?? $esc->created_at?->format('F d, Y') ?? 'N/A' }}</p>
                             </div>
                         </div>
 

@@ -134,10 +134,6 @@
 <div class="queue-toolbar">
   <span class="queue-count">{{ $reports->total() }} report{{ $reports->total() === 1 ? '' : 's' }}</span>
   <span class="queue-spacer"></span>
-  <div class="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-0.5 text-xs select-none" role="group" aria-label="Row density">
-    <button type="button" id="density-compact" class="density-btn px-2.5 py-1 rounded-md font-medium transition-colors text-slate-700 bg-white shadow-xs" data-density="compact">Compact</button>
-    <button type="button" id="density-comfortable" class="density-btn px-2.5 py-1 rounded-md font-medium transition-colors text-slate-500 hover:text-slate-800" data-density="comfortable">Comfortable</button>
-  </div>
   <label class="queue-pin-toggle">
     <input type="checkbox" class="table-checkbox"
       onchange="window.location='{{ route($queueRoute, array_merge($baseParams, ['pin' => request('pin') === '1' ? '0' : '1'])) }}'"
@@ -179,25 +175,25 @@
 </form>
 
 <div class="table-wrap">
-  <table class="data-table data-table-queue table-fixed w-full">
+  <table class="data-table data-table-queue is-comfortable table-fixed w-full">
     <thead>
       <tr>
         <th scope="col" style="width:2.5rem;" class="queue-th-select">
           <input type="checkbox" class="table-checkbox" id="select-all-checkbox" aria-label="Select all reports">
         </th>
-        <th scope="col" class="queue-th-report">
-          <div class="flex items-center justify-between gap-2">
-            <span>Report</span>
-            <a href="{{ $urgencySort['url'] }}" class="text-xs font-normal text-slate-500 hover:text-blue-700 flex items-center gap-1" title="Sort by priority">
-              <span>Priority</span>
-              <span class="sort-indicator {{ $urgencySort['active'] ? '' : 'idle' }}" aria-hidden="true">
-                {{ $urgencySort['active'] ? ($urgencySort['ascending'] ? '▲' : '▼') : '⇅' }}
-              </span>
-              @if($urgencySort['active'])<span class="sr-only">(sorted by priority {{ $urgencySort['ascending'] ? 'ascending' : 'descending' }})</span>@endif
-            </a>
-          </div>
+        <th scope="col" class="queue-th-report" style="width:20rem;">
+          <span>Report</span>
         </th>
-        <th scope="col" class="sortable queue-th-status" style="width:10.5rem;">
+        <th scope="col" class="sortable queue-th-priority hidden md:table-cell" style="width:6.5rem;">
+          <a href="{{ $urgencySort['url'] }}" class="inline-flex items-center gap-1 text-xs font-normal text-slate-500 hover:text-blue-700" title="Sort by priority">
+            <span>Priority</span>
+            <span class="sort-indicator {{ $urgencySort['active'] ? '' : 'idle' }}" aria-hidden="true">
+              {{ $urgencySort['active'] ? ($urgencySort['ascending'] ? '▲' : '▼') : '⇅' }}
+            </span>
+            @if($urgencySort['active'])<span class="sr-only">(sorted by priority {{ $urgencySort['ascending'] ? 'ascending' : 'descending' }})</span>@endif
+          </a>
+        </th>
+        <th scope="col" class="sortable queue-th-status hidden md:table-cell" style="width:10rem;">
           <span class="th-status">
             <a href="{{ $statusSort['url'] }}">Status
               <span class="sort-indicator {{ $statusSort['active'] ? '' : 'idle' }}" aria-hidden="true">
@@ -212,7 +208,7 @@
             </button>
           </span>
         </th>
-        <th scope="col" class="queue-th-next" style="width:13rem;">Next Action</th>
+        <th scope="col" class="queue-th-next" style="width:12.5rem;">Next Action</th>
         <th scope="col" class="sortable queue-th-assignee" style="width:8rem;">
           <a href="{{ $submittedSort['url'] }}">Assignee
             <span class="sort-indicator {{ $submittedSort['active'] ? '' : 'idle' }}" aria-hidden="true">
@@ -265,18 +261,12 @@
                   <i class="fa-solid fa-phone"></i>
                 </span>
               @endif
-              @if($urgency === 'critical')
-                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700 uppercase tracking-wide shrink-0">Critical</span>
-              @elseif($urgency === 'high')
-                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 uppercase tracking-wide shrink-0">High</span>
-              @endif
               @if($report->reopened_count > 0)
                 <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 shrink-0" title="Reopened">
                   <i class="fa-solid fa-arrow-rotate-left mr-0.5" aria-hidden="true"></i>Reopened
                 </span>
               @endif
-              <span class="sr-only">Priority: {{ ucfirst($urgency) }}</span>
-              <span class="text-xs text-slate-700 truncate" title="{{ $report->summary ?: $report->description }}">
+              <span class="text-xs text-slate-700 truncate max-w-[200px] md:max-w-[220px] lg:max-w-[260px] inline-block" title="{{ $report->summary ?: $report->description }}">
                 {{ $report->summary ?: $report->description }}
               </span>
               {{-- Mobile status badge --}}
@@ -291,6 +281,20 @@
               <span class="text-slate-300">·</span>
               <span title="{{ $report->created_at->format('M j, Y g:i A') }}">{{ $getShortAge($report->created_at) }}</span>
             </div>
+          </td>
+          <td class="queue-col-priority hidden md:table-cell" data-label="Priority">
+            @if($urgency === 'critical')
+              <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700 uppercase tracking-wide shrink-0">Critical</span>
+            @elseif($urgency === 'high')
+              <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 uppercase tracking-wide shrink-0">High</span>
+            @elseif($urgency === 'medium')
+              <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium text-slate-600 bg-slate-100">Medium</span>
+            @elseif($urgency === 'low')
+              <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-normal text-slate-400 bg-slate-50">Low</span>
+            @else
+              <span class="text-xs text-slate-300">—</span>
+            @endif
+            <span class="sr-only">Priority: {{ ucfirst($urgency) }}</span>
           </td>
           <td class="queue-col-status hidden md:table-cell" data-label="Status">
             <x-status-badge :status="$report->status" :show-icon="false" class="text-xs" />
@@ -387,7 +391,7 @@
         </tr>
       @empty
         <tr>
-          <td colspan="6" class="table-empty text-center py-8 text-slate-500" data-label="">
+          <td colspan="7" class="table-empty text-center py-8 text-slate-500" data-label="">
             <i class="fa-regular fa-folder-open text-3xl mb-2 text-slate-400 block" aria-hidden="true"></i>
             <p class="text-sm font-medium">No reports match your filters.</p>
           </td>
@@ -469,44 +473,6 @@
   document.querySelectorAll('.report-checkbox').forEach((box) => {
     box.addEventListener('change', updateBulkBar);
   });
-
-  // Density toggle with localStorage persistence
-  const table = document.querySelector('.data-table-queue');
-  const btnCompact = document.getElementById('density-compact');
-  const btnComfortable = document.getElementById('density-comfortable');
-  const setDensity = (density) => {
-    if (!table) return;
-    if (density === 'comfortable') {
-      table.classList.add('is-comfortable');
-      if (btnComfortable) {
-        btnComfortable.classList.add('bg-white', 'text-slate-700', 'shadow-xs');
-        btnComfortable.classList.remove('text-slate-500');
-      }
-      if (btnCompact) {
-        btnCompact.classList.remove('bg-white', 'text-slate-700', 'shadow-xs');
-        btnCompact.classList.add('text-slate-500');
-      }
-    } else {
-      table.classList.remove('is-comfortable');
-      if (btnCompact) {
-        btnCompact.classList.add('bg-white', 'text-slate-700', 'shadow-xs');
-        btnCompact.classList.remove('text-slate-500');
-      }
-      if (btnComfortable) {
-        btnComfortable.classList.remove('bg-white', 'text-slate-700', 'shadow-xs');
-        btnComfortable.classList.add('text-slate-500');
-      }
-    }
-    try {
-      localStorage.setItem('queue_density', density);
-    } catch (e) {}
-  };
-
-  const savedDensity = localStorage.getItem('queue_density') || 'compact';
-  setDensity(savedDensity);
-
-  if (btnCompact) btnCompact.addEventListener('click', () => setDensity('compact'));
-  if (btnComfortable) btnComfortable.addEventListener('click', () => setDensity('comfortable'));
 
   // Kebab menus: open one at a time, close on outside click or Escape.
   const closeKebabs = (except) => {

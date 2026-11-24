@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Support\CaseStatus;
 use Database\Seeders\RequiredDataSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class CaseDocketAndManagementTest extends TestCase
@@ -240,6 +241,15 @@ class CaseDocketAndManagementTest extends TestCase
         Personnel::factory()->create([
             'full_name' => 'Hon. Maria Clara',
             'is_active' => true,
+        ]);
+
+        DB::table('case_status_logs')->insert([
+            'case_id' => $case->id,
+            'user_id' => $this->staff->id,
+            'from_status' => null,
+            'to_status' => CaseStatus::FILED,
+            'note' => 'Direct complaint filed.',
+            'created_at' => null,
         ]);
 
         $response = $this->get("/admin/cases/{$case->id}");

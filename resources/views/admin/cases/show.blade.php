@@ -283,7 +283,7 @@
                             <div class="py-3 text-xs space-y-1">
                                 <div class="flex items-center justify-between text-slate-500">
                                     <span class="font-bold text-slate-800">{{ $note->user?->name ?? 'Staff Officer' }}</span>
-                                    <span>{{ $note->created_at->format('M d, Y h:i A') }}</span>
+                                    <span>{{ $note->created_at?->format('M d, Y h:i A') ?? '—' }}</span>
                                 </div>
                                 <p class="text-slate-700 whitespace-pre-wrap leading-relaxed">{{ $note->body }}</p>
                             </div>
@@ -327,7 +327,7 @@
                                                     @endif
                                                 </div>
                                                 <div class="text-right whitespace-nowrap text-slate-500">
-                                                    <div>{{ $log->created_at->format('M d, Y') }}</div>
+                                                    <div>{{ $log->created_at?->format('M d, Y') ?? '—' }}</div>
                                                     <div class="text-[10px]">{{ $log->user?->name ?? 'System' }}</div>
                                                 </div>
                                             </div>
@@ -394,7 +394,7 @@
                     <div class="space-y-1.5 py-1.5 border-b border-slate-50 bg-emerald-50/70 p-2.5 rounded border border-emerald-200">
                         <div class="flex justify-between items-center text-xs">
                             <span class="text-emerald-800 font-semibold">Settled On</span>
-                            <span class="font-bold text-emerald-900">{{ $case->settled_on->format('M d, Y') }}</span>
+                            <span class="font-bold text-emerald-900">{{ $case->settled_on?->format('M d, Y') ?? '—' }}</span>
                         </div>
                         @if($case->settlement_amount)
                             <div class="flex justify-between items-center text-xs text-slate-700">

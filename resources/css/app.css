@@ -1617,7 +1617,7 @@ h3 {
 @media (max-width: 1023px) {
     .staff-sidebar {
         position: fixed;
-        z-index: 40;
+        z-index: 50;
         top: 0;
         bottom: 0;
         left: 0;
@@ -1636,7 +1636,7 @@ h3 {
 
     .staff-drawer-overlay.is-open {
         position: fixed;
-        z-index: 35;
+        z-index: 45;
         inset: 0;
         display: block;
         width: 100%;
@@ -1800,7 +1800,7 @@ h3 {
     box-shadow: 0 4px 20px rgb(11 31 75 / 10%);
     position: sticky;
     top: 0;
-    z-index: 20;
+    z-index: 40;
 }
 
 .staff-topbar h1 {
@@ -5633,7 +5633,7 @@ body.chat-modal-open {
 .staff-topbar {
     position: sticky;
     top: 0;
-    z-index: 20;
+    z-index: 40;
 }
 
 .dashboard-header {
@@ -6480,7 +6480,7 @@ body.chat-modal-open {
 }
 
 .data-table-queue td {
-    padding: 0.45rem 0.65rem;
+    padding: 0.85rem 0.65rem;
     vertical-align: middle;
     border-top: 1px solid var(--line);
     font-size: 0.82rem;
@@ -6551,6 +6551,7 @@ body.chat-modal-open {
         padding-right: 2rem !important;
     }
 
+    .data-table-queue td.queue-col-priority,
     .data-table-queue td.queue-col-status {
         display: none !important;
     }

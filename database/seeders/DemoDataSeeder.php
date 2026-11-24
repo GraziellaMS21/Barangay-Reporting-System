@@ -355,7 +355,7 @@ class DemoDataSeeder extends Seeder
         );
         CaseStatusLog::firstOrCreate(
             ['case_id' => $case1->id, 'to_status' => CaseStatus::FILED],
-            ['from_status' => null, 'user_id' => $encoder->id, 'note' => 'Direct complaint filed and docketed.']
+            ['from_status' => null, 'user_id' => $encoder->id, 'note' => 'Direct complaint filed and docketed.', 'created_at' => now()]
         );
 
         // Case 2: In Mediation with Summons and Hearing (Noise Disturbance)
@@ -497,7 +497,7 @@ class DemoDataSeeder extends Seeder
         );
         CaseStatusLog::firstOrCreate(
             ['case_id' => $case3->id, 'to_status' => CaseStatus::SETTLED],
-            ['from_status' => CaseStatus::IN_MEDIATION, 'user_id' => $staff->id, 'note' => 'Formal settlement agreement signed before Lupon Chairman.']
+            ['from_status' => CaseStatus::IN_MEDIATION, 'user_id' => $staff->id, 'note' => 'Formal settlement agreement signed before Lupon Chairman.', 'created_at' => now()]
         );
 
         // Case 4: Escalated to Court (Physical Injury)

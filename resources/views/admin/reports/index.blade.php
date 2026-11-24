@@ -144,6 +144,11 @@
       @checked(request('pin') === '1')>
     Pin emergencies to top
   </label>
+  @if(auth()->user()->can('reports.log_phone'))
+    <a class="btn btn-navy btn-small" href="{{ route('admin.reports.phone.create') }}" style="background:#2563eb;color:#fff;display:inline-flex;align-items:center;gap:0.35rem;">
+      <i class="fa-solid fa-phone-volume" aria-hidden="true"></i> Record phone report
+    </a>
+  @endif
   <a class="btn btn-navy btn-small" href="{{ route('admin.reports.export', $exportParams) }}" data-turbo="false">
     <i class="fa-solid fa-file-csv" aria-hidden="true"></i> Export CSV
   </a>
@@ -251,6 +256,15 @@
                  class="cell-report-code font-mono text-xs font-bold text-blue-700 hover:text-blue-900 hover:underline shrink-0 after:absolute after:inset-0 after:z-10 focus:outline-none focus:ring-2 focus:ring-blue-600 rounded">
                 {{ $report->tracking_code }}
               </a>
+              @if($report->source === 'voice')
+                <span title="Voice report" class="inline-flex items-center text-indigo-600 text-[11px] shrink-0" aria-label="Voice report">
+                  <i class="fa-solid fa-microphone"></i>
+                </span>
+              @elseif($report->source === 'phone_log')
+                <span title="Phone intake" class="inline-flex items-center text-teal-600 text-[11px] shrink-0" aria-label="Phone intake">
+                  <i class="fa-solid fa-phone"></i>
+                </span>
+              @endif
               @if($urgency === 'critical')
                 <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700 uppercase tracking-wide shrink-0">Critical</span>
               @elseif($urgency === 'high')

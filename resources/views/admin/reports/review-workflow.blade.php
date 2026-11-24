@@ -221,6 +221,26 @@
     </section>
   @endif
 
+  @if($report->hasUnverifiedAudio())
+    <section class="review-flag review-flag-amber" style="background-color:#fffbeb;border:1px solid #fcd34d;color:#92400e;padding:1rem;border-radius:0.5rem;margin-bottom:1rem;display:flex;align-items:flex-start;gap:1rem;">
+      <div style="font-size:1.5rem;line-height:1;color:#d97706;">
+        <i class="fa-solid fa-microphone-slash"></i>
+      </div>
+      <div style="flex:1;">
+        <strong style="display:block;font-size:0.95rem;font-weight:700;color:#92400e;">Voice Audio Needs Verification</strong>
+        <p style="margin:0.25rem 0 0.5rem;font-size:0.875rem;color:#78350f;">
+          This report was recorded by voice or phone hotline, but AI transcription is unclear or unverified.
+          Routing is blocked until staff listens to the recording and confirms or updates the report description.
+        </p>
+        <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+          <a href="#voice-audio-section" class="review-button review-button-primary" style="padding:0.4rem 0.8rem;font-size:0.85rem;background:#d97706;border-color:#b45309;color:#fff;text-decoration:none;">
+            <i class="fa-solid fa-headphones"></i> Listen & Verify Audio
+          </a>
+        </div>
+      </div>
+    </section>
+  @endif
+
   {{-- Top Row: Resident report on the left, Case timeline & notes on the right --}}
   <div class="review-top-grid">
     {{-- Left: Card 1 — Resident report --}}
@@ -358,6 +378,59 @@
             @endif
           </div>
         </div>
+
+        @if($report->audio)
+          <div id="voice-audio-section" class="review-section" style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--line);">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.5rem;">
+              <h3 class="review-field-label" style="margin:0;display:flex;align-items:center;gap:0.5rem;">
+                <i class="fa-solid fa-microphone-lines" style="color:var(--blue);"></i>
+                <span>{{ $report->audio->origin === 'staff' ? 'Hotline Phone Recording' : 'Resident Voice Recording' }}</span>
+              </h3>
+              @if($report->audio->isVerified())
+                <span class="review-badge review-badge-green" style="display:inline-flex;align-items:center;gap:0.3rem;">
+                  <i class="fa-solid fa-check"></i> Verified by {{ $report->audio->verifiedBy?->name ?? 'Staff' }} on {{ $report->audio->verified_at->format('M d, Y h:i A') }}
+                </span>
+              @elseif($report->hasUnverifiedAudio())
+                <span class="review-badge review-badge-amber" style="display:inline-flex;align-items:center;gap:0.3rem;">
+                  <i class="fa-solid fa-triangle-exclamation"></i> Needs verification
+                </span>
+              @endif
+            </div>
+
+            <audio controls src="{{ route('admin.reports.audio', $report) }}" preload="metadata" style="width:100%;max-width:500px;height:40px;outline:none;margin-bottom:0.5rem;"></audio>
+
+            @if($report->audio->transcript)
+              <div style="margin-top:0.5rem;padding:0.75rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:0.375rem;font-size:0.875rem;">
+                <div style="font-size:0.75rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">
+                  AI Machine Transcript (Verbatim)
+                  @if($report->audio->transcript_language)
+                    <span style="font-weight:400;text-transform:none;">({{ strtoupper($report->audio->transcript_language) }})</span>
+                  @endif
+                </div>
+                <div style="color:#1e293b;line-height:1.4;">{{ $report->audio->transcript }}</div>
+              </div>
+            @endif
+
+            @if($report->hasUnverifiedAudio())
+              <form method="POST" action="{{ route('admin.reports.audio.verify', $report) }}" style="margin-top:0.75rem;padding:1rem;background:#fefce8;border:1px solid #fef08a;border-radius:0.5rem;">
+                @csrf
+                <label for="verified_description" style="display:block;font-size:0.875rem;font-weight:700;color:#854d0e;margin-bottom:0.35rem;">
+                  Staff Verified Description <span style="color:var(--red);">*</span>
+                </label>
+                <p style="margin:0 0 0.5rem;font-size:0.8rem;color:#713f12;">
+                  Listen to the audio recording above and confirm or transcribe what was reported. This will update the report description and unblock routing.
+                </p>
+                <textarea id="verified_description" name="description" rows="3" required minlength="5"
+                          style="width:100%;padding:0.6rem;border:1px solid #ca8a04;border-radius:0.375rem;font-size:0.875rem;background:#fff;">{{ old('description', $report->description) }}</textarea>
+                <div style="margin-top:0.5rem;display:flex;justify-content:flex-end;">
+                  <button type="submit" class="review-button review-button-primary" style="background:#ca8a04;border-color:#a16207;color:#fff;">
+                    <i class="fa-solid fa-check-double"></i> Verify and Update Description
+                  </button>
+                </div>
+              </form>
+            @endif
+          </div>
+        @endif
       </div>
     </details>
   </section>

@@ -644,6 +644,7 @@
           <i class="fa-solid fa-align-left" style="color:var(--blue);"></i>
           <span id="description-label" data-i18n="lbl_description">What is the problem?</span> <span style="color:var(--red);">*</span>
         </label>
+        <x-voice.recorder target-input="description" origin="resident" />
         <textarea id="description" name="description" rows="4" required minlength="10" maxlength="2000"
           placeholder="Please describe the issue in detail...">{{ old('description') }}</textarea>
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-top:0.35rem;">

@@ -299,6 +299,10 @@ class DemoDataSeeder extends Seeder
             ['type' => 'blotter', 'fiscal_year_id' => $fiscalYear->id],
             ['last_number' => 1]
         );
+        NumberSequence::updateOrCreate(
+            ['type' => 'summons', 'fiscal_year_id' => $fiscalYear->id],
+            ['last_number' => 1]
+        );
 
         // Case 1: Filed (Boundary Dispute)
         $caseTypeBoundary = CaseType::where('slug', 'boundary_dispute')->first();

@@ -13,7 +13,7 @@
 <x-hall-background class="public-site-background">
   <header class="site-header">
     <div class="site-header-inner">
-      <a href="{{ route('reports.create') }}" class="site-brand">
+      <a href="{{ route('home') }}" class="site-brand">
         <x-brand-seal />
         <span class="brand-copy">
           Barangay Calarian Reports
@@ -25,7 +25,9 @@
         <i class="fa-solid fa-bars" aria-hidden="true"></i>
       </button>
       <nav id="site-navigation" class="site-nav" aria-label="Main navigation">
+        <a href="{{ route('home') }}"><i class="fa-solid fa-house" aria-hidden="true"></i> Home</a>
         <a href="{{ route('reports.create') }}"><i class="fa-solid fa-pen-to-square" aria-hidden="true"></i> Report</a>
+        <a href="{{ route('complaint.create') }}"><i class="fa-solid fa-scale-balanced" aria-hidden="true"></i> Complaint</a>
         <a href="{{ route('track.index') }}"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Track</a>
         <a href="{{ route('map.index') }}"><i class="fa-solid fa-map" aria-hidden="true"></i> Public map</a>
         @auth

@@ -64,7 +64,7 @@
     />
 
     <div class="staff-main">
-      <header class="staff-topbar z-40">
+      <header class="staff-topbar z-30">
         <button type="button" class="staff-menu-toggle" aria-label="Open staff navigation"
           aria-controls="staff-sidebar" aria-expanded="false">
           <i class="fa-solid fa-bars" aria-hidden="true"></i>

@@ -1,10 +1,19 @@
 <div class="space-y-6">
-    <x-admin.case-actions.summons-counter :case="$case" />
-
     <div class="flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-            <h3 class="text-base font-semibold text-slate-900">Summons Management</h3>
-            <p class="mt-1 text-sm text-slate-600">Track official summons notices, service returns, and party attendance.</p>
+            <div class="flex items-center gap-2">
+                <h3 class="text-base font-semibold text-slate-900">Summons Management</h3>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                    {{ $case->summons->count() }} issued
+                </span>
+            </div>
+            <p class="mt-1 text-xs text-slate-600">
+                Track official summons notices, service returns, and party attendance.
+                <span class="text-slate-400 cursor-help ml-1" title="Summonses are numbered sequentially for record-keeping only and do not establish statutory mediation limits.">
+                    <i class="fa-solid fa-circle-info text-[11px]" aria-hidden="true"></i>
+                    <span class="sr-only">Numbered sequentially for administrative tracking only</span>
+                </span>
+            </p>
         </div>
 
         @if(auth()->user()?->hasPermission('cases.summons'))
@@ -15,7 +24,7 @@
     </div>
 
     @if($case->summons->isEmpty())
-        <div class="rounded-lg border border-dashed border-slate-300 p-8 text-center">
+        <div class="rounded-lg border border-dashed border-slate-300 p-8 text-center w-full">
             <i class="fa-solid fa-envelope-open-text text-3xl text-slate-400 mb-2"></i>
             <p class="text-sm font-semibold text-slate-700">No summons issued yet</p>
             <p class="mt-1 text-xs text-slate-500">Official summons notices issued for this case will appear here with service and attendance tracking.</p>

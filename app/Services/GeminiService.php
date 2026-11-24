@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Category;
+use App\Models\ComplaintIntake;
 use App\Models\Report;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
@@ -657,6 +658,171 @@ class GeminiService
                 'status' => 'failed',
                 'confidence_note' => 'Analysis failed: '.$e->getMessage(),
             ];
+        }
+    }
+
+    /**
+     * Analyze citizen dispute complaint narratives and persist structured extraction.
+     * STRICT PRIVACY GUARD (RA 10173): Only raw narrative text is transmitted to Gemini.
+     * Reporter and respondent names, phone numbers, addresses, and contacts are NEVER sent.
+     */
+    public function analyzeComplaint(ComplaintIntake $intake): void
+    {
+        $apiKey = config('services.gemini.key');
+        $model = config('services.gemini.model');
+
+        if (! is_string($apiKey) || trim($apiKey) === '') {
+            $intake->update(['ai_status' => 'failed']);
+
+            return;
+        }
+
+        $rawResponse = null;
+
+        try {
+            $narrative = trim((string) ($intake->incident_narrative ?? $intake->what_happened));
+            $rightsAndRelief = trim((string) ($intake->rights_and_relief ?? ($intake->rights_violated.' '.$intake->relief_requested)));
+            $residentCategory = $intake->case_type_suggestion;
+
+            if ($narrative === '' && $rightsAndRelief === '') {
+                $intake->update(['ai_status' => 'failed']);
+
+                return;
+            }
+
+            $userPrompt = "Incident Narrative (Untrusted Data):\n".$narrative."\n\n"
+                ."Rights Violated & Relief Requested (Untrusted Data):\n".$rightsAndRelief;
+
+            if ($residentCategory) {
+                $userPrompt .= "\n\nComplainant Suggested Category: ".$residentCategory;
+            }
+
+            $payload = [
+                'systemInstruction' => [
+                    'parts' => [[
+                        'text' => "You are an AI intake assistant for the Katarungang Pambarangay (KP) dispute conciliation system of Barangay Calarian, Zamboanga City, Philippines.\n"
+                            ."Your task is to analyze the resident's natural language dispute narrative (which may be in English, Filipino/Tagalog, Bisaya/Cebuano, or Chavacano) and extract structured dispute facts.\n"
+                            ."CRITICAL RULES:\n"
+                            ."1. Never invent facts not present or strongly implied in the narrative.\n"
+                            ."2. If a specific detail (like exact date/time, persons, or specific location) is missing or unstated, return 'Not specified in narrative'.\n"
+                            ."3. Identify the primary language(s) used in the text.\n"
+                            ."4. Suggest an appropriate dispute category (e.g. 'Neighborhood Dispute', 'Unpaid Debt / Financial', 'Property / Boundary', 'Physical Injury / Threat', 'Noise Disturbance', 'Other').\n"
+                            .'5. Provide a confidence score between 0.0 and 1.0.',
+                    ]],
+                ],
+                'contents' => [[
+                    'role' => 'user',
+                    'parts' => [['text' => $userPrompt]],
+                ]],
+                'generationConfig' => [
+                    'responseMimeType' => 'application/json',
+                    'responseSchema' => [
+                        'type' => 'OBJECT',
+                        'properties' => [
+                            'what_happened' => ['type' => 'STRING'],
+                            'who_involved' => ['type' => 'STRING'],
+                            'incident_datetime' => ['type' => 'STRING'],
+                            'incident_location' => ['type' => 'STRING'],
+                            'circumstances' => ['type' => 'STRING'],
+                            'rights_violated' => ['type' => 'STRING'],
+                            'relief_requested' => ['type' => 'STRING'],
+                            'suggested_category' => ['type' => 'STRING'],
+                            'detected_language' => ['type' => 'STRING'],
+                            'confidence' => ['type' => 'NUMBER'],
+                        ],
+                        'required' => [
+                            'what_happened',
+                            'who_involved',
+                            'incident_datetime',
+                            'incident_location',
+                            'circumstances',
+                            'rights_violated',
+                            'relief_requested',
+                            'suggested_category',
+                            'detected_language',
+                            'confidence',
+                        ],
+                    ],
+                    'maxOutputTokens' => 1500,
+                ],
+            ];
+
+            $response = Http::withHeaders(['x-goog-api-key' => $apiKey])
+                ->connectTimeout(3)
+                ->timeout(12)
+                ->post(
+                    'https://generativelanguage.googleapis.com/v1beta/models/'.$model.':generateContent',
+                    $payload
+                );
+
+            $rawResponse = $response->json();
+            $response->throw();
+
+            if (! is_array($rawResponse)) {
+                throw new UnexpectedValueException('Gemini returned an invalid response.');
+            }
+
+            $responseText = collect(data_get($rawResponse, 'candidates.0.content.parts', []))
+                ->pluck('text')
+                ->first(fn (mixed $text): bool => is_string($text) && trim($text) !== '');
+
+            if (! is_string($responseText)) {
+                throw new UnexpectedValueException('Gemini did not return a suggestion.');
+            }
+
+            $suggestion = json_decode($responseText, true, 512, JSON_THROW_ON_ERROR);
+
+            if (! is_array($suggestion)) {
+                throw new UnexpectedValueException('Gemini returned an invalid suggestion structure.');
+            }
+
+            $confidence = isset($suggestion['confidence']) && is_numeric($suggestion['confidence'])
+                ? (float) $suggestion['confidence']
+                : 0.85;
+
+            // Attempt to parse incident_datetime if it looks like a valid date/time
+            $parsedDate = null;
+            if (! empty($suggestion['incident_datetime']) && $suggestion['incident_datetime'] !== 'Not specified in narrative') {
+                try {
+                    $ts = strtotime($suggestion['incident_datetime']);
+                    if ($ts !== false && $ts <= time()) {
+                        $parsedDate = date('Y-m-d H:i:s', $ts);
+                    }
+                } catch (\Throwable) {
+                }
+            }
+
+            $intake->update([
+                'ai_status' => 'done',
+                'ai_confidence' => (string) round($confidence, 2),
+                'detected_language' => (string) ($suggestion['detected_language'] ?? 'English'),
+                'ai_suggestions' => $suggestion,
+                'what_happened' => $suggestion['what_happened'] ?? $intake->incident_narrative,
+                'who_involved' => $suggestion['who_involved'] ?? 'Not specified in narrative',
+                'when_happened' => $parsedDate ?? $intake->when_happened,
+                'where_happened' => $suggestion['incident_location'] ?? 'Barangay Calarian',
+                'why_how_happened' => $suggestion['circumstances'] ?? 'Described in narrative',
+                'rights_violated' => $suggestion['rights_violated'] ?? $intake->rights_and_relief,
+                'relief_requested' => $suggestion['relief_requested'] ?? 'Amicable settlement',
+                'field_provenance' => [
+                    'what_happened' => 'ai',
+                    'who_involved' => 'ai',
+                    'when_happened' => $parsedDate ? 'ai' : 'resident',
+                    'where_happened' => 'ai',
+                    'why_how_happened' => 'ai',
+                    'rights_violated' => 'ai',
+                    'relief_requested' => 'ai',
+                    'case_type' => 'ai',
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Gemini complaint extraction failed; intake requires manual review.', [
+                'intake_id' => $intake->id,
+                'exception' => $e::class,
+                'message' => $e->getMessage(),
+            ]);
+
+            $intake->update(['ai_status' => 'failed']);
         }
     }
 }

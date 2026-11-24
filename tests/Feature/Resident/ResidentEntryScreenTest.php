@@ -32,6 +32,21 @@ class ResidentEntryScreenTest extends TestCase
         ]);
     }
 
+    public function test_root_url_loads_four_button_portal_page(): void
+    {
+        $response = $this->get('/');
+
+        $response->assertOk()
+            ->assertViewIs('resident.index')
+            ->assertSeeText('Emergency / 911')
+            ->assertSeeText('Report a Community Problem')
+            ->assertSeeText('File a Complaint')
+            ->assertSeeText('Track a Report')
+            ->assertSee(route('reports.create'))
+            ->assertSee(route('complaint.create'))
+            ->assertSee(route('track.index'));
+    }
+
     public function test_resident_landing_screen_displays_three_action_pathways(): void
     {
         $response = $this->get(route('reports.create'));

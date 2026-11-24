@@ -55,7 +55,7 @@
     </div>
 
     @if($case->hearings->isEmpty())
-        <div class="rounded-lg border border-dashed border-slate-300 p-8 text-center">
+        <div class="rounded-lg border border-dashed border-slate-300 p-8 text-center w-full">
             <i class="fa-solid fa-calendar-xmark text-3xl text-slate-400 mb-2"></i>
             <p class="text-sm font-semibold text-slate-700">No hearings scheduled yet</p>
             <p class="mt-1 text-xs text-slate-500">Scheduled mediation and conciliation hearings will be listed here with attendance and proceedings notes.</p>

@@ -23,16 +23,15 @@ class ResidentComplaintIntakeTest extends TestCase
         ]);
     }
 
-    public function test_complaint_intake_form_screen_loads_with_vawc_screening(): void
+    public function test_complaint_intake_form_screen_loads_directly(): void
     {
         $response = $this->get(route('complaint.create'));
 
         $response->assertOk();
         $response->assertSee('File a Dispute Complaint');
-        $response->assertSeeText('Mandatory Safety & Confidentiality Screening');
-        $response->assertSee('VAWC');
-        $response->assertSee('Quick Exit');
-        $response->assertSee('National Emergency Hotline');
+        $response->assertSee('Katarungang Pambarangay Notice');
+        $response->assertSee('Complainant Information');
+        $response->assertSee('Submit Complaint Request');
     }
 
     public function test_honeypot_submission_redirects_without_creating_record(): void

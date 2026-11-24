@@ -70,6 +70,8 @@ Route::middleware(['auth', 'role:staff'])->prefix('admin')->name('admin.')->grou
         });
         Route::middleware(['permission:cases.edit'])->group(function () {
             Route::post('/intakes/{intake}/reject', [CaseIntakeController::class, 'reject'])->name('intakes.reject');
+            Route::post('/intakes/{intake}/retry-ai', [CaseIntakeController::class, 'retryAi'])->name('intakes.retry-ai');
+            Route::post('/intakes/{intake}/docket', [CaseIntakeController::class, 'docket'])->name('intakes.docket');
         });
     });
 });

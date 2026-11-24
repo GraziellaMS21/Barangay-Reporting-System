@@ -10,17 +10,8 @@
           route it to the proper office, and keep you updated with a tracking code.</p>
         <em class="hero-motto">Pusong May Malasakit, Serbisyong Tapat sa Mamamayan</em>
         <div class="hero-actions" style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center;">
-          <button type="button" class="btn btn-red" onclick="showEmergency()" style="background:#b91c1c;color:#ffffff;border:none;font-weight:700;box-shadow:0 2px 4px rgba(185,28,28,0.25);">
-            <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Emergency / 911
-          </button>
-          <a class="btn btn-gold" href="#report-form" data-i18n="hero_btn_report">
-            <i class="fa-solid fa-bullhorn" aria-hidden="true"></i> Report a community problem
-          </a>
-          <a class="btn" href="{{ route('complaint.create') }}" style="background:#0f172a;color:#ffffff;font-weight:700;border:none;box-shadow:0 2px 4px rgba(15,23,42,0.25);">
-            <i class="fa-solid fa-scale-balanced" aria-hidden="true"></i> File a complaint
-          </a>
-          <a class="btn btn-ghost" href="{{ route('track.index') }}" data-i18n="hero_btn_track">
-            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Track a report
+          <a class="btn btn-ghost" href="{{ route('home') }}" data-i18n="hero_btn_track">
+            <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Return
           </a>
         </div>
       </div>
@@ -930,22 +921,29 @@
 
       <hr class="card-divider">
 
-      <!-- Card Footer: Consent & Submit -->
-      <div class="card-submit-bar">
-        <label class="consent-checkbox-wrap">
+      <!-- 5. Data Privacy Consent -->
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:1.15rem;margin-top:1.5rem;margin-bottom:1.5rem;">
+        <label style="display:flex;align-items:flex-start;gap:0.75rem;cursor:pointer;font-weight:600;font-size:0.88rem;color:var(--ink);line-height:1.5;">
           <input type="checkbox" name="consent" id="consent_checkbox" value="1" required
-            {{ old('consent') ? 'checked' : '' }}>
-          <span>
-            <span data-i18n="consent_agree">I agree to the</span>
-            <a href="#" onclick="openPrivacy(event)" data-i18n="privacy_link" style="text-decoration:underline;font-weight:700;">Data Privacy Notice</a> (RA 10173)
+            {{ old('consent') ? 'checked' : '' }}
+            style="margin-top:0.2rem;width:1.15rem;height:1.15rem;accent-color:var(--blue);flex-shrink:0;">
+          <span id="consent_label_text">
+            <span data-i18n="consent_certify">I hereby certify that the information provided is true and correct to the best of my knowledge. In accordance with the</span>
+            <strong>Data Privacy Act of 2012 (RA 10173)</strong>,
+            <span data-i18n="consent_body">I consent to the collection and processing of these details by authorized Barangay Calarian officials solely for official community problem reporting, verification, and resolution.</span>
+            (<a href="#" onclick="openPrivacy(event)" data-i18n="privacy_link" style="text-decoration:underline;font-weight:700;color:var(--blue);">Data Privacy Notice</a>)
           </span>
         </label>
         @error('consent')
-          <p class="field-error" style="width:100%;">{{ $message }}</p>
+          <p class="field-error" style="margin-top:0.5rem;margin-bottom:0;">{{ $message }}</p>
         @enderror
+      </div>
 
+      <!-- Card Footer: Actions -->
+      <div class="card-submit-bar" style="display:flex;justify-content:flex-end;gap:1rem;align-items:center;padding-top:1rem;border-top:1px solid #f1f5f9;">
+        <a href="{{ route('home') }}" class="btn btn-outline" data-i18n="btn_cancel">Cancel</a>
         <button type="submit" id="btn-final-submit" class="btn btn-gold" style="min-width:200px;font-weight:800;font-size:1rem;padding:0.75rem 1.75rem;box-shadow:0 4px 12px rgba(255, 194, 26, 0.35);">
-          <i class="fa-solid fa-paper-plane"></i> <span data-i18n="btn_submit_final">Submit report</span>
+          <i class="fa-solid fa-paper-plane mr-1.5"></i> <span data-i18n="btn_submit_final">Submit report</span>
         </button>
       </div>
     </form>
@@ -1020,7 +1018,11 @@
         updates_optional: "Get updates on this report (optional)",
         privacy_title: "Data Privacy Notice (RA 10173)", privacy_text: "By submitting this report, you acknowledge that Barangay Calarian collects issue details, approximate location, and optional contact info strictly to investigate, route, and resolve community problems. Your information will never be shared with unauthorized parties.",
         btn_submit_final: "Submit report",
-        consent_agree: "I agree to the", privacy_link: "Data Privacy Notice",
+        btn_cancel: "Cancel",
+        consent_agree: "I agree to the",
+        consent_certify: "I hereby certify that the information provided is true and correct to the best of my knowledge. In accordance with the",
+        consent_body: "I consent to the collection and processing of these details by authorized Barangay Calarian officials solely for official community problem reporting, verification, and resolution.",
+        privacy_link: "Data Privacy Notice",
         btn_quick_locate: "Use GPS",
         anon_notice_text: "Anonymous reports will not receive status updates via SMS or email. You will need to check the website using your tracking code.",
         desc_char_min: "min",
@@ -1050,7 +1052,11 @@
         updates_optional: "Gusto ng updates? (opsyonal)",
         privacy_title: "Paunawa sa Data Privacy (RA 10173)", privacy_text: "Sa pagsusumite ng ulat na ito, kinikilala mo na ang Barangay Calarian ay nangongolekta ng detalye ng suliranin, lokasyon, at opsyonal na impormasyon.",
         btn_submit_final: "Isumite ang ulat",
-        consent_agree: "Sumasang-ayon ako sa", privacy_link: "Paunawa sa Data Privacy",
+        btn_cancel: "Kanselahin",
+        consent_agree: "Sumasang-ayon ako sa",
+        consent_certify: "Pinatutunayan ko na ang impormasyong ibinigay ay totoo at tama sa abot ng aking kaalaman. Alinsunod sa",
+        consent_body: "pumapayag ako sa pagkolekta at pagproseso ng mga detalyeng ito ng mga awtorisadong opisyal ng Barangay Calarian para lamang sa opisyal na pag-uulat at pagresolba ng suliraning ito.",
+        privacy_link: "Paunawa sa Data Privacy",
         btn_quick_locate: "Gamitin ang GPS",
         anon_notice_text: "Ang mga di-nagpapakilalang ulat ay hindi makakatanggap ng updates sa SMS o email. Kakailanganin mong suriin ang website gamit ang tracking code.",
         desc_char_min: "pinakamababa",

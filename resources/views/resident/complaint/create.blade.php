@@ -40,49 +40,6 @@
       }
     }
 
-    .vawc-screening-box {
-      border: 2px solid #fecaca;
-      background: #fef2f2;
-      border-radius: 16px;
-      padding: 1.5rem;
-      margin-bottom: 2rem;
-    }
-
-    .vawc-guidance-box {
-      border: 2px solid #ef4444;
-      background: #fff5f5;
-      border-radius: 16px;
-      padding: 1.75rem;
-      margin-bottom: 2rem;
-      animation: fadeIn 0.25s ease-out;
-    }
-
-    .quick-exit-bar {
-      display: flex;
-      justify-content: flex-end;
-      margin-bottom: 1rem;
-    }
-
-    .btn-quick-exit {
-      background: #b91c1c;
-      color: #ffffff;
-      border: none;
-      border-radius: 999px;
-      padding: 0.45rem 1.1rem;
-      font-size: 0.82rem;
-      font-weight: 700;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      transition: background 0.15s, transform 0.15s;
-    }
-
-    .btn-quick-exit:hover {
-      background: #991b1b;
-      transform: translateY(-1px);
-    }
-
     .form-section-title {
       font-size: 1.15rem;
       font-weight: 700;
@@ -147,112 +104,10 @@
       border-color: var(--blue);
       box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
     }
-
-    .hotline-link-card {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0.85rem 1.1rem;
-      border-radius: 10px;
-      border: 1.5px solid #fecaca;
-      background: #ffffff;
-      color: #991b1b;
-      font-weight: 700;
-      text-decoration: none;
-      transition: all 0.15s ease;
-      margin-bottom: 0.6rem;
-    }
-
-    .hotline-link-card:hover {
-      background: #fee2e2;
-      border-color: #ef4444;
-      transform: translateY(-1px);
-    }
   </style>
 
-  <!-- Quick Exit Floating Bar for Safety -->
-  <div class="quick-exit-bar">
-    <button type="button" class="btn-quick-exit" onclick="quickExit()" title="Leave this page immediately and clear history">
-      <i class="fa-solid fa-person-running" aria-hidden="true"></i> Quick Exit (Leave page now)
-    </button>
-  </div>
-
-  <!-- Confidential Matters VAWC Screening Box -->
-  <section id="vawc-screening-step" class="vawc-screening-box">
-    <div style="display:flex;align-items:flex-start;gap:0.85rem;">
-      <i class="fa-solid fa-shield-halved text-red-600 text-2xl mt-0.5 flex-shrink-0" aria-hidden="true"></i>
-      <div>
-        <h2 style="font-size:1.15rem;font-weight:800;color:#991b1b;margin:0 0 0.4rem;">
-          Mandatory Safety & Confidentiality Screening
-        </h2>
-        <p style="font-size:0.9rem;color:#7f1d1d;line-height:1.5;margin:0 0 1rem;">
-          Does this complaint involve <strong>domestic violence, violence against women or their children (VAWC - RA 9262)</strong>, or <strong>child abuse/exploitation (RA 7610)</strong>?
-        </p>
-        <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
-          <button type="button" class="btn" style="background:#dc2626;color:#ffffff;font-weight:700;border:none;padding:0.5rem 1.25rem;border-radius:8px;" onclick="handleVawcSelection(true)">
-            <i class="fa-solid fa-triangle-exclamation"></i> YES — This involves domestic violence or child protection
-          </button>
-          <button type="button" class="btn" style="background:#0f172a;color:#ffffff;font-weight:700;border:none;padding:0.5rem 1.25rem;border-radius:8px;" onclick="handleVawcSelection(false)">
-            <i class="fa-solid fa-check"></i> NO — This is a neighbor / property / civil dispute
-          </button>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Confidentiality Guidance Display (Hidden by default; shown if user selects YES) -->
-  <section id="vawc-guidance-display" class="vawc-guidance-box" style="display:none;">
-    <div style="display:flex;align-items:center;gap:0.85rem;color:#b91c1c;margin-bottom:1rem;padding-bottom:0.75rem;border-bottom:1px solid #fee2e2;">
-      <i class="fa-solid fa-hand-holding-heart text-2xl" aria-hidden="true"></i>
-      <div>
-        <h2 style="color:#b91c1c;margin:0;font-size:1.25rem;font-weight:800;">VAWC & Child Protection Emergency Support</h2>
-        <p style="margin:0.2rem 0 0;color:#7f1d1d;font-size:0.88rem;">
-          Under Philippine law (RA 9262 & RA 7610), cases involving domestic violence or child abuse are strictly confidential and exempt from public web submission.
-        </p>
-      </div>
-    </div>
-
-    <div style="background:#ffffff;border:1px solid #fca5a5;border-radius:12px;padding:1rem 1.25rem;margin-bottom:1.25rem;">
-      <p style="font-weight:700;color:#991b1b;margin:0 0 0.35rem;">
-        <i class="fa-solid fa-phone-volume"></i> Immediate Assistance Hotlines:
-      </p>
-      <p style="font-size:0.85rem;color:#64748b;margin:0 0 1rem;">
-        Please call any of the official helplines below or visit the Barangay Calarian VAW Desk in person:
-      </p>
-
-      <a href="tel:{{ preg_replace('/[^0-9+]/', '', $hotlines['vawc_national']) }}" class="hotline-link-card" style="background:#fee2e2;border-color:#f87171;">
-        <span><i class="fa-solid fa-phone text-red-600 mr-2"></i> National Emergency Hotline</span>
-        <span style="font-family:monospace;font-size:1.05rem;">{{ $hotlines['vawc_national'] }}</span>
-      </a>
-
-      <a href="tel:{{ preg_replace('/[^0-9+]/', '', $hotlines['vawc_pnp']) }}" class="hotline-link-card">
-        <span><i class="fa-solid fa-shield-cat text-blue-600 mr-2"></i> PNP Aleng Pulis Hotline (VAWC Desk)</span>
-        <span style="font-family:monospace;">{{ $hotlines['vawc_pnp'] }}</span>
-      </a>
-
-      <a href="tel:{{ preg_replace('/[^0-9+]/', '', $hotlines['bcpc_national']) }}" class="hotline-link-card">
-        <span><i class="fa-solid fa-child text-indigo-600 mr-2"></i> Bantay Bata Helpline (Child Abuse)</span>
-        <span style="font-family:monospace;">{{ $hotlines['bcpc_national'] }}</span>
-      </a>
-
-      <a href="tel:{{ preg_replace('/[^0-9+]/', '', $hotlines['vawc_barangay']) }}" class="hotline-link-card">
-        <span><i class="fa-solid fa-building text-slate-600 mr-2"></i> Barangay Calarian VAW Desk (Local)</span>
-        <span style="font-family:monospace;">{{ $hotlines['vawc_barangay'] }}</span>
-      </a>
-    </div>
-
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;">
-      <button type="button" class="btn btn-quick-exit" onclick="quickExit()">
-        <i class="fa-solid fa-arrow-right-from-bracket"></i> Leave this page immediately
-      </button>
-      <button type="button" class="btn btn-outline" onclick="handleVawcSelection(false)" style="font-size:0.85rem;">
-        Wait, my issue is NOT a domestic or child abuse case
-      </button>
-    </div>
-  </section>
-
-  <!-- Main Complaint Form Card (Revealed only when user passes confidentiality screen) -->
-  <section id="complaint-form-wrapper" class="complaint-card" style="display:none;">
+  <!-- Main Complaint Form Card (Direct Form) -->
+  <section id="complaint-form-wrapper" class="complaint-card">
     @if($errors->any())
       <div role="alert" style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:1rem 1.25rem;margin-bottom:1.5rem;">
         <div style="display:flex;align-items:center;gap:0.5rem;font-weight:700;color:#b91c1c;margin-bottom:0.4rem;">
@@ -354,68 +209,63 @@
         </div>
       </div>
 
-      <!-- 3. Incident Narrative (The 5Ws) -->
+      <!-- 3. Incident Narrative -->
       <h2 class="form-section-title">
         <i class="fa-solid fa-clipboard-question text-indigo-600" aria-hidden="true"></i>
-        <span>3. Incident Narrative (The 5Ws)</span>
+        <span>3. Incident Narrative</span>
       </h2>
 
-      <div class="field-group">
-        <label for="what_happened">What Happened? (Nature of the Incident) <span class="text-red-600">*</span></label>
-        <textarea name="what_happened" id="what_happened" rows="3" required placeholder="Describe the incident clearly (minimum 10 characters)...">{{ old('what_happened') }}</textarea>
+      <div class="field-group" style="margin-bottom:1.25rem;">
+        <label for="incident_narrative">Incident Narrative (Explain who, where, what, why, when) <span class="text-red-600">*</span></label>
+        <textarea name="incident_narrative" id="incident_narrative" rows="5" required minlength="10" maxlength="5000" placeholder="Tell us what happened in your own words. Include who was involved, where and when it happened, what happened and why.">{{ old('incident_narrative') }}</textarea>
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-top:0.35rem;">
+          <p class="field-hint" style="margin:0;font-size:0.8rem;color:#64748b;">
+            You may write in English, Filipino, Bisaya, or Chavacano (minimum 10 characters).
+          </p>
+          <div id="narrative-char-counter" class="field-hint" style="margin:0;font-size:0.8rem;font-weight:700;color:#64748b;" aria-live="polite">
+            <span id="narrative-char-count">0</span> / 10 <span id="narrative-char-status">min</span>
+          </div>
+        </div>
+        @error('incident_narrative')
+          <p class="field-error text-xs text-red-600 mt-1">{{ $message }}</p>
+        @enderror
       </div>
 
-      <div class="form-grid-2">
-        <div class="field-group">
-          <label for="who_involved">Who Was Involved? (Witnesses, other persons) <span class="text-red-600">*</span></label>
-          <input type="text" name="who_involved" id="who_involved" value="{{ old('who_involved') }}" required placeholder="Names of other persons or witnesses present">
-        </div>
-        <div class="field-group">
-          <label for="when_happened">When Did It Happen? (Date and Time) <span class="text-red-600">*</span></label>
-          <input type="datetime-local" name="when_happened" id="when_happened" value="{{ old('when_happened') }}" required>
-        </div>
+      <div class="field-group" style="margin-bottom:1.5rem;">
+        <label for="case_type_suggestion">Dispute Category (Optional)</label>
+        <select name="case_type_suggestion" id="case_type_suggestion">
+          <option value="">-- Choose dispute type (optional) --</option>
+          @foreach($caseTypes as $ct)
+            <option value="{{ $ct->name }}" @selected(old('case_type_suggestion') === $ct->name)>{{ $ct->name }}</option>
+          @endforeach
+          <option value="Neighborhood Dispute" @selected(old('case_type_suggestion') === 'Neighborhood Dispute')>Neighborhood Dispute</option>
+          <option value="Unpaid Debt / Financial" @selected(old('case_type_suggestion') === 'Unpaid Debt / Financial')>Unpaid Debt / Financial</option>
+          <option value="Property / Boundary" @selected(old('case_type_suggestion') === 'Property / Boundary')>Property / Boundary</option>
+          <option value="Physical Injury / Threat" @selected(old('case_type_suggestion') === 'Physical Injury / Threat')>Physical Injury / Threat</option>
+          <option value="Other" @selected(old('case_type_suggestion') === 'Other')>Other Concern</option>
+        </select>
       </div>
 
-      <div class="form-grid-2">
-        <div class="field-group">
-          <label for="where_happened">Where Did It Happen? (Location / Landmark) <span class="text-red-600">*</span></label>
-          <input type="text" name="where_happened" id="where_happened" value="{{ old('where_happened') }}" required placeholder="Specific sitio, street, or landmark in Calarian">
-        </div>
-        <div class="field-group">
-          <label for="case_type_suggestion">Dispute Category (Optional)</label>
-          <select name="case_type_suggestion" id="case_type_suggestion">
-            <option value="">-- Choose dispute type (optional) --</option>
-            @foreach($caseTypes as $ct)
-              <option value="{{ $ct->name }}" @selected(old('case_type_suggestion') === $ct->name)>{{ $ct->name }}</option>
-            @endforeach
-            <option value="Neighborhood Dispute" @selected(old('case_type_suggestion') === 'Neighborhood Dispute')>Neighborhood Dispute</option>
-            <option value="Unpaid Debt / Financial" @selected(old('case_type_suggestion') === 'Unpaid Debt / Financial')>Unpaid Debt / Financial</option>
-            <option value="Property / Boundary" @selected(old('case_type_suggestion') === 'Property / Boundary')>Property / Boundary</option>
-            <option value="Physical Injury / Threat" @selected(old('case_type_suggestion') === 'Physical Injury / Threat')>Physical Injury / Threat</option>
-            <option value="Other" @selected(old('case_type_suggestion') === 'Other')>Other Concern</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="field-group">
-        <label for="why_how_happened">Why or How Did It Happen? (Circumstances) <span class="text-red-600">*</span></label>
-        <textarea name="why_how_happened" id="why_how_happened" rows="2" required placeholder="Explain the context or reason why this conflict occurred...">{{ old('why_how_happened') }}</textarea>
-      </div>
-
-      <!-- 4. Legal Grounds & Relief Requested -->
+      <!-- 4. Rights Violated & Relief Requested -->
       <h2 class="form-section-title">
         <i class="fa-solid fa-gavel text-slate-800" aria-hidden="true"></i>
         <span>4. Rights Violated & Relief Requested</span>
       </h2>
 
-      <div class="field-group">
-        <label for="rights_violated">What Rights Were Violated or Damage Suffered? <span class="text-red-600">*</span></label>
-        <textarea name="rights_violated" id="rights_violated" rows="2" required placeholder="State how this incident affected you or damaged your rights/property...">{{ old('rights_violated') }}</textarea>
-      </div>
-
-      <div class="field-group">
-        <label for="relief_requested">What Remedy or Settlement Terms Do You Request? <span class="text-red-600">*</span></label>
-        <textarea name="relief_requested" id="relief_requested" rows="2" required placeholder="What action, repayment, apology, or settlement are you seeking from the respondent?">{{ old('relief_requested') }}</textarea>
+      <div class="field-group" style="margin-bottom:1.25rem;">
+        <label for="rights_and_relief">Rights Violated & Relief Requested (Explain how this affected you and what you want to happen) <span class="text-red-600">*</span></label>
+        <textarea name="rights_and_relief" id="rights_and_relief" rows="4" required minlength="10" maxlength="5000" placeholder="Describe how this incident affected you or damaged your rights or property, and what remedy you are asking for (apology, repayment, settlement, etc.).">{{ old('rights_and_relief') }}</textarea>
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-top:0.35rem;">
+          <p class="field-hint" style="margin:0;font-size:0.8rem;color:#64748b;">
+            You may write in English, Filipino, Bisaya, or Chavacano (minimum 10 characters).
+          </p>
+          <div id="relief-char-counter" class="field-hint" style="margin:0;font-size:0.8rem;font-weight:700;color:#64748b;" aria-live="polite">
+            <span id="relief-char-count">0</span> / 10 <span id="relief-char-status">min</span>
+          </div>
+        </div>
+        @error('rights_and_relief')
+          <p class="field-error text-xs text-red-600 mt-1">{{ $message }}</p>
+        @enderror
       </div>
 
       <!-- 5. Data Privacy Consent -->
@@ -438,32 +288,31 @@
   </section>
 
   <script>
-    function handleVawcSelection(isVawc) {
-      const screeningStep = document.getElementById('vawc-screening-step');
-      const guidanceDisplay = document.getElementById('vawc-guidance-display');
-      const formWrapper = document.getElementById('complaint-form-wrapper');
+    document.addEventListener('DOMContentLoaded', function () {
+      function setupCharCounter(inputId, countId, statusId, minLength) {
+        const input = document.getElementById(inputId);
+        const countEl = document.getElementById(countId);
+        const statusEl = document.getElementById(statusId);
+        if (!input || !countEl) return;
 
-      if (isVawc) {
-        guidanceDisplay.style.display = 'block';
-        formWrapper.style.display = 'none';
-        guidanceDisplay.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      } else {
-        guidanceDisplay.style.display = 'none';
-        formWrapper.style.display = 'block';
-        formWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        function update() {
+          const len = input.value.trim().length;
+          countEl.textContent = len;
+          if (len >= minLength) {
+            if (statusEl) statusEl.textContent = 'chars';
+            countEl.style.color = '#16a34a';
+          } else {
+            if (statusEl) statusEl.textContent = 'min';
+            countEl.style.color = '#64748b';
+          }
+        }
+
+        input.addEventListener('input', update);
+        update();
       }
-    }
 
-    function quickExit() {
-      // Instantly replace URL with Google to protect privacy without browser history
-      window.location.replace('https://www.google.com');
-    }
-
-    // Auto-reveal form if validation errors were returned from server
-    @if($errors->any())
-      document.addEventListener('DOMContentLoaded', function() {
-        handleVawcSelection(false);
-      });
-    @endif
+      setupCharCounter('incident_narrative', 'narrative-char-count', 'narrative-char-status', 10);
+      setupCharCounter('rights_and_relief', 'relief-char-count', 'relief-char-status', 10);
+    });
   </script>
 @endsection

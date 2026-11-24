@@ -1,30 +1,26 @@
 <div class="space-y-6">
-    <div class="flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-            <h3 class="text-base font-semibold text-slate-900">Escalation & Certification to File Action (CFA)</h3>
-            <p class="mt-1 text-sm text-slate-600">Complainant-initiated escalation to external authorities (Court, PNP, Prosecutor) when mediation or conciliation fails.</p>
-        </div>
-
-        @if(auth()->user()?->hasPermission('cases.escalate') && $case->status !== \App\Support\CaseStatus::ESCALATED && $case->status !== \App\Support\CaseStatus::SETTLED)
-            <x-ui.button href="{{ route('admin.cases.escalations.create', $case) }}" variant="danger">
-                <i class="fa-solid fa-arrow-up-right-from-square mr-1.5"></i> Escalate Case / Issue CFA
-            </x-ui.button>
-        @endif
-    </div>
-
-    <!-- Informational Note -->
-    <div class="rounded-lg border border-blue-100 bg-blue-50/50 p-4 text-xs text-blue-900 flex items-start gap-3">
-        <i class="fa-solid fa-circle-info text-blue-600 text-sm mt-0.5"></i>
+    <!-- Informational Note (Legal Reminder at Top) -->
+    <div class="rounded-lg border border-blue-100 bg-blue-50/60 p-4 text-xs text-blue-900 flex items-start gap-3">
+        <i class="fa-solid fa-circle-info text-blue-600 text-sm mt-0.5 flex-shrink-0"></i>
         <div class="space-y-1">
-            <p class="font-semibold">Katarungang Pambarangay Legal Reminder</p>
-            <p class="text-blue-800/90 leading-relaxed">
+            <p class="font-bold text-blue-950">Katarungang Pambarangay Legal Reminder</p>
+            <p class="text-blue-800 leading-relaxed">
                 Summons counts are for administrative record-keeping only and do not determine escalation timing. Escalation requires a formal complainant request and confirmation by an authorized official (Punong Barangay / Pangkat Chairman). The system never files court charges or dispatches police automatically.
             </p>
         </div>
     </div>
 
+    <!-- Header Section -->
+    <div class="flex flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+            <h3 class="text-base font-semibold text-slate-900">Escalation & Certification to File Action (CFA)</h3>
+            <p class="mt-0.5 text-xs text-slate-600">Complainant-initiated escalation to external authorities (Court, PNP, Prosecutor) when mediation or conciliation fails.</p>
+        </div>
+    </div>
+
+    <!-- Escalation History / Records -->
     @if($case->escalations->isEmpty())
-        <div class="rounded-lg border border-dashed border-slate-300 p-8 text-center">
+        <div class="rounded-lg border border-dashed border-slate-300 p-8 text-center w-full">
             <i class="fa-solid fa-file-shield text-3xl text-slate-400 mb-2"></i>
             <p class="text-sm font-semibold text-slate-700">No escalation record filed</p>
             <p class="mt-1 text-xs text-slate-500">When mediation reaches an impasse and the complainant requests escalation, the CFA record and printable letters will be stored here.</p>
@@ -89,6 +85,25 @@
                     </div>
                 </div>
             @endforeach
+        </div>
+    @endif
+
+    <!-- Danger Zone Escalation Action -->
+    @if(auth()->user()?->hasPermission('cases.escalate') && $case->status !== \App\Support\CaseStatus::ESCALATED && $case->status !== \App\Support\CaseStatus::SETTLED)
+        <div class="rounded-xl border border-red-200 bg-red-50/40 p-5 mt-6">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                    <h4 class="text-sm font-bold text-red-900 flex items-center gap-2">
+                        <i class="fa-solid fa-triangle-exclamation text-red-600"></i> Danger Zone: Statutory Escalation
+                    </h4>
+                    <p class="text-xs text-red-700 mt-1">
+                        Escalation terminates barangay conciliation proceedings and certifies the dispute for formal court or prosecutorial filing.
+                    </p>
+                </div>
+                <button type="button" onclick="openEscalateModal()" class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-red-600 rounded-lg hover:bg-red-700 shadow-sm transition-colors whitespace-nowrap">
+                    <i class="fa-solid fa-arrow-up-right-from-square"></i> Escalate Case / Issue CFA
+                </button>
+            </div>
         </div>
     @endif
 </div>

@@ -36,7 +36,7 @@ return new class extends Migration
             $table->string('case_type_suggestion', 100)->nullable();
 
             $table->boolean('confidentiality_screen_passed')->default(true);
-            $table->timestamp('consent_at');
+            $table->timestamp('consent_at')->nullable();
 
             // Intake Workflow
             $table->string('status', 30)->default('pending')->index();
@@ -45,7 +45,7 @@ return new class extends Migration
             $table->text('outcome_reason')->nullable();
             $table->foreignId('case_id')->nullable()->constrained('cases')->nullOnDelete();
 
-            $table->timestamp('submitted_at');
+            $table->timestamp('submitted_at')->useCurrent();
             $table->timestamps();
         });
     }

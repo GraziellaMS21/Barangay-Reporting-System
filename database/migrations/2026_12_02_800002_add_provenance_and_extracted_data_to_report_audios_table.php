@@ -12,9 +12,15 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('report_audios', function (Blueprint $table) {
-            $table->json('extracted_data')->nullable()->after('transcript_status');
-            $table->text('ai_description')->nullable()->after('extracted_data');
-            $table->json('provenance')->nullable()->after('ai_description');
+            if (! Schema::hasColumn('report_audios', 'extracted_data')) {
+                $table->json('extracted_data')->nullable()->after('transcript_status');
+            }
+            if (! Schema::hasColumn('report_audios', 'ai_description')) {
+                $table->text('ai_description')->nullable()->after('extracted_data');
+            }
+            if (! Schema::hasColumn('report_audios', 'provenance')) {
+                $table->json('provenance')->nullable()->after('ai_description');
+            }
         });
     }
 

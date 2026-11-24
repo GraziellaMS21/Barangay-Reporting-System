@@ -1362,7 +1362,7 @@ h3 {
     border-right: 1px solid rgb(255 255 255 / 10%);
     background: linear-gradient(180deg, #0b1f4b 0%, #091738 100%);
     box-shadow: 4px 0 24px rgb(11 31 75 / 12%);
-    z-index: 30;
+    z-index: 40;
     scrollbar-width: none;
     -ms-overflow-style: none;
 }
@@ -1800,7 +1800,7 @@ h3 {
     box-shadow: 0 4px 20px rgb(11 31 75 / 10%);
     position: sticky;
     top: 0;
-    z-index: 40;
+    z-index: 30;
 }
 
 .staff-topbar h1 {
@@ -5633,7 +5633,7 @@ body.chat-modal-open {
 .staff-topbar {
     position: sticky;
     top: 0;
-    z-index: 40;
+    z-index: 30;
 }
 
 .dashboard-header {

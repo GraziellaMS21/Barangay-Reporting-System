@@ -9,7 +9,9 @@ use App\Http\Controllers\VoiceAnalyzeController;
 use App\Http\Controllers\VoiceTranscriptionController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', [ReportController::class, 'create'])->name('reports.create');
+Route::get('/', [ReportController::class, 'index'])->name('home');
+Route::get('/report', [ReportController::class, 'create'])->name('reports.create');
+Route::get('/reports/create', [ReportController::class, 'create']);
 Route::post('/report', [ReportController::class, 'store'])->middleware('throttle:10,60')->name('reports.store');
 Route::post('/report/voice/transcribe', [VoiceTranscriptionController::class, 'transcribe'])->middleware('throttle:5,1')->name('reports.voice.transcribe');
 Route::post('/report/voice/analyze', [VoiceAnalyzeController::class, 'analyzeResident'])->middleware('throttle:3,10')->name('reports.voice.analyze');

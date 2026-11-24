@@ -19,6 +19,13 @@ use Illuminate\View\View;
 
 class ReportController extends Controller
 {
+    public function index(): View
+    {
+        return view('resident.index', [
+            'contacts' => EmergencyContact::query()->active()->ordered()->get(),
+        ]);
+    }
+
     public function create(): View
     {
         return view('resident.create', [

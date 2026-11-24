@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\CaseType;
 use App\Models\ComplaintIntake;
 use App\Models\Setting;
+use App\Services\GeminiService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 
 class ComplaintController extends Controller
@@ -65,16 +67,18 @@ class ComplaintController extends Controller
             'respondent_address' => ['required', 'string', 'max:1000'],
             'respondent_contact' => ['nullable', 'string', 'max:50'],
 
-            // 5Ws
-            'what_happened' => ['required', 'string', 'min:10', 'max:4000'],
-            'who_involved' => ['required', 'string', 'min:5', 'max:1000'],
-            'when_happened' => ['required', 'date', 'before_or_equal:now'],
-            'where_happened' => ['required', 'string', 'min:5', 'max:1000'],
-            'why_how_happened' => ['required', 'string', 'min:10', 'max:4000'],
+            // Section 3 & 4: Natural language narratives with backward compatibility
+            'incident_narrative' => ['required_without:what_happened', 'nullable', 'string', 'min:10', 'max:5000'],
+            'rights_and_relief' => ['required_without:rights_violated', 'nullable', 'string', 'min:10', 'max:5000'],
 
-            // Legal relief
-            'rights_violated' => ['required', 'string', 'min:10', 'max:2000'],
-            'relief_requested' => ['required', 'string', 'min:10', 'max:2000'],
+            // Legacy 5Ws (optional for backward compatibility)
+            'what_happened' => ['nullable', 'string', 'min:10', 'max:4000'],
+            'who_involved' => ['nullable', 'string', 'max:1000'],
+            'when_happened' => ['nullable', 'date', 'before_or_equal:now'],
+            'where_happened' => ['nullable', 'string', 'max:1000'],
+            'why_how_happened' => ['nullable', 'string', 'max:4000'],
+            'rights_violated' => ['nullable', 'string', 'max:2000'],
+            'relief_requested' => ['nullable', 'string', 'max:2000'],
             'case_type_suggestion' => ['nullable', 'string', 'max:100'],
 
             // Explicit RA 10173 data privacy consent
@@ -85,19 +89,19 @@ class ComplaintController extends Controller
             'complainant_address.required' => 'Please provide your complete residential address.',
             'respondent_name.required' => 'Please provide the name of the respondent.',
             'respondent_address.required' => 'Please provide the respondent complete address for summons delivery.',
+            'incident_narrative.required_without' => 'Please describe what incident occurred in the Incident Narrative field.',
+            'incident_narrative.min' => 'The Incident Narrative must be at least 10 characters.',
+            'rights_and_relief.required_without' => 'Please state the rights violated and relief requested.',
+            'rights_and_relief.min' => 'The Rights Violated & Relief Requested must be at least 10 characters.',
             'what_happened.required' => 'Please describe what incident occurred.',
             'what_happened.min' => 'The incident description must be at least 10 characters.',
-            'who_involved.required' => 'Please list the persons involved.',
-            'when_happened.required' => 'Please provide the date and time when the incident took place.',
-            'when_happened.before_or_equal' => 'The incident date cannot be in the future.',
-            'where_happened.required' => 'Please state the location where the incident occurred.',
-            'why_how_happened.required' => 'Please provide the circumstances or cause of the dispute.',
-            'rights_violated.required' => 'Please state what rights were violated or damage was suffered.',
-            'relief_requested.required' => 'Please state what remedy or settlement terms you are requesting.',
             'consent.accepted' => 'You must agree to the Data Privacy Notice in accordance with RA 10173.',
         ]);
 
-        ComplaintIntake::create([
+        $narrative = $validated['incident_narrative'] ?? $validated['what_happened'] ?? '';
+        $rightsRelief = $validated['rights_and_relief'] ?? trim(($validated['rights_violated'] ?? '').' '.($validated['relief_requested'] ?? ''));
+
+        $intake = ComplaintIntake::create([
             'complainant_name' => $validated['complainant_name'],
             'complainant_alias' => $validated['complainant_alias'] ?? null,
             'complainant_age' => $validated['complainant_age'] ?? null,
@@ -108,19 +112,28 @@ class ComplaintController extends Controller
             'respondent_alias' => $validated['respondent_alias'] ?? null,
             'respondent_address' => $validated['respondent_address'],
             'respondent_contact' => $validated['respondent_contact'] ?? null,
-            'what_happened' => $validated['what_happened'],
-            'who_involved' => $validated['who_involved'],
-            'when_happened' => $validated['when_happened'],
-            'where_happened' => $validated['where_happened'],
-            'why_how_happened' => $validated['why_how_happened'],
-            'rights_violated' => $validated['rights_violated'],
-            'relief_requested' => $validated['relief_requested'],
+            'incident_narrative' => $narrative,
+            'rights_and_relief' => $rightsRelief,
+            'what_happened' => $validated['what_happened'] ?? $narrative,
+            'who_involved' => $validated['who_involved'] ?? 'Pending AI review',
+            'when_happened' => $validated['when_happened'] ?? null,
+            'where_happened' => $validated['where_happened'] ?? 'Pending AI review',
+            'why_how_happened' => $validated['why_how_happened'] ?? 'Pending AI review',
+            'rights_violated' => $validated['rights_violated'] ?? $rightsRelief,
+            'relief_requested' => $validated['relief_requested'] ?? 'Pending AI review',
             'case_type_suggestion' => $validated['case_type_suggestion'] ?? null,
             'confidentiality_screen_passed' => true,
             'consent_at' => now(),
             'status' => 'pending',
+            'ai_status' => 'pending',
             'submitted_at' => now(),
         ]);
+
+        try {
+            app(GeminiService::class)->analyzeComplaint($intake);
+        } catch (\Throwable $e) {
+            Log::warning('Complaint AI analysis exception in controller: '.$e->getMessage());
+        }
 
         return redirect()->route('complaint.received');
     }

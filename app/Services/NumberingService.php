@@ -2,8 +2,11 @@
 
 namespace App\Services;
 
+use App\Models\BarangayCase;
 use App\Models\FiscalYear;
 use App\Models\NumberSequence;
+use App\Models\Referral;
+use App\Models\Summons;
 use Illuminate\Support\Facades\DB;
 
 class NumberingService
@@ -32,10 +35,14 @@ class NumberingService
                 ]);
             }
 
-            $newNumber = $sequence->last_number + 1;
-            $sequence->update(['last_number' => $newNumber]);
+            do {
+                $newNumber = $sequence->last_number + 1;
+                $sequence->update(['last_number' => $newNumber]);
 
-            return $this->formatNumber($format, $fiscalYear, $newNumber);
+                $formatted = $this->formatNumber($format, $fiscalYear, $newNumber);
+            } while ($this->numberExists($type, $formatted));
+
+            return $formatted;
         });
     }
 
@@ -76,6 +83,16 @@ class NumberingService
         $stripped = preg_replace('/\{(YEAR|YY|MM|SEQ:[1-8])\}/', '', $format);
 
         return preg_match('/^[a-zA-Z0-9_\-\.\/]*$/', $stripped) === 1;
+    }
+
+    protected function numberExists(string $type, string $number): bool
+    {
+        return match ($type) {
+            'summons' => Summons::where('summons_number', $number)->exists(),
+            'case', 'blotter' => BarangayCase::where('case_number', $number)->exists(),
+            'referral' => Referral::where('reference_no', $number)->exists(),
+            default => false,
+        };
     }
 
     protected function formatNumber(string $format, FiscalYear $fy, int $number, ?string $date = null): string

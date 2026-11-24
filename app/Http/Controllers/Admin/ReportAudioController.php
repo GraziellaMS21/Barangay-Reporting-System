@@ -29,11 +29,19 @@ class ReportAudioController extends Controller
 
         $fullPath = Storage::disk('private')->path($audio->disk_path);
 
-        return response()->file($fullPath, [
-            'Content-Type' => $audio->mime ?: 'audio/webm',
-            'Cache-Control' => 'private, no-store, must-revalidate',
+        $response = response()->file($fullPath, [
             'Content-Disposition' => 'inline',
         ]);
+
+        $response->setPrivate();
+        $response->headers->addCacheControlDirective('no-store', true);
+        $response->headers->addCacheControlDirective('must-revalidate', true);
+
+        if ($audio->mime) {
+            $response->headers->set('Content-Type', $audio->mime);
+        }
+
+        return $response;
     }
 
     /**

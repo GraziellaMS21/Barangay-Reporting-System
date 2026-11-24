@@ -1609,7 +1609,7 @@ class ReportController extends Controller
         }
 
         try {
-            $statusService->transition($report, 'routed', $validated['review_note'] ?: 'Confirmed and routed by staff.', $reviewer);
+            $statusService->transition($report, 'routed', ($validated['review_note'] ?? null) ?: 'Confirmed and routed by staff.', $reviewer);
         } catch (Throwable $e) {
             return back()->with('error', $e->getMessage());
         }

@@ -29,7 +29,7 @@ class SeederTest extends TestCase
         $this->seed(RequiredDataSeeder::class);
 
         $permCount = Permission::count();
-        $this->assertSame(20, $permCount);
+        $this->assertSame(21, $permCount);
 
         $posCount = Position::count();
         $this->assertSame(5, $posCount);

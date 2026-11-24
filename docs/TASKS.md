@@ -59,3 +59,15 @@ All foundation and core functional modules have been implemented and verified on
 - **Scope**:
   - Receive the physical blank forms from the Barangay Secretary (Summons notice, CFA form, Amicable Settlement agreement, DILG annual report layout).
   - Confirm pending items at `/admin/settings/pending` and update Blade print views to remove `<x-ui.draft-watermark>`.
+
+### Task 7: Voice Reporting Prototype (WS7)
+- **Goal**: Implement an asynchronous audio recording and transcription prototype for residents and hotline desk officers without telephony infrastructure.
+- **Scope**:
+  - **Resident Recorder**: Embed optional `<x-voice.recorder>` component in single-card report form with audio file upload fallback (MediaRecorder API, max `voice.max_seconds` [default 60s], lifecycle cleanup on Turbo navigation).
+  - **Staff Hotline Intake**: Build "Record phone report" form (`GET/POST /admin/reports/phone`) accessible via Report Queue toolbar button, requiring `reports.log_phone` permission and mandatory verbal consent certification checkbox.
+  - **Asynchronous Transcription Pipeline**: Implement `GeminiService::transcribeAudio()`, returning `{transcript, language, unclear, confidence_note}` without transmitting reporter PII.
+  - **The Uncertainty Rule & Verification Gate**: Enforce that when `transcript_status` is `needs_verification` or `failed`, guessed text is never inserted into the description textarea; report enters `submitted` with a system placeholder description, and "Confirm and route" is blocked until authorized staff listen to the audio recording and verify or correct the text.
+  - **Private Storage & Purging**: Store audio files strictly on `private` disk (`storage/app/private/audio/`); implement authenticated streaming endpoint (`GET /admin/reports/{report}/audio` with HTTP Range and `Cache-Control: private, no-store`); implement scheduled command `app:purge-audio` deleting expired audio (> `voice.audio_retention_days` [default 90d]) and unattached uploads (> 24h).
+  - **Demo & Mock Support**: Provide offline mock mode (`voice.mock_transcription` or sample button in demo/local environment) for defense demonstrations without live API keys or microphone hardware.
+  - **Comprehensive Tests**: Build unit and feature test suites covering endpoint validation, rate-limiting, Gemini fakes, PII isolation, gate blocking on uncertain transcripts, audio streaming permissions, purge command, and audit logging.
+  - **Docs Follow-Up**: Run follow-up documentation pass to update status from Planned to Implemented, record final route snapshot via `php artisan route:list --json > docs/ROUTES.snapshot.json`, and update real permission/test counts.

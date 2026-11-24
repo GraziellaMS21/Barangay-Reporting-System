@@ -65,7 +65,7 @@
 - **Consequences**: Legacy root files (`project.md`, `phases.md`, `DECISIONS.md`) are replaced with pointers to `docs/`.
 
 ### Decision 48: Voice Call Reporting Deferred
-- **Status**: Accepted
+- **Status**: Accepted (Partially Superseded)
 - **Date**: 2026-11-19
 - **Context**: Early academic project drafts referenced voice call reporting, softphone integration, call recording, and speech-to-text.
 - **Options**:
@@ -74,6 +74,9 @@
 - **Decision**: Formally defer UR-04, FR-22, proposal feature 18 ("Report by Phone"), softphone integration, audio retention, speech-to-text, and SMS broadcasting.
 - **Rationale**: The pilot deployment for Barangay Calarian focuses strictly on mobile web reporting, Leaflet geo-tagging, and Gemini text/photo triage.
 - **Consequences**: AI agents will not generate or scaffold voice/SMS features until explicitly re-opened.
+
+> [!NOTE]
+> Partially superseded by Decision 77 on 2026-11-24 for the voice reporting prototype (record-and-transcribe without telephony). Real telephony, softphone integration, live call recording, SMS gateway broadcasting, and dialect-specific speech models remain deferred.
 
 ### Decision 49: Elimination of `on_hold` Status in Favor of Progress Notes
 - **Status**: Accepted
@@ -310,3 +313,33 @@
 - **Decision**: Remove the root `SKILL.md` completely.
 - **Rationale**: `AGENTS.md` is the sole, authoritative execution manual for AI coding agents in this repository. Removing the redundant stub eliminates ambiguity.
 - **Consequences**: Agents operating in the repository reference `AGENTS.md` and the canonical files in `docs/`.
+
+---
+
+## Voice Reporting Prototype Decisions (2026-11-24)
+
+### Decision 77: Voice Reporting Prototype Reopens Decision 48 (Record-and-Transcribe Only)
+- **Status**: Accepted (Planned Prototype)
+- **Date**: 2026-11-24
+- **Context**: Resident accessibility is limited if typing is the only intake method, and desk officers manually taking phone calls at the barangay hotline lack a structured voice-intake tool. Decision 48 previously deferred all voice and telephony features.
+- **Options**:
+  1. *Keep everything deferred*: Continue with mobile web text-only intake; leave phone calls unrecorded.
+  2. *UI-only mock*: Add visual recording controls with no transcription or backend audio pipeline.
+  3. *Working prototype with record-then-transcribe (chosen)*: Add an optional "Record instead of typing" recorder (with audio file upload fallback) in the resident form and a "Record phone report" desk officer form. Save audio on the private disk, transcribe via Gemini audio input, insert text into the description field for review before submission, and run existing text analysis on submit.
+  4. *Real telephony / softphone (rejected)*: Integrate SIP/Twilio telephony and live hotline softphones (rejected due to infrastructure costs, complexity, and network dependency).
+  5. *Live streaming transcription (rejected)*: Real-time audio streaming transcription during speech (rejected due to dialect accuracy risks, privacy constraints, and network instability).
+- **Decision**: Adopt Option 3: implement a voice reporting prototype restricted strictly to asynchronous record-and-transcribe without telephony. Reopen Decision 48 solely for this scope.
+- **Rationale**: Provides immediate spoken-language accessibility for residents and staff while keeping infrastructure zero-cost and lightweight. Telephony and SMS remain deferred.
+- **Consequences**: AI agents may build ONLY the prototype scope (resident audio record/upload, desk officer phone intake, Gemini transcription, private disk storage, audio retention purge, mock mode). Real telephony, softphone integration, live phone call recording, SMS gateway broadcasting, dialect-specific speech models, and real-time streaming transcription remain strictly deferred.
+
+### Decision 78: Uncertain or Failed Audio Goes to Staff Verification
+- **Status**: Accepted (Planned Prototype)
+- **Date**: 2026-11-24
+- **Context**: Spoken language in Barangay Calarian includes English, Filipino, Bisaya, and Chavacano. Code-switching, acoustic noise, phone artifacts, and regional place names create transcription uncertainty. Without a strict protocol, the system risks hallucinating incorrect incident details or blocking citizens.
+- **Options**:
+  1. *Reject uncertain recordings*: Require the user to re-record until confidence is high (rejected: frustrates residents and blocks reporting).
+  2. *Best-effort auto-fill*: Insert low-confidence AI guesses into the report description (rejected: violates "the AI suggests, the officials decide" and risks acting on hallucinations).
+  3. *Staff verification gate with unverified draft (chosen)*: When `transcript_status` is `needs_verification` or `failed`, never insert guessed text as the report description; accept the report into `submitted` with a system placeholder, flag it for staff review, and block "Confirm and route" until an authorized staff member listens to the audio and confirms or enters what was said.
+- **Decision**: Adopt Option 3. Mandate the core rule: **If the audio is uncertain or the AI cannot understand it, nothing is guessed and the decision goes to staff.**
+- **Rationale**: Preserves the human-in-the-loop review mandate. Extends the existing review gate without creating new statuses, complex sub-states, or automatic routing.
+- **Consequences**: Unverified voice reports are never auto-routed or priority-downgraded. Category and urgency remain human decisions in the 3-way triage. The resident's original description is preserved, and staff corrections are recorded separately with audit timestamps.

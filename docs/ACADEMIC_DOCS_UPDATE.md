@@ -66,7 +66,7 @@ Add a line to the source-column key: **New** = requirement added after adviser f
 - **FR-06:** replace "email residents ... and email officials" scope note with: "Notifications are sent by email only; SMS is deferred."
 - **FR-17:** replace "out-of-scope" with "no action (with a reason code)". Statuses `on_hold`, `out_of_scope`, and `closed` no longer exist; the system has 12 statuses (see `WORKFLOW.md`).
 - **FR-20:** add "positions, personnel, fiscal years, numbering, escalation destinations, case types, and case fields" to the list of things the administrator manages.
-- **FR-22 and UR-04:** keep marked **Deferred (not built)**.
+- **FR-22 and UR-04:** change from "Deferred (not built)" to **Prototype: record and transcribe (no telephony)**. Spoken audio in English and Filipino (with partial Bisaya and limited Chavacano support) is transcribed via Gemini as an untrusted advisory suggestion; uncertain or failed audio does not auto-fill description and blocks routing until staff verification. Real telephony, softphone dialers, live call recording, SMS, and dialect-specific acoustic speech models remain **Deferred (not built)**.
 
 ### 1.4 Section D: Non-Functional Requirements (append)
 
@@ -120,9 +120,10 @@ Relationships: **Escalate Case** `<<include>>` **Issue Summons** history check; 
 
 | Item | Status |
 | :--- | :--- |
-| Voice call reporting (UR-04, FR-22) | Deferred, not built |
+| Voice call reporting (UR-04, FR-22) | Prototype: record and transcribe (no telephony) |
+| Live telephony, softphone integration, and live call recording | Deferred, not built |
 | SMS notifications | Deferred, not built (email only) |
-| Dialect audio and speech-to-text | Deferred, not built |
+| Dialect-specific acoustic speech models | Deferred, not built (uses generalized cloud transcription with staff verification for uncertain audio) |
 | Resident accounts and identity verification | Deferred, not built (residents use the tracking code; residency is a staff-recorded label) |
 | Lupon and Pangkat modelling, formal KP stage sequence | Deferred pending the secretary's answers |
 | Hearing email reminders | Built but switched off |
@@ -138,7 +139,7 @@ Relationships: **Escalate Case** `<<include>>` **Issue Summons** history check; 
 | **1.1 Product Overview** | Add one paragraph: the system now has an administrative foundation (first-time setup, fiscal year, personnel and signatories, per-employee permissions), a case management module (parties, summons, hearings, escalation), and an external agency portal for referrals |
 | **1.3 Background of the Client** | Add the adviser-driven needs: records tied to a fiscal year, official signatories on documents, case records with complainants and respondents, summons tracking, and referrals shared with outside agencies |
 | **1.4 Proposed Solution** and **1.4.1 Product Summary** | Rewrite from "two layers" to **three layers**; add Layer 3 below. Keep the principle "The AI suggests, the rules route, the officials decide" |
-| **1.4.2 List of Features** (Table 1.1) | Add a **Layer 3, Barangay Administration and Case Management** block with the rows below. In "Notifications" delete "and SMS" (email only). In "Voice Call Reporting" add the word "(deferred)". In "Staff Review Queue and Case Management" add "(problem reports)" to avoid confusion with cases. Update the intro sentence and the table number/caption if the count changes |
+| **1.4.2 List of Features** (Table 1.1) | Add a **Layer 3, Barangay Administration and Case Management** block with the rows below. In "Notifications" delete "and SMS" (email only). In "Voice Call Reporting" update to "Voice reporting prototype (record and transcribe, no telephony); real telephony, live call recording, and softphone remain deferred". In "Staff Review Queue and Case Management" add "(problem reports)" to avoid confusion with cases. Update the intro sentence and the table number/caption if the count changes |
 | **List of Tables / Table of Contents** | Refresh page numbers and the feature count after the edit |
 
 **New Table 1.1 rows (Layer 3):**

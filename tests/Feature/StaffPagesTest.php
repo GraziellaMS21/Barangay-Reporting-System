@@ -203,4 +203,74 @@ class StaffPagesTest extends TestCase
             ->assertDontSee('name="turbo-cache-control"', false)
             ->assertDontSee('data-turbo="true"', false);
     }
+
+    public function test_sidebar_does_not_contain_my_cases_and_report_queue_stays_active(): void
+    {
+        $staff = User::factory()->staff()->create();
+        $admin = User::factory()->admin()->create();
+
+        // Staff layout does not show My Cases in sidebar
+        $this->actingAs($staff)
+            ->get(route('admin.dashboard'))
+            ->assertOk()
+            ->assertDontSee('title="My Cases"', false)
+            ->assertDontSee('href="'.route('admin.reports.my-cases').'"', false);
+
+        // Admin layout does not show My Cases in sidebar
+        $this->actingAs($admin)
+            ->get(route('admin.dashboard'))
+            ->assertOk()
+            ->assertDontSee('title="My Cases"', false)
+            ->assertDontSee('href="'.route('admin.reports.my-cases').'"', false);
+
+        // On reports queue with my_cases filter, Report Queue is highlighted
+        $response = $this->actingAs($staff)
+            ->get(route('admin.reports.index', ['my_cases' => 1]))
+            ->assertOk();
+
+        $response->assertSee('title="Report Queue"', false);
+    }
+
+    public function test_queue_filters_component_renders_tabs_chips_and_scoped_counts(): void
+    {
+        $staff = User::factory()->staff()->create();
+        $admin = User::factory()->admin()->create();
+
+        // 2 reports assigned to staff, 1 assigned to admin
+        Report::factory()->create([
+            'assigned_to' => $staff->id,
+            'status' => 'submitted',
+        ]);
+        Report::factory()->create([
+            'assigned_to' => $staff->id,
+            'status' => 'in_progress',
+        ]);
+        Report::factory()->create([
+            'assigned_to' => $admin->id,
+            'status' => 'submitted',
+        ]);
+
+        // When viewing general queue: tab All count is 3
+        $generalResponse = $this->actingAs($staff)
+            ->get(route('admin.reports.index'))
+            ->assertOk();
+
+        $generalResponse->assertSee('role="tablist"', false)
+            ->assertSee('All')
+            ->assertSee('Needs review')
+            ->assertSee('In progress')
+            ->assertSee('Waiting on others')
+            ->assertSee('Done')
+            ->assertSee('My cases')
+            ->assertSee('Overdue')
+            ->assertSee('Emergency');
+
+        // When filtering by my_cases=1: counts scope to current user's 2 reports
+        $myCasesResponse = $this->actingAs($staff)
+            ->get(route('admin.reports.index', ['my_cases' => 1]))
+            ->assertOk();
+
+        $myCasesResponse->assertSee('role="tablist"', false)
+            ->assertSee('aria-pressed="true"', false);
+    }
 }

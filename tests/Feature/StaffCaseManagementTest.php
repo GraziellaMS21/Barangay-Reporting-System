@@ -100,10 +100,16 @@ class StaffCaseManagementTest extends TestCase
 
         $this->actingAs($this->staff)
             ->get(route('admin.reports.my-cases'))
-            ->assertOk()
-            ->assertSee('My assigned cases')
+            ->assertRedirect(route('admin.reports.index', ['my_cases' => 1]));
+
+        $response = $this->actingAs($this->staff)
+            ->get(route('admin.reports.index', ['my_cases' => 1]));
+
+        $response->assertOk()
             ->assertSee($myReport->tracking_code)
-            ->assertDontSee($otherReport->tracking_code);
+            ->assertDontSee($otherReport->tracking_code)
+            ->assertSee('My cases')
+            ->assertSee('aria-pressed="true"', false);
     }
 
     public function test_queue_displays_overdue_and_reopened_badges(): void

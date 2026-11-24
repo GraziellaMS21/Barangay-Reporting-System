@@ -93,211 +93,25 @@
   ];
 @endphp
 
-@php
-  $lifecycleTabs = [
-    'needs_review' => ['label' => 'Needs review', 'count' => $stageCounts->get('needs_review', 0)],
-    'in_progress' => ['label' => 'In progress', 'count' => $stageCounts->get('in_progress', 0)],
-    'waiting' => ['label' => 'Waiting on others', 'count' => $stageCounts->get('waiting', 0)],
-    'done' => ['label' => 'Done', 'count' => $stageCounts->get('done', 0)],
-    'my_cases' => ['label' => 'My cases', 'count' => $stageCounts->get('my_cases', 0)],
-    'overdue' => ['label' => 'Overdue', 'count' => $stageCounts->get('overdue', 0)],
-  ];
-@endphp
-
-<div class="lifecycle-filter-toolbar">
-  <nav class="status-filters" aria-label="Filter reports by lifecycle stage">
-    <a href="{{ route($queueRoute, array_merge($preservedFilters, ['stage' => 'all'])) }}"
-      @class(['status-filter', 'active' => $currentStage === 'all'])>
-      All
-      @if($stageCounts->get('all', 0) > 0)
-        <span>{{ $stageCounts->get('all') }}</span>
-      @endif
-    </a>
-    @foreach($lifecycleTabs as $stage => $tab)
-      <a href="{{ route($queueRoute, array_merge($preservedFilters, ['stage' => $stage])) }}"
-        @class(['status-filter', 'active' => $currentStage === $stage])>
-        {{ $tab['label'] }}
-        @if($tab['count'] > 0)
-          <span>{{ $tab['count'] }}</span>
-        @endif
-      </a>
-    @endforeach
-  </nav>
-
-  <form method="GET" action="{{ route($queueRoute) }}" class="status-stage-mobile">
-    @foreach($preservedFilters as $name => $value)
-      <input type="hidden" name="{{ $name }}" value="{{ $value }}">
-    @endforeach
-    <label class="sr-only" for="mobile-stage">Lifecycle stage</label>
-    <select id="mobile-stage" name="stage">
-      <option value="all" @selected($currentStage === 'all')>All ({{ $stageCounts->get('all', 0) }})</option>
-      @foreach($lifecycleTabs as $stage => $tab)
-        <option value="{{ $stage }}" @selected($currentStage === $stage)>{{ $tab['label'] }} ({{ $tab['count'] }})</option>
-      @endforeach
-    </select>
-    <button type="submit" class="btn btn-navy btn-small">Apply</button>
-  </form>
-
-  <a href="{{ route($queueRoute, $emergencyFilterParams) }}"
-    class="status-filter emergency-toggle {{ $emergencyOnly ? 'active' : '' }}"
-    aria-pressed="{{ $emergencyOnly ? 'true' : 'false' }}">
-    <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
-    Emergency <span>{{ $emergencyCount }}</span>
-  </a>
-</div>
-
-@if(isset($statusGroups[$currentStage]['statuses']) && count($statusGroups[$currentStage]['statuses']) > 1)
-  <nav class="status-subfilters" aria-label="Filter by exact status">
-    <span>Show:</span>
-    <a href="{{ route($queueRoute, array_merge($preservedFilters, ['stage' => $currentStage])) }}"
-      @class(['status-subfilter', 'active' => $statusFilter === null || $statusFilter === 'all'])>
-      All
-    </a>
-    @foreach($statusGroups[$currentStage]['statuses'] as $status)
-      <a href="{{ route($queueRoute, array_merge($preservedFilters, [
-          'stage' => $currentStage,
-          'status' => $status,
-      ])) }}"
-        @class(['status-subfilter', 'active' => $statusFilter === $status])>
-        {{ $statusLabels[$status] }}
-        @if($statusCounts->get($status, 0) > 0)
-          <span>{{ $statusCounts->get($status) }}</span>
-        @endif
-      </a>
-    @endforeach
-  </nav>
-@endif
-
-@php
-  $activeFilterCount = collect(['purok_id', 'category_id', 'assigned_to', 'year'])
-      ->filter(fn($k) => request()->filled($k) && request($k) !== 'all')
-      ->count();
-  if ($statusFilter !== null && $statusFilter !== 'all' && !in_array($currentStage, ['active', 'closed-other'], true)) {
-      $activeFilterCount++;
-  }
-@endphp
-
-{{-- Compact filter row: search bar with secondary filters in a popover drawer --}}
-<form method="GET" action="{{ route($queueRoute) }}" class="queue-filter-form mb-4">
-  <input type="hidden" name="stage" value="{{ $currentStage }}">
-  @if($statusFilter !== null && $statusFilter !== 'all')
-    <input type="hidden" name="status" value="{{ $statusFilter }}">
-  @endif
-  @if($emergencyOnly)
-    <input type="hidden" name="emergency" value="1">
-  @endif
-
-  <div class="flex items-center gap-2.5 flex-wrap w-full">
-    <div class="queue-filter-field grow min-w-[240px]" style="margin-bottom:0;">
-      <label for="q" class="sr-only">Search</label>
-      <div style="position:relative;width:100%;">
-        <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:0.75rem;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:0.85rem;" aria-hidden="true"></i>
-        <input id="q" type="search" name="q" value="{{ request('q') }}" placeholder="Tracking code or description" style="padding-left:2.2rem;width:100%;">
-      </div>
-    </div>
-
-    <details class="queue-filters-drawer" style="position:relative;" @if($activeFilterCount > 0) open @endif>
-      <summary class="btn btn-outline btn-small" style="display:inline-flex;align-items:center;gap:0.4rem;cursor:pointer;list-style:none;">
-        <i class="fa-solid fa-sliders text-blue-600" aria-hidden="true"></i>
-        <span>Filters</span>
-        @if($activeFilterCount > 0)
-          <span style="background:var(--blue);color:#fff;border-radius:999px;padding:0.1rem 0.45rem;font-size:0.72rem;font-weight:700;">{{ $activeFilterCount }}</span>
-        @endif
-        <i class="fa-solid fa-chevron-down" style="font-size:0.7rem;color:#94a3b8;" aria-hidden="true"></i>
-      </summary>
-
-      <div class="card queue-filter-popover" style="position:absolute;right:0;top:calc(100% + 0.5rem);z-index:40;width:320px;padding:1.15rem;box-shadow:0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1);border:1px solid var(--line);border-radius:14px;background:#fff;">
-        <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:0.5rem;margin-bottom:0.75rem;border-bottom:1px solid #f1f5f9;">
-          <strong style="font-size:0.88rem;color:var(--ink);">Secondary Filters</strong>
-          @if($activeFilterCount > 0)
-            <a href="{{ route($queueRoute, $clearFilterParams) }}" style="font-size:0.75rem;color:var(--blue);font-weight:600;">Clear all</a>
-          @endif
-        </div>
-
-        <div style="display:flex;flex-direction:column;gap:0.75rem;">
-          <div>
-            <label for="purok_id" style="display:block;font-size:0.78rem;font-weight:700;color:#475569;margin-bottom:0.25rem;">Purok</label>
-            <select id="purok_id" name="purok_id" style="width:100%;font-size:0.85rem;">
-              <option value="">All puroks</option>
-              @foreach($puroks as $purok)
-                <option value="{{ $purok->id }}" @selected((string) request('purok_id') === (string) $purok->id)>
-                  {{ $purok->name }}
-                </option>
-              @endforeach
-            </select>
-          </div>
-
-          <div>
-            <label for="category_id" style="display:block;font-size:0.78rem;font-weight:700;color:#475569;margin-bottom:0.25rem;">Category</label>
-            <select id="category_id" name="category_id" style="width:100%;font-size:0.85rem;">
-              <option value="">All categories</option>
-              @foreach($categories as $category)
-                <option value="{{ $category->id }}" @selected((string) request('category_id') === (string) $category->id)>
-                  {{ $category->name }}
-                </option>
-              @endforeach
-            </select>
-          </div>
-
-          <div>
-            <label for="queue-status-filter" style="display:block;font-size:0.78rem;font-weight:700;color:#475569;margin-bottom:0.25rem;">Status</label>
-            <select id="queue-status-filter" name="status" style="width:100%;font-size:0.85rem;">
-              <option value="">All statuses</option>
-              @foreach($statusLabels as $statusKey => $statusLabel)
-                <option value="{{ $statusKey }}" @selected($statusFilter === $statusKey)>{{ $statusLabel }}</option>
-              @endforeach
-            </select>
-          </div>
-
-          @if(!$isMyCases)
-            <div>
-              <label for="assigned_to" style="display:block;font-size:0.78rem;font-weight:700;color:#475569;margin-bottom:0.25rem;">Assignee</label>
-              <select id="assigned_to" name="assigned_to" style="width:100%;font-size:0.85rem;">
-                <option value="">All assignees</option>
-                <option value="unassigned" @selected(request('assigned_to') === 'unassigned')>Unassigned</option>
-                @foreach($staffUsers as $user)
-                  <option value="{{ $user->id }}" @selected((string) request('assigned_to') === (string) $user->id)>
-                    {{ $user->name }}
-                  </option>
-                @endforeach
-              </select>
-            </div>
-          @else
-            <input type="hidden" name="assigned_to" value="{{ auth()->id() }}">
-          @endif
-
-          @if(!empty($fiscalYears) && $fiscalYears->isNotEmpty())
-            <div>
-              <label for="queue-year-filter" style="display:block;font-size:0.78rem;font-weight:700;color:#475569;margin-bottom:0.25rem;">Fiscal Year</label>
-              <select id="queue-year-filter" name="year" style="width:100%;font-size:0.85rem;">
-                <option value="">All years</option>
-                @foreach($fiscalYears as $fy)
-                  <option value="{{ $fy->year }}" @selected((string) request('year') === (string) $fy->year)>
-                    {{ $fy->label ?? 'FY ' . $fy->year }}
-                  </option>
-                @endforeach
-              </select>
-            </div>
-          @endif
-        </div>
-
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-top:1rem;padding-top:0.75rem;border-top:1px solid #f1f5f9;">
-          <a href="{{ route($queueRoute, $clearFilterParams) }}" class="queue-filter-clear" style="font-size:0.8rem;">Reset</a>
-          <button type="submit" class="btn btn-navy btn-small" style="padding:0.35rem 0.85rem;font-size:0.82rem;">
-            Apply
-          </button>
-        </div>
-      </div>
-    </details>
-
-    <div class="queue-filter-actions" style="margin-left:auto;">
-      <button type="submit" class="btn btn-navy btn-small">
-        <i class="fa-solid fa-filter" aria-hidden="true"></i> Filter
-      </button>
-      <a href="{{ route($queueRoute, $clearFilterParams) }}" class="queue-filter-clear">Clear</a>
-    </div>
-  </div>
-</form>
+<x-ui.queue-filters
+  :current-stage="$currentStage"
+  :stage-counts="$stageCounts"
+  :status-filter="$statusFilter"
+  :status-labels="$statusLabels"
+  :status-counts="$statusCounts"
+  :status-groups="$statusGroups"
+  :emergency-only="$emergencyOnly"
+  :emergency-count="$emergencyCount"
+  :is-my-cases="$isMyCases"
+  :my-cases-count="$stageCounts->get('my_cases', 0)"
+  :overdue-only="request('overdue') === '1'"
+  :overdue-count="$stageCounts->get('overdue', 0)"
+  :puroks="$puroks"
+  :categories="$categories"
+  :staff-users="$staffUsers"
+  :fiscal-years="$fiscalYears"
+  :queue-route="$queueRoute"
+/>
 
 <div class="queue-toolbar">
   <span class="queue-count">{{ $reports->total() }} report{{ $reports->total() === 1 ? '' : 's' }}</span>

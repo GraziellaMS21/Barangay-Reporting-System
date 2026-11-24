@@ -121,7 +121,7 @@ Protected by `auth` and `role:staff`.
 | Method | URI | Controller Action | Purpose | Status | Owner |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `GET` | `/admin/reports` | `Admin\ReportController@index` | Main priority triage queue with filters and pagination. | Built | Baseline / WS1 (Year filter) |
-| `GET` | `/admin/reports/my-cases` | `Admin\ReportController@index` | Filtered queue showing only cases assigned to current user. | Built | Baseline |
+| `GET` | `/admin/my-cases` | `Admin\ReportController@myCases` | Legacy alias issuing 302 redirect to `/admin/reports?my_cases=1`. | Built | Baseline |
 | `GET` | `/admin/reports/{id}` | `Admin\ReportController@show` | 3-way comparative review page (Resident vs AI vs Final). | Built | Baseline |
 | `POST` | `/admin/reports/{id}/review` | `Admin\ReportReviewController@saveReview` | Confirms review values and routes Mode A / Mode B. | Built | Baseline |
 | `POST` | `/admin/reports/{id}/status` | `Admin\ReportController@updateStatus` | Manual status transition with mandatory note and reason code for `no_action`. | Built | Baseline |

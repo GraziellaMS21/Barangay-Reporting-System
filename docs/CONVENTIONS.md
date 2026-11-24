@@ -22,6 +22,7 @@ Standardized development conventions for **Barangay-Reporting-System-1**.
 - **Form Requests**: Use dedicated Form Requests (`app/Http/Requests/`) for non-trivial validation rules.
 - **Database Transactions**: Any mutation updating multiple tables (e.g. status transition + log creation + event dispatch) must execute within `DB::transaction()`.
 - **Core Governance Rule**: **"The AI suggests, the rules route, the officials decide."** Never auto-transition a report or case status. Neither AI analysis, summons counts, attendance results, deadline expirations, nor document generation may automatically alter database statuses without explicit official action.
+- **Voice Reporting Protocol (Planned Prototype)**: Spoken voice transcripts are strictly advisory AI suggestions. Transcripts must **never** be auto-confirmed or written as the report description when `transcript_status` is not `done`. When `transcript_status` is `needs_verification` or `failed`, the description is never filled with guessed text; the report review gate blocks "Confirm and route" until authorized staff listen to the recording and verify the content. Audio files reside strictly on the `private` disk and are never exposed via public endpoints. Voice settings are read dynamically via `setting()` and display `<x-ui.pending-badge>` until confirmed.
 - **Dynamic Settings & Unconfirmed Values**: Never hardcode placeholder values (deadlines, follow-up days, barangay name, signatories, fees) in controllers, services, or Blade templates. Read from `setting()` or database models. When an item has `is_confirmed = false`, render `<x-ui.pending-badge>`.
 - **Role & Position Separation**:
   - `users.role` defines coarse access tier strictly (`admin`, `staff`, `agency` via `App\Support\UserRole`). `personnel` is NOT a role.
@@ -59,6 +60,7 @@ Standardized development conventions for **Barangay-Reporting-System-1**.
 - **Navigation Shell**: All authenticated areas (Admin, Staff, Agency) share `<x-layout.sidebar>` implementing a desktop hover-expand overlay icon rail ($4.5\text{rem} \rightarrow 16\text{rem}$) and mobile drawer ($<1024\text{px}$). Topbars must be sticky (`top-0 z-20`) with flex-wrapping action button groups.
 - **Table Fitting & Card Pattern**: Every table in authenticated views must be `table-fixed w-full` with explicit column widths totaling $100\%$ and no horizontal scroll. Below $768\text{px}$, tables transform to responsive card stacks via `.responsive-card-table` with `data-label` on each `<td>`.
 - **Turbo Drive Scoping**: Turbo Drive is enabled strictly for authenticated areas (`data-turbo="true"` on `<body>`), with `Turbo.session.drive = false` globally to protect resident and auth pages. Layouts specify `<meta name="turbo-cache-control" content="no-cache">`. `#staff-sidebar` carries `data-turbo-permanent` with active links refreshed client-side. Leaflet and Chart.js instances must be cleaned up on `turbo:before-render` / `turbo:before-cache`. All file exports, downloads, and logout forms must carry `data-turbo="false"`.
+- **Voice Recorder Lifecycle Cleanup**: Any audio recording component (`<x-voice.recorder>`) must explicitly release the browser microphone and stop all active `MediaStreamTrack`s on user cancel/stop, window `pagehide`, and `turbo:before-render` to prevent background microphone lock.
 - **Icons**: Use FontAwesome Free 7 classes (`fa-solid fa-paper-plane`, `fa-solid fa-triangle-exclamation`).
 - **Mobile First**: All resident-facing views must render cleanly down to a $375\text{px}$ viewport width without horizontal scroll.
 - **Security & CSRF**: Every form must include `@csrf`. Use `{{ $var }}` blade escaping for untrusted user inputs.
@@ -77,6 +79,7 @@ To prevent migration filename timestamp ordering conflicts when workstreams merg
 | **WS4** (Summons, Hearings, Deadlines, Escalation) | `2026_12_01_40NNNN_` |
 | **WS5** (Agency Accounts, Portal, Referrals) | `2026_12_01_50NNNN_` |
 | **WS6** (Legacy File Import, Stretch) | `2026_12_01_60NNNN_` |
+| **WS7** (Voice Reporting Prototype, Planned) | `2026_12_01_70NNNN_` |
 
 ---
 

@@ -49,9 +49,9 @@ Coarse access tier is governed strictly by `users.role` with three allowed value
 
 ### Information Flow
 - **Resident Submits (Required)**: Category (none preselected), description (minimum 10 characters; English, Filipino, Bisaya, or Chavacano), at least one location method (device GPS, tapped pin, draggable pin, or purok/landmark), and consent checkbox (`consent_at`).
-- **Resident Submits (Optional)**: Up to 5 photos (JPG/PNG, combined max 5 MB, compressed client-side), reporter name, mobile number, email address, anonymous toggle (which discards and hides contact fields), a single safety checkbox (*"Someone is in danger right now"*), and an optional **voice recording** ("Record instead of typing" recorder with audio file upload fallback, max `voice.max_seconds` [default 60s], planned).
-- **Staff Submits (Hotline Phone Reports, Planned)**: Desk officers log incoming telephone complaints via the "Record phone report" form (`reports.log_phone` permission required), capturing optional audio, caller details, and mandatory verbal consent confirmation.
-- **Voice Ingestion & Transcription Pipeline (Planned)**:
+- **Resident Submits (Optional)**: Up to 5 photos (JPG/PNG, combined max 5 MB, compressed client-side), reporter name, mobile number, email address, anonymous toggle (which discards and hides contact fields), a single safety checkbox (*"Someone is in danger right now"*), and an optional **voice recording** ("Record instead of typing" recorder with audio file upload fallback, max `voice.max_seconds` [default 60s]).
+- **Staff Submits (Hotline Phone Reports)**: Desk officers log incoming telephone complaints via the "Record phone report" form (`reports.log_phone` permission required), capturing optional audio, caller details, and mandatory verbal consent confirmation.
+- **Voice Ingestion & Transcription Pipeline**:
   - Recorded or uploaded audio is stored strictly on the private disk with randomized filenames.
   - Transcribed asynchronously by Google Gemini (audio data in, text out).
   - Clean transcripts (`transcript_status = done`) are inserted into the description textarea for the reporter to check, edit, and confirm before submission.
@@ -168,10 +168,10 @@ Every value below lives in the database (`settings` table or reference seed tabl
 | `priority.sensitive_place` | `integer` | `25` | `priority` | Settings | Priority score weight for sensitive place proximity |
 | `priority.supporting_reports` | `integer` | `8` | `priority` | Settings | Priority score weight for supporting reports count |
 | `priority.age_days` | `integer` | `2` | `priority` | Settings | Priority score weight for age in days |
-| `voice.enabled` | `boolean` | `true` | `voice` | Planned | Master toggle for voice recording & transcription |
-| `voice.max_seconds` | `integer` | `60` | `voice` | Planned | Maximum voice recording duration in seconds |
-| `voice.audio_retention_days` | `integer` | `90` | `voice` | Planned | Audio file retention before automated purge |
-| `voice.demo_sample_enabled` | `boolean` | `false` | `voice` | Planned | Enables bundled sample audio button for offline demo |
+| `voice.enabled` | `boolean` | `true` | `voice` | Unconfirmed | Master toggle for voice recording & transcription |
+| `voice.max_seconds` | `integer` | `60` | `voice` | Unconfirmed | Maximum voice recording duration in seconds |
+| `voice.audio_retention_days` | `integer` | `90` | `voice` | Unconfirmed | Audio file retention before automated purge |
+| `voice.demo_sample_enabled` | `boolean` | `false` | `voice` | Unconfirmed | Enables bundled sample audio button for offline demo |
 
 ### 8.2 Seed-Table Placeholders (`is_confirmed = false`)
 
@@ -238,4 +238,4 @@ The following operational questions were surfaced during the Barangay Secretary 
 4. Staff can review AI recommendations, compare side-by-side with resident inputs, and make final decisions before routing.
 5. Issues outside barangay authority generate structured external referrals (`REF-YYYY-NNNN`) with printable letters and tracking.
 6. Resolution requires proof photos and staff notes, transitioning to `awaiting_confirmation` until the resident confirms or reopens.
-7. *(Planned)* Voice reporting allows resident recording and staff phone call logging; audio is stored strictly on private disk and is never exposed publicly; a voice report with an unclear or failed transcript (`needs_verification` or `failed`) is accepted into `submitted` with a placeholder description but blocked from routing until authorized staff listen to the recording and verify the content.
+7. Voice reporting allows resident recording and staff phone call logging; audio is stored strictly on private disk and is never exposed publicly; a voice report with an unclear or failed transcript (`needs_verification` or `failed`) is accepted into `submitted` with a placeholder description but blocked from routing until authorized staff listen to the recording and verify the content.

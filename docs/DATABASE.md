@@ -600,11 +600,11 @@ Party `age` and `reason_in_barangay` are stored in existing `parties.extra` JSON
 
 ---
 
-## 6. Planned Changes (Voice Prototype, WS7)
+## 6. Voice Prototype Schema (WS7)
 
-Planned schema changes for the voice reporting prototype (record and transcribe). These changes are **Planned (not yet implemented)** and do not alter existing table counts or live schemas until WS7 migration `2026_12_01_700001_` is executed.
+Schema changes for the voice reporting prototype (record and transcribe). Implemented in migration `2026_12_01_700001_create_report_audios_and_add_source_to_reports.php`.
 
-### `report_audios` (New Table, Planned)
+### `report_audios` (New Table)
 Stores voice recording files, technical audio metadata, transcription state, and staff verification tracking:
 
 | Column | Type | Attributes / Rules | Purpose |
@@ -629,7 +629,7 @@ Stores voice recording files, technical audio metadata, transcription state, and
 | `expires_at` | `timestamp`, nullable | Indexed | Retention expiry timestamp based on `voice.audio_retention_days` or 24h for unattached. |
 | `timestamps` | `timestamp` | `created_at`, `updated_at` | Standard Eloquent timestamps. |
 
-### `reports.source` (Planned Column Addition)
+### `reports.source` (Column Addition)
 - Added to `reports` table:
   - Column: `source`
   - Type: `string(20)`, default `'web'`

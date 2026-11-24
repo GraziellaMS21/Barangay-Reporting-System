@@ -239,11 +239,12 @@ The following specific gaps exist between the current codebase and the canonical
 
 ## 6. Planned Features & Prototypes
 
-### Voice Reporting Prototype (WS7) [Planned / Not Yet Implemented]
-- **Status**: Planned (not yet implemented; design specified across `docs/DECISIONS.md` Decisions 77 & 78, `docs/PROJECT.md`, `docs/WORKFLOW.md`, `docs/ARCHITECTURE.md`, `docs/DATABASE.md`, `docs/API.md`, `docs/UI_UX_SPEC.md`, `docs/CONVENTIONS.md`, and `docs/TEAM_WORKSTREAMS.md`).
+### Voice Reporting Prototype (WS7) [Implemented]
+- **Status**: Implemented (Record-and-transcribe prototype complete with zero telephony dependencies).
 - **Scope**:
   - Resident optional "Record instead of typing" container (`<x-voice.recorder>`) with audio file upload fallback.
   - Desk officer "Record phone report" hotline form (`GET/POST /admin/reports/phone`) with mandatory verbal consent checkbox (`reports.log_phone` permission).
   - Private disk audio storage (`storage/app/private/audio/`), authenticated streaming endpoint (`GET /admin/reports/{report}/audio`), and automated retention purge command (`app:purge-audio`).
+  - Google Gemini multimodal transcription pipeline with offline mock fallback and uncertainty handling (`needs_verification` gate).
   - Asynchronous Gemini transcription with the strict Human-in-the-Loop Uncertainty Rule: uncertain or failed audio (`needs_verification`, `failed`) never auto-fills report description and blocks "Confirm and route" until human staff listen and verify.
   - Real telephony, softphone dialers, live call recording, SMS broadcasts, and dialect-specific acoustic speech models remain deferred.

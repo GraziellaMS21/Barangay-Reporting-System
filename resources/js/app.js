@@ -66,6 +66,11 @@ document.addEventListener('turbo:before-cache', () => {
 export const updateSidebarActiveLinks = () => {
   const sidebar = document.getElementById('staff-sidebar');
   if (!sidebar) return;
+
+  if (document.activeElement && sidebar.contains(document.activeElement)) {
+    document.activeElement.blur();
+  }
+
   const currentPath = window.location.pathname.replace(/\/+$/, '') || '/';
 
   sidebar.querySelectorAll('.staff-nav a[href]').forEach((link) => {
@@ -313,6 +318,16 @@ const initializeStaffMenu = () => {
       staffSidebar.addEventListener('click', (event) => {
         if (mobileViewport.matches && event.target.closest('a')) {
           setStaffMenuOpen(false);
+        }
+        const item = event.target.closest('a, button');
+        if (item) {
+          item.blur();
+        }
+      });
+
+      staffSidebar.addEventListener('pointerleave', () => {
+        if (document.activeElement && staffSidebar.contains(document.activeElement)) {
+          document.activeElement.blur();
         }
       });
 
@@ -825,5 +840,21 @@ if (document.readyState === 'loading') {
   initPage();
 }
 
-document.addEventListener('turbo:load', initPage);
-document.addEventListener('turbo:render', updateSidebarActiveLinks);
+const collapseStaffSidebar = () => {
+  const sidebar = document.getElementById('staff-sidebar');
+  if (!sidebar) return;
+  if (document.activeElement && sidebar.contains(document.activeElement)) {
+    document.activeElement.blur();
+  }
+};
+
+document.addEventListener('turbo:before-visit', collapseStaffSidebar);
+document.addEventListener('turbo:visit', collapseStaffSidebar);
+document.addEventListener('turbo:load', () => {
+  initPage();
+  collapseStaffSidebar();
+});
+document.addEventListener('turbo:render', () => {
+  updateSidebarActiveLinks();
+  collapseStaffSidebar();
+});

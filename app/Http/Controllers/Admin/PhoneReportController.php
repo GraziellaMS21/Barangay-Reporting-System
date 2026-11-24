@@ -20,7 +20,7 @@ class PhoneReportController extends Controller
     public function create(): View
     {
         $categories = Category::query()->where('is_active', true)->orderBy('name')->get();
-        $puroks = Purok::query()->where('is_active', true)->orderBy('name')->get();
+        $puroks = Purok::query()->orderBy('name')->get();
 
         return view('admin.reports.phone', compact('categories', 'puroks'));
     }

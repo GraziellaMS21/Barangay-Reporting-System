@@ -597,3 +597,40 @@ Applied by the lead as migrations `2026_11_23_0002NN_` before workstreams branch
 | `import_rows` (new) | `id, batch_id, row_number, raw json, mapped json, status, errors json, case_id, timestamps` | Table for row-level import | (planned, WS6) |
 
 Party `age` and `reason_in_barangay` are stored in existing `parties.extra` JSON (no migration required).
+
+---
+
+## 6. Planned Changes (Voice Prototype, WS7)
+
+Planned schema changes for the voice reporting prototype (record and transcribe). These changes are **Planned (not yet implemented)** and do not alter existing table counts or live schemas until WS7 migration `2026_12_01_700001_` is executed.
+
+### `report_audios` (New Table, Planned)
+Stores voice recording files, technical audio metadata, transcription state, and staff verification tracking:
+
+| Column | Type | Attributes / Rules | Purpose |
+| :--- | :--- | :--- | :--- |
+| `id` | `bigint unsigned` | PK, auto-increment | Primary key. |
+| `report_id` | `bigint unsigned` | FK -> `reports.id`, nullable, on delete cascade | Associated report (null while resident is drafting). |
+| `token` | `uuid` | Unique, indexed | Cryptographically random UUID token for streaming URL and unattached matching. |
+| `origin` | `string(20)` | `resident` or `staff` | Intake channel origin. |
+| `disk_path` | `string` | Stored on `private` disk | Path in `storage/app/private/audio/`. |
+| `mime` | `string(100)` | e.g. `audio/webm`, `audio/mp4`, `audio/ogg` | Audio container format. |
+| `size_bytes` | `unsigned int` | Max limit enforced | Audio file size in bytes. |
+| `duration_seconds` | `unsigned smallint` | Max `voice.max_seconds` (default 60) | Recording duration in seconds. |
+| `transcript` | `text`, nullable | Machine text, immutable | Verbatim machine transcript text from Gemini; never overwritten. |
+| `unverified_draft` | `boolean`, default `false` | Flag | True if transcript is unverified and cannot be used as primary report description. |
+| `transcript_language` | `string(20)`, nullable | e.g. `en`, `fil`, `ceb`, `cbk` | Language detected by transcription model. |
+| `transcript_status` | `string(30)` | `pending`, `done`, `needs_verification`, `failed`, `mock` | Current transcription pipeline state. |
+| `error` | `text`, nullable | Nullable | Error or timeout message if status is `failed`. |
+| `transcribed_at` | `timestamp`, nullable | Nullable | Timestamp when AI transcription completed. |
+| `verified_by` | `bigint unsigned`, nullable | FK -> `users.id`, nullable | Staff user who verified the uncertain audio. |
+| `verified_at` | `timestamp`, nullable | Nullable | Timestamp when staff verified the audio. |
+| `uploaded_by` | `bigint unsigned`, nullable | FK -> `users.id`, nullable | Staff user if logged via phone form; null for residents. |
+| `expires_at` | `timestamp`, nullable | Indexed | Retention expiry timestamp based on `voice.audio_retention_days` or 24h for unattached. |
+| `timestamps` | `timestamp` | `created_at`, `updated_at` | Standard Eloquent timestamps. |
+
+### `reports.source` (Planned Column Addition)
+- Added to `reports` table:
+  - Column: `source`
+  - Type: `string(20)`, default `'web'`
+  - Allowed values: `'web'` (resident typed web submission), `'voice'` (resident voice recording), `'phone_log'` (staff hotline phone intake).

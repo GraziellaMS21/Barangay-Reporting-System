@@ -15,7 +15,7 @@ Traditional incident reporting in barangays relies on physical walk-ins to the b
 The system provides a lightweight, mobile-responsive web platform where residents can submit civic concerns without friction, while barangay officials receive AI-assisted triage with human-in-the-loop review, automated SLA tracking, structured external agency referrals via a dedicated Partner Agency Portal, and formal Katarungang Pambarangay case blotter/conciliation management.
 
 > [!NOTE]
-> **Active Scope**: Incident reporting, external agency referrals with Partner Agency Portal, and Katarungang Pambarangay dispute conciliation cases are in scope; the case module is pending the adviser's confirmation (it can be switched off with `cases.enabled`), and importing the barangay's last 4 years of old records is a stretch item. Voice calls, softphone, and cellular SMS broadcasts remain deferred.
+> **Active Scope**: Incident reporting (including optional voice reporting prototype; record-and-transcribe without telephony), external agency referrals with Partner Agency Portal, and Katarungang Pambarangay dispute conciliation cases are in scope; the case module is pending the adviser's confirmation (it can be switched off with `cases.enabled`), and importing the barangay's last 4 years of old records is a stretch item. Real telephony, softphone integration, live call recording, and cellular SMS broadcasts remain deferred.
 
 ---
 
@@ -25,14 +25,14 @@ Coarse access tier is governed strictly by `users.role` with three allowed value
 
 | Role | Account Tier | Position / Preset | Can Do | Must Not |
 | :--- | :--- | :--- | :--- | :--- |
-| **Resident** | **None** (guest, tracking code `BRG-XXXXXX`) | None | Submit a report; see emergency contacts; track status and public timeline; answer staff clarification questions; confirm or reopen resolution and rate 1–5 stars; view the limited public transparency map. | See personal identification or full details of other residents' reports. |
-| **Staff (Desk Officer / Tanod)** | Yes (`staff`) | Position `barangay_tanod`, Preset `staff_full` | Review the priority queue; view 3-way comparative triage (Resident vs. AI vs. Final); edit and confirm values; route internally or refer upward; handle emergencies and duplicates; assign personnel; request clarifications; propose resolution with proof photos. | Let AI output become final without manual staff review; auto-close or auto-resolve cases. |
+| **Resident** | **None** (guest, tracking code `BRG-XXXXXX`) | None | Submit a report (optionally recording audio instead of typing, with audio file upload fallback); see emergency contacts; track status and public timeline; answer staff clarification questions; confirm or reopen resolution and rate 1–5 stars; view the limited public transparency map. | See personal identification, full details, or audio recordings of other residents' reports. |
+| **Staff (Desk Officer / Tanod)** | Yes (`staff`) | Position `barangay_tanod`, Preset `staff_full` | Review the priority queue; record hotline phone reports (`reports.log_phone`); listen to and verify audio recordings requiring verification; view 3-way comparative triage (Resident vs. AI vs. Final); edit and confirm values; route internally or refer upward; handle emergencies and duplicates; assign personnel; request clarifications; propose resolution with proof photos. | Let AI output become final without manual staff review; auto-close or auto-resolve cases. |
 | **Lupon Member / Case Encoder** | Yes (`staff`) | Position `lupon_member`, Preset `case_encoder` | Record walk-in complaints and blotter entries; record party profiles; schedule hearings; generate summonses; view non-confidential cases and confidential cases they encoded themselves. | View other confidential cases (for example minors' or VAWC cases) or modify system settings and backups. |
 | **Case Reviewer (Kagawad Peace & Order)** | Yes (`staff`) | Position `kagawad_peace_order`, Preset `case_reviewer` | View all cases including confidential disputes; view reports queue and Reports Center exports. | Modify system settings, user accounts, or database backups. |
 | **Barangay Captain** | Yes (`admin`) | Position `punong_barangay` | Everything Staff can do, plus manage users, categories, offices, routing rules, emergency contacts, sensitive places, priority weights, response templates; view dashboard analytics and security audit log; export CSV. Holds full admin privileges. | Bypass audit logging for overrides or setting changes. |
 | **Barangay Secretary** | Yes (`admin`) | Position `barangay_secretary` | Holds full administrative authority per Secretary Q6 (approves partner agencies, manages settings, signs notices, manages case docket). Holds `role = 'admin'` with position `barangay_secretary` (NOT a separate role). | Bypass audit logging for overrides or setting changes. |
 | **Agency User** | Yes (`agency`) | None (External Office link via `users.office_id`) | View assigned external referrals in Partner Portal; accept referrals; download endorsement packets; post progress and resolution updates; manage agency team. Requires verified email and approved registration. | Access internal barangay reports, public submission queues, or confidential blotter cases. |
-| **AI Service (Google Gemini)** | N/A (external API) | N/A | Suggest category, urgency rating, executive summary, photo description, photo mismatch alert, emergency flags, duplicate candidates; generate aggregate dashboard insights. | Route, merge, close, resolve, modify final records, or contact police directly. |
+| **AI Service (Google Gemini)** | N/A (external API) | N/A | Transcribe speech audio to text strictly as data (never executes spoken commands or repeats personal names); suggest category, urgency rating, executive summary, photo description, photo mismatch alert, emergency flags, duplicate candidates; generate aggregate dashboard insights. | Route, merge, close, resolve, modify final records, or contact police directly. |
 
 ### Permissions & Presets Architecture
 - **Granular Permissions**: Exactly **20 permission slugs** exist in code: `settings.manage`, `fiscal_year.manage`, `templates.manage`, `backups.manage`, `personnel.manage`, `users.manage`, `reports.view`, `reports_center.view`, `reports_center.export`, `cases.view`, `cases.view_confidential`, `cases.create`, `cases.edit`, `cases.summons`, `cases.escalate`, `agencies.manage`, `referrals.manage`, `imports.manage`, `dashboard.view`, `audit.view`.
@@ -49,15 +49,33 @@ Coarse access tier is governed strictly by `users.role` with three allowed value
 
 ### Information Flow
 - **Resident Submits (Required)**: Category (none preselected), description (minimum 10 characters; English, Filipino, Bisaya, or Chavacano), at least one location method (device GPS, tapped pin, draggable pin, or purok/landmark), and consent checkbox (`consent_at`).
-- **Resident Submits (Optional)**: Up to 5 photos (JPG/PNG, combined max 5 MB, compressed client-side), reporter name, mobile number, email address, anonymous toggle (which discards and hides contact fields), and a single safety checkbox: *"Someone is in danger right now"*.
+- **Resident Submits (Optional)**: Up to 5 photos (JPG/PNG, combined max 5 MB, compressed client-side), reporter name, mobile number, email address, anonymous toggle (which discards and hides contact fields), a single safety checkbox (*"Someone is in danger right now"*), and an optional **voice recording** ("Record instead of typing" recorder with audio file upload fallback, max `voice.max_seconds` [default 60s], planned).
+- **Staff Submits (Hotline Phone Reports, Planned)**: Desk officers log incoming telephone complaints via the "Record phone report" form (`reports.log_phone` permission required), capturing optional audio, caller details, and mandatory verbal consent confirmation.
+- **Voice Ingestion & Transcription Pipeline (Planned)**:
+  - Recorded or uploaded audio is stored strictly on the private disk with randomized filenames.
+  - Transcribed asynchronously by Google Gemini (audio data in, text out).
+  - Clean transcripts (`transcript_status = done`) are inserted into the description textarea for the reporter to check, edit, and confirm before submission.
+  - On submission, the final edited description runs through the standard text triage analysis pipeline.
+  - `reports.source` records report origin (`web`, `voice`, or `phone_log`).
+  - Audio records live in `report_audios` with status tracking (`pending`, `done`, `needs_verification`, `failed`, `mock`).
+  - **The Key Rule**: **If the audio is uncertain or the AI cannot understand it, nothing is guessed and the decision goes to staff.** When `transcript_status` is `needs_verification` or `failed`, no guessed text is inserted; the report is accepted into `submitted` with a system placeholder description, flagged for staff verification, and blocked from routing until staff listen to the recording and verify or enter the text.
 - **AI Output (Stored Separately in `report_ai_results`)**: Suggested category, urgency (Low/Medium/High/Critical), summary, photo description, photo-text mismatch flag, emergency flag, key facts.
-- **Staff Add**: Final category and urgency, assigned office and staff member, internal notes (staff-only), resolution proofs (up to 5 images), and mandatory explanation notes for referrals, merges, or `no_action`.
-- **System Logs**: Every status transition and every staff override of an AI-suggested value (who, when, old value, new value, note).
+- **Staff Add**: Final category and urgency, assigned office and staff member, internal notes (staff-only), resolution proofs (up to 5 images), audio verification notes/timestamps, and mandatory explanation notes for referrals, merges, or `no_action`.
+- **System Logs**: Every status transition, every staff override of an AI-suggested value, and every audio access/verification action (who, when, old value, new value, note).
 
 ### Data Privacy (Republic Act 10173 - Data Privacy Act of 2012)
 1. **PII Isolation**: Reporter name, phone number, and email are staff-only. They are **never** transmitted to Google Gemini or third-party APIs.
-2. **Resident Communications**: Automated emails to residents include only the tracking code, status change, staff public note, and tracking URL—never reporter PII, photos, or raw report descriptions.
-3. **Public Transparency Guardrails**: The public map (`/map`) and nearby reports API (`/api/nearby-reports`) display only category, purok, and status. Descriptions, photos, reporter details, and all emergency-flagged incidents are strictly hidden.
+2. **Audio Data Privacy (Planned Prototype)**:
+   - Voice recordings are stored strictly on the private storage disk (`storage/app/private/audio/`) with cryptographically random filenames.
+   - Audio is streamed strictly via an authenticated, permission-checked endpoint (`GET /admin/reports/{report}/audio` with HTTP Range support and `Cache-Control: private, no-store`).
+   - Voice audio is **never** exposed on the public map (`/map`), nearby reports API (`/api/nearby-reports`), resident tracking page (`/track/{code}`), or notification emails.
+   - The transcription prompt treats audio strictly as untrusted data (never executes spoken instructions) and directs the model not to repeat personal names.
+   - The consent checkbox and privacy notice (English and Filipino) explicitly inform residents that voice recordings are processed by AI to produce text and are accessible to authorized barangay personnel only.
+   - Because biometric voice characteristics are identifiable, the anonymous toggle displays an informative warning banner if a voice recording is attached.
+   - Desk-officer phone intake requires a mandatory checkbox certifying verbal consent from the caller.
+   - **Audio Retention & Purging**: Setting `voice.audio_retention_days` (default 90 days, unconfirmed placeholder) controls lifecycle retention. A scheduled command (`app:purge-audio`) purges expired audio files and orphaned uploads (> 24h old) while permanently retaining the text transcript, verification metadata, and report record. Audio playback, download, verification, and deletion events are immutably logged to `audit_logs`. Audio assets are included in system backup archives (`app:backup`).
+3. **Resident Communications**: Automated emails to residents include only the tracking code, status change, staff public note, and tracking URL—never reporter PII, photos, audio clips, or raw report descriptions.
+4. **Public Transparency Guardrails**: The public map (`/map`) and nearby reports API (`/api/nearby-reports`) display only category, purok, and status. Descriptions, photos, audio attachments, reporter details, and all emergency-flagged incidents are strictly hidden.
 
 ---
 
@@ -74,15 +92,24 @@ The pilot deployment is clamped to the administrative territory of **Barangay Ca
 
 - **Resident Text & AI Understanding**: English, Filipino (Tagalog), Bisaya (Cebuano), and Chavacano. Google Gemini parses mixed dialects; unclear reports default to `unclassified` for manual staff review.
 - **Resident Form Interface**: Bimodal UI labels available in English and Filipino (one toggle per page).
+- **Spoken Audio Transcription & Dialect Limits (Planned Prototype)**:
+  - English and Filipino are expected to transcribe reliably.
+  - Bisaya (Cebuano) transcribes partially.
+  - Chavacano is expected to be least reliably transcribed by generalized cloud models.
+  - Code-switching (Taglish, Chavacano-Tagalog), low-bitrate phone quality audio, background street/ambient noise, and local Calarian sitio or landmark names reduce automated transcription accuracy.
+  - **The Core Uncertainty Rule**: **If the audio is uncertain or the AI cannot understand it, nothing is guessed and the decision goes to staff.**
+  - Dialect-specific speech recognition models remain deferred. A manual transcription accuracy check (10 to 15 real recordings per language, evaluated on semantic intent and location capture rather than verbatim literal parity) is planned prior to production rollout.
 
 ---
 
 ## 6. Deferred Features (Do NOT Build)
 
 The following items from preliminary academic requirements or legacy proposals are officially **Deferred**:
-- **Voice Call Reporting**: UR-04, FR-22, proposal feature 18, "Report by Phone" use case, softphone integration, call recording, retention settings, and audio speech-to-text.
+- **Real Telephony & Softphone Integration**: PBX, SIP trunking, Twilio/cellular voice gateway integration, softphone dialers, and automated inbound call dispatching. (Replaced in the prototype by simple desk-officer browser recording form for hotline intake).
+- **Live Call Recording**: Recording of active two-way cellular or landline telephone calls during speech.
+- **Real-Time (Streaming) Transcription**: Streaming WebSocket/audio transcription during recording.
 - **SMS Gateway Broadcasts**: Direct cellular SMS delivery for tracking codes or alert broadcasts (system relies on on-screen code display, copy buttons, and transactional email).
-- **Voice-Language Dialect Audio Processing**: Chavacano/Bisaya audio speech models.
+- **Voice-Language Dialect Audio Processing**: Specialized custom acoustic speech models for Chavacano/Bisaya dialects.
 - **Resident Registration/Portal**: Native mobile app builds, password-protected citizen accounts, or citizen identity verification tiers.
 
 ---
@@ -141,6 +168,10 @@ Every value below lives in the database (`settings` table or reference seed tabl
 | `priority.sensitive_place` | `integer` | `25` | `priority` | Settings | Priority score weight for sensitive place proximity |
 | `priority.supporting_reports` | `integer` | `8` | `priority` | Settings | Priority score weight for supporting reports count |
 | `priority.age_days` | `integer` | `2` | `priority` | Settings | Priority score weight for age in days |
+| `voice.enabled` | `boolean` | `true` | `voice` | Planned | Master toggle for voice recording & transcription |
+| `voice.max_seconds` | `integer` | `60` | `voice` | Planned | Maximum voice recording duration in seconds |
+| `voice.audio_retention_days` | `integer` | `90` | `voice` | Planned | Audio file retention before automated purge |
+| `voice.demo_sample_enabled` | `boolean` | `false` | `voice` | Planned | Enables bundled sample audio button for offline demo |
 
 ### 8.2 Seed-Table Placeholders (`is_confirmed = false`)
 
@@ -207,3 +238,4 @@ The following operational questions were surfaced during the Barangay Secretary 
 4. Staff can review AI recommendations, compare side-by-side with resident inputs, and make final decisions before routing.
 5. Issues outside barangay authority generate structured external referrals (`REF-YYYY-NNNN`) with printable letters and tracking.
 6. Resolution requires proof photos and staff notes, transitioning to `awaiting_confirmation` until the resident confirms or reopens.
+7. *(Planned)* Voice reporting allows resident recording and staff phone call logging; audio is stored strictly on private disk and is never exposed publicly; a voice report with an unclear or failed transcript (`needs_verification` or `failed`) is accepted into `submitted` with a placeholder description but blocked from routing until authorized staff listen to the recording and verify the content.

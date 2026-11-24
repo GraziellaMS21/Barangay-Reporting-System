@@ -1,6 +1,7 @@
 <?php
 
 // Resident routes
+use App\Http\Controllers\ComplaintController;
 use App\Http\Controllers\MapController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\TrackController;
@@ -24,3 +25,8 @@ Route::post('/track/{trackingCode}/reopen', [TrackController::class, 'reopen'])-
 Route::post('/track/{trackingCode}/feedback', [TrackController::class, 'feedback'])->name('track.feedback');
 
 Route::get('/map', [MapController::class, 'index'])->name('map.index');
+
+// Resident Dispute Complaint Intake (Katarungang Pambarangay)
+Route::get('/complaint', [ComplaintController::class, 'create'])->name('complaint.create');
+Route::post('/complaint', [ComplaintController::class, 'store'])->middleware('throttle:3,10')->name('complaint.store');
+Route::get('/complaint/received', [ComplaintController::class, 'received'])->name('complaint.received');

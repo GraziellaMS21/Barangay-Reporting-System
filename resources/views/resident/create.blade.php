@@ -9,9 +9,15 @@
         <p data-i18n="hero_desc">Send a report with category details, photo, and location. Barangay staff will review it,
           route it to the proper office, and keep you updated with a tracking code.</p>
         <em class="hero-motto">Pusong May Malasakit, Serbisyong Tapat sa Mamamayan</em>
-        <div class="hero-actions">
+        <div class="hero-actions" style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center;">
+          <button type="button" class="btn btn-red" onclick="showEmergency()" style="background:#b91c1c;color:#ffffff;border:none;font-weight:700;box-shadow:0 2px 4px rgba(185,28,28,0.25);">
+            <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Emergency / 911
+          </button>
           <a class="btn btn-gold" href="#report-form" data-i18n="hero_btn_report">
-            <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i> Report a problem
+            <i class="fa-solid fa-bullhorn" aria-hidden="true"></i> Report a community problem
+          </a>
+          <a class="btn" href="{{ route('complaint.create') }}" style="background:#0f172a;color:#ffffff;font-weight:700;border:none;box-shadow:0 2px 4px rgba(15,23,42,0.25);">
+            <i class="fa-solid fa-scale-balanced" aria-hidden="true"></i> File a complaint
           </a>
           <a class="btn btn-ghost" href="{{ route('track.index') }}" data-i18n="hero_btn_track">
             <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Track a report
@@ -608,6 +614,19 @@
       <div class="lang-segmented-control" role="group" aria-label="Select Language">
         <button type="button" class="lang-segmented-btn js-lang-btn-en active" onclick="setLanguage('en')">EN</button>
         <button type="button" class="lang-segmented-btn js-lang-btn-fil" onclick="setLanguage('fil')">FIL</button>
+      </div>
+    </div>
+
+    <!-- Wrong-Door Guidance Notice (Interpersonal Dispute Exclusion) -->
+    <div class="wrong-door-notice" style="background:#fffbeb;border:1.5px solid #fde68a;border-radius:12px;padding:0.9rem 1.15rem;margin-bottom:1.5rem;display:flex;align-items:flex-start;gap:0.75rem;">
+      <i class="fa-solid fa-circle-info" style="color:#d97706;font-size:1.15rem;margin-top:0.15rem;flex-shrink:0;" aria-hidden="true"></i>
+      <div style="font-size:0.88rem;color:#78350f;line-height:1.5;">
+        <strong style="color:#92400e;">Is this a dispute with a specific person?</strong>
+        <p style="margin:0.2rem 0 0;font-size:0.84rem;color:#b45309;">
+          If this concern is an interpersonal conflict (such as a neighbor disagreement, debt, property boundary, or physical altercation), please
+          <a href="{{ route('complaint.create') }}" style="font-weight:700;color:#92400e;text-decoration:underline;">File a Dispute Complaint</a>
+          instead, or visit the Barangay Calarian Hall for conciliation.
+        </p>
       </div>
     </div>
 
@@ -1338,7 +1357,8 @@
 
       fields.innerHTML = '';
       if (category && category.question_schema && category.question_schema.length > 0) {
-        category.question_schema.forEach(q => {
+        // Enforce maximum of 2 observable questions per category (Task 4)
+        category.question_schema.slice(0, 2).forEach(q => {
           const qDiv = document.createElement('div');
           qDiv.className = 'field';
           qDiv.style.marginBottom = '1rem';

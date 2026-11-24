@@ -2,12 +2,16 @@
 
 // Staff routes
 use App\Http\Controllers\Admin\MapController as AdminMapController;
+use App\Http\Controllers\Admin\PhoneReportController;
 use App\Http\Controllers\Admin\ReferralController;
+use App\Http\Controllers\Admin\ReportAudioController;
 use App\Http\Controllers\Admin\ReportController as AdminReportController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin,staff'])->group(function () {
     Route::get('/reports', [AdminReportController::class, 'index'])->name('reports.index');
+    Route::get('/reports/phone', [PhoneReportController::class, 'create'])->middleware('permission:reports.log_phone')->name('reports.phone.create');
+    Route::post('/reports/phone', [PhoneReportController::class, 'store'])->middleware('permission:reports.log_phone')->name('reports.phone.store');
     Route::post('/reports/bulk-confirm', [AdminReportController::class, 'bulkConfirm'])->name('reports.bulk-confirm');
     Route::post('/reports/bulk-action', [AdminReportController::class, 'bulkAction'])->name('reports.bulk-action');
     Route::get('/reports/export', [AdminReportController::class, 'export'])->name('reports.export');
@@ -32,6 +36,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin,staff'])
     Route::patch('/reports/{report}/accept-and-route', [AdminReportController::class, 'acceptAndRoute'])->name('reports.accept-and-route');
     Route::post('/reports/{report}/retry-ai', [AdminReportController::class, 'retryAiAnalysis'])->name('reports.retry-ai');
     Route::get('/reports/{report}', [AdminReportController::class, 'show'])->name('reports.show');
+    Route::get('/reports/{report}/audio', [ReportAudioController::class, 'stream'])->middleware('permission:reports.view')->name('reports.audio');
+    Route::post('/reports/{report}/audio/verify', [ReportAudioController::class, 'verify'])->middleware('permission:reports.view')->name('reports.audio.verify');
     Route::patch('/reports/{report}/status', [AdminReportController::class, 'updateStatus'])->name('reports.status');
     Route::patch('/reports/{report}/assign', [AdminReportController::class, 'assign'])->name('reports.assign');
     Route::post('/reports/{report}/info-requests', [AdminReportController::class, 'storeInfoRequest'])->name('reports.info-requests.store');

@@ -7,6 +7,7 @@ use App\Models\Category;
 use App\Models\EmergencyContact;
 use App\Models\Purok;
 use App\Models\Report;
+use App\Models\ReportAudio;
 use App\Models\StatusLog;
 use App\Services\FiscalYearService;
 use Illuminate\Http\RedirectResponse;
@@ -44,6 +45,7 @@ class ReportController extends Controller
             'is_anonymous' => ['nullable', 'boolean'],
             'preferred_contact' => ['nullable', 'string', 'in:phone,email,none'],
             'consent' => ['nullable'],
+            'audio_token' => ['nullable', 'string', 'exists:report_audios,token'],
             'description' => ['required', 'string', 'min:10', 'max:2000'],
             'photos' => ['nullable', 'array'],
             'photos.*' => ['image', 'mimes:jpg,jpeg,png', 'max:5120'],
@@ -146,6 +148,7 @@ class ReportController extends Controller
             $report = Report::create([
                 'fiscal_year_id' => $fiscalYear->id,
                 'tracking_code' => Report::generateTrackingCode(),
+                'source' => ! empty($data['audio_token']) ? Report::SOURCE_VOICE : Report::SOURCE_WEB,
                 'report_type' => $reportType,
                 'category_id' => $data['category_id'] ?? null,
                 'answers' => $data['answers'] ?? null,
@@ -172,6 +175,15 @@ class ReportController extends Controller
 
             foreach ($photoPaths as $photoPath) {
                 $report->photos()->create(['photo_path' => $photoPath]);
+            }
+
+            if (! empty($data['audio_token'])) {
+                ReportAudio::query()
+                    ->where('token', $data['audio_token'])
+                    ->update([
+                        'report_id' => $report->id,
+                        'origin' => ReportAudio::ORIGIN_RESIDENT,
+                    ]);
             }
 
             StatusLog::create([

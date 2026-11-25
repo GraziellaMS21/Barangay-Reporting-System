@@ -13,7 +13,8 @@ The project codebase currently operates across two primary branches:
 
 | Branch | State | What is Merged | Test Suite | Routes |
 | :--- | :---: | :--- | :---: | :---: |
-| **`dev`** (Active Integration) | **Active** | **Phase 0, Phase 0.5, WS1, WS2, WS3, WS4, WS5, WS6, WS7**, and the **Users/Roles/Positions/Seeders Rework**. | **337 tests, 2,253 assertions** (100% green; expanded from earlier 288-test baseline) | **273** |
+| **`feature/resident-portal-and-complaints`** (Current Active) | **Active** | Everything in `dev` **plus Tasks 8–12 (Resident Entry, Complaint Intake, Pending Intake Docketing, Official KP Printables)**, **Patch 2 (Unified Hearing-Summons-Service Chain & 15-Working-Day Clock)**, **Signatory/Sidebar Cleanups**, and **First-Run Audit Docs**. | **380 tests, 2,489 assertions** (`378 passed, 2 failed` in full suite) | **302** |
+| **`dev`** (Integration Baseline) | **Behind** | **Phase 0, Phase 0.5, WS1, WS2, WS3, WS4, WS5, WS6, WS7**, and the **Users/Roles/Positions/Seeders Rework**. | 337 tests, 2,253 assertions | 273 |
 | **`main`** (Deployment Baseline) | **Behind** | **Phase 0, Phase 0.5, and WS1 only** (last merge: `1919a6e`). | 184 tests, 1,374 assertions | 244 |
 
 > [!IMPORTANT]
@@ -41,6 +42,9 @@ The project codebase currently operates across two primary branches:
 | **WS5: Agency Portal & Referrals** | **Done** (in `dev`) | Outside agency registration with ID upload, admin approval, Agency Portal inbox (`/agency/referrals`), referral case dossier attachments, 3-day follow-up tracking. |
 | **WS6 (Stretch): Legacy File Import** | **Done** (in `dev`) | Ingestion wizard for historical records (last 4 years) from CSV/Excel without AI, interactive column mapping, chunked commit, and batch rollback (`/admin/imports`). |
 | **WS7: Voice Intake Prototype** | **Phase A, B & C Done** (in `dev`) | "Record first, AI fills form" intake. Phase A: Shared backend (`POST /report/voice/analyze`, `POST /admin/reports/phone/analyze`), settings, normalization, MIME validation, 5 mock scenarios. Phase B: Staff phone intake (`GET /admin/reports/phone`) record-first layout, consent gate + script, player, staff transcript panel, pre-fill badges, "Not provided" placeholders, clarity banners, emergency prompt. Phase C: Resident voice intake ("Quick report by voice" strip, consent line, category optional, form pre-fill with "From recording" badges, auto-expanding contact sections, anonymous drop, review page provenance chips & "Edited by resident" markers). |
+| **Tasks 8–12: Resident Portal & KP Complaints** | **Done** (in `feature/resident-portal-and-complaints`) | Three-button resident landing screen, `/complaint` intake & `/complaint/received` in-person sworn signing instructions, staff "Pending intake" queue & docketing, pre-summons eligibility checklist, KP official printables with `SignatoryResolver`, and `Community reports` / `Cases & Blotter` sidebar renames. |
+| **Patch 2: Unified KP Chain & Cleanups** | **Done** (in `feature/resident-portal-and-complaints`) | Merged Hearing + Summons + Service into one chain (`summons.hearing_id`, `superseded_at`), unified "Schedule Hearing & Issue Summons" modal, integrated "Record Service (Officer's Return)" modal with Tanod & reason dropdowns, 15-working-day mediation clock anchored on first hearing (`config/katarungang_pambarangay.php`), 1-button Next Step panel & 6-stage milestone bar, and removal of obsolete `Case Form Fields` from sidebar & routes. |
+| **First-Run Simulation & Onboarding Docs** | **Done** (in `docs/`) | Executed empty install via `php artisan app:empty` (`RequiredDataSeeder`), 5-step `/setup` wizard, post-setup admin configuration, and smoke tests. Authored `docs/ADMIN_FIRST_RUN_GUIDE.md` and `docs/FIRST_RUN_FINDINGS.md` (`F-01` to `F-10`). |
 ---
 
 ## 2. Verified Code Gaps (Target Design vs. Codebase)
@@ -270,14 +274,24 @@ The following specific gaps exist between the current codebase and the canonical
   - Zero PII logging: transcripts and caller contact details are never logged in application or audit logs.
   - Real telephony, softphone dialers, live call recording, SMS broadcasts, and dialect-specific acoustic speech models remain deferred.
 
-### Planned, Not Yet Implemented (Tasks 8 through 12)
-The following features are designed in the documentation suite but are strictly **Planned** and not yet implemented in application code, migrations, seeders, or tests:
-- **Resident Entry Screen (Three Buttons, [DECIDED, D2])**: Entry view on `resident/create.blade` with Emergency (`--red`), Report a Community Problem, and File a Complaint (no separate "File a Blotter" button).
-- **Wrong-Door Notice & Safety Guidance ([DECIDED, D6; PROPOSED, P9])**: Non-blocking banner on Community Problem form directing civil disputes to complaint form; upfront confidential screening question excluding VAWC/child protection with bilingual guidance and quick-exit.
-- **Guest and Anonymous Community Reporting ([DECIDED, D7; PROPOSED, P11])**: Submission without account or login; "Report anonymously" checkbox discarding identifying details; transient rate limiting; optional single-view tracking code.
-- **Resident Complaint Intake (Planned, [DECIDED, D4])**: Public complaint form (`GET /complaint`, `POST /complaint`) saving to `complaint_intakes` in status `pending`; acknowledgement page (`GET /complaint/received`) revealing no case status, respondent details, or dispute tracking.
-- **Staff Pending Intake Queue & Docketing ([DECIDED, D4])**: "Pending intake" tab on Cases Docket (`/admin/cases?tab=pending_intake`); "Docket this" action prefilling WS3 intake form, confirming parties, creating case at `filed`, and logging blotter entry reference (two numbers, one record, [DECIDED, D3]); "Redirect/Reject" action with mandatory reason.
-- **Pre-Summons Eligibility & First-Meeting Clock Start ([PROPOSED, P1, P2])**: Staff pre-summons eligibility checklist card; `first_meeting_on` field starting the 15-working-day mediation clock (fallback to `filed_on`).
-- **Summons & Hearing Enhancements ([CONFIRMED, C11; PROPOSED, P3])**: Summons `served_by` and service results (`received`, `refused`, `not_found`, `other`); hearing attendance (`appeared`, `failed_to_appear`); non-appearance handling (barring counterclaim, extended warning on escalation, "Ready for next step: endorse to Pangkat" indicator at 15 working days without settlement).
-- **Official Printables & Signatory Mapping ([CONFIRMED, C3; PROPOSED, P8])**: Blade templates with `<x-ui.draft-watermark>` for blotter extract, complaint form, summons, hearing notices, amicable settlement, and CFA; dynamic signatory resolution via `SignatoryResolver`.
-- **Presentation-Only Page Renames ([DECIDED, D1])**: Planned rename of "Report Queue" to "Community reports", and "Barangay Cases" to "Cases & Blotter" in views and navigation.
+### Tasks 8 through 12 & Patch 2 (Resident Portal, Complaint Intake & Unified KP Chain) [Completed]
+- **Status**: Completed (2026-11-25) on `feature/resident-portal-and-complaints`
+- **Delivered**:
+  - **Resident Entry Screen (`resident/index.blade.php`)**: Public landing cards for **Emergency / 911** (modal with 911 + configured local contacts), **Report a Community Problem** (`/report`), **File a Complaint** (`/complaint`), and **Track a Report** (`/track`).
+  - **Resident Complaint Intake & Acknowledgement (`/complaint`, `/complaint/received`)**: Public dispute intake saving to `complaint_intakes` in `pending` status; `/complaint/received` displays in-person sworn signing instructions before the Punong Barangay or Barangay Secretary at Barangay Calarian Hall without exposing respondent details or case tracking.
+  - **Staff Pending Intake Queue & Docketing**: "Pending intake" tab on Cases & Blotter (`/admin/cases?tab=pending_intake`) with "Docket this" and "Redirect/Reject" actions.
+  - **Unified Hearing-Summons-Service Chain (Patch 2)**:
+    - Single **Schedule Hearing & Issue Summons** modal (`CaseWorkflowController@scheduleHearingAndIssueSummons`) enforcing 1:1 `summons.hearing_id` linkage, sequential attempt numbering (`#1`, `#2`, ...), and `superseded_at` history on reschedule.
+    - Integrated **Record Service (Officer's Return)** modal (`CaseWorkflowController@recordSummonsService`) with `Served By` Tanod/officer dropdown, `Reschedule Reason` dropdown, and 5 service methods (`personal`, `substituted`, `refused`, `not_served`, `appeared_voluntarily`).
+    - **15-Working-Day Mediation Clock** (`config/katarungang_pambarangay.php`, `KatarungangPambarangayService::calculateMediationClock`) anchored on the first scheduled hearing date, excluding weekends and `calendar.holidays`.
+    - **1-Button Next Step Panel & 6-Stage Milestone Progress Bar** (`Signed` -> `Hearing & Summons` -> `Served` -> `Mediation` -> `Outcome` -> `Settlement`).
+  - **Official Printables & Signatory Mapping**: Blade printables with `<x-ui.draft-watermark>` for blotter extract, complaint form, summons, conciliation notice, settlement, and CFA, wired to `SignatoryResolver`.
+  - **Navigation & Cleanup**: Renamed "Report Queue" to "Community reports" and "Barangay Cases" to "Cases & Blotter"; removed obsolete `Case Form Fields` from sidebar navigation (`config/navigation.php`) and routes.
+
+### Current Verification & Known Open Issues (2026-11-25)
+- **Full PHPUnit Suite**: `380 tests, 2,489 assertions` (`378 passed, 2 failed`):
+  1. `Tests\Feature\CaseActions\CaseProceduralComplianceTest::test_hearing_outcome_records_attendance_and_bars_respondent_counterclaim`
+  2. `Tests\Feature\Resident\ResidentEntryScreenTest` (line 56, asserts `"Emergency / 911"` on `/report` instead of `/`)
+- **First-Run & Fresh Install Audit (`docs/FIRST_RUN_FINDINGS.md`)**:
+  - `F-01` (Critical): `php artisan migrate:fresh` fails on MySQL because `2026_11_24_222928_add_mediation_started_at_and_summons_superseded.php` uses `->after('first_meeting_on')` before `2026_12_01_400002` adds `first_meeting_on` (SQLite succeeds).
+  - `F-02`–`F-10`: Detailed in [FIRST_RUN_FINDINGS.md](file:///C:/githubFiles/Barangay-Reporting-System-1/docs/FIRST_RUN_FINDINGS.md) and [ADMIN_FIRST_RUN_GUIDE.md](file:///C:/githubFiles/Barangay-Reporting-System-1/docs/ADMIN_FIRST_RUN_GUIDE.md) (unprotected `/setup` route, `'N/A'` emergency contact placeholders hidden on resident modal, empty `personnel` table on day 1, no single "Confirm All" button for 64 pending items, and no Purok CRUD UI).

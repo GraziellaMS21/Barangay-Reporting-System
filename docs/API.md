@@ -186,7 +186,6 @@ Protected by `auth`, `role:staff`, and granular permissions.
 | `POST` | `/admin/settings/pending/{id}/confirm` | `admin.pending.confirm` | `permission:settings.manage` | Confirm placeholder value. | Built |
 | `GET` | `/admin/settings/templates` | `admin.templates.index` | `permission:templates.manage` | Response templates catalog. | Built |
 | `GET` | `/admin/settings/case-types` | `admin.case-types.index` | `permission:settings.manage` | KP case categories and timeline flags. | Built |
-| `GET` | `/admin/settings/case-fields` | `admin.case-fields.index` | `permission:settings.manage` | Configure dynamic form fields. | Built |
 | `GET` | `/admin/settings/escalation-destinations` | `admin.escalation-destinations.index` | `permission:settings.manage` | Manage court/prosecutor destinations. | Built |
 | `GET` | `/admin/settings/backups` | `admin.backups.index` | `permission:backups.manage` | Database backup management & export. | Built |
 | `POST` | `/admin/settings/backups/run` | `admin.backups.run` | `permission:backups.manage` | Trigger immediate system backup. | Built |

@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\GeneralSettingsController;
 use App\Http\Controllers\Admin\GlobalSearchController;
 use App\Http\Controllers\Admin\NumberingController;
 use App\Http\Controllers\Admin\PendingConfirmationController;
+use App\Http\Controllers\Admin\PurokController;
 use App\Http\Controllers\Admin\TemplateController;
 use App\Http\Controllers\FiscalYearSwitchController;
 use Illuminate\Support\Facades\Route;
@@ -46,11 +47,20 @@ Route::middleware(['auth', 'role:staff'])->group(function () {
         Route::put('/', [NumberingController::class, 'update'])->name('put');
     });
 
-    // Calendar Holidays
+    // Calendar Holidays & Working Days
     Route::middleware(['permission:settings.manage'])->prefix('admin/settings/calendar')->name('admin.calendar.')->group(function () {
         Route::get('/', [CalendarController::class, 'index'])->name('index');
+        Route::post('/working-days', [CalendarController::class, 'updateWorkingDays'])->name('working-days.update');
         Route::post('/', [CalendarController::class, 'store'])->name('store');
         Route::delete('/{date}', [CalendarController::class, 'destroy'])->name('destroy');
+    });
+
+    // Puroks & Zones
+    Route::middleware(['permission:settings.manage'])->prefix('admin/settings/puroks')->name('admin.puroks.')->group(function () {
+        Route::get('/', [PurokController::class, 'index'])->name('index');
+        Route::post('/', [PurokController::class, 'store'])->name('store');
+        Route::put('/{purok}', [PurokController::class, 'update'])->name('update');
+        Route::delete('/{purok}', [PurokController::class, 'destroy'])->name('destroy');
     });
 
     // Pending confirmations
@@ -58,6 +68,7 @@ Route::middleware(['auth', 'role:staff'])->group(function () {
         Route::get('/', [PendingConfirmationController::class, 'index'])->name('index');
         Route::post('/confirm', [PendingConfirmationController::class, 'confirm'])->name('confirm');
         Route::post('/confirm-group', [PendingConfirmationController::class, 'confirmGroup'])->name('confirm-group');
+        Route::post('/confirm-all', [PendingConfirmationController::class, 'confirmAll'])->name('confirm-all');
         Route::get('/export', [PendingConfirmationController::class, 'exportCsv'])->name('export');
     });
 

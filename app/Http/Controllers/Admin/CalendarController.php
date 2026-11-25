@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Services\SettingsService;
+use App\Support\WorkingDays;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -34,7 +35,26 @@ class CalendarController extends Controller
             ->values()
             ->all();
 
-        return view('admin.settings.calendar', compact('holidays'));
+        $workingDays = WorkingDays::configuredWorkingDays();
+
+        return view('admin.settings.calendar', compact('holidays', 'workingDays'));
+    }
+
+    public function updateWorkingDays(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'working_days' => ['required', 'array', 'min:1'],
+            'working_days.*' => ['integer', 'between:1,7'],
+        ], [
+            'working_days.required' => 'Select at least one working day per week.',
+        ]);
+
+        $days = array_values(array_unique(array_map('intval', $validated['working_days'])));
+        sort($days);
+
+        $this->settings->set('cases.working_days', implode(',', $days), $request->user());
+
+        return redirect()->route('admin.calendar.index')->with('success', 'Working days schedule updated.');
     }
 
     public function store(Request $request): RedirectResponse

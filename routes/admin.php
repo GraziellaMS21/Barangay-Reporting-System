@@ -24,6 +24,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     Route::post('/settings/priority-weights/reset', [SettingsController::class, 'resetPriority'])->name('settings.priority-weights.reset');
     Route::get('/settings/emergency-alert-emails', [SettingsController::class, 'emergencyAlertEmails'])->name('settings.emergency-alert-emails.index');
     Route::put('/settings/emergency-alert-emails', [SettingsController::class, 'updateEmergencyAlertEmails'])->name('settings.emergency-alert-emails.update');
+    Route::get('/settings/ai', [SettingsController::class, 'aiConfig'])->name('settings.ai.edit');
+    Route::put('/settings/ai', [SettingsController::class, 'updateAiConfig'])->name('settings.ai.update');
     Route::resource('settings/categories', CategorySettingsController::class)->except(['show', 'destroy'])->names('settings.categories');
     Route::patch('settings/offices/{office}/toggle-active', [OfficeSettingsController::class, 'toggleActive'])->name('settings.offices.toggle-active');
     Route::resource('settings/offices', OfficeSettingsController::class)->except('show')->names('settings.offices');

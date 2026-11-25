@@ -36,9 +36,46 @@
     <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 leading-relaxed flex items-start gap-2.5">
         <i class="fa-solid fa-calendar-days text-slate-400 mt-0.5 text-sm"></i>
         <div>
-            <strong>Statutory Working Days Calculator:</strong> Saturdays and Sundays are excluded automatically. Dates configured in this table are treated as non-working holidays in <code class="font-bold text-slate-800">WorkingDays::addWorkingDays()</code> and <code class="font-bold text-slate-800">WorkingDays::countWorkingDays()</code>.
+            <strong>Statutory Working Days Calculator:</strong> Days selected below are treated as official working days; unselected weekdays and dates in the holiday table below are excluded in <code class="font-bold text-slate-800">WorkingDays::addWorkingDays()</code> and <code class="font-bold text-slate-800">WorkingDays::countWorkingDays()</code>.
         </div>
     </div>
+
+    <x-ui.card>
+        <div class="p-5">
+            <h3 class="text-sm font-bold text-slate-900 mb-1">Weekly Working Days</h3>
+            <p class="text-xs text-slate-500 mb-4">Choose which days of the week the Barangay Hall / Lupon operates (default: Monday to Friday).</p>
+            <form method="POST" action="{{ route('admin.calendar.working-days.update') }}" class="space-y-4">
+                @csrf
+                @php
+                    $dayLabels = [
+                        1 => 'Monday',
+                        2 => 'Tuesday',
+                        3 => 'Wednesday',
+                        4 => 'Thursday',
+                        5 => 'Friday',
+                        6 => 'Saturday',
+                        7 => 'Sunday',
+                    ];
+                @endphp
+                <div class="flex flex-wrap gap-3">
+                    @foreach($dayLabels as $isoDay => $dayName)
+                        <label class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 cursor-pointer hover:bg-slate-50">
+                            <input type="checkbox" name="working_days[]" value="{{ $isoDay }}"
+                                @checked(in_array($isoDay, $workingDays ?? [1,2,3,4,5], true))
+                                class="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                            <span>{{ $dayName }}</span>
+                        </label>
+                    @endforeach
+                </div>
+                <div class="flex justify-end">
+                    <x-ui.button type="submit" variant="secondary" size="sm">
+                        <i class="fa-solid fa-save text-xs mr-1.5"></i>
+                        <span>Save Working Days</span>
+                    </x-ui.button>
+                </div>
+            </form>
+        </div>
+    </x-ui.card>
 
     <x-ui.card>
         <div class="overflow-hidden">

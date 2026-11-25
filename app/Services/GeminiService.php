@@ -7,6 +7,7 @@ use App\Models\ComplaintIntake;
 use App\Models\Report;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -17,6 +18,32 @@ use UnexpectedValueException;
 class GeminiService
 {
     private const UNCLASSIFIED = 'unclassified';
+
+    public static function resolveApiKey(): ?string
+    {
+        $stored = function_exists('setting') ? setting('ai.gemini_api_key') : null;
+        if (is_string($stored) && trim($stored) !== '') {
+            try {
+                return Crypt::decryptString($stored);
+            } catch (\Throwable) {
+                return $stored;
+            }
+        }
+
+        $key = config('services.gemini.key');
+
+        return is_string($key) && trim($key) !== '' ? $key : null;
+    }
+
+    public static function resolveModel(): string
+    {
+        $stored = function_exists('setting') ? setting('ai.gemini_model') : null;
+        if (is_string($stored) && trim($stored) !== '') {
+            return trim($stored);
+        }
+
+        return (string) (config('services.gemini.model') ?: 'gemini-2.5-flash');
+    }
 
     /**
      * Request and persist AI suggestions without preventing report submission.
@@ -34,8 +61,8 @@ class GeminiService
             return;
         }
 
-        $apiKey = config('services.gemini.key');
-        $model = config('services.gemini.model');
+        $apiKey = self::resolveApiKey();
+        $model = self::resolveModel();
 
         if (! is_string($apiKey) || trim($apiKey) === '') {
             $this->markFailed($report, $model, null);
@@ -337,7 +364,7 @@ class GeminiService
     public function transcribeAudio(string $audioBytes, string $mimeType): array
     {
         $mockEnabled = (bool) config('voice.mock_transcription', false);
-        $apiKey = config('services.gemini.key');
+        $apiKey = self::resolveApiKey();
 
         if ($mockEnabled || ! is_string($apiKey) || trim($apiKey) === '') {
             return [
@@ -349,7 +376,7 @@ class GeminiService
             ];
         }
 
-        $model = config('services.gemini.model') ?: 'gemini-2.5-flash';
+        $model = self::resolveModel();
 
         try {
             $payload = [
@@ -462,7 +489,7 @@ class GeminiService
         array $categories,
         bool $extractContact = true
     ): array {
-        $apiKey = config('services.gemini.key');
+        $apiKey = self::resolveApiKey();
 
         $emptyFields = [
             'caller_name' => null,
@@ -493,7 +520,7 @@ class GeminiService
             ];
         }
 
-        $model = config('services.gemini.model') ?: 'gemini-2.5-flash';
+        $model = self::resolveModel();
 
         $purokListStr = implode(', ', $puroks);
         $categoryListStr = implode(', ', $categories);
@@ -668,8 +695,8 @@ class GeminiService
      */
     public function analyzeComplaint(ComplaintIntake $intake): void
     {
-        $apiKey = config('services.gemini.key');
-        $model = config('services.gemini.model');
+        $apiKey = self::resolveApiKey();
+        $model = self::resolveModel();
 
         if (! is_string($apiKey) || trim($apiKey) === '') {
             $intake->update(['ai_status' => 'failed']);

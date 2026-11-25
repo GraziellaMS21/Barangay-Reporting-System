@@ -18,8 +18,8 @@ class DashboardInsightsService
      */
     public function generate(array $aggregateCounts): array
     {
-        $apiKey = config('services.gemini.key');
-        $model = config('services.gemini.model');
+        $apiKey = GeminiService::resolveApiKey();
+        $model = GeminiService::resolveModel();
 
         if (! is_string($apiKey) || trim($apiKey) === '' || ! is_string($model) || trim($model) === '') {
             return [];

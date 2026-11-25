@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Setting;
+use App\Services\GeminiService;
 use App\Services\PriorityService;
 use App\Services\SettingsManagementService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -107,6 +109,40 @@ class SettingsController extends Controller
         ], $request->user());
 
         return back()->with('success', 'Emergency alert email recipients saved.');
+    }
+
+    public function aiConfig(): View
+    {
+        $hasCustomKey = ! empty(Setting::value('ai.gemini_api_key'));
+        $currentModel = GeminiService::resolveModel();
+        $envFallbackConfigured = ! empty(config('services.gemini.key'));
+
+        return view('admin.settings.ai', compact('hasCustomKey', 'currentModel', 'envFallbackConfigured'));
+    }
+
+    public function updateAiConfig(
+        Request $request,
+        SettingsManagementService $settingsManagementService
+    ): RedirectResponse {
+        $validated = $request->validate([
+            'gemini_model' => ['required', 'string', 'max:100'],
+            'gemini_api_key' => ['nullable', 'string', 'max:255'],
+            'clear_api_key' => ['nullable', 'boolean'],
+        ]);
+
+        $updates = [
+            'ai.gemini_model' => trim($validated['gemini_model']),
+        ];
+
+        if ($request->boolean('clear_api_key')) {
+            $updates['ai.gemini_api_key'] = '';
+        } elseif (! empty($validated['gemini_api_key'])) {
+            $updates['ai.gemini_api_key'] = Crypt::encryptString(trim($validated['gemini_api_key']));
+        }
+
+        $settingsManagementService->updateSettings($updates, $request->user());
+
+        return back()->with('success', 'AI configuration updated.');
     }
 
     /**

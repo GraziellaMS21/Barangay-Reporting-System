@@ -182,6 +182,13 @@ return [
                     'active_pattern' => 'admin.escalation-destinations.*',
                 ],
                 [
+                    'label' => 'Puroks & Zones',
+                    'route' => 'admin.puroks.index',
+                    'icon' => 'fa-solid fa-map-pin',
+                    'permission' => 'settings.manage',
+                    'active_pattern' => 'admin.puroks.*',
+                ],
+                [
                     'label' => 'Legacy Imports',
                     'route' => 'admin.imports.index',
                     'icon' => 'fa-solid fa-file-import',

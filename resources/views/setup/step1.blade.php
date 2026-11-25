@@ -36,12 +36,24 @@
         @endforeach
     </div>
 
-    <form method="POST" action="{{ route('setup.store', ['step' => 1]) }}" class="flex items-center justify-end pt-4 border-t border-slate-100">
+    <form method="POST" action="{{ route('setup.store', ['step' => 1]) }}" class="space-y-4 pt-4 border-t border-slate-100">
         @csrf
-        <x-ui.button type="submit" variant="primary">
-            <span>Start Setup</span>
-            <i class="fa-solid fa-arrow-right text-xs ml-1.5"></i>
-        </x-ui.button>
+
+        @if(! empty($requiresSetupToken))
+            <x-ui.form-field label="Installation Token" name="setup_token" required hint="Enter the single-use SETUP-XXXX-XXXX token printed in the server console after running php artisan app:empty.">
+                <input type="text" name="setup_token" id="setup_token" required
+                    value="{{ old('setup_token') }}"
+                    placeholder="SETUP-XXXX-XXXX"
+                    class="w-full rounded-lg border-slate-300 text-sm font-mono uppercase focus:border-blue-500 focus:ring-blue-500" />
+            </x-ui.form-field>
+        @endif
+
+        <div class="flex items-center justify-end">
+            <x-ui.button type="submit" variant="primary">
+                <span>Start Setup</span>
+                <i class="fa-solid fa-arrow-right text-xs ml-1.5"></i>
+            </x-ui.button>
+        </div>
     </form>
 </div>
 @endsection

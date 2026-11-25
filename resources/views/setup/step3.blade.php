@@ -60,6 +60,26 @@
             </x-ui.form-field>
         </div>
 
+        <div class="pt-4 border-t border-slate-100">
+            <h3 class="text-sm font-bold text-slate-800 mb-1">Local Emergency Hotlines (Optional)</h3>
+            <p class="text-xs text-slate-500 mb-3">Displayed in the resident portal's Emergency / 911 directory. Leave blank to configure later.</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <x-ui.form-field label="Local Police Station Hotline" name="police_hotline">
+                    <input type="text" name="police_hotline" id="police_hotline"
+                        value="{{ old('police_hotline', $profile['police_hotline'] ?? '') }}"
+                        placeholder="e.g. 0919-777-7377"
+                        class="w-full rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-blue-500" />
+                </x-ui.form-field>
+
+                <x-ui.form-field label="Local Fire Station Hotline" name="fire_hotline">
+                    <input type="text" name="fire_hotline" id="fire_hotline"
+                        value="{{ old('fire_hotline', $profile['fire_hotline'] ?? '') }}"
+                        placeholder="e.g. 0917-555-0199"
+                        class="w-full rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-blue-500" />
+                </x-ui.form-field>
+            </div>
+        </div>
+
         <div class="flex items-center justify-between pt-6 border-t border-slate-100">
             <a href="{{ route('setup.step', ['step' => 2]) }}" class="text-sm font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-1.5">
                 <i class="fa-solid fa-arrow-left text-xs"></i>

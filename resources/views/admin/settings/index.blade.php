@@ -42,6 +42,10 @@
     <h2 class="card-title"><i class="fa-solid fa-location-dot" aria-hidden="true"></i> Sensitive places</h2>
     <p>Maintain locations used by the priority score.</p>
   </a>
+  <a class="card settings-link" href="{{ route('admin.settings.ai.edit') }}">
+    <h2 class="card-title"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> AI Integration (Gemini)</h2>
+    <p>Configure the Gemini model version and encrypted API key override.</p>
+  </a>
   <a class="card settings-link" href="{{ route('admin.audit-log.index') }}">
     <h2 class="card-title"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i> Audit log</h2>
     <p>Review setting changes, staff overrides, and report status history.</p>

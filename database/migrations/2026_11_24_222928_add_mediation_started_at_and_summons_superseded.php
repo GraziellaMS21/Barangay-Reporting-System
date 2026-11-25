@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::table('cases', function (Blueprint $table) {
             if (! Schema::hasColumn('cases', 'mediation_started_at')) {
-                $table->timestamp('mediation_started_at')->nullable()->after('first_meeting_on');
+                $table->timestamp('mediation_started_at')->nullable();
             }
         });
 

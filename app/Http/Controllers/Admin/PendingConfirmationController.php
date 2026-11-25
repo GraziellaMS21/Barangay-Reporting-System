@@ -12,6 +12,7 @@ use App\Models\SignatoryAssignment;
 use App\Services\SettingsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -87,6 +88,22 @@ class PendingConfirmationController extends Controller
         };
 
         return redirect()->route('admin.pending.index')->with('success', 'All items in group confirmed.');
+    }
+
+    public function confirmAll(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+
+        DB::transaction(function () use ($user): void {
+            Setting::where('is_confirmed', false)->where('key', '!=', 'system.setup_completed')->get()->each(fn ($m) => $this->confirmModel($m, $user));
+            Position::where('is_confirmed', false)->get()->each(fn ($m) => $this->confirmModel($m, $user));
+            CaseType::where('is_confirmed', false)->get()->each(fn ($m) => $this->confirmModel($m, $user));
+            SignatoryAssignment::where('is_confirmed', false)->get()->each(fn ($m) => $this->confirmModel($m, $user));
+            EscalationDestination::where('is_confirmed', false)->get()->each(fn ($m) => $this->confirmModel($m, $user));
+            ReportTemplate::where('is_confirmed', false)->get()->each(fn ($m) => $this->confirmModel($m, $user));
+        });
+
+        return redirect()->route('admin.pending.index')->with('success', 'All baseline defaults confirmed officially.');
     }
 
     public function exportCsv(): StreamedResponse

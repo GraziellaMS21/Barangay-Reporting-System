@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\EmergencyContact;
 use App\Models\FiscalYear;
 use App\Models\Permission;
 use App\Models\Personnel;
@@ -64,6 +65,11 @@ class SetupController extends Controller
             return redirect()->route('setup.step', ['step' => 1]);
         }
 
+        if ($stepNum > 1 && $this->requiresSetupToken() && ! session('setup_token_verified')) {
+            return redirect()->route('setup.step', ['step' => 1])
+                ->withErrors(['setup_token' => 'Please enter the single-use installation token first.']);
+        }
+
         $data = [
             'currentStep' => $stepNum,
             'steps' => [
@@ -77,9 +83,13 @@ class SetupController extends Controller
 
         if ($stepNum === 1) {
             $data['checks'] = $this->runEnvironmentChecks();
+            $data['requiresSetupToken'] = $this->requiresSetupToken();
         } elseif ($stepNum === 2) {
             $data['admin'] = User::where('role', 'admin')->first();
         } elseif ($stepNum === 3) {
+            $policeNum = EmergencyContact::where('type', 'police')->value('number');
+            $fireNum = EmergencyContact::where('type', 'fire')->value('number');
+
             $data['profile'] = [
                 'name' => setting('barangay.name', 'Barangay Calarian'),
                 'city' => setting('barangay.city', 'Zamboanga City'),
@@ -88,6 +98,8 @@ class SetupController extends Controller
                 'hall_address' => setting('barangay.hall_address', 'Calarian, Zamboanga City, 7000'),
                 'contact_number' => setting('barangay.contact_number', '0917-123-4567'),
                 'email' => setting('barangay.email', 'info@calarian.gov.ph'),
+                'police_hotline' => ($policeNum && stripos($policeNum, 'N/A') === false) ? $policeNum : '',
+                'fire_hotline' => ($fireNum && stripos($fireNum, 'N/A') === false) ? $fireNum : '',
             ];
         } elseif ($stepNum === 4) {
             $data['currentYear'] = (int) now()->year;
@@ -111,9 +123,27 @@ class SetupController extends Controller
         $stepNum = (int) $step;
 
         if ($stepNum === 1) {
+            if ($this->requiresSetupToken()) {
+                $expectedToken = (string) setting('system.setup_token');
+                $validated = $request->validate([
+                    'setup_token' => ['required', 'string'],
+                ]);
+
+                if (! hash_equals(strtoupper(trim($expectedToken)), strtoupper(trim($validated['setup_token'])))) {
+                    return back()->withErrors(['setup_token' => 'Invalid installation token. Check the server console output from php artisan app:empty.'])->withInput();
+                }
+
+                session(['setup_token_verified' => true]);
+            }
+
             session(['setup_step' => 2]);
 
             return redirect()->route('setup.step', ['step' => 2]);
+        }
+
+        if ($this->requiresSetupToken() && ! session('setup_token_verified')) {
+            return redirect()->route('setup.step', ['step' => 1])
+                ->withErrors(['setup_token' => 'Please enter the single-use installation token first.']);
         }
 
         if ($stepNum === 2) {
@@ -157,6 +187,8 @@ class SetupController extends Controller
                 'hall_address' => ['required', 'string', 'max:500'],
                 'contact_number' => ['required', 'string', 'max:50'],
                 'email' => ['required', 'email', 'max:255'],
+                'police_hotline' => ['nullable', 'string', 'max:50'],
+                'fire_hotline' => ['nullable', 'string', 'max:50'],
             ]);
 
             $this->settingsService->set('barangay.name', $validated['barangay_name']);
@@ -166,6 +198,13 @@ class SetupController extends Controller
             $this->settingsService->set('barangay.hall_address', $validated['hall_address']);
             $this->settingsService->set('barangay.contact_number', $validated['contact_number']);
             $this->settingsService->set('barangay.email', $validated['email']);
+
+            if (! empty($validated['police_hotline'])) {
+                EmergencyContact::where('type', 'police')->update(['number' => trim($validated['police_hotline'])]);
+            }
+            if (! empty($validated['fire_hotline'])) {
+                EmergencyContact::where('type', 'fire')->update(['number' => trim($validated['fire_hotline'])]);
+            }
 
             session(['setup_step' => 4]);
 
@@ -251,9 +290,29 @@ class SetupController extends Controller
             return redirect()->route('login');
         }
 
+        if ($this->requiresSetupToken() && ! session('setup_token_verified')) {
+            return redirect()->route('setup.step', ['step' => 1])
+                ->withErrors(['setup_token' => 'Please enter the single-use installation token first.']);
+        }
+
         // Run required seed data if not yet seeded
         if (Position::count() === 0) {
             app(RequiredDataSeeder::class)->run();
+        }
+
+        // Auto-enroll primary admin as Punong Barangay personnel for signatory resolution
+        $admin = User::where('role', 'admin')->first();
+        $pbPosition = Position::where('code', 'punong_barangay')->first();
+        if ($admin && $pbPosition && ! Personnel::where('user_id', $admin->id)->exists()) {
+            Personnel::create([
+                'user_id' => $admin->id,
+                'position_id' => $pbPosition->id,
+                'full_name' => $admin->name,
+                'email' => $admin->email,
+                'term_start' => now()->startOfYear(),
+                'is_signatory' => true,
+                'is_active' => true,
+            ]);
         }
 
         // Ensure active fiscal year
@@ -272,7 +331,7 @@ class SetupController extends Controller
             $this->fiscalYearService->activate($fy);
         }
 
-        // Mark setup completed in database
+        // Mark setup completed in database and consume single-use setup token
         Setting::updateOrCreate(
             ['key' => 'system.setup_completed'],
             [
@@ -284,11 +343,20 @@ class SetupController extends Controller
                 'is_confirmed' => true,
             ]
         );
+        Setting::where('key', 'system.setup_token')->delete();
 
         Cache::forget('setting.system.setup_completed');
-        session()->forget('setup_step');
+        Cache::forget('setting.system.setup_token');
+        session()->forget(['setup_step', 'setup_token_verified']);
 
         return redirect()->route('login')->with('success', 'System setup completed successfully! Please sign in with your administrator account.');
+    }
+
+    protected function requiresSetupToken(): bool
+    {
+        $token = Setting::where('key', 'system.setup_token')->value('value');
+
+        return is_string($token) && trim($token) !== '';
     }
 
     protected function isCompleted(): bool

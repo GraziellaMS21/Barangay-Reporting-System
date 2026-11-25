@@ -9,10 +9,21 @@
         title="Pending Confirmations Register"
         subtitle="Review baseline assumptions and unconfirmed placeholder configurations awaiting official verification from the Barangay.">
         <x-slot:actions>
-            <x-ui.button href="{{ route('admin.pending.export') }}" variant="secondary" data-turbo="false">
-                <i class="fa-solid fa-file-csv text-xs mr-1.5"></i>
-                <span>Export Register (CSV)</span>
-            </x-ui.button>
+            <div class="flex flex-wrap items-center gap-2">
+                <x-ui.button href="{{ route('admin.pending.export') }}" variant="secondary" data-turbo="false">
+                    <i class="fa-solid fa-file-csv text-xs mr-1.5"></i>
+                    <span>Export Register (CSV)</span>
+                </x-ui.button>
+                @if($totalPending > 0)
+                    <form method="POST" action="{{ route('admin.pending.confirm-all') }}" class="inline">
+                        @csrf
+                        <x-ui.button type="submit" variant="primary">
+                            <i class="fa-solid fa-check-double text-xs mr-1.5"></i>
+                            <span>Confirm All Baseline Defaults</span>
+                        </x-ui.button>
+                    </form>
+                @endif
+            </div>
         </x-slot:actions>
     </x-ui.page-header>
 

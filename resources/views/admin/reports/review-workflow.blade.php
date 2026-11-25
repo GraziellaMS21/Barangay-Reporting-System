@@ -1796,7 +1796,7 @@
               </div>
 
               @if($referral->status === 'prepared')
-                <form method="POST" action="{{ route('admin.referrals.mark-sent', $referral) }}" class="referral-panel-form">
+                <form method="POST" action="{{ route('admin.referrals.mark-sent', $referral) }}" class="referral-panel-form" data-prevent-double-submit>
                   @csrf
                   <div class="referral-panel-form-grid">
                     <div class="review-form-field">
@@ -1813,25 +1813,25 @@
                       </select>
                     </div>
                   </div>
-                  <button type="submit" class="review-button review-button-primary">Mark as sent</button>
+                  <div class="review-actions-row">
+                    <button type="submit" class="review-button review-button-primary" data-submit-once>Mark as sent</button>
+                  </div>
                   <p class="review-field-hint">Marks the referral as sent and schedules a follow-up in {{ \App\Models\Setting::value('referral_follow_up_days', $referralConfig['follow_up_days']) }} days.</p>
                 </form>
-              @endif
-
-              @if($referral->isOpen())
-                <form method="POST" action="{{ route('admin.referrals.updates.store', $referral) }}" enctype="multipart/form-data" class="referral-panel-form">
+              @elseif($referral->isOpen())
+                <form method="POST" action="{{ route('admin.referrals.updates.store', $referral) }}" enctype="multipart/form-data" class="referral-panel-form" data-prevent-double-submit>
                   @csrf
                   <h3 class="review-field-label">Log agency update</h3>
                   <div class="referral-panel-form-grid">
                     <div class="review-form-field review-form-field-wide">
                       <label for="referral-update-note">What the agency reported</label>
-                      <textarea id="referral-update-note" name="note" rows="3" required maxlength="2000"></textarea>
+                      <textarea id="referral-update-note" name="note" rows="3" required maxlength="2000">{{ old('channel') ? old('note') : '' }}</textarea>
                     </div>
                     <div class="review-form-field">
                       <label for="referral-update-channel">Received via</label>
                       <select id="referral-update-channel" name="channel" required>
                         @foreach(\App\Models\Referral::CHANNELS as $channelKey => $channelLabel)
-                          <option value="{{ $channelKey }}">{{ $channelLabel }}</option>
+                          <option value="{{ $channelKey }}" @selected(old('channel') === $channelKey)>{{ $channelLabel }}</option>
                         @endforeach
                       </select>
                     </div>
@@ -1840,17 +1840,17 @@
                       <select id="referral-update-status" name="status">
                         <option value="">Keep current</option>
                         @foreach(\App\Models\Referral::UPDATE_TARGET_STATUSES as $updateStatus)
-                          <option value="{{ $updateStatus }}">{{ \App\Models\Referral::STATUSES[$updateStatus] ?? $updateStatus }}</option>
+                          <option value="{{ $updateStatus }}" @selected(old('status') === $updateStatus)>{{ \App\Models\Referral::STATUSES[$updateStatus] ?? $updateStatus }}</option>
                         @endforeach
                       </select>
                     </div>
                     <div class="review-form-field">
                       <label for="referral-update-date">Update date</label>
-                      <input id="referral-update-date" type="date" name="occurred_at" value="{{ now()->toDateString() }}">
+                      <input id="referral-update-date" type="date" name="occurred_at" value="{{ old('occurred_at', now()->toDateString()) }}">
                     </div>
                     <div class="review-form-field">
                       <label for="referral-update-reference">Agency reference no. <span class="review-optional">(optional)</span></label>
-                      <input id="referral-update-reference" type="text" name="agency_reference_no" maxlength="100">
+                      <input id="referral-update-reference" type="text" name="agency_reference_no" value="{{ old('agency_reference_no') }}" maxlength="100">
                     </div>
                     <div class="review-form-field">
                       <label for="referral-update-photo">Photo <span class="review-optional">(optional)</span></label>
@@ -1863,29 +1863,46 @@
                       </label>
                     </div>
                   </div>
-                  <button type="submit" class="review-button review-button-primary">Log update</button>
+                  <div class="review-actions-row">
+                    <button type="submit" class="review-button review-button-primary" data-submit-once>Log update</button>
+                    <button type="button" class="review-button review-button-outline" data-open-dialog="close-referral-modal">
+                      Close referral
+                    </button>
+                  </div>
                 </form>
 
-                <form method="POST" action="{{ route('admin.referrals.close', $referral) }}" class="referral-panel-form">
-                  @csrf
-                  <h3 class="review-field-label">Close referral</h3>
-                  <div class="referral-panel-form-grid">
-                    <div class="review-form-field">
-                      <label for="referral-outcome">Outcome</label>
-                      <select id="referral-outcome" name="outcome" required>
-                        @foreach(\App\Models\Referral::OUTCOMES as $outcomeKey => $outcomeLabel)
-                          <option value="{{ $outcomeKey }}">{{ $outcomeLabel }}</option>
-                        @endforeach
-                      </select>
+                <dialog id="close-referral-modal" class="review-modal" @if($errors->has('outcome')) data-open-on-load @endif>
+                  <form method="POST" action="{{ route('admin.referrals.close', $referral) }}" data-prevent-double-submit>
+                    @csrf
+                    <header class="review-modal-header">
+                      <strong><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Close referral</strong>
+                      <button type="button" class="review-modal-close" data-close-modal aria-label="Close">&times;</button>
+                    </header>
+                    <div class="review-modal-body">
+                      <p class="review-field-hint">
+                        Resolved closes the report. Declined or no response keeps the report open for the next action.
+                      </p>
+                      <div class="review-form-field">
+                        <label for="referral-outcome">Outcome</label>
+                        <select id="referral-outcome" name="outcome" required>
+                          @foreach(\App\Models\Referral::OUTCOMES as $outcomeKey => $outcomeLabel)
+                            <option value="{{ $outcomeKey }}" @selected(old('outcome') === $outcomeKey)>{{ $outcomeLabel }}</option>
+                          @endforeach
+                        </select>
+                        @error('outcome')<span class="review-field-error">{{ $message }}</span>@enderror
+                      </div>
+                      <div class="review-form-field">
+                        <label for="referral-close-note">Closing note</label>
+                        <textarea id="referral-close-note" name="note" rows="3" required maxlength="2000" placeholder="Summarize the final outcome from the external agency...">{{ old('outcome') ? old('note') : '' }}</textarea>
+                        @error('note')<span class="review-field-error">{{ $message }}</span>@enderror
+                      </div>
                     </div>
-                    <div class="review-form-field review-form-field-wide">
-                      <label for="referral-close-note">Closing note</label>
-                      <textarea id="referral-close-note" name="note" rows="2" required maxlength="2000"></textarea>
-                    </div>
-                  </div>
-                  <button type="submit" class="review-button review-button-outline">Close referral</button>
-                  <p class="review-field-hint">Resolved closes the report. Declined or no response keeps the report open for the next action.</p>
-                </form>
+                    <footer class="review-modal-footer">
+                      <button type="button" class="review-button review-button-outline" data-close-modal>Cancel</button>
+                      <button type="submit" class="review-button review-button-primary" data-submit-once>Close referral</button>
+                    </footer>
+                  </form>
+                </dialog>
               @endif
 
               @if($referral->updates->isNotEmpty())

@@ -252,4 +252,69 @@ class CaseGuidedWorkflowTest extends TestCase
         $overdueView->assertSee('15 working days reached without settlement');
         $overdueView->assertSee('Endorse to Pangkat');
     }
+
+    public function test_signed_settlement_updates_milestone_and_advances_through_repudiation_and_court_transmittal(): void
+    {
+        $case = BarangayCase::factory()->create([
+            'fiscal_year_id' => $this->fiscalYear->id,
+            'case_type_id' => $this->caseType->id,
+            'status' => CaseStatus::SETTLED,
+            'complaint_signed_received_at' => now()->subDays(5),
+            'mediation_outcome' => 'settled',
+            'settled_on' => null,
+        ]);
+
+        // Short terms (< 5 chars) surfaces validation errors cleanly on show view
+        $invalid = $this->actingAs($this->staffUser)
+            ->from(route('admin.cases.show', $case))
+            ->post(route('admin.cases.workflow.mark-signed-settlement', $case), [
+                '_workflow_modal' => 'modal-mark-signed-settlement',
+                'settled_on' => now()->toDateString(),
+                'terms' => 'ok',
+            ]);
+        $invalid->assertRedirect(route('admin.cases.show', $case));
+        $invalid->assertSessionHasErrors(['terms']);
+
+        // Confirm signed settlement with valid terms
+        $valid = $this->actingAs($this->staffUser)
+            ->post(route('admin.cases.workflow.mark-signed-settlement', $case), [
+                '_workflow_modal' => 'modal-mark-signed-settlement',
+                'settled_on' => now()->toDateString(),
+                'terms' => 'Both parties agreed to settle amicably with PHP 1,500 restitution.',
+                'settlement_amount' => 1500,
+            ]);
+        $valid->assertRedirect(route('admin.cases.show', $case));
+
+        $case->refresh();
+        $this->assertNotNull($case->settled_on);
+        $this->assertNotNull($case->repudiation_ends_at);
+        $this->assertEquals(1500, (float) $case->settlement_amount);
+
+        $repudiationView = $this->actingAs($this->staffUser)->get(route('admin.cases.show', $case));
+        $repudiationView->assertOk();
+        $repudiationView->assertSee('Signed · 10-Day Repudiation Window');
+        $repudiationView->assertSee('Signed (10-Day Window)');
+
+        // Fast-forward past 10-day repudiation window -> final & executory, prompts MTC transmittal
+        $case->update([
+            'settled_on' => now()->subDays(12)->toDateString(),
+            'repudiation_ends_at' => now()->subDays(2),
+        ]);
+
+        $finalView = $this->actingAs($this->staffUser)->get(route('admin.cases.show', $case));
+        $finalView->assertOk();
+        $finalView->assertSee('Amicable settlement final & executory');
+        $finalView->assertSee('Mark Transmitted to Court');
+
+        // Record MTC transmittal
+        $this->actingAs($this->staffUser)
+            ->post(route('admin.cases.workflow.mark-court-transmitted', $case), [
+                'transmitted_at' => now()->toDateString(),
+            ])->assertRedirect(route('admin.cases.show', $case));
+
+        $completedView = $this->actingAs($this->staffUser)->get(route('admin.cases.show', $case));
+        $completedView->assertOk();
+        $completedView->assertSee('Completed · Final & Executory');
+        $completedView->assertSee('Final · Transmitted to MTC');
+    }
 }

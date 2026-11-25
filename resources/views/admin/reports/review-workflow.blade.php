@@ -508,68 +508,81 @@
 
   {{-- Right: Case timeline & notes --}}
   <div class="review-col-timeline">
+    @php
+      $latestActivity = $activityEntries->first();
+      $timelineSummary = $latestActivity
+          ? \Illuminate\Support\Str::limit($latestActivity['title'].($latestActivity['body'] ? ' — '.$latestActivity['body'] : ''), 90)
+          : 'No activity recorded yet.';
+    @endphp
     <section class="review-workflow-card review-timeline-card">
-      <div class="review-card-heading review-card-heading-static" style="padding-bottom:0.75rem; border-bottom: 1px solid var(--line);">
-        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
-          <div>
+      <details id="case-timeline-card" class="review-collapsible" @if(! $isAfterRoute) open @endif>
+        <summary class="review-card-heading">
+          <span class="review-card-number" aria-hidden="true">
+            <i class="fa-solid fa-clock-rotate-left" style="font-size:0.85rem;"></i>
+          </span>
+          <span class="review-card-heading-copy" style="flex:1;min-width:0;">
             <span class="review-card-title">Case timeline &amp; notes</span>
-            <span class="review-card-instruction">Audit trail, citizen interactions, and internal notes</span>
-          </div>
-          <span class="review-badge review-badge-blue">{{ count($activityEntries) }} event{{ count($activityEntries) === 1 ? '' : 's' }}</span>
-        </div>
-      </div>
+            <span class="review-card-instruction review-timeline-instruction">Audit trail, citizen interactions, and internal notes</span>
+            <span class="review-collapsed-summary review-timeline-collapsed-preview">{{ $timelineSummary }}</span>
+          </span>
+          <span class="review-badge review-badge-blue" style="flex-shrink:0;">{{ count($activityEntries) }} event{{ count($activityEntries) === 1 ? '' : 's' }}</span>
+          <i class="fa-solid fa-chevron-down review-collapsible-chevron" aria-hidden="true"></i>
+        </summary>
 
-      {{-- Internal Note Box --}}
-      @unless($isCompleted || $emergencyActionOnly)
-        <div class="review-composer-box" style="padding: 0.85rem 1.25rem; background: #f8fafc; border-bottom: 1px solid var(--line);">
-          <form method="POST" action="{{ route('admin.reports.internal-notes.store', $report) }}" data-prevent-double-submit>
-            @csrf
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.35rem;">
-              <label for="timeline-internal-note" style="font-size:0.8rem;font-weight:700;color:#475569;">
-                <i class="fa-solid fa-lock text-slate-500 mr-1" aria-hidden="true"></i> Add internal note <span style="font-weight:normal;color:#64748b;font-size:0.75rem;">(visible to staff only)</span>
-              </label>
-            </div>
-            <div style="display:flex;gap:0.5rem;align-items:flex-end;">
-              <textarea id="timeline-internal-note" name="body" rows="2" maxlength="3000" required placeholder="Record staff observations, internal coordination, or phone call notes..." style="flex:1;font-size:0.84rem;padding:0.5rem 0.65rem;border:1px solid var(--line);border-radius:8px;background:#fff;"></textarea>
-              <button type="submit" class="btn btn-navy btn-small" style="padding:0.5rem 0.85rem;font-size:0.8rem;white-space:nowrap;font-weight:700;">
-                Save note
-              </button>
-            </div>
-          </form>
-        </div>
-      @endunless
-
-      {{-- Unified Descending Event Feed --}}
-      <div class="review-timeline-feed" style="padding:1.25rem;">
-        <ol class="review-activity-list">
-          @forelse($activityEntries as $activity)
-            @php
-              $isInternal = isset($activity['visible_to_resident']) ? !$activity['visible_to_resident'] : str_contains($activity['title'], '(Internal)');
-            @endphp
-            <li style="border-left: 3px solid {{ $isInternal ? '#94a3b8' : '#2563eb' }}; padding-left: 0.85rem; margin-bottom: 1.15rem; position: relative;">
-              <div class="review-activity-heading" style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;flex-wrap:wrap;">
-                <div style="display:inline-flex;align-items:center;gap:0.4rem;flex-wrap:wrap;">
-                  <strong>{{ $activity['title'] }}</strong>
-                  @if($isInternal)
-                    <span class="review-badge review-badge-gray" style="font-size:0.68rem;padding:0.1rem 0.35rem;"><i class="fa-solid fa-lock" aria-hidden="true"></i> Internal</span>
-                  @else
-                    <span class="review-badge review-badge-blue" style="font-size:0.68rem;padding:0.1rem 0.35rem;"><i class="fa-solid fa-eye" aria-hidden="true"></i> Public</span>
-                  @endif
+        <div class="review-card-content" style="gap:0;margin-top:1rem;border-top:1px solid var(--line);">
+          {{-- Internal Note Box --}}
+          @unless($isCompleted || $emergencyActionOnly)
+            <div class="review-composer-box" style="padding: 0.85rem 1rem; background: #f8fafc; border-bottom: 1px solid var(--line);">
+              <form method="POST" action="{{ route('admin.reports.internal-notes.store', $report) }}" data-prevent-double-submit>
+                @csrf
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.35rem;">
+                  <label for="timeline-internal-note" style="font-size:0.8rem;font-weight:700;color:#475569;">
+                    <i class="fa-solid fa-lock text-slate-500 mr-1" aria-hidden="true"></i> Add internal note <span style="font-weight:normal;color:#64748b;font-size:0.75rem;">(visible to staff only)</span>
+                  </label>
                 </div>
-                <time datetime="{{ $activity['at']?->toIso8601String() }}" style="font-size:0.75rem;color:#64748b;">{{ $activity['at']?->format('M d, Y h:i A') }}</time>
-              </div>
-              @if($activity['user'])
-                <p class="review-activity-user" style="font-size:0.76rem;color:#475569;margin-top:0.15rem;"><i class="fa-solid fa-user-check" style="font-size:0.7rem;color:#94a3b8;margin-right:0.25rem;" aria-hidden="true"></i>{{ $activity['user'] }}</p>
-              @endif
-              @if($activity['body'])
-                <p class="review-activity-body" style="font-size:0.84rem;color:#334155;margin-top:0.35rem;line-height:1.45;background:#fff;padding:0.5rem 0.75rem;border-radius:6px;border:1px solid #f1f5f9;">{{ $activity['body'] }}</p>
-              @endif
-            </li>
-          @empty
-            <li class="review-activity-empty">No activity recorded yet.</li>
-          @endforelse
-        </ol>
-      </div>
+                <div style="display:flex;gap:0.5rem;align-items:flex-end;">
+                  <textarea id="timeline-internal-note" name="body" rows="2" maxlength="3000" required placeholder="Record staff observations, internal coordination, or phone call notes..." style="flex:1;font-size:0.84rem;padding:0.5rem 0.65rem;border:1px solid var(--line);border-radius:8px;background:#fff;"></textarea>
+                  <button type="submit" class="btn btn-navy btn-small" style="padding:0.5rem 0.85rem;font-size:0.8rem;white-space:nowrap;font-weight:700;">
+                    Save note
+                  </button>
+                </div>
+              </form>
+            </div>
+          @endunless
+
+          {{-- Unified Descending Event Feed --}}
+          <div class="review-timeline-feed" style="padding:1.25rem 0.25rem 0.25rem;">
+            <ol class="review-activity-list">
+              @forelse($activityEntries as $activity)
+                @php
+                  $isInternal = isset($activity['visible_to_resident']) ? !$activity['visible_to_resident'] : str_contains($activity['title'], '(Internal)');
+                @endphp
+                <li style="border-left: 3px solid {{ $isInternal ? '#94a3b8' : '#2563eb' }}; padding-left: 0.85rem; margin-bottom: 1.15rem; position: relative;">
+                  <div class="review-activity-heading" style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;flex-wrap:wrap;">
+                    <div style="display:inline-flex;align-items:center;gap:0.4rem;flex-wrap:wrap;">
+                      <strong>{{ $activity['title'] }}</strong>
+                      @if($isInternal)
+                        <span class="review-badge review-badge-gray" style="font-size:0.68rem;padding:0.1rem 0.35rem;"><i class="fa-solid fa-lock" aria-hidden="true"></i> Internal</span>
+                      @else
+                        <span class="review-badge review-badge-blue" style="font-size:0.68rem;padding:0.1rem 0.35rem;"><i class="fa-solid fa-eye" aria-hidden="true"></i> Public</span>
+                      @endif
+                    </div>
+                    <time datetime="{{ $activity['at']?->toIso8601String() }}" style="font-size:0.75rem;color:#64748b;">{{ $activity['at']?->format('M d, Y h:i A') }}</time>
+                  </div>
+                  @if($activity['user'])
+                    <p class="review-activity-user" style="font-size:0.76rem;color:#475569;margin-top:0.15rem;"><i class="fa-solid fa-user-check" style="font-size:0.7rem;color:#94a3b8;margin-right:0.25rem;" aria-hidden="true"></i>{{ $activity['user'] }}</p>
+                  @endif
+                  @if($activity['body'])
+                    <p class="review-activity-body" style="font-size:0.84rem;color:#334155;margin-top:0.35rem;line-height:1.45;background:#fff;padding:0.5rem 0.75rem;border-radius:6px;border:1px solid #f1f5f9;">{{ $activity['body'] }}</p>
+                  @endif
+                </li>
+              @empty
+                <li class="review-activity-empty">No activity recorded yet.</li>
+              @endforelse
+            </ol>
+          </div>
+        </div>
+      </details>
     </section>
   </div> {{-- End review-col-timeline --}}
   </div> {{-- End review-top-grid --}}
@@ -677,7 +690,7 @@
                     <span>Flag as emergency</span>
                   </button>
                 @endif
-                @includeIf('admin.cases.partials.convert-button', ['report' => $report])
+                @includeIf('admin.cases.partials.convert-button', ['report' => $report, 'formId' => 'kebab-convert-case-form'])
               </div>
             </div>
           </div>
@@ -1068,13 +1081,19 @@
       </div>
       <div class="review-card-content space-y-4">
         @php
-          $ruleWithin = (bool) ($jurisdiction['within_authority'] ?? true);
-          $initialMode = $ruleWithin ? 'within' : 'beyond';
-          $defaultAgency = $externalOffices->firstWhere('id', $jurisdiction['office']?->id) ?? $externalOffices->first();
+          $ruleWithin = (bool) ($routingDecision['within_authority'] ?? ($jurisdiction['within_authority'] ?? true));
+          $initialMode = in_array(old('authority_mode'), ['within', 'beyond'], true)
+              ? old('authority_mode')
+              : ($ruleWithin ? 'within' : 'beyond');
+          $isInitiallyWithin = $initialMode === 'within';
+          $preferredExternalId = (old('office_id') && $externalOffices->contains('id', (int) old('office_id')))
+              ? (int) old('office_id')
+              : (int) ($routingDecision['office_id'] ?? $jurisdiction['office']?->id ?? 0);
+          $defaultAgency = $externalOffices->firstWhere('id', $preferredExternalId) ?? $externalOffices->first();
           $defaultLetter = old('referral_letter', $letterTemplates[$defaultAgency?->id]['letter'] ?? '');
           $defaultResidentMessage = old('resident_message', $letterTemplates[$defaultAgency?->id]['resident_message'] ?? '');
           $defaultAgencyId = $defaultAgency?->id;
-          $matchedRuleName = $jurisdiction['jurisdiction_note'] ?? ($routingDecision['reason'] ?? 'Category default');
+          $matchedRuleName = $routingDecision['reason'] ?? ($jurisdiction['jurisdiction_note'] ?? 'Category default');
           $isSuggestedMatch = $routingDecision && (string) $officeDefault === (string) ($routingDecision['office_id'] ?? '');
 
           // Quick fill chips config array
@@ -1103,16 +1122,17 @@
 
         {{-- Hidden JSON & inputs needed by JS --}}
         <input type="hidden" name="authority_mode" value="{{ $initialMode }}" data-authority-mode-input>
+        <input type="hidden" name="agency_office_id" value="{{ $defaultAgencyId }}" data-agency-hidden-input>
         <script type="application/json" data-routing-map>@json($routingDecisions)</script>
         <script type="application/json" data-letter-templates>@json($letterTemplates)</script>
 
         {{-- ── 1. Status Strip (Replaces old banner and priority line) ── --}}
-        <div class="review-mode-banner rounded-xl border border-slate-200 border-l-[3px] p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all {{ $ruleWithin ? 'border-l-emerald-600 bg-emerald-50/50 border-emerald-200 review-mode-banner-within' : 'border-l-blue-600 bg-blue-50/50 border-blue-200 review-mode-banner-beyond' }}"
+        <div class="review-mode-banner rounded-xl border border-slate-200 border-l-[3px] p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all {{ $isInitiallyWithin ? 'border-l-emerald-600 bg-emerald-50/50 border-emerald-200 review-mode-banner-within' : 'border-l-blue-600 bg-blue-50/50 border-blue-200 review-mode-banner-beyond' }}"
              data-mode-banner data-rule-mode="{{ $initialMode }}">
           <div class="flex items-start gap-3 min-w-0">
             {{-- Soft Circle Icon --}}
-            <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-colors {{ $ruleWithin ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700' }}" data-mode-icon>
-              @if($ruleWithin)
+            <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-colors {{ $isInitiallyWithin ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700' }}" data-mode-icon>
+              @if($isInitiallyWithin)
                 <i class="fa-solid fa-shield-halved text-base" aria-hidden="true"></i>
               @else
                 <i class="fa-solid fa-arrow-up-right-from-square text-base" aria-hidden="true"></i>
@@ -1122,7 +1142,7 @@
             <div>
               <div class="flex items-center gap-2.5 flex-wrap">
                 <strong class="text-sm font-bold text-slate-900" data-mode-badge>
-                  {{ $ruleWithin ? 'Within barangay authority' : 'Beyond barangay authority' }}
+                  {{ $isInitiallyWithin ? 'Within barangay authority' : 'Beyond barangay authority' }}
                 </strong>
 
                 {{-- Prominent Urgency Pill with Colored Dot --}}
@@ -1137,7 +1157,7 @@
 
               {{-- Dynamic Description --}}
               <p class="text-xs text-slate-600 mt-1 leading-relaxed" data-mode-note>
-                @if($ruleWithin)
+                @if($isInitiallyWithin)
                   Matched rule: <span data-matched-rule-text>{{ $matchedRuleName }}</span>. Assign it to an office and staff member.
                 @else
                   This will be referred to an external agency. A referral letter is sent and follow-up is tracked.
@@ -1148,23 +1168,23 @@
 
           {{-- Segmented Mode Toggle --}}
           <div class="inline-flex p-1 bg-slate-200/70 rounded-lg text-xs self-start md:self-center flex-shrink-0" role="tablist" aria-label="Authority mode toggle">
-            <button type="button" class="mode-seg-btn px-3 py-1.5 rounded-md font-semibold transition-all {{ $ruleWithin ? 'bg-white text-slate-900 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900' }}"
+            <button type="button" class="mode-seg-btn px-3 py-1.5 rounded-md font-semibold transition-all {{ $isInitiallyWithin ? 'bg-white text-slate-900 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900' }}"
                     data-mode-btn="within">
               Within barangay
             </button>
-            <button type="button" class="mode-seg-btn px-3 py-1.5 rounded-md font-semibold transition-all {{ !$ruleWithin ? 'bg-white text-slate-900 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900' }}"
+            <button type="button" class="mode-seg-btn px-3 py-1.5 rounded-md font-semibold transition-all {{ !$isInitiallyWithin ? 'bg-white text-slate-900 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900' }}"
                     data-mode-btn="beyond">
               Refer to agency
             </button>
           </div>
           {{-- Hidden original toggle button to keep any external hooks compatible --}}
-          <button type="button" class="sr-only" data-mode-toggle data-other-mode="{{ $ruleWithin ? 'beyond' : 'within' }}">
-            {{ $ruleWithin ? "This isn't barangay authority" : 'Handle within the barangay instead' }}
+          <button type="button" class="sr-only" data-mode-toggle data-other-mode="{{ $isInitiallyWithin ? 'beyond' : 'within' }}">
+            {{ $isInitiallyWithin ? "This isn't barangay authority" : 'Handle within the barangay instead' }}
           </button>
         </div>
 
         {{-- ── 2. MODE A: Within Barangay Authority ── --}}
-        <div class="review-mode-block space-y-4" data-mode-block="within" @if(!$ruleWithin) hidden @endif>
+        <div class="review-mode-block space-y-4" data-mode-block="within" @if(!$isInitiallyWithin) hidden @endif>
           {{-- Assignment Card --}}
           <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4 sm:p-5 space-y-4">
             <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Assignment</div>
@@ -1181,7 +1201,7 @@
                   </label>
                 </div>
                 <div class="relative">
-                  <select id="office_id" name="office_id" class="w-full h-11 text-xs rounded-lg border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-8" data-office-select>
+                  <select id="office_id" name="office_id" class="w-full h-11 text-xs rounded-lg border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-8" data-office-select @disabled(!$isInitiallyWithin)>
                     <option value="">Select an office</option>
                     @foreach($offices as $office)
                       <option value="{{ $office->id }}"
@@ -1248,7 +1268,7 @@
         </div>
 
         {{-- ── 3. MODE B: Beyond Barangay Authority (Agency Referral) ── --}}
-        <div class="review-mode-block space-y-4" data-mode-block="beyond" @if($ruleWithin) hidden @endif>
+        <div class="review-mode-block space-y-4" data-mode-block="beyond" @if($isInitiallyWithin) hidden @endif>
           {{-- Agency & Follow-up Card --}}
           <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4 sm:p-5 space-y-4">
             <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">External Agency &amp; Follow-up</div>
@@ -1258,7 +1278,7 @@
               <div>
                 <label for="agency_id" class="block text-xs font-bold text-slate-700 mb-1">External agency</label>
                 <div class="relative">
-                  <select id="agency_id" name="office_id" class="w-full h-11 text-xs rounded-lg border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-8" data-agency-select @disabled($ruleWithin)>
+                  <select id="agency_id" name="office_id" class="w-full h-11 text-xs rounded-lg border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-8" data-agency-select @disabled($isInitiallyWithin)>
                     <option value="">Select an agency</option>
                     @foreach($externalOffices as $externalOffice)
                       <option value="{{ $externalOffice->id }}" @selected((string) $defaultAgencyId === (string) $externalOffice->id)>{{ $externalOffice->name }}</option>
@@ -1271,7 +1291,7 @@
               <div>
                 <label for="follow_up_owner_id" class="block text-xs font-bold text-slate-700 mb-1">Follow-up owner</label>
                 <div class="relative">
-                  <select id="follow_up_owner_id" name="follow_up_owner_id" class="w-full h-11 text-xs rounded-lg border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-8" @disabled($ruleWithin)>
+                  <select id="follow_up_owner_id" name="follow_up_owner_id" class="w-full h-11 text-xs rounded-lg border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-8" @disabled($isInitiallyWithin)>
                     <option value="">Unassigned</option>
                     @foreach($staffUsers as $staffUser)
                       <option value="{{ $staffUser->id }}" @selected((string) old('follow_up_owner_id', $currentUserId) === (string) $staffUser->id)>{{ $staffUser->name }}</option>
@@ -1331,7 +1351,7 @@
             <div id="letter-edit-box" style="display:none;">
               <textarea id="referral_letter" name="referral_letter" rows="12" maxlength="20000"
                         class="w-full text-xs font-mono p-3 rounded-lg border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 leading-relaxed"
-                        data-referral-letter @disabled($ruleWithin)>{{ $defaultLetter }}</textarea>
+                        data-referral-letter @disabled($isInitiallyWithin)>{{ $defaultLetter }}</textarea>
             </div>
           </div>
 
@@ -1357,7 +1377,7 @@
 
             <textarea id="resident_message" name="resident_message" rows="3" maxlength="1000"
                       class="w-full text-xs rounded-lg border-slate-300 p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      data-resident-message @disabled($ruleWithin) placeholder="e.g. We referred this report to the appropriate agency.">{{ $defaultResidentMessage }}</textarea>
+                      data-resident-message @disabled($isInitiallyWithin) placeholder="e.g. We referred this report to the appropriate agency.">{{ $defaultResidentMessage }}</textarea>
           </div>
         </div>
 
@@ -1367,7 +1387,7 @@
             <div class="flex items-center gap-1.5 text-xs font-bold text-slate-800 truncate" data-action-summary>
               <i class="fa-solid fa-arrow-right-to-bracket text-blue-600" aria-hidden="true"></i>
               <span data-action-summary-text>
-                @if($ruleWithin)
+                @if($isInitiallyWithin)
                   Route to {{ $officeDefault ? ($offices->firstWhere('id', $officeDefault)?->name ?? 'selected office') : 'selected office' }} · {{ $priorityLabel }}
                 @else
                   Refer to {{ $defaultAgency?->name ?? 'external agency' }} · {{ $priorityLabel }}
@@ -1381,13 +1401,13 @@
             <a href="{{ route('admin.reports.index') }}" class="btn btn-ghost btn-small text-xs py-2 px-3">Cancel</a>
             
             @if($isRouteable)
-              <button type="submit" form="review-form" name="intent" value="route" class="btn btn-gold btn-small text-xs font-bold py-2 px-4 flex items-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed" data-route-submit @if(!$ruleWithin) style="display:none;" @endif>
+              <button type="submit" form="review-form" name="intent" value="route" class="btn btn-gold btn-small text-xs font-bold py-2 px-4 flex items-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed" data-route-submit @if(!$isInitiallyWithin) style="display:none;" @endif>
                 <i class="fa-solid fa-check" aria-hidden="true"></i>
                 <span>Confirm and route</span>
               </button>
             @endif
 
-            <button type="submit" form="review-form" name="intent" value="referral" class="btn btn-gold btn-small text-xs font-bold py-2 px-4 flex items-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed" data-referral-submit @if($ruleWithin) style="display:none;" @endif>
+            <button type="submit" form="review-form" name="intent" value="referral" class="btn btn-gold btn-small text-xs font-bold py-2 px-4 flex items-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed" data-referral-submit @if($isInitiallyWithin) style="display:none;" @endif>
               <i class="fa-solid fa-paper-plane" aria-hidden="true"></i>
               <span>Prepare referral</span>
             </button>
@@ -1421,6 +1441,12 @@
   @endif
 
   {{-- Auxiliary action forms placed outside #review-form to avoid nested HTML form corruption --}}
+  @if(auth()->user()?->hasPermission('cases.create'))
+    <form id="kebab-convert-case-form" method="POST" action="{{ route('admin.reports.convert-to-case', $report) }}" class="hidden" style="display:none;">
+      @csrf
+    </form>
+  @endif
+
   @if(!$report->is_emergency && !in_array($report->status, \App\Models\Report::CLOSED_STATUSES, true))
     <form id="kebab-emergency-form" method="POST" action="{{ route('admin.reports.emergency', $report) }}" data-confirm="Flag this report as an emergency concern?" class="hidden" style="display:none;">
       @csrf
@@ -2351,6 +2377,7 @@
   const modeNote = root.querySelector('[data-mode-note]');
   const modeToggle = root.querySelector('[data-mode-toggle]');
   const authorityModeInput = root.querySelector('[data-authority-mode-input]');
+  const agencyHiddenInput = root.querySelector('[data-agency-hidden-input]');
   const blockWithin = root.querySelector('[data-mode-block="within"]');
   const blockBeyond = root.querySelector('[data-mode-block="beyond"]');
   const agencySelect = root.querySelector('[data-agency-select]');
@@ -2681,7 +2708,13 @@
     if (blockWithin) blockWithin.hidden = !within;
     if (blockBeyond) blockBeyond.hidden = within;
     if (officeSelect) officeSelect.disabled = !within;
-    if (agencySelect) agencySelect.disabled = within;
+    if (agencySelect) {
+      agencySelect.disabled = within;
+      if (!within && !agencySelect.value && agencySelect.options.length > 1) {
+        agencySelect.selectedIndex = 1;
+      }
+      if (agencyHiddenInput) agencyHiddenInput.value = agencySelect.value || '';
+    }
     const followUpOwnerSelect = root.querySelector('#follow_up_owner_id');
     if (followUpOwnerSelect) followUpOwnerSelect.disabled = within;
     if (letterTextarea) letterTextarea.disabled = within;
@@ -2727,6 +2760,7 @@
 
   agencySelect?.addEventListener('change', () => {
     agencySelect.dataset.touched = 'true';
+    if (agencyHiddenInput) agencyHiddenInput.value = agencySelect.value || '';
     applyLetterTemplate(agencySelect.value);
     updateStickySummary();
     updateGate();
@@ -2821,9 +2855,18 @@
         modeNote.innerHTML = `Matched rule: <span data-matched-rule-text>${currentRuleText}</span>. Assign it to an office and staff member.`;
       }
     }
-    if (officeSelect && !officeTouched && decision.office_id) {
-      officeSelect.value = String(decision.office_id);
-      syncDefaultAssignee();
+    if (decision.within_authority) {
+      if (officeSelect && !officeTouched && decision.office_id) {
+        officeSelect.value = String(decision.office_id);
+        syncDefaultAssignee();
+      }
+    } else if (agencySelect && agencySelect.dataset.touched !== 'true' && decision.office_id) {
+      const matchingOpt = [...agencySelect.options].find(opt => String(opt.value) === String(decision.office_id));
+      if (matchingOpt) {
+        agencySelect.value = String(decision.office_id);
+        if (agencyHiddenInput) agencyHiddenInput.value = agencySelect.value;
+        applyLetterTemplate(agencySelect.value);
+      }
     }
     syncSuggestedBadge();
     if (!modeOverridden) setMode(ruleMode);

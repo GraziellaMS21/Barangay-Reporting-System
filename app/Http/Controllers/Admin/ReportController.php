@@ -607,6 +607,7 @@ class ReportController extends Controller
             'purok_id' => ['nullable', 'integer', Rule::exists('puroks', 'id')],
             'landmark' => ['nullable', 'string', 'max:255'],
             'office_id' => ['nullable', 'integer', Rule::exists('offices', 'id')->where('is_active', true)],
+            'agency_office_id' => ['nullable', 'integer', Rule::exists('offices', 'id')->where('is_active', true)],
             'authority_mode' => ['nullable', Rule::in(['within', 'beyond'])],
             'referral_letter' => ['nullable', 'string', 'max:20000'],
             'resident_message' => ['nullable', 'string', 'max:1000'],
@@ -637,6 +638,9 @@ class ReportController extends Controller
         $officeId = $request->has('office_id')
             ? ($validated['office_id'] ?? null)
             : $report->office_id;
+        if ($officeId === null && ($intent === 'referral' || ($validated['authority_mode'] ?? null) === 'beyond') && ! empty($validated['agency_office_id'])) {
+            $officeId = (int) $validated['agency_office_id'];
+        }
         $assignedTo = $request->has('assigned_to')
             ? ($validated['assigned_to'] ?? null)
             : $report->assigned_to;

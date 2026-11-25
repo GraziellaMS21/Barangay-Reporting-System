@@ -3395,9 +3395,24 @@ h3 {
     gap: 1rem;
 }
 .review-timeline-card {
-    height: 100%;
+    height: auto;
     display: flex;
     flex-direction: column;
+}
+.review-collapsible-chevron {
+    color: #64748b;
+    font-size: 0.75rem;
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+}
+.review-collapsible[open] > summary .review-collapsible-chevron {
+    transform: rotate(180deg);
+}
+.review-collapsible[open] > summary .review-timeline-collapsed-preview {
+    display: none;
+}
+.review-collapsible:not([open]) > summary .review-timeline-instruction {
+    display: none;
 }
 .review-timeline-feed {
     padding: 1.25rem;

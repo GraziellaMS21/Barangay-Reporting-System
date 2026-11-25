@@ -7,6 +7,8 @@
     $primary = $nextStep['primary_action'] ?? null;
     $statusPill = $nextStep['status_pill'] ?? null;
     $nextAttemptNo = $nextStep['next_attempt_no'] ?? 1;
+    $badgeLabel = $nextStep['badge_label'] ?? 'Action Required';
+    $badgeTone = $nextStep['badge_tone'] ?? 'blue';
 @endphp
 
 <div class="space-y-4">
@@ -53,14 +55,21 @@
     </div>
 
     <!-- Next Step Card: Exactly ONE primary button per state -->
-    <div class="bg-white rounded-xl border border-blue-200/90 shadow-sm overflow-visible">
-        <div class="bg-gradient-to-r from-blue-50/90 via-indigo-50/50 to-white px-5 py-4 border-b border-blue-100 rounded-t-xl">
+    <div class="bg-white rounded-xl border {{ $badgeTone === 'emerald' ? 'border-emerald-200/90' : 'border-blue-200/90' }} shadow-sm overflow-visible">
+        <div class="bg-gradient-to-r {{ $badgeTone === 'emerald' ? 'from-emerald-50/90 via-teal-50/40 to-white border-emerald-100' : 'from-blue-50/90 via-indigo-50/50 to-white border-blue-100' }} px-5 py-4 border-b rounded-t-xl">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div class="space-y-1">
-                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-100 text-blue-800 border border-blue-200">
-                        <span class="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
-                        Action Required
-                    </span>
+                    @if($badgeTone === 'emerald')
+                        <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            <i class="fa-solid fa-circle-check text-emerald-600 text-[10px]"></i>
+                            {{ $badgeLabel }}
+                        </span>
+                    @else
+                        <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-100 text-blue-800 border border-blue-200">
+                            <span class="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
+                            {{ $badgeLabel }}
+                        </span>
+                    @endif
                     <h3 class="text-base font-bold text-slate-900">{{ $nextStep['title'] }}</h3>
                 </div>
 

@@ -67,9 +67,12 @@ class KatarungangPambarangayService
                 || $latestHearing?->respondent_attendance === 'failed_to_appear'
             ));
 
-        $isSettledOutcome = $case->mediation_outcome === 'settled'
+        $isRepudiated = ! empty($case->repudiated_at);
+        $isSettledOutcome = ! $isRepudiated && (
+            $case->mediation_outcome === 'settled'
             || $latestHearing?->status === 'settled'
-            || $case->status === CaseStatus::SETTLED;
+            || $case->status === CaseStatus::SETTLED
+        );
         $settlementSigned = $isSettledOutcome && ! empty($case->settled_on);
 
         $isEndorsedOrCfa = $case->status === CaseStatus::IN_CONCILIATION
@@ -81,9 +84,8 @@ class KatarungangPambarangayService
         $repudiationPeriodDays = (int) config('katarungang_pambarangay.repudiation_period_days', 10);
         $repudiationEndsAt = $case->repudiation_ends_at
             ?? ($case->settled_on ? Carbon::parse($case->settled_on)->addDays($repudiationPeriodDays) : null);
-        $isRepudiated = ! empty($case->repudiated_at);
-        $isRepudiationActive = $settlementSigned && ! $isRepudiated && $repudiationEndsAt && now()->lt($repudiationEndsAt);
-        $isRepudiationPassed = $settlementSigned && ! $isRepudiated && $repudiationEndsAt && now()->gte($repudiationEndsAt);
+        $isRepudiationActive = $settlementSigned && $repudiationEndsAt && now()->lt($repudiationEndsAt);
+        $isRepudiationPassed = $settlementSigned && (! $repudiationEndsAt || now()->gte($repudiationEndsAt));
 
         $isMediationFailed = $case->mediation_outcome === 'failed'
             || $latestHearing?->status === 'unsettled'
@@ -97,7 +99,20 @@ class KatarungangPambarangayService
         // Milestones (strictly ONE "next" card at a time; later cards are "locked")
         $outcomeDone = $isSettledOutcome || $isEndorsedOrCfa || $isMediationFailed;
         $mediationDone = $latestHearingOutcomeRecorded && ! $isAbsentOrNotServed;
-        $settlementDone = ($settlementSigned && $isRepudiationPassed) || ! empty($case->cfa_issued_at);
+        $settlementDone = $settlementSigned || ! empty($case->cfa_issued_at);
+
+        $settlementMilestoneSubtitle = null;
+        if (! empty($case->cfa_issued_at)) {
+            $settlementMilestoneSubtitle = 'CFA Issued';
+        } elseif ($settlementSigned) {
+            if (! empty($case->court_transmitted_at)) {
+                $settlementMilestoneSubtitle = 'Transmitted to MTC';
+            } elseif ($isRepudiationActive) {
+                $settlementMilestoneSubtitle = '10-day window';
+            } else {
+                $settlementMilestoneSubtitle = 'Final & Executory';
+            }
+        }
 
         $milestones = $this->buildMilestones(
             complaintSigned: $complaintSigned,
@@ -110,11 +125,12 @@ class KatarungangPambarangayService
             mediationDone: $mediationDone,
             mediationAt: $mediationDone ? $latestHearing?->scheduled_at?->format('M d, Y') : null,
             outcomeDone: $outcomeDone,
-            outcomeAt: $outcomeDone ? ($case->mediation_outcome ? ucfirst(str_replace('_', ' ', $case->mediation_outcome)) : ($isEndorsedOrCfa ? 'Endorsed' : null)) : null,
+            outcomeAt: $outcomeDone ? ($case->mediation_outcome ? ucfirst(str_replace('_', ' ', $case->mediation_outcome)) : ($isEndorsedOrCfa ? 'Endorsed' : ($isSettledOutcome ? 'Settled' : null))) : null,
             settlementDone: $settlementDone,
-            settlementAt: $case->cfa_issued_at?->format('M d, Y') ?? $case->settled_on?->format('M d, Y'),
+            settlementAt: $case->cfa_issued_at?->format('M d, Y') ?? ($case->settled_on ? 'Signed '.$case->settled_on->format('M d, Y') : null),
             hearingLabel: $hearingLabel,
             isAbsentOrNotServed: $isAbsentOrNotServed,
+            settlementSubtitle: $settlementMilestoneSubtitle,
         );
 
         // State 1: Signed complaint pending
@@ -172,13 +188,15 @@ class KatarungangPambarangayService
             }
 
             if ($isRepudiationActive) {
-                $daysRemaining = (int) now()->startOfDay()->diffInDays($repudiationEndsAt->startOfDay(), false);
+                $daysRemaining = max(1, (int) now()->startOfDay()->diffInDays($repudiationEndsAt->copy()->startOfDay(), false));
 
                 return [
                     'code' => 'STEP_6_REPUDIATION',
                     'step_number' => 6,
-                    'title' => "Settled — 10-day repudiation period active ({$daysRemaining} days remaining)",
-                    'description' => "Under Sec. 418 of RA 7160, any party may repudiate the settlement until {$repudiationEndsAt->format('M d, Y')} on grounds of fraud, violence, or intimidation.",
+                    'badge_label' => 'Signed · 10-Day Repudiation Window',
+                    'badge_tone' => 'emerald',
+                    'title' => "Signed Settlement Recorded — 10-day repudiation period active ({$daysRemaining} ".($daysRemaining === 1 ? 'day' : 'days').' remaining)',
+                    'description' => "Signed Amicable Settlement (KP Form 16) is on file. Under Sec. 418 of RA 7160, any party may repudiate the settlement until {$repudiationEndsAt->format('M d, Y')} on grounds of fraud, violence, or intimidation; otherwise it becomes final and executory.",
                     'primary_action' => [
                         'label' => 'Record Repudiation',
                         'icon' => 'fa-solid fa-shield-halved',
@@ -207,6 +225,8 @@ class KatarungangPambarangayService
             return [
                 'code' => 'STEP_6_SETTLED_FINAL',
                 'step_number' => 6,
+                'badge_label' => $transmittalReminder ? 'Action Required · Court Transmittal' : 'Completed · Final & Executory',
+                'badge_tone' => $transmittalReminder ? 'blue' : 'emerald',
                 'title' => 'Amicable settlement final & executory',
                 'description' => $transmittalReminder
                     ? 'The 10-day repudiation period elapsed without challenge. Transmit a copy to the Municipal Trial Court within 5 days (Sec. 419, RA 7160).'
@@ -493,6 +513,7 @@ class KatarungangPambarangayService
         ?string $settlementAt,
         ?string $hearingLabel,
         bool $isAbsentOrNotServed,
+        ?string $settlementSubtitle = null,
     ): array {
         $nextAssigned = false;
         $assignState = function (bool $isDone) use (&$nextAssigned): string {
@@ -573,7 +594,7 @@ class KatarungangPambarangayService
                 'completed' => $settlementState === 'done',
                 'completed_at' => $settlementAt,
                 'subtext' => null,
-                'hearing_label' => null,
+                'hearing_label' => $settlementSubtitle,
                 'state' => $settlementState,
             ],
         ];

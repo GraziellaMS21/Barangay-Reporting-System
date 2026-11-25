@@ -7,6 +7,7 @@ use App\Models\BarangayCase;
 use App\Services\AuditLogger;
 use App\Services\CaseStatusService;
 use App\Support\CaseStatus;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -43,11 +44,18 @@ class CaseSettlementController extends Controller
             );
         }
 
+        $repudiationDays = (int) config('katarungang_pambarangay.repudiation_period_days', 10);
+        $repudiationEndsAt = Carbon::parse($validated['settled_on'])->addDays($repudiationDays);
+
         $case->update([
             'settled_on' => $validated['settled_on'],
             'settlement_terms' => $validated['terms'],
             'settlement_amount' => $validated['settlement_amount'] ?? null,
             'settlement_agreement_path' => $filePath ?? $case->settlement_agreement_path,
+            'repudiation_ends_at' => $repudiationEndsAt,
+            'repudiated_at' => null,
+            'repudiation_ground' => null,
+            'repudiated_by' => null,
         ]);
 
         $this->auditLogger->log(

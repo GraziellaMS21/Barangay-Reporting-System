@@ -26,6 +26,16 @@
             </div>
             <form action="{{ route('admin.cases.workflow.mark-signed-complaint', $case) }}" method="POST" enctype="multipart/form-data" class="space-y-4 text-xs font-sans">
                 @csrf
+                <input type="hidden" name="_workflow_modal" value="modal-mark-signed-complaint">
+                @if($errors->any() && old('_workflow_modal') === 'modal-mark-signed-complaint')
+                    <div class="p-3 rounded-lg bg-red-50 border border-red-200 text-red-900 text-xs">
+                        <ul class="list-disc pl-4 space-y-0.5 text-red-800">
+                            @foreach($errors->all() as $err)
+                                <li>{{ $err }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
                 <div>
                     <label class="block font-bold text-slate-700 mb-1">Date Signed in Person <span class="text-red-600">*</span></label>
                     <input type="date" name="signed_at" value="{{ date('Y-m-d') }}" max="{{ date('Y-m-d') }}" required class="w-full text-xs rounded-lg border-slate-300 p-2.5 bg-white border">
@@ -71,9 +81,10 @@
             </div>
             <form action="{{ route('admin.cases.workflow.schedule-and-issue-summons', $case) }}" method="POST" class="space-y-4 text-xs font-sans">
                 @csrf
+                <input type="hidden" name="_workflow_modal" value="modal-schedule-and-issue-summons">
                 <input type="hidden" name="reschedule_hearing_id" id="schedule_reschedule_hearing_id" value="{{ old('reschedule_hearing_id') }}">
 
-                @if($errors->any())
+                @if($errors->any() && (old('_workflow_modal') === 'modal-schedule-and-issue-summons' || !old('_workflow_modal')))
                     <div class="p-3 rounded-lg bg-red-50 border border-red-200 text-red-900 text-xs">
                         <ul class="list-disc pl-4 space-y-0.5 text-red-800">
                             @foreach($errors->all() as $err)
@@ -195,7 +206,17 @@
             </div>
             <form action="{{ route('admin.cases.workflow.record-summons-service', $case) }}" method="POST" class="space-y-4 text-xs font-sans">
                 @csrf
-                <input type="hidden" name="summons_id" id="service_modal_summons_id" value="">
+                <input type="hidden" name="_workflow_modal" value="modal-record-summons-service">
+                <input type="hidden" name="summons_id" id="service_modal_summons_id" value="{{ old('summons_id') }}">
+                @if($errors->any() && old('_workflow_modal') === 'modal-record-summons-service')
+                    <div class="p-3 rounded-lg bg-red-50 border border-red-200 text-red-900 text-xs">
+                        <ul class="list-disc pl-4 space-y-0.5 text-red-800">
+                            @foreach($errors->all() as $err)
+                                <li>{{ $err }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
 
                 <div class="p-3 rounded-lg bg-blue-50/70 border border-blue-200 text-blue-900 text-xs">
                     Proof that the respondent received the summons. Without it, a no-show cannot be counted.
@@ -287,7 +308,17 @@
             </div>
             <form action="{{ route('admin.cases.workflow.skip-summons-service', $case) }}" method="POST" class="space-y-4 text-xs font-sans">
                 @csrf
-                <input type="hidden" name="summons_id" id="skip_service_summons_id" value="">
+                <input type="hidden" name="_workflow_modal" value="modal-skip-service">
+                <input type="hidden" name="summons_id" id="skip_service_summons_id" value="{{ old('summons_id') }}">
+                @if($errors->any() && old('_workflow_modal') === 'modal-skip-service')
+                    <div class="p-3 rounded-lg bg-red-50 border border-red-200 text-red-900 text-xs">
+                        <ul class="list-disc pl-4 space-y-0.5 text-red-800">
+                            @foreach($errors->all() as $err)
+                                <li>{{ $err }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
                 <p class="text-xs text-slate-600">
                     Skipping service unlocks the hearing outcome step and writes a permanent audit log entry.
                 </p>
@@ -319,7 +350,17 @@
             </div>
             <form action="{{ route('admin.cases.workflow.record-hearing-outcome', $case) }}" method="POST" class="space-y-4 text-xs font-sans">
                 @csrf
-                <input type="hidden" name="hearing_id" id="outcome_modal_hearing_id" value="">
+                <input type="hidden" name="_workflow_modal" value="modal-record-hearing-outcome">
+                <input type="hidden" name="hearing_id" id="outcome_modal_hearing_id" value="{{ old('hearing_id') }}">
+                @if($errors->any() && old('_workflow_modal') === 'modal-record-hearing-outcome')
+                    <div class="p-3 rounded-lg bg-red-50 border border-red-200 text-red-900 text-xs">
+                        <ul class="list-disc pl-4 space-y-0.5 text-red-800">
+                            @foreach($errors->all() as $err)
+                                <li>{{ $err }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
 
                 <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-2">
                     <span class="block font-bold text-slate-700">Attendance</span>
@@ -381,17 +422,33 @@
             </div>
             <form action="{{ route('admin.cases.workflow.mark-signed-settlement', $case) }}" method="POST" enctype="multipart/form-data" class="space-y-4 text-xs font-sans">
                 @csrf
+                <input type="hidden" name="_workflow_modal" value="modal-mark-signed-settlement">
+                @if($errors->any() && old('_workflow_modal') === 'modal-mark-signed-settlement')
+                    <div class="p-3 rounded-lg bg-red-50 border border-red-200 text-red-900 text-xs">
+                        <ul class="list-disc pl-4 space-y-0.5 text-red-800">
+                            @foreach($errors->all() as $err)
+                                <li>{{ $err }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
                 <div>
                     <label class="block font-bold text-slate-700 mb-1">Date Signed by Both Parties <span class="text-red-600">*</span></label>
-                    <input type="date" name="settled_on" value="{{ date('Y-m-d') }}" max="{{ date('Y-m-d') }}" required class="w-full text-xs rounded-lg border-slate-300 p-2.5 bg-white border">
+                    <input type="date" name="settled_on" value="{{ old('settled_on', date('Y-m-d')) }}" max="{{ date('Y-m-d') }}" required class="w-full text-xs rounded-lg border-slate-300 p-2.5 bg-white border @error('settled_on') border-red-500 @enderror">
                 </div>
                 <div>
                     <label class="block font-bold text-slate-700 mb-1">Agreed Settlement Terms <span class="text-red-600">*</span></label>
-                    <textarea name="terms" rows="4" required placeholder="State exact settlement terms agreed by complainant and respondent..." class="w-full text-xs rounded-lg border-slate-300 p-2.5 bg-white border font-sans">{{ $case->settlement_terms }}</textarea>
+                    <textarea name="terms" rows="4" required minlength="5" placeholder="State exact settlement terms agreed by complainant and respondent..." class="w-full text-xs rounded-lg border-slate-300 p-2.5 bg-white border font-sans @error('terms') border-red-500 @enderror">{{ old('terms', $case->settlement_terms) }}</textarea>
+                    <p class="text-[11px] text-slate-500 mt-1">Minimum 5 characters describing the obligations or agreement reached.</p>
                 </div>
                 <div>
-                    <label class="block font-bold text-slate-700 mb-1">Upload Signed Settlement Scan (KP Form 16)</label>
+                    <label class="block font-bold text-slate-700 mb-1">Monetary Settlement Amount (₱, Optional)</label>
+                    <input type="number" step="0.01" min="0" name="settlement_amount" value="{{ old('settlement_amount', $case->settlement_amount) }}" placeholder="0.00" class="w-full text-xs rounded-lg border-slate-300 p-2.5 bg-white border @error('settlement_amount') border-red-500 @enderror">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Upload Signed Settlement Scan (KP Form 16, Optional)</label>
                     <input type="file" name="scan_file" accept=".pdf,.jpg,.jpeg,.png" class="w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100">
+                    <p class="text-[11px] text-slate-500 mt-1">PDF, JPG, or PNG (server upload limit: {{ ini_get('upload_max_filesize') ?: '2M' }}).</p>
                 </div>
                 <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
                     <button type="button" onclick="closeWorkflowModal('modal-mark-signed-settlement')" class="px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50">Cancel</button>
@@ -417,6 +474,16 @@
             </div>
             <form action="{{ route('admin.cases.workflow.record-repudiation', $case) }}" method="POST" enctype="multipart/form-data" class="space-y-4 text-xs font-sans">
                 @csrf
+                <input type="hidden" name="_workflow_modal" value="modal-record-repudiation">
+                @if($errors->any() && old('_workflow_modal') === 'modal-record-repudiation')
+                    <div class="p-3 rounded-lg bg-red-50 border border-red-200 text-red-900 text-xs">
+                        <ul class="list-disc pl-4 space-y-0.5 text-red-800">
+                            @foreach($errors->all() as $err)
+                                <li>{{ $err }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">Repudiation Date <span class="text-red-600">*</span></label>
@@ -467,6 +534,16 @@
             </div>
             <form action="{{ route('admin.cases.workflow.mark-court-transmitted', $case) }}" method="POST" class="space-y-4 text-xs font-sans">
                 @csrf
+                <input type="hidden" name="_workflow_modal" value="modal-mark-court-transmitted">
+                @if($errors->any() && old('_workflow_modal') === 'modal-mark-court-transmitted')
+                    <div class="p-3 rounded-lg bg-red-50 border border-red-200 text-red-900 text-xs">
+                        <ul class="list-disc pl-4 space-y-0.5 text-red-800">
+                            @foreach($errors->all() as $err)
+                                <li>{{ $err }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
                 <div>
                     <label class="block font-bold text-slate-700 mb-1">Date Transmitted <span class="text-red-600">*</span></label>
                     <input type="date" name="transmitted_at" value="{{ date('Y-m-d') }}" max="{{ date('Y-m-d') }}" required class="w-full text-xs rounded-lg border-slate-300 p-2.5 bg-white border">
@@ -499,6 +576,16 @@
             </div>
             <form action="{{ route('admin.cases.workflow.issue-cfa', $case) }}" method="POST" class="space-y-4 text-xs font-sans">
                 @csrf
+                <input type="hidden" name="_workflow_modal" value="modal-issue-cfa">
+                @if($errors->any() && old('_workflow_modal') === 'modal-issue-cfa')
+                    <div class="p-3 rounded-lg bg-red-50 border border-red-200 text-red-900 text-xs">
+                        <ul class="list-disc pl-4 space-y-0.5 text-red-800">
+                            @foreach($errors->all() as $err)
+                                <li>{{ $err }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
                 <div>
                     <label class="block font-bold text-slate-700 mb-1">Date Issued <span class="text-red-600">*</span></label>
                     <input type="date" name="issued_at" value="{{ date('Y-m-d') }}" max="{{ date('Y-m-d') }}" required class="w-full text-xs rounded-lg border-slate-300 p-2.5 bg-white border">
@@ -667,27 +754,42 @@
         }
     }
 
-    document.addEventListener('DOMContentLoaded', function() {
-        const input = document.getElementById('schedule_hearing_datetime');
-        if (input && input.value) {
-            checkScheduleWarnings(input.value);
+    (function initScheduleDatetimeCheck() {
+        const run = function() {
+            const input = document.getElementById('schedule_hearing_datetime');
+            if (input && input.value) {
+                checkScheduleWarnings(input.value);
+            }
+        };
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', run, { once: true });
+        } else {
+            run();
         }
-    });
+    })();
 </script>
 
-@if($errors->has('scheduled_at') || $errors->has('venue') || $errors->has('reason'))
+@if($errors->any())
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            openScheduleModal({
-                attemptNo: {{ $nextAttemptNo }},
-                rescheduleHearingId: @json(old('reschedule_hearing_id'))
-            });
-        });
-    </script>
-@elseif($errors->has('recipient_name') || $errors->has('served_by') || $errors->has('served_at') || $errors->has('service_method'))
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            openRecordServiceModal(@json(old('summons_id')));
-        });
+        (function reopenFailedWorkflowModal() {
+            const run = function() {
+                const targetModal = @json(old('_workflow_modal'));
+                if (targetModal === 'modal-schedule-and-issue-summons' || (!targetModal && @json($errors->has('scheduled_at') || $errors->has('venue') || $errors->has('reason')))) {
+                    openScheduleModal({
+                        attemptNo: {{ $nextAttemptNo }},
+                        rescheduleHearingId: @json(old('reschedule_hearing_id'))
+                    });
+                } else if (targetModal === 'modal-record-summons-service' || (!targetModal && @json($errors->has('recipient_name') || $errors->has('served_by') || $errors->has('served_at') || $errors->has('service_method')))) {
+                    openRecordServiceModal(@json(old('summons_id')));
+                } else if (targetModal) {
+                    openWorkflowModal(targetModal);
+                }
+            };
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', run, { once: true });
+            } else {
+                run();
+            }
+        })();
     </script>
 @endif

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\BarangayCase;
 use App\Models\CaseNote;
 use App\Models\CaseParty;
+use App\Models\CaseStatusLog;
 use App\Models\Hearing;
 use App\Models\Party;
 use App\Models\Summons;
@@ -508,6 +509,7 @@ class CaseWorkflowController extends Controller
             ]);
         }
 
+        $previousStatus = $case->status;
         $caseUpdates = [
             'mediation_outcome' => $outcome,
         ];
@@ -522,6 +524,17 @@ class CaseWorkflowController extends Controller
         }
 
         $case->update($caseUpdates);
+
+        if ($previousStatus !== $caseUpdates['status']) {
+            CaseStatusLog::create([
+                'case_id' => $case->id,
+                'user_id' => $request->user()->id,
+                'from_status' => $previousStatus,
+                'to_status' => $caseUpdates['status'],
+                'note' => "Hearing outcome recorded as '{$outcome}'." . (! empty($validated['notes']) ? " {$validated['notes']}" : ''),
+                'created_at' => now(),
+            ]);
+        }
 
         $noteParts = ["[Hearing Outcome: {$outcome}]"];
         if (! empty($validated['early_endorse_reason'])) {
@@ -557,10 +570,16 @@ class CaseWorkflowController extends Controller
      */
     public function markSignedSettlement(Request $request, BarangayCase $case): RedirectResponse
     {
+        $maxUploadIni = ini_get('upload_max_filesize') ?: '2M';
         $validated = $request->validate([
             'settled_on' => ['required', 'date', 'before_or_equal:today'],
-            'terms' => ['required', 'string', 'min:10'],
+            'terms' => ['required', 'string', 'min:5'],
+            'settlement_amount' => ['nullable', 'numeric', 'min:0'],
             'scan_file' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+        ], [
+            'terms.min' => 'Agreed settlement terms must be at least 5 characters.',
+            'settled_on.before_or_equal' => 'Date signed cannot be in the future.',
+            'scan_file.uploaded' => "The uploaded file exceeds the server upload limit ({$maxUploadIni}). Please upload a smaller PDF or image.",
         ]);
 
         $filePath = null;
@@ -570,22 +589,44 @@ class CaseWorkflowController extends Controller
 
         $repudiationDays = (int) config('katarungang_pambarangay.repudiation_period_days', 10);
         $repudiationEndsAt = Carbon::parse($validated['settled_on'])->addDays($repudiationDays);
+        $previousStatus = $case->status;
 
         $case->update([
             'settled_on' => $validated['settled_on'],
             'settlement_terms' => $validated['terms'],
+            'settlement_amount' => $validated['settlement_amount'] ?? $case->settlement_amount,
             'settlement_agreement_path' => $filePath ?? $case->settlement_agreement_path,
             'repudiation_ends_at' => $repudiationEndsAt,
+            'repudiated_at' => null,
+            'repudiation_ground' => null,
+            'repudiated_by' => null,
             'status' => CaseStatus::SETTLED,
+        ]);
+
+        CaseStatusLog::create([
+            'case_id' => $case->id,
+            'user_id' => $request->user()->id,
+            'from_status' => $previousStatus,
+            'to_status' => CaseStatus::SETTLED,
+            'note' => "Signed Amicable Settlement (KP Form 16) received on {$validated['settled_on']}. 10-day repudiation window ends {$repudiationEndsAt->format('M d, Y')}.",
+            'created_at' => now(),
+        ]);
+
+        CaseNote::create([
+            'case_id' => $case->id,
+            'user_id' => $request->user()->id,
+            'body' => "[Signed Settlement Received (KP Form 16)] Signed on {$validated['settled_on']}. Terms: {$validated['terms']}",
         ]);
 
         $this->audit->log($request->user(), 'case.settlement_signed_received', $case, [], [
             'settled_on' => $validated['settled_on'],
             'repudiation_ends_at' => $repudiationEndsAt->toDateString(),
+            'has_amount' => ! empty($validated['settlement_amount']),
+            'has_file' => ! empty($filePath),
         ]);
 
         return redirect()->route('admin.cases.show', $case)
-            ->with('success', 'Signed Amicable Settlement received. 10-day repudiation period initiated.');
+            ->with('success', "Signed Amicable Settlement recorded. 10-day repudiation period active until {$repudiationEndsAt->format('M d, Y')}.");
     }
 
     /**
@@ -598,7 +639,7 @@ class CaseWorkflowController extends Controller
             'ground' => ['required', 'string', 'in:fraud,violence,intimidation'],
             'repudiated_by' => ['required', 'string', 'max:150'],
             'sworn_statement_file' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
-            'explanation' => ['required', 'string', 'min:10', 'max:1000'],
+            'explanation' => ['required', 'string', 'min:5', 'max:1000'],
         ]);
 
         $filePath = null;
@@ -606,12 +647,23 @@ class CaseWorkflowController extends Controller
             $filePath = $request->file('sworn_statement_file')->store("case-files/{$case->id}", 'private');
         }
 
+        $previousStatus = $case->status;
+
         $case->update([
             'repudiated_at' => $validated['repudiation_date'],
             'repudiation_ground' => $validated['ground'],
             'repudiated_by' => $validated['repudiated_by'],
             'repudiation_document_path' => $filePath ?? $case->repudiation_document_path,
             'status' => CaseStatus::UNSETTLED,
+        ]);
+
+        CaseStatusLog::create([
+            'case_id' => $case->id,
+            'user_id' => $request->user()->id,
+            'from_status' => $previousStatus,
+            'to_status' => CaseStatus::UNSETTLED,
+            'note' => "Settlement repudiated by {$validated['repudiated_by']} on ground of {$validated['ground']}.",
+            'created_at' => now(),
         ]);
 
         CaseNote::create([

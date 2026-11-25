@@ -191,6 +191,19 @@
             <span>{{ session('warning_message') }}</span>
         </div>
     @endif
+    @if ($errors->any())
+        <div role="alert" class="p-4 rounded-xl bg-red-50 border border-red-200 text-red-900 text-xs shadow-xs space-y-1">
+            <div class="font-bold flex items-center gap-2 text-red-800">
+                <i class="fa-solid fa-circle-exclamation text-red-600"></i>
+                <span>Could not save changes — please review the required fields:</span>
+            </div>
+            <ul class="list-disc pl-5 space-y-0.5 text-red-700">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
 
     <!-- Main Content Two-Column Grid -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
@@ -773,11 +786,33 @@
                     </div>
 
                     @if($case->settled_on)
-                        <div class="space-y-1.5 py-1.5 border-b border-slate-50 bg-emerald-50/70 p-2.5 rounded border border-emerald-200 mt-2">
+                        @php
+                            $repEnds = $case->repudiation_ends_at ?? $case->settled_on->copy()->addDays((int) config('katarungang_pambarangay.repudiation_period_days', 10));
+                            $isRepActive = empty($case->repudiated_at) && now()->lt($repEnds);
+                        @endphp
+                        <div class="space-y-1.5 py-1.5 border-b border-slate-50 {{ $case->repudiated_at ? 'bg-red-50/70 border-red-200' : 'bg-emerald-50/70 border-emerald-200' }} p-2.5 rounded border mt-2">
                             <div class="flex justify-between items-center text-xs">
-                                <span class="text-emerald-800 font-semibold">Settled On</span>
-                                <span class="font-bold text-emerald-900">{{ $case->settled_on?->format('M d, Y') ?? '—' }}</span>
+                                <span class="{{ $case->repudiated_at ? 'text-red-800' : 'text-emerald-800' }} font-semibold">Settlement Status</span>
+                                @if($case->repudiated_at)
+                                    <span class="font-bold text-red-700">Repudiated</span>
+                                @elseif($case->court_transmitted_at)
+                                    <span class="font-bold text-emerald-800">Final · Transmitted to MTC</span>
+                                @elseif($isRepActive)
+                                    <span class="font-bold text-emerald-800">Signed (10-Day Window)</span>
+                                @else
+                                    <span class="font-bold text-emerald-800">Final &amp; Executory</span>
+                                @endif
                             </div>
+                            <div class="flex justify-between items-center text-xs">
+                                <span class="text-slate-600 font-medium">Signed On</span>
+                                <span class="font-bold text-slate-900">{{ $case->settled_on?->format('M d, Y') ?? '—' }}</span>
+                            </div>
+                            @if($isRepActive)
+                                <div class="flex justify-between items-center text-[11px] text-emerald-800">
+                                    <span>Repudiation Ends</span>
+                                    <span class="font-semibold">{{ $repEnds->format('M d, Y') }}</span>
+                                </div>
+                            @endif
                             @if($case->settlement_amount)
                                 <div class="flex justify-between items-center text-xs text-slate-700">
                                     <span class="text-slate-500">Amount:</span>

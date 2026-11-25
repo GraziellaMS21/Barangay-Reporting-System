@@ -33,15 +33,17 @@
 
       <!-- Legal Instructions Card -->
       <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 1.25rem 1.5rem; text-align: left; margin-bottom: 1.75rem;">
-        <h3 style="font-size: 1rem; font-weight: 700; color: #1e293b; margin: 0 0 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
-          <i class="fa-solid fa-scale-balanced text-blue-600"></i> Next Step: In-Person Sworn Signing
+        <h3 style="font-size: 1rem; font-weight: 700; color: #1e293b; margin: 0 0 0.65rem; display: flex; align-items: center; gap: 0.5rem;">
+          <i class="fa-solid fa-scale-balanced text-blue-600"></i> Next Steps: Review &amp; In-Person Sworn Signing
         </h3>
         <p style="font-size: 0.88rem; color: #334155; line-height: 1.6; margin: 0 0 0.75rem;">
-          In accordance with the <strong>Katarungang Pambarangay Law (Republic Act No. 7160)</strong>, dispute complaints must be verified under oath and signed in person before the Punong Barangay or Barangay Secretary before summons notices can be officially served.
+          In accordance with the <strong>Katarungang Pambarangay Law (Republic Act No. 7160)</strong>, your request will follow these steps before a mediation hearing is set:
         </p>
-        <p style="font-size: 0.88rem; color: #334155; line-height: 1.6; margin: 0;">
-          Please visit the <strong>Barangay Calarian Hall</strong> during regular government office hours:
-        </p>
+        <ol style="font-size: 0.86rem; color: #334155; line-height: 1.6; margin: 0 0 0.85rem; padding-left: 1.25rem;">
+          <li style="margin-bottom: 0.35rem;"><strong>Intake Review &amp; Docketing:</strong> Barangay staff will review your complaint details and docket it onto the official KP Form No. 1.</li>
+          <li style="margin-bottom: 0.35rem;"><strong>In-Person Sworn Signing:</strong> Visit Barangay Calarian Hall with a valid ID to sign the printed formal complaint in person before the Punong Barangay or Barangay Secretary.</li>
+          <li><strong>Hearing &amp; Summons Issuance:</strong> Once your signed complaint is received, the mediation hearing will be scheduled and official summons (KP Form No. 9) will be issued to the respondent.</li>
+        </ol>
         <div style="margin-top: 0.65rem; padding: 0.65rem 0.85rem; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.85rem; color: #475569;">
           <div><i class="fa-solid fa-clock text-slate-500 mr-1.5"></i> Monday – Friday: 8:00 AM – 5:00 PM</div>
           <div style="margin-top: 0.25rem;"><i class="fa-solid fa-location-dot text-slate-500 mr-1.5"></i> Barangay Calarian Hall, Calarian, Zamboanga City</div>

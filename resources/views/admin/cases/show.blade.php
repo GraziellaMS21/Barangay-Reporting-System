@@ -19,7 +19,7 @@
     $isAllChecked = !empty($checklist['same_barangay']) && !empty($checklist['kp_matter']) && !empty($checklist['non_confidential']) && !empty($checklist['residency_verified']);
 
     $overdue = app(\App\Services\OverdueService::class)->forCase($case);
-    $nextHearing = $case->hearings->where('scheduled_at', '>=', now())->sortBy('scheduled_at')->first();
+    $nextHearing = $case->hearings->whereNull('superseded_at')->where('scheduled_at', '>=', now())->sortBy('scheduled_at')->first();
 
     $sourceIntake = \App\Models\ComplaintIntake::where('case_id', $case->id)->first();
     $narrativeText = $case->narrative ?? '';
@@ -687,9 +687,9 @@
                     </div>
                 </div>
 
-                <!-- Mediation Clock (Sec. 410b RA 7160) -->
+                <!-- Working-Day Mediation Clock (Sec. 410b RA 7160) -->
                 <div class="space-y-1.5 pb-3 border-b border-slate-100">
-                    <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Mediation Clock (15 Days)</span>
+                    <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Mediation Clock (15 Working Days)</span>
                     @php
                         $clock = $nextStep['mediation_clock'] ?? null;
                     @endphp
@@ -702,9 +702,9 @@
                             </div>
                             @if(!$clock['is_overdue'])
                                 @php
-                                    $periodDays = config('katarungang_pambarangay.mediation_period_days', 15);
-                                    $dayNum = min($periodDays, max(1, $periodDays - $clock['days_remaining']));
-                                    $pct = min(100, round(($dayNum / $periodDays) * 100));
+                                    $periodDays = $clock['period'] ?? config('katarungang_pambarangay.mediation_period_days', 15);
+                                    $dayNum = $clock['day_current'] ?? 1;
+                                    $pct = min(100, round(($dayNum / max(1, $periodDays)) * 100));
                                 @endphp
                                 <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
                                     <div class="h-2 rounded-full transition-all {{ $clock['is_warning'] ? 'bg-amber-500' : 'bg-blue-600' }}" style="width: {{ $pct }}%"></div>
@@ -713,7 +713,7 @@
                         </div>
                     @else
                         <div class="pt-1 text-slate-500 text-xs">
-                            {{ $clock['display'] ?? 'Starts at the first hearing.' }}
+                            {{ $clock['display'] ?? 'Starts at first scheduled hearing (TBD)' }}
                         </div>
                     @endif
                 </div>

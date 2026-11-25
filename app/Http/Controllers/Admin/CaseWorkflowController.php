@@ -11,17 +11,20 @@ use App\Models\Party;
 use App\Models\Summons;
 use App\Services\AuditLogger;
 use App\Services\CaseStatusService;
+use App\Services\KatarungangPambarangayService;
 use App\Support\CaseStatus;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class CaseWorkflowController extends Controller
 {
     public function __construct(
         protected AuditLogger $audit,
-        protected CaseStatusService $statusService
+        protected CaseStatusService $statusService,
+        protected KatarungangPambarangayService $kpService,
     ) {}
 
     /**
@@ -51,11 +54,11 @@ class CaseWorkflowController extends Controller
             CaseNote::create([
                 'case_id' => $case->id,
                 'user_id' => $request->user()->id,
-                'body' => "[Complaint Signing] Received by {$validated['received_by']}: {$validated['notes']}",
+                'body' => "[Signed Complaint Received] By {$validated['received_by']}: {$validated['notes']}",
             ]);
         }
 
-        $this->audit->log($request->user(), 'case.complaint_signed_received', $case, [], [
+        $this->audit->log($request->user(), 'case.signed_complaint_received', $case, [], [
             'signed_at' => $validated['signed_at'],
             'received_by' => $validated['received_by'],
         ]);
@@ -65,48 +68,89 @@ class CaseWorkflowController extends Controller
     }
 
     /**
-     * Merged Step 2: Schedule Hearing & Issue Summons (Form 9 + Complainant Notice in one transaction).
+     * Unified entry point: Schedule Hearing #N and Issue Summons #N together in one transaction.
+     * Supports both first hearing and rescheduling/next hearing.
      */
     public function scheduleHearingAndIssueSummons(Request $request, BarangayCase $case): RedirectResponse
     {
-        $validated = $request->validate([
-            'scheduled_at' => ['required', 'date'],
+        $rescheduleHearingId = $request->input('reschedule_hearing_id');
+        $hasActiveHearing = $case->hearings()->whereNull('superseded_at')->exists();
+        $isRescheduling = ! empty($rescheduleHearingId) || $hasActiveHearing;
+
+        $rules = [
+            'scheduled_at' => ['nullable', 'date'],
+            'scheduled_date' => ['nullable', 'date'],
+            'scheduled_time' => ['nullable', 'string'],
             'venue' => ['required', 'string', 'max:255'],
             'presided_by' => ['nullable', 'exists:personnel,id'],
+            'respondent_case_party_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('case_parties', 'id')
+                    ->where('case_id', $case->id)
+                    ->where('role', 'respondent'),
+            ],
+            'reason_preset' => ['nullable', 'string', 'max:255'],
+            'reason' => ['nullable', 'string', 'max:500'],
             'notes' => ['nullable', 'string', 'max:500'],
             'notify_channels' => ['nullable', 'boolean'],
-            'warning_acknowledged' => ['nullable', 'boolean'],
-        ]);
+            'reschedule_hearing_id' => ['nullable', 'integer'],
+        ];
 
-        $scheduledCarbon = Carbon::parse($validated['scheduled_at']);
+        $validated = $request->validate($rules);
+
+        if (! empty($validated['scheduled_at'])) {
+            $scheduledCarbon = Carbon::parse($validated['scheduled_at']);
+        } elseif (! empty($validated['scheduled_date'])) {
+            $time = ! empty($validated['scheduled_time']) ? $validated['scheduled_time'] : '09:00';
+            $scheduledCarbon = Carbon::parse($validated['scheduled_date'].' '.$time);
+        } else {
+            return back()->withInput()->withErrors(['scheduled_at' => 'Please select a hearing date and time.']);
+        }
+
         if ($scheduledCarbon->isPast()) {
             return back()->withInput()
                 ->withErrors(['scheduled_at' => 'The hearing schedule must be set to a future date and time.']);
         }
 
-        $isWeekend = $scheduledCarbon->isWeekend();
-        $hour = (int) $scheduledCarbon->format('H');
-        $isOffHours = $hour < 8 || $hour >= 17;
+        $reason = null;
+        if ($isRescheduling) {
+            $reason = ! empty($validated['reason'])
+                ? $validated['reason']
+                : (! empty($validated['reason_preset']) && $validated['reason_preset'] !== 'other'
+                    ? $validated['reason_preset']
+                    : null);
 
-        if (($isWeekend || $isOffHours) && empty($validated['warning_acknowledged'])) {
-            return back()->withInput()
-                ->with('office_hours_warning', true)
-                ->with('warning_message', 'The chosen schedule falls outside regular weekday office hours (Mon-Fri 8:00 AM - 5:00 PM). Please check the confirmation box to proceed.')
-                ->withErrors(['scheduled_at' => 'The chosen schedule falls outside regular weekday office hours (Mon-Fri 8:00 AM - 5:00 PM). Please check the confirmation box to proceed.']);
+            if (empty($reason)) {
+                return back()->withInput()
+                    ->withErrors(['reason' => 'A reason is required when rescheduling or scheduling the next hearing.']);
+            }
         }
 
-        DB::transaction(function () use ($case, $validated, $scheduledCarbon, $request) {
-            // 1. Create Hearing record
-            $hearing = Hearing::create([
-                'case_id' => $case->id,
-                'scheduled_at' => $scheduledCarbon,
-                'venue' => $validated['venue'],
-                'status' => 'scheduled',
-                'presided_by_personnel_id' => $validated['presided_by'] ?? null,
-            ]);
+        $seqNo = 1;
+        DB::transaction(function () use ($case, $validated, $scheduledCarbon, $request, $isRescheduling, $reason, &$seqNo) {
+            // If rescheduling / scheduling next attempt, mark existing active pair as superseded
+            if ($isRescheduling) {
+                $case->hearings()->whereNull('superseded_at')->update([
+                    'superseded_at' => now(),
+                    'superseded_reason' => $reason,
+                ]);
 
-            // 2. Generate official Summons record
-            $respondent = $case->caseParties()->where('role', 'respondent')->first();
+                $case->activeSummons()->update([
+                    'superseded_at' => now(),
+                    'void_note' => 'Superseded: '.$reason,
+                ]);
+            }
+
+            $maxHearingSeq = (int) $case->hearings()->max('sequence_no');
+            $maxSummonsSeq = (int) $case->summons()->max('sequence_no');
+            $seqNo = max($maxHearingSeq, $maxSummonsSeq) + 1;
+
+            // Resolve respondent party
+            $respondent = ! empty($validated['respondent_case_party_id'])
+                ? $case->caseParties()->where('id', $validated['respondent_case_party_id'])->first()
+                : $case->caseParties()->where('role', 'respondent')->first();
+
             if (! $respondent) {
                 $party = Party::create([
                     'full_name' => 'Respondent (Unassigned)',
@@ -118,31 +162,62 @@ class CaseWorkflowController extends Controller
                     'role' => 'respondent',
                 ]);
             }
-            $seqNo = ($case->summons()->max('sequence_no') ?? 0) + 1;
+
+            // 1. Create Hearing #N
+            $hearing = Hearing::create([
+                'case_id' => $case->id,
+                'sequence_no' => $seqNo,
+                'scheduled_at' => $scheduledCarbon,
+                'venue' => $validated['venue'],
+                'status' => 'scheduled',
+                'presided_by_personnel_id' => $validated['presided_by'] ?? null,
+            ]);
+
+            // 2. Create Summons #N linked 1:1 with Hearing #N
+            $summonsNumber = "SUMMONS-{$case->case_number}-#{$seqNo}";
+            if (Summons::where('summons_number', $summonsNumber)->exists()) {
+                $summonsNumber .= '-'.$hearing->id;
+            }
 
             $summons = Summons::create([
                 'case_id' => $case->id,
+                'hearing_id' => $hearing->id,
                 'respondent_case_party_id' => $respondent->id,
                 'sequence_no' => $seqNo,
-                'summons_number' => "SUMMONS-{$case->case_number}-#{$seqNo}",
+                'summons_number' => $summonsNumber,
                 'issued_on' => now()->toDateString(),
                 'issued_by' => $request->user()->id,
                 'hearing_at' => $scheduledCarbon,
                 'venue' => $validated['venue'],
-                'remarks' => $validated['notes'] ?? null,
+                'remarks' => $validated['notes'] ?? ($reason ? "Reschedule reason: {$reason}" : null),
             ]);
 
-            // Link hearing to summons
             $hearing->update(['summons_id' => $summons->id]);
 
-            // Update case
-            $case->update([
-                'first_meeting_on' => $scheduledCarbon->toDateString(),
+            // 3. Anchor first_meeting_on only if no earlier hearing date has already passed
+            $earliestHearing = $case->hearings()->orderBy('sequence_no')->orderBy('id')->first();
+            $anchorLocked = $earliestHearing
+                && $earliestHearing->id !== $hearing->id
+                && Carbon::parse($earliestHearing->scheduled_at)->startOfDay()->lte(Carbon::today());
+
+            $caseUpdates = [
                 'status' => CaseStatus::IN_MEDIATION,
                 'notices_issued_at' => now(),
-            ]);
+                'mediation_outcome' => null,
+                'summons_service_status' => null,
+                'summons_served_at' => null,
+                'summons_served_by' => null,
+                'summons_recipient_name' => null,
+                'summons_recipient_relation' => null,
+            ];
 
-            // 3. Notification dispatch logging
+            if (! $anchorLocked) {
+                $caseUpdates['first_meeting_on'] = $scheduledCarbon->toDateString();
+            }
+
+            $case->update($caseUpdates);
+
+            // 4. Notification dispatch logging
             if (! empty($validated['notify_channels'])) {
                 $complainant = $case->caseParties()->where('role', 'complainant')->with('party')->first();
                 $complainantEmail = $complainant?->party?->email;
@@ -151,132 +226,75 @@ class CaseWorkflowController extends Controller
                     'case_id' => $case->id,
                     'user_id' => $request->user()->id,
                     'body' => $complainantEmail
-                        ? "[Notification] Hearing notice sent via email to {$complainantEmail}."
-                        : '[Notification] No email contact found for complainant. Tanod physical service required.',
+                        ? "[Notification] Hearing #{$seqNo} & Summons #{$seqNo} notice sent via email to {$complainantEmail}. (No SMS configured.)"
+                        : "[Notification] No email contact found for complainant. Tanod physical service required for Summons #{$seqNo}.",
                 ]);
             }
 
+            $noteBody = $isRescheduling
+                ? "[Hearing #{$seqNo} & Summons #{$seqNo} Issued (Rescheduled)] Scheduled for {$scheduledCarbon->format('M d, Y g:i A')} at {$validated['venue']}. Reason: {$reason}."
+                : "[Hearing #{$seqNo} & Summons #{$seqNo} Issued] Scheduled for {$scheduledCarbon->format('M d, Y g:i A')} at {$validated['venue']}.";
             if (! empty($validated['notes'])) {
-                CaseNote::create([
-                    'case_id' => $case->id,
-                    'user_id' => $request->user()->id,
-                    'body' => "[Hearing & Summons Issued] Hearing #{$seqNo} scheduled for {$scheduledCarbon->format('M d, Y g:i A')} at {$validated['venue']}. {$validated['notes']}",
-                ]);
+                $noteBody .= ' '.$validated['notes'];
             }
-
-            // 4. Audit Log
-            $this->audit->log($request->user(), 'case.hearing_and_summons_issued', $case, [], [
-                'hearing_id' => $hearing->id,
-                'summons_id' => $summons->id,
-                'scheduled_at' => $scheduledCarbon->toDateTimeString(),
-                'venue' => $validated['venue'],
-            ]);
-        });
-
-        return redirect()->route('admin.cases.show', $case)
-            ->with('success', "Hearing scheduled for {$scheduledCarbon->format('M d, Y · g:i A')}. Summons generated. Print and serve them.");
-    }
-
-    /**
-     * Reschedule Hearing & Regenerate Summons (marks previous summons as superseded).
-     */
-    public function rescheduleHearing(Request $request, BarangayCase $case): RedirectResponse
-    {
-        $validated = $request->validate([
-            'scheduled_at' => ['required', 'date'],
-            'venue' => ['required', 'string', 'max:255'],
-            'reason_preset' => ['nullable', 'string', 'max:255'],
-            'reason' => ['nullable', 'string', 'max:500'],
-        ]);
-
-        $finalReason = ! empty($validated['reason'])
-            ? $validated['reason']
-            : (! empty($validated['reason_preset']) && $validated['reason_preset'] !== 'other' ? $validated['reason_preset'] : 'Hearing rescheduled upon official notice.');
-
-        $scheduledCarbon = Carbon::parse($validated['scheduled_at']);
-        if ($scheduledCarbon->isPast()) {
-            return back()->withInput()->withErrors(['scheduled_at' => 'The new hearing schedule must be set to a future date and time.']);
-        }
-
-        DB::transaction(function () use ($case, $validated, $finalReason, $scheduledCarbon, $request) {
-            // Mark existing active summons as superseded
-            $case->activeSummons()->update([
-                'superseded_at' => now(),
-                'void_note' => 'Superseded by reschedule: '.$finalReason,
-            ]);
-
-            // Reset service milestone on case
-            $case->update([
-                'summons_service_status' => null,
-                'summons_served_at' => null,
-                'summons_served_by' => null,
-                'first_meeting_on' => $scheduledCarbon->toDateString(),
-            ]);
-
-            // Create new Hearing session
-            $hearing = Hearing::create([
-                'case_id' => $case->id,
-                'scheduled_at' => $scheduledCarbon,
-                'venue' => $validated['venue'],
-                'status' => 'scheduled',
-                'outcome_note' => 'Rescheduled: '.$finalReason,
-            ]);
-
-            // Generate new Summons
-            $respondent = $case->caseParties()->where('role', 'respondent')->first();
-            if (! $respondent) {
-                $party = Party::create([
-                    'full_name' => 'Respondent (Unassigned)',
-                    'residency_status' => 'unverified',
-                ]);
-                $respondent = CaseParty::create([
-                    'case_id' => $case->id,
-                    'party_id' => $party->id,
-                    'role' => 'respondent',
-                ]);
-            }
-            $seqNo = ($case->summons()->max('sequence_no') ?? 0) + 1;
-
-            $summons = Summons::create([
-                'case_id' => $case->id,
-                'respondent_case_party_id' => $respondent->id,
-                'sequence_no' => $seqNo,
-                'summons_number' => "SUMMONS-{$case->case_number}-#{$seqNo}",
-                'issued_on' => now()->toDateString(),
-                'issued_by' => $request->user()->id,
-                'hearing_at' => $scheduledCarbon,
-                'venue' => $validated['venue'],
-                'remarks' => 'Reschedule reason: '.$finalReason,
-            ]);
-
-            $hearing->update(['summons_id' => $summons->id]);
 
             CaseNote::create([
                 'case_id' => $case->id,
                 'user_id' => $request->user()->id,
-                'body' => "[Hearing Rescheduled] New date: {$scheduledCarbon->format('M d, Y g:i A')} at {$validated['venue']}. Reason: {$finalReason}. Previous summons superseded. Re-service required.",
+                'body' => $noteBody,
             ]);
 
-            $this->audit->log($request->user(), 'case.hearing_rescheduled', $case, [], [
+            // 5. Audit Logs
+            if ($isRescheduling) {
+                $this->audit->log($request->user(), 'case.hearing_rescheduled', $case, [], [
+                    'new_hearing_id' => $hearing->id,
+                    'new_summons_id' => $summons->id,
+                    'sequence_no' => $seqNo,
+                    'reason' => $reason,
+                    'scheduled_at' => $scheduledCarbon->toDateTimeString(),
+                ]);
+            }
+
+            $this->audit->log($request->user(), 'case.hearing_and_summons_issued', $case, [], [
                 'hearing_id' => $hearing->id,
                 'summons_id' => $summons->id,
-                'reason' => $finalReason,
+                'sequence_no' => $seqNo,
                 'scheduled_at' => $scheduledCarbon->toDateTimeString(),
+                'venue' => $validated['venue'],
             ]);
         });
 
-        return redirect()->route('admin.cases.show', $case)
-            ->with('success', "Hearing rescheduled for {$scheduledCarbon->format('M d, Y · g:i A')}. Previous summons marked Superseded. Please print and re-serve new summons.");
+        // Non-blocking warning banner if scheduled beyond 15 working days
+        $clock = $this->kpService->calculateMediationClock($case->fresh());
+        $redirect = redirect()->route('admin.cases.show', $case)
+            ->with('success', "Hearing set for {$scheduledCarbon->format('M d, Y · g:i A')}. Summons #{$seqNo} generated. Print and serve it.");
+
+        if (! empty($clock['end_date']) && $scheduledCarbon->startOfDay()->gt(Carbon::parse($clock['end_date']))) {
+            $redirect->with('warning_message', 'Note: This hearing date is beyond the 15-working-day mediation period.');
+        }
+
+        return $redirect;
     }
 
     /**
-     * Milestone 3: Record summons service on respondent.
+     * Backwards-compatible alias for rescheduling.
+     */
+    public function rescheduleHearing(Request $request, BarangayCase $case): RedirectResponse
+    {
+        $request->merge(['reschedule_hearing_id' => $request->input('reschedule_hearing_id', 1)]);
+
+        return $this->scheduleHearingAndIssueSummons($request, $case);
+    }
+
+    /**
+     * Record summons service directly on the Summons record.
      */
     public function recordSummonsService(Request $request, BarangayCase $case): RedirectResponse
     {
         $validated = $request->validate([
+            'summons_id' => ['nullable', 'integer'],
             'served_at' => ['required', 'date', 'before_or_equal:today'],
-            'service_method' => ['required', 'string', 'in:personal,substituted,refused,failed'],
+            'service_method' => ['required', 'string', 'in:personal,substituted,refused,not_served,failed,appeared_voluntarily'],
             'served_by' => ['required', 'string', 'max:150'],
             'custom_served_by' => ['nullable', 'string', 'max:150'],
             'recipient_name' => ['nullable', 'string', 'max:150'],
@@ -284,139 +302,254 @@ class CaseWorkflowController extends Controller
             'notes' => ['nullable', 'string', 'max:500'],
         ]);
 
+        $method = $validated['service_method'] === 'failed' ? 'not_served' : $validated['service_method'];
+
+        if ($method === 'substituted' && (empty($validated['recipient_name']) || empty($validated['recipient_relation']))) {
+            return back()->withInput()
+                ->withErrors(['recipient_name' => 'Recipient name and relationship are required for Substituted Service.']);
+        }
+
         $servedBy = ($validated['served_by'] === 'other' && ! empty($validated['custom_served_by']))
             ? $validated['custom_served_by']
             : $validated['served_by'];
 
-        $isServed = in_array($validated['service_method'], ['personal', 'substituted']);
+        /** @var Summons|null $summons */
+        $summons = ! empty($validated['summons_id'])
+            ? $case->summons()->where('id', $validated['summons_id'])->first()
+            : $case->activeSummons()->latest('sequence_no')->latest('id')->first();
+
+        $serviceResult = match ($method) {
+            'personal', 'appeared_voluntarily' => 'received',
+            'substituted' => 'substituted',
+            'refused' => 'refused',
+            default => 'not_found',
+        };
+
+        $isServed = in_array($method, ['personal', 'substituted', 'refused', 'appeared_voluntarily'], true);
+
+        if ($summons) {
+            $summons->update([
+                'served_on' => $validated['served_at'],
+                'service_method' => $method,
+                'served_by' => $servedBy,
+                'received_by_name' => $validated['recipient_name'] ?? null,
+                'received_by_relationship' => $validated['recipient_relation'] ?? null,
+                'service_notes' => $validated['notes'] ?? null,
+                'service_result' => $serviceResult,
+                'remarks' => $validated['notes'] ?? $summons->remarks,
+            ]);
+        }
 
         $case->update([
-            'summons_service_status' => $validated['service_method'],
+            'summons_service_status' => $method,
             'summons_served_at' => $isServed ? $validated['served_at'] : null,
             'summons_served_by' => $servedBy,
             'summons_recipient_name' => $validated['recipient_name'] ?? null,
             'summons_recipient_relation' => $validated['recipient_relation'] ?? null,
         ]);
 
-        // Update active summons model
-        $activeSummons = $case->activeSummons()->latest()->first();
-        if ($activeSummons && $isServed) {
-            $activeSummons->update([
-                'served_on' => $validated['served_at'],
-                'service_result' => $validated['service_method'] === 'personal' ? 'received' : 'substituted',
-                'remarks' => $validated['notes'] ?? null,
-            ]);
-        }
-
-        if (! empty($validated['notes'])) {
-            CaseNote::create([
-                'case_id' => $case->id,
-                'user_id' => $request->user()->id,
-                'body' => "[Summons Service - {$validated['service_method']}] By {$servedBy}: {$validated['notes']}",
-            ]);
-        }
+        CaseNote::create([
+            'case_id' => $case->id,
+            'user_id' => $request->user()->id,
+            'body' => "[Summons Service - {$method}] By {$servedBy} on {$validated['served_at']}.".(! empty($validated['notes']) ? " {$validated['notes']}" : ''),
+        ]);
 
         $this->audit->log($request->user(), 'case.summons_service_recorded', $case, [], [
-            'status' => $validated['service_method'],
+            'summons_id' => $summons?->id,
+            'service_method' => $method,
             'served_at' => $validated['served_at'],
             'served_by' => $servedBy,
         ]);
 
-        $msg = $isServed
-            ? 'Summons service recorded successfully. Proceed with scheduled mediation.'
-            : 'Summons service recorded as unserved/failed. You may reissue or reschedule summons.';
+        $msg = $method === 'not_served'
+            ? 'Summons recorded as could not be served. Schedule the next hearing to issue the next summons.'
+            : 'Summons service recorded successfully.';
 
         return redirect()->route('admin.cases.show', $case)->with('success', $msg);
     }
 
     /**
-     * Milestone 4 & 5: Record hearing outcome.
-     * Note: 15-day mediation clock starts ONLY when first meeting is held with both parties present.
+     * Shortcut: Respondent appeared voluntarily without prior service.
+     */
+    public function recordVoluntaryAppearance(Request $request, BarangayCase $case): RedirectResponse
+    {
+        $validated = $request->validate([
+            'summons_id' => ['nullable', 'integer'],
+        ]);
+
+        /** @var Summons|null $summons */
+        $summons = ! empty($validated['summons_id'])
+            ? $case->summons()->where('id', $validated['summons_id'])->first()
+            : $case->activeSummons()->latest('sequence_no')->latest('id')->first();
+
+        $today = now()->toDateString();
+        $userName = $request->user()->name;
+
+        if ($summons) {
+            $summons->update([
+                'served_on' => $today,
+                'service_method' => 'appeared_voluntarily',
+                'served_by' => $userName,
+                'service_result' => 'received',
+                'service_notes' => 'Respondent appeared voluntarily at the barangay hall.',
+            ]);
+        }
+
+        $case->update([
+            'summons_service_status' => 'appeared_voluntarily',
+            'summons_served_at' => $today,
+            'summons_served_by' => $userName,
+        ]);
+
+        CaseNote::create([
+            'case_id' => $case->id,
+            'user_id' => $request->user()->id,
+            'body' => "[Voluntary Appearance] Respondent appeared voluntarily; service step satisfied for Summons #{$summons?->sequence_no}.",
+        ]);
+
+        $this->audit->log($request->user(), 'case.summons_voluntary_appearance', $case, [], [
+            'summons_id' => $summons?->id,
+        ]);
+
+        return redirect()->route('admin.cases.show', $case)
+            ->with('success', 'Voluntary appearance recorded. Hearing outcome is now unlocked.');
+    }
+
+    /**
+     * Override: Skip service with a mandatory reason, logged to audit trail.
+     */
+    public function skipSummonsService(Request $request, BarangayCase $case): RedirectResponse
+    {
+        $validated = $request->validate([
+            'summons_id' => ['nullable', 'integer'],
+            'reason' => ['required', 'string', 'min:5', 'max:500'],
+        ]);
+
+        /** @var Summons|null $summons */
+        $summons = ! empty($validated['summons_id'])
+            ? $case->summons()->where('id', $validated['summons_id'])->first()
+            : $case->activeSummons()->latest('sequence_no')->latest('id')->first();
+
+        if ($summons) {
+            $summons->update([
+                'service_skipped_reason' => $validated['reason'],
+                'override_note' => $validated['reason'],
+            ]);
+        }
+
+        CaseNote::create([
+            'case_id' => $case->id,
+            'user_id' => $request->user()->id,
+            'body' => "[Service Skipped (Override)] Reason: {$validated['reason']}",
+        ]);
+
+        $this->audit->log($request->user(), 'case.summons_service_skipped', $case, [], [
+            'summons_id' => $summons?->id,
+            'reason' => $validated['reason'],
+        ]);
+
+        return redirect()->route('admin.cases.show', $case)
+            ->with('success', 'Service step skipped with audit reason. Hearing outcome is now unlocked.');
+    }
+
+    /**
+     * Record hearing outcome on a Hearing record (requires service, voluntary appearance, or skip override).
      */
     public function recordHearingOutcome(Request $request, BarangayCase $case): RedirectResponse
     {
         $validated = $request->validate([
-            'outcome' => ['required', 'string', 'in:settled,rescheduled,respondent_absent,complainant_absent,failed'],
-            'notes' => ['nullable', 'string', 'max:1000'],
-            'hearing_held_on' => ['nullable', 'date', 'before_or_equal:today'],
+            'hearing_id' => ['nullable', 'integer'],
+            'outcome' => ['required', 'string', 'in:continued,settled,rescheduled,postponed,respondent_absent,complainant_absent,failed'],
+            'complainant_present' => ['nullable', 'boolean'],
+            'respondent_present' => ['nullable', 'boolean'],
             'both_parties_present' => ['nullable', 'boolean'],
-            'reschedule_date' => ['nullable', 'date', 'after:now', 'required_if:outcome,rescheduled'],
-            'reschedule_venue' => ['nullable', 'string', 'max:255'],
+            'hearing_held_on' => ['nullable', 'date', 'before_or_equal:today'],
+            'notes' => ['nullable', 'string', 'max:1000'],
+            'early_endorse_reason' => ['nullable', 'string', 'max:500', 'required_if:outcome,failed'],
         ]);
 
-        $hearing = $case->hearings()->latest()->first();
-        $hearingHeldDate = $validated['hearing_held_on'] ?? now()->toDateString();
-        $isBothPresent = in_array($validated['outcome'], ['settled', 'failed']) || ! empty($validated['both_parties_present']);
+        /** @var Hearing|null $hearing */
+        $hearing = ! empty($validated['hearing_id'])
+            ? $case->hearings()->where('id', $validated['hearing_id'])->first()
+            : $case->hearings()->whereNull('superseded_at')->latest('sequence_no')->latest('id')->first();
 
-        // Sec. 410b: Clock starts only upon first meeting with parties present
-        $mediationStartedAt = $case->mediation_started_at;
-        if (! $mediationStartedAt && $isBothPresent) {
-            $mediationStartedAt = Carbon::parse($hearingHeldDate);
+        if ($hearing) {
+            $linkedSummons = $hearing->summons ?? $case->activeSummons()->latest('id')->first();
+            if ($linkedSummons && ! $linkedSummons->canRecordOutcome()) {
+                return back()->with('error', 'Record service first (or use Skip service with a reason) before recording the hearing outcome.');
+            }
         }
+
+        $outcome = $validated['outcome'];
+        $complainantAttendance = match (true) {
+            $outcome === 'complainant_absent' => 'failed_to_appear',
+            ! empty($validated['complainant_present']) || in_array($outcome, ['continued', 'settled', 'failed'], true) => 'appeared',
+            default => 'failed_to_appear',
+        };
+        $respondentAttendance = match (true) {
+            $outcome === 'respondent_absent' => 'failed_to_appear',
+            ! empty($validated['respondent_present']) || in_array($outcome, ['continued', 'settled', 'failed'], true) => 'appeared',
+            default => 'failed_to_appear',
+        };
+
+        $hearingStatus = match ($outcome) {
+            'settled' => 'settled',
+            'failed' => 'unsettled',
+            'rescheduled', 'postponed' => 'reset',
+            default => 'held',
+        };
 
         if ($hearing) {
             $hearing->update([
-                'status' => $validated['outcome'] === 'settled' ? 'settled' : ($validated['outcome'] === 'failed' ? 'unsettled' : 'rescheduled'),
-                'complainant_attendance' => $validated['outcome'] === 'complainant_absent' ? 'failed_to_appear' : 'appeared',
-                'respondent_attendance' => $validated['outcome'] === 'respondent_absent' ? 'failed_to_appear' : 'appeared',
+                'status' => $hearingStatus,
+                'complainant_attendance' => $complainantAttendance,
+                'respondent_attendance' => $respondentAttendance,
                 'outcome_note' => $validated['notes'] ?? $hearing->outcome_note,
             ]);
         }
 
         $caseUpdates = [
-            'mediation_outcome' => $validated['outcome'],
-            'mediation_started_at' => $mediationStartedAt,
+            'mediation_outcome' => $outcome,
         ];
 
-        // If summons service was not separately logged prior to the hearing,
-        // convening the parties / recording the outcome satisfies the service requirement.
-        if (! $case->summons_served_at) {
-            $caseUpdates['summons_served_at'] = $hearingHeldDate;
-            $caseUpdates['summons_service_status'] = 'personal';
-            $caseUpdates['summons_served_by'] = $request->user()->name;
-
-            $activeSummons = $case->activeSummons()->latest()->first();
-            if ($activeSummons && ! $activeSummons->served_on) {
-                $activeSummons->update([
-                    'served_on' => $hearingHeldDate,
-                    'service_result' => 'received',
-                    'remarks' => 'Service verified in person during mediation session.',
-                ]);
-            }
+        if ($outcome === 'settled') {
+            $caseUpdates['status'] = CaseStatus::SETTLED;
+        } elseif ($outcome === 'failed') {
+            $caseUpdates['status'] = CaseStatus::UNSETTLED;
+        } else {
+            // Absent, postponed, or continued NEVER escalates; stays in mediation
+            $caseUpdates['status'] = CaseStatus::IN_MEDIATION;
         }
 
         $case->update($caseUpdates);
 
-        if ($validated['outcome'] === 'settled') {
-            $case->update(['status' => CaseStatus::SETTLED]);
-        } elseif ($validated['outcome'] === 'failed') {
-            $case->update(['status' => CaseStatus::UNSETTLED]);
-        } elseif ($validated['outcome'] === 'rescheduled') {
-            Hearing::create([
-                'case_id' => $case->id,
-                'scheduled_at' => Carbon::parse($validated['reschedule_date']),
-                'venue' => $validated['reschedule_venue'] ?: ($hearing?->venue ?? 'Barangay Hall'),
-                'presided_by_personnel_id' => $hearing?->presided_by_personnel_id,
-                'status' => 'scheduled',
-            ]);
+        $noteParts = ["[Hearing Outcome: {$outcome}]"];
+        if (! empty($validated['early_endorse_reason'])) {
+            $noteParts[] = "Reason: {$validated['early_endorse_reason']}.";
+        }
+        if (! empty($validated['notes'])) {
+            $noteParts[] = $validated['notes'];
         }
 
-        if (! empty($validated['notes'])) {
-            CaseNote::create([
-                'case_id' => $case->id,
-                'user_id' => $request->user()->id,
-                'body' => "[Hearing Outcome: {$validated['outcome']}] {$validated['notes']}",
-            ]);
-        }
+        CaseNote::create([
+            'case_id' => $case->id,
+            'user_id' => $request->user()->id,
+            'body' => implode(' ', $noteParts),
+        ]);
 
         $this->audit->log($request->user(), 'case.hearing_outcome_recorded', $case, [], [
-            'outcome' => $validated['outcome'],
-            'mediation_started_at' => $mediationStartedAt?->toDateString(),
+            'hearing_id' => $hearing?->id,
+            'outcome' => $outcome,
+            'complainant_attendance' => $complainantAttendance,
+            'respondent_attendance' => $respondentAttendance,
             'notes' => $validated['notes'] ?? null,
         ]);
 
-        return redirect()->route('admin.cases.show', $case)
-            ->with('success', "Mediation outcome recorded as '{$validated['outcome']}'.");
+        $msg = in_array($outcome, ['respondent_absent', 'complainant_absent', 'postponed', 'rescheduled'], true)
+            ? 'Hearing outcome recorded. Case remains in mediation — schedule the next hearing when ready.'
+            : "Mediation outcome recorded as '{$outcome}'.";
+
+        return redirect()->route('admin.cases.show', $case)->with('success', $msg);
     }
 
     /**
@@ -435,7 +568,7 @@ class CaseWorkflowController extends Controller
             $filePath = $request->file('scan_file')->store("case-files/{$case->id}", 'private');
         }
 
-        $repudiationDays = config('katarungang_pambarangay.repudiation_period_days', 10);
+        $repudiationDays = (int) config('katarungang_pambarangay.repudiation_period_days', 10);
         $repudiationEndsAt = Carbon::parse($validated['settled_on'])->addDays($repudiationDays);
 
         $case->update([
@@ -527,12 +660,18 @@ class CaseWorkflowController extends Controller
     {
         $validated = $request->validate([
             'issued_at' => ['required', 'date', 'before_or_equal:today'],
-            'reason' => ['required', 'string', 'max:255'],
+            'reason' => ['required', 'string', 'min:5', 'max:255'],
         ]);
 
         $case->update([
             'cfa_issued_at' => $validated['issued_at'],
             'status' => CaseStatus::ESCALATED,
+        ]);
+
+        CaseNote::create([
+            'case_id' => $case->id,
+            'user_id' => $request->user()->id,
+            'body' => "[CFA Issued] Reason: {$validated['reason']}",
         ]);
 
         $this->audit->log($request->user(), 'case.cfa_issued', $case, [], [
@@ -541,6 +680,6 @@ class CaseWorkflowController extends Controller
         ]);
 
         return redirect()->route('admin.cases.show', $case)
-            ->with('success', 'Certification to File Action (KP Form 20) issued.');
+            ->with('success', 'Certificate to File Action (KP Form 20) issued and logged.');
     }
 }

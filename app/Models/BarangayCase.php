@@ -163,6 +163,11 @@ class BarangayCase extends Model
         return $this->hasMany(Hearing::class, 'case_id');
     }
 
+    public function activeHearings(): HasMany
+    {
+        return $this->hearings()->whereNull('superseded_at');
+    }
+
     public function escalations(): HasMany
     {
         return $this->hasMany(CaseEscalation::class, 'case_id');

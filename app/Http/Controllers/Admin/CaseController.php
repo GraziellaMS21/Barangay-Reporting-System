@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\BarangayCase;
-use App\Models\CaseFieldConfig;
 use App\Models\CaseNote;
 use App\Models\CaseParty;
 use App\Models\CaseStatusLog;
@@ -196,9 +195,8 @@ class CaseController extends Controller
 
         $caseTypes = CaseType::query()->where('is_active', true)->orderBy('sort_order')->get();
         $puroks = Purok::query()->orderBy('name')->get();
-        $fieldConfigs = CaseFieldConfig::query()->where('is_visible', true)->orderBy('sort_order')->get()->groupBy('entity');
 
-        return view('admin.cases.create', compact('sourceReport', 'sourceIntake', 'caseTypes', 'puroks', 'fieldConfigs'));
+        return view('admin.cases.create', compact('sourceReport', 'sourceIntake', 'caseTypes', 'puroks'));
     }
 
     /**
@@ -330,8 +328,8 @@ class CaseController extends Controller
         });
 
         if ($request->input('action') === 'issue_summons') {
-            return redirect()->route('admin.cases.summons.create', $case)
-                ->with('success', "Case {$case->case_number} docketed. You may now issue the first summons.");
+            return redirect()->route('admin.cases.show', $case)
+                ->with('success', "Case {$case->case_number} docketed. Print the complaint for signing, then schedule the first hearing & issue summons.");
         }
 
         return redirect()->route('admin.cases.show', $case)
@@ -367,6 +365,8 @@ class CaseController extends Controller
             'activeSummons.respondentCaseParty.party',
             'summons.respondentCaseParty.party',
             'summons.servedBy',
+            'summons.hearing',
+            'summons.issuedBy',
             'hearings.presidedBy',
             'hearings.summons',
             'escalations.destination',

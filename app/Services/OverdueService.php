@@ -83,9 +83,11 @@ class OverdueService
      */
     protected function holidayDates(): array
     {
+        $configHolidays = (array) config('katarungang_pambarangay.holidays', []);
         $raw = (array) setting('calendar.holidays', []);
         $dates = [];
-        foreach ($raw as $item) {
+
+        foreach (array_merge($configHolidays, $raw) as $item) {
             if (is_array($item)) {
                 $dates[] = (string) ($item['date'] ?? '');
             } else {
@@ -93,6 +95,6 @@ class OverdueService
             }
         }
 
-        return array_values(array_filter($dates));
+        return array_values(array_unique(array_filter($dates)));
     }
 }

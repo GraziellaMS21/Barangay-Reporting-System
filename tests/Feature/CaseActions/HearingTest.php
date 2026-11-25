@@ -43,21 +43,27 @@ class HearingTest extends TestCase
         ]);
         $personnel = Personnel::factory()->create();
 
-        $scheduleTime = now()->addDays(2)->format('Y-m-d H:i:s');
+        $scheduleTime = now()->addDays(2)->setTime(9, 0)->format('Y-m-d\TH:i');
 
-        $response = $this->actingAs($admin)->post(route('admin.cases.hearings.store', $case), [
+        $response = $this->actingAs($admin)->post(route('admin.cases.workflow.schedule-and-issue-summons', $case), [
             'scheduled_at' => $scheduleTime,
             'venue' => 'Main Barangay Hall',
-            'presided_by_personnel_id' => $personnel->id,
+            'presided_by' => $personnel->id,
         ]);
 
-        $response->assertRedirect(route('admin.cases.show', ['case' => $case, 'tab' => 'hearings']));
+        $response->assertRedirect(route('admin.cases.show', $case));
 
         $this->assertDatabaseHas('hearings', [
             'case_id' => $case->id,
             'venue' => 'Main Barangay Hall',
             'presided_by_personnel_id' => $personnel->id,
             'status' => 'scheduled',
+        ]);
+
+        $this->assertDatabaseHas('summons', [
+            'case_id' => $case->id,
+            'venue' => 'Main Barangay Hall',
+            'sequence_no' => 1,
         ]);
 
         $case->refresh();

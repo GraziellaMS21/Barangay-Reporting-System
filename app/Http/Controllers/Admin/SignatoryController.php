@@ -88,6 +88,10 @@ class SignatoryController extends Controller
                     $match = $docAssignments->first(fn (SignatoryAssignment $a) => in_array(strtolower($a->role_label), ['presided by', 'presided_by'], true));
                 }
 
+                if ($roleKey === 'noted_by' && ! $match) {
+                    $match = $docAssignments->first(fn (SignatoryAssignment $a) => in_array(strtolower($a->role_label), ['attested by', 'attested_by'], true));
+                }
+
                 $byRole[$roleKey] = $match;
             }
 
@@ -139,7 +143,12 @@ class SignatoryController extends Controller
 
                     $existing = SignatoryAssignment::query()
                         ->where('document_type', $docType)
-                        ->whereIn('role_label', [$roleKey, $humanLabel, ($roleKey === 'approved_by' ? 'Presided by' : $humanLabel)])
+                        ->whereIn('role_label', array_filter([
+                            $roleKey,
+                            $humanLabel,
+                            $roleKey === 'approved_by' ? 'Presided by' : null,
+                            $roleKey === 'noted_by' ? 'Attested by' : null,
+                        ]))
                         ->first();
 
                     if (empty($positionId)) {

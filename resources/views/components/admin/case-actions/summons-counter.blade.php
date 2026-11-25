@@ -1,12 +1,6 @@
-<section id="summons-counter" class="rounded-lg border border-amber-200 bg-amber-50 p-4" role="status" aria-live="polite">
-    <div>
-        <h3 class="font-semibold text-slate-900">Summons counter</h3>
-        <p class="text-sm text-slate-700">
-            {{ $issued }} {{ $issued === 1 ? 'issued summons' : 'issued summonses' }}
-        </p>
+<section id="summons-counter" class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 flex items-center justify-between gap-3" role="status" aria-live="polite">
+    <div class="flex items-center gap-2 text-xs text-slate-700">
+        <i class="fa-solid fa-envelope-open-text text-slate-500"></i>
+        <span><strong>{{ $issued }}</strong> {{ $issued === 1 ? 'summons' : 'summonses' }} issued (record only)</span>
     </div>
-
-    <p class="mt-2 text-xs leading-5 text-slate-600">
-        Summonses are numbered sequentially for information and record-keeping only. This count does not determine escalation or change the case status.
-    </p>
-</div>
+</section>

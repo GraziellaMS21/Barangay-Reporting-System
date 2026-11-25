@@ -1,19 +1,15 @@
 <?php
 
 use App\Http\Controllers\Admin\CaseController;
-use App\Http\Controllers\Admin\CaseFieldConfigController;
 use App\Http\Controllers\Admin\CaseIntakeController;
 use App\Http\Controllers\Admin\CaseTypeController;
 use App\Http\Controllers\Admin\PartyController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'role:staff'])->prefix('admin')->name('admin.')->group(function () {
-    // Case classification & field configs
+    // Case classification
     Route::middleware(['permission:settings.manage'])->group(function () {
         Route::resource('settings/case-types', CaseTypeController::class)->names('case-types');
-        Route::get('settings/case-fields', [CaseFieldConfigController::class, 'index'])->name('case-fields.index');
-        Route::post('settings/case-fields', [CaseFieldConfigController::class, 'update'])->name('case-fields.update');
-        Route::put('settings/case-fields', [CaseFieldConfigController::class, 'update'])->name('case-fields.put');
     });
 
     // Case convert

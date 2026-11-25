@@ -15,6 +15,7 @@ class Hearing extends Model
     protected $fillable = [
         'case_id',
         'summons_id',
+        'sequence_no',
         'scheduled_at',
         'venue',
         'presided_by_personnel_id',
@@ -23,13 +24,19 @@ class Hearing extends Model
         'respondent_attendance',
         'respondent_barred_counterclaim',
         'outcome_note',
+        'superseded_at',
+        'superseded_reason',
+        'no_summons_flag',
     ];
 
     protected function casts(): array
     {
         return [
+            'sequence_no' => 'integer',
             'scheduled_at' => 'datetime',
             'respondent_barred_counterclaim' => 'boolean',
+            'superseded_at' => 'datetime',
+            'no_summons_flag' => 'boolean',
         ];
     }
 

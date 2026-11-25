@@ -30,14 +30,11 @@ Route::middleware(['auth', 'role:staff'])->prefix('admin')->name('admin.')->grou
     // Summons, hearings, escalation, settlement under case
     Route::prefix('cases/{case}')->name('cases.')->group(function () {
         Route::middleware(['permission:cases.summons'])->group(function () {
-            Route::get('/summons/create', [SummonsController::class, 'create'])->name('summons.create');
-            Route::post('/summons', [SummonsController::class, 'store'])->name('summons.store');
             Route::post('/summons/{summons}/service', [SummonsController::class, 'service'])->name('summons.service');
             Route::post('/summons/{summons}/attendance', [SummonsController::class, 'attendance'])->name('summons.attendance');
             Route::post('/summons/{summons}/void', [SummonsController::class, 'void'])->name('summons.void');
             Route::get('/summons/{summons}/print', [SummonsController::class, 'print'])->name('summons.print');
 
-            Route::post('/hearings', [HearingController::class, 'store'])->name('hearings.store');
             Route::put('/hearings/{hearing}', [HearingController::class, 'update'])->name('hearings.update');
             Route::patch('/hearings/{hearing}', [HearingController::class, 'update'])->name('hearings.patch');
             Route::post('/hearings/{hearing}/outcome', [HearingController::class, 'outcome'])->name('hearings.outcome');
@@ -71,6 +68,8 @@ Route::middleware(['auth', 'role:staff'])->prefix('admin')->name('admin.')->grou
             Route::post('/schedule-and-issue-summons', [CaseWorkflowController::class, 'scheduleHearingAndIssueSummons'])->name('schedule-and-issue-summons');
             Route::post('/reschedule-hearing', [CaseWorkflowController::class, 'rescheduleHearing'])->name('reschedule-hearing');
             Route::post('/record-summons-service', [CaseWorkflowController::class, 'recordSummonsService'])->name('record-summons-service');
+            Route::post('/skip-summons-service', [CaseWorkflowController::class, 'skipSummonsService'])->name('skip-summons-service');
+            Route::post('/voluntary-appearance', [CaseWorkflowController::class, 'recordVoluntaryAppearance'])->name('voluntary-appearance');
             Route::post('/record-hearing-outcome', [CaseWorkflowController::class, 'recordHearingOutcome'])->name('record-hearing-outcome');
             Route::post('/mark-signed-settlement', [CaseWorkflowController::class, 'markSignedSettlement'])->name('mark-signed-settlement');
             Route::post('/record-repudiation', [CaseWorkflowController::class, 'recordRepudiation'])->name('record-repudiation');

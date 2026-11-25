@@ -202,7 +202,7 @@ class CaseDocketAndManagementTest extends TestCase
 
         $createdCase = BarangayCase::latest('id')->first();
         $this->assertNotNull($createdCase);
-        $response->assertRedirect(route('admin.cases.summons.create', ['case' => $createdCase->id]));
+        $response->assertRedirect(route('admin.cases.show', ['case' => $createdCase->id]));
     }
 
     public function test_convert_report_to_case_redirects_with_source_report_id(): void

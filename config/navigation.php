@@ -175,13 +175,6 @@ return [
                     'active_pattern' => 'admin.case-types.*',
                 ],
                 [
-                    'label' => 'Case Form Fields',
-                    'route' => 'admin.case-fields.index',
-                    'icon' => 'fa-solid fa-list-check',
-                    'permission' => 'settings.manage',
-                    'active_pattern' => 'admin.case-fields.*',
-                ],
-                [
                     'label' => 'Escalation Destinations',
                     'route' => 'admin.escalation-destinations.index',
                     'icon' => 'fa-solid fa-share-from-square',

@@ -3,7 +3,6 @@
 namespace Tests\Feature\Cases;
 
 use App\Models\BarangayCase;
-use App\Models\CaseFieldConfig;
 use App\Models\CaseType;
 use App\Models\FiscalYear;
 use App\Models\Permission;
@@ -117,34 +116,5 @@ class CaseSettingsAndFieldsTest extends TestCase
         $response = $this->delete("/admin/settings/case-types/{$caseType->id}");
         $response->assertRedirect(route('admin.case-types.index'));
         $this->assertDatabaseMissing('case_types', ['id' => $caseType->id]);
-    }
-
-    public function test_case_fields_index_and_update_configuration(): void
-    {
-        $this->actingAs($this->staff);
-
-        $field = CaseFieldConfig::first();
-        $this->assertNotNull($field);
-
-        $response = $this->get('/admin/settings/case-fields');
-        $response->assertOk();
-        $response->assertSee('Dynamic Form Field Configurations');
-
-        $updateResponse = $this->post('/admin/settings/case-fields', [
-            'fields' => [
-                [
-                    'id' => $field->id,
-                    'is_required' => '1',
-                    'is_visible' => '1',
-                    'applies_to' => 'resident',
-                ],
-            ],
-        ]);
-
-        $updateResponse->assertRedirect(route('admin.case-fields.index'));
-        $fresh = $field->fresh();
-        $this->assertTrue($fresh->is_required);
-        $this->assertTrue($fresh->is_visible);
-        $this->assertSame('resident', $fresh->applies_to);
     }
 }

@@ -17,6 +17,7 @@ class Summons extends Model
 
     protected $fillable = [
         'case_id',
+        'hearing_id',
         'respondent_case_party_id',
         'sequence_no',
         'summons_number',
@@ -26,6 +27,12 @@ class Summons extends Model
         'venue',
         'served_by_personnel_id',
         'served_on',
+        'service_method',
+        'served_by',
+        'received_by_name',
+        'received_by_relationship',
+        'service_notes',
+        'service_skipped_reason',
         'service_result',
         'attendance',
         'remarks',
@@ -70,5 +77,26 @@ class Summons extends Model
     public function hearings(): HasMany
     {
         return $this->hasMany(Hearing::class, 'summons_id');
+    }
+
+    public function hearing(): BelongsTo
+    {
+        return $this->belongsTo(Hearing::class, 'hearing_id');
+    }
+
+    public function isServiceRecorded(): bool
+    {
+        return ! empty($this->served_on)
+            || in_array($this->service_method, ['personal', 'substituted', 'refused', 'appeared_voluntarily'], true);
+    }
+
+    public function isServiceSkipped(): bool
+    {
+        return ! empty($this->service_skipped_reason);
+    }
+
+    public function canRecordOutcome(): bool
+    {
+        return $this->isServiceRecorded() || $this->isServiceSkipped();
     }
 }

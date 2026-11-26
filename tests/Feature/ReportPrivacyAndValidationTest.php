@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Category;
+use App\Models\Permission;
 use App\Models\Report;
 use App\Models\ReportPhoto;
 use App\Models\User;
@@ -17,6 +18,16 @@ use Tests\TestCase;
 class ReportPrivacyAndValidationTest extends TestCase
 {
     use RefreshDatabase;
+
+    private function staffWithReportsView(): User
+    {
+        $staff = User::factory()->create(['role' => 'staff']);
+        $staff->permissions()->sync([
+            Permission::firstOrCreate(['slug' => 'reports.view'], ['label' => 'View Resident Reports Queue', 'group' => 'reports'])->id,
+        ]);
+
+        return $staff;
+    }
 
     protected function setUp(): void
     {
@@ -163,7 +174,7 @@ class ReportPrivacyAndValidationTest extends TestCase
             'reporter_name' => $reporterName,
             'reporter_contact' => $reporterContact,
         ]);
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithReportsView();
 
         $this->actingAs($staff)
             ->get(route('admin.reports.show', $report))
@@ -204,7 +215,7 @@ class ReportPrivacyAndValidationTest extends TestCase
 
     public function test_staff_review_omits_missing_reporter_details(): void
     {
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithReportsView();
         $report = Report::factory()->create([
             'reporter_name' => null,
             'reporter_contact' => null,
@@ -222,7 +233,7 @@ class ReportPrivacyAndValidationTest extends TestCase
 
     public function test_staff_review_shows_reporter_contact_below_name(): void
     {
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithReportsView();
         $report = Report::factory()->create([
             'reporter_name' => 'Juan Dela Cruz',
             'reporter_contact' => '09170000001',
@@ -239,7 +250,7 @@ class ReportPrivacyAndValidationTest extends TestCase
 
     public function test_staff_review_escapes_reporter_name_output(): void
     {
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithReportsView();
         $report = Report::factory()->create([
             'reporter_name' => "<script>alert('xss')</script>",
         ]);
@@ -296,7 +307,7 @@ class ReportPrivacyAndValidationTest extends TestCase
     {
         $this->seed(CategorySeeder::class);
         Storage::fake('local');
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithReportsView();
 
         $response = $this->post(route('reports.store'), [
             'category_id' => Category::query()->where('slug', 'drainage')->value('id'),
@@ -379,7 +390,7 @@ class ReportPrivacyAndValidationTest extends TestCase
 
     public function test_staff_status_changes_require_a_note_for_override_actions(): void
     {
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithReportsView();
         $report = Report::factory()->create();
 
         $this->actingAs($staff)
@@ -404,7 +415,7 @@ class ReportPrivacyAndValidationTest extends TestCase
 
     public function test_staff_status_changes_allow_an_optional_note_for_review_transitions(): void
     {
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithReportsView();
         $report = Report::factory()->create();
 
         $this->actingAs($staff)
@@ -430,7 +441,7 @@ class ReportPrivacyAndValidationTest extends TestCase
 
     public function test_staff_status_changes_record_the_staff_member_and_note(): void
     {
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithReportsView();
         $report = Report::factory()->create();
         $note = 'Reviewed and assigned for inspection.';
 
@@ -467,7 +478,7 @@ class ReportPrivacyAndValidationTest extends TestCase
         $this->get(route('admin.reports.photo', $report))
             ->assertRedirect(route('login'));
 
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithReportsView();
 
         $this->actingAs($staff)
             ->get(route('admin.reports.show', $report))

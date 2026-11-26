@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Events\ReportSubmitted;
 use App\Listeners\Engine\ProcessNewReport;
 use App\Models\Category;
+use App\Models\Permission;
 use App\Models\Purok;
 use App\Models\Report;
 use App\Models\User;
@@ -231,6 +232,9 @@ class AsyncReportScreeningTest extends TestCase
         Http::fake();
 
         $staff = User::factory()->create(['role' => 'staff']);
+        $staff->permissions()->sync([
+            Permission::firstOrCreate(['slug' => 'reports.view'], ['label' => 'View Resident Reports Queue', 'group' => 'reports'])->id,
+        ]);
         $report = Report::factory()->create([
             'description' => 'Some report description.',
             'ai_status' => 'pending',
@@ -364,6 +368,9 @@ class AsyncReportScreeningTest extends TestCase
         config(['services.gemini.key' => 'test-api-key']);
 
         $staff = User::factory()->create(['role' => 'staff']);
+        $staff->permissions()->sync([
+            Permission::firstOrCreate(['slug' => 'reports.view'], ['label' => 'View Resident Reports Queue', 'group' => 'reports'])->id,
+        ]);
         $report = Report::factory()->create([
             'description' => 'Previously failed AI screening report.',
             'ai_status' => 'failed',

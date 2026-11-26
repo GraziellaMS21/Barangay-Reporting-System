@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Mail\ReferralUpdateMail;
 use App\Models\Category;
 use App\Models\Office;
+use App\Models\Permission;
 use App\Models\Purok;
 use App\Models\Referral;
 use App\Models\Report;
@@ -37,6 +38,10 @@ class ReferralAndProofWorkflowTest extends TestCase
         parent::setUp();
 
         $this->staff = User::factory()->staff()->create(['name' => 'Officer Staff']);
+        $this->staff->permissions()->sync([
+            Permission::firstOrCreate(['slug' => 'reports.view'], ['label' => 'View Resident Reports Queue', 'group' => 'reports'])->id,
+            Permission::firstOrCreate(['slug' => 'referrals.manage'], ['label' => 'Manage External Referrals', 'group' => 'referrals'])->id,
+        ]);
         $this->purok = Purok::factory()->create(['name' => 'Purok 1']);
         $this->category = Category::create([
             'name' => 'Infrastructure',

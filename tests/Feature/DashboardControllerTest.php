@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Category;
 use App\Models\DuplicateSuggestion;
 use App\Models\Office;
+use App\Models\Permission;
 use App\Models\Purok;
 use App\Models\Referral;
 use App\Models\Report;
@@ -18,9 +19,19 @@ class DashboardControllerTest extends TestCase
 {
     use RefreshDatabase;
 
+    private function staffWithDashboardView(): User
+    {
+        $staff = User::factory()->create(['role' => 'staff']);
+        $staff->permissions()->sync([
+            Permission::firstOrCreate(['slug' => 'dashboard.view'], ['label' => 'View Dashboard Analytics', 'group' => 'dashboard'])->id,
+        ]);
+
+        return $staff;
+    }
+
     public function test_dashboard_shows_metrics_charts_and_pending_items_in_tables(): void
     {
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithDashboardView();
         $priorityReport = Report::factory()->create([
             'status' => 'in_progress',
             'urgency' => 'High',
@@ -74,7 +85,7 @@ class DashboardControllerTest extends TestCase
 
     public function test_dashboard_sends_only_aggregate_counts_to_gemini(): void
     {
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithDashboardView();
         Report::factory()->create([
             'reporter_name' => 'Private Demo Name',
             'reporter_contact' => '09171234567',
@@ -117,7 +128,7 @@ class DashboardControllerTest extends TestCase
 
     public function test_dashboard_shows_friendly_insights_fallback_when_gemini_is_not_configured(): void
     {
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithDashboardView();
         config(['services.gemini.key' => '']);
 
         $this->actingAs($staff)
@@ -128,7 +139,7 @@ class DashboardControllerTest extends TestCase
 
     public function test_dashboard_charts_show_empty_states_when_there_are_no_reports(): void
     {
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithDashboardView();
 
         $this->actingAs($staff)
             ->get(route('admin.dashboard'))
@@ -143,7 +154,7 @@ class DashboardControllerTest extends TestCase
 
     public function test_dashboard_chart_data_excludes_emergency_reports_from_category_and_urgency(): void
     {
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithDashboardView();
         $category = Category::create([
             'name' => 'Drainage',
             'slug' => 'drainage',

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Permission;
 use App\Models\Report;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -10,6 +11,17 @@ use Tests\TestCase;
 class StaffPagesTest extends TestCase
 {
     use RefreshDatabase;
+
+    private function staffWithPagesPermissions(array $attributes = []): User
+    {
+        $staff = User::factory()->create(array_merge(['role' => 'staff'], $attributes));
+        $staff->permissions()->sync([
+            Permission::firstOrCreate(['slug' => 'dashboard.view'], ['label' => 'View Dashboard Analytics', 'group' => 'dashboard'])->id,
+            Permission::firstOrCreate(['slug' => 'reports.view'], ['label' => 'View Resident Reports Queue', 'group' => 'reports'])->id,
+        ]);
+
+        return $staff;
+    }
 
     public function test_login_page_is_available(): void
     {
@@ -48,7 +60,7 @@ class StaffPagesTest extends TestCase
 
     public function test_staff_can_sign_in_and_reach_the_dashboard(): void
     {
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithPagesPermissions();
 
         $this->post(route('login'), [
             'email' => $staff->email,
@@ -65,7 +77,7 @@ class StaffPagesTest extends TestCase
 
     public function test_admin_and_staff_have_distinct_navigation_and_settings_access(): void
     {
-        $staff = User::factory()->staff()->create(['name' => 'Demo Staff']);
+        $staff = $this->staffWithPagesPermissions(['name' => 'Demo Staff']);
         $admin = User::factory()->admin()->create(['name' => 'Demo Admin']);
 
         $this->actingAs($staff)
@@ -94,7 +106,7 @@ class StaffPagesTest extends TestCase
 
     public function test_staff_can_open_report_dashboard_and_details(): void
     {
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithPagesPermissions();
         $report = Report::factory()->create();
 
         $this->actingAs($staff)
@@ -126,7 +138,7 @@ class StaffPagesTest extends TestCase
         $this->get(route('admin.map'))
             ->assertRedirect(route('login'));
 
-        $response = $this->actingAs(User::factory()->staff()->create())
+        $response = $this->actingAs($this->staffWithPagesPermissions())
             ->get(route('admin.map'))
             ->assertOk()
             ->assertSee('name="category-filter"', false)
@@ -170,7 +182,7 @@ class StaffPagesTest extends TestCase
 
     public function test_authenticated_layouts_include_scoped_turbo_controls(): void
     {
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithPagesPermissions();
         $admin = User::factory()->admin()->create();
 
         // Admin & Staff layouts have turbo-cache-control, data-turbo="true", permanent sidebar, and non-turbo logout
@@ -206,7 +218,7 @@ class StaffPagesTest extends TestCase
 
     public function test_sidebar_does_not_contain_my_cases_and_report_queue_stays_active(): void
     {
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithPagesPermissions();
         $admin = User::factory()->admin()->create();
 
         // Staff layout does not show My Cases in sidebar
@@ -233,7 +245,7 @@ class StaffPagesTest extends TestCase
 
     public function test_queue_filters_component_renders_tabs_chips_and_scoped_counts(): void
     {
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithPagesPermissions();
         $admin = User::factory()->admin()->create();
 
         // 2 reports assigned to staff, 1 assigned to admin

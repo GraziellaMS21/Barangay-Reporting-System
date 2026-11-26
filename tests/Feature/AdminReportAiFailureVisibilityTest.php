@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Category;
+use App\Models\Permission;
 use App\Models\Report;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -12,9 +13,19 @@ class AdminReportAiFailureVisibilityTest extends TestCase
 {
     use RefreshDatabase;
 
+    private function staffWithReportsView(): User
+    {
+        $staff = User::factory()->create(['role' => 'staff']);
+        $staff->permissions()->sync([
+            Permission::firstOrCreate(['slug' => 'reports.view'], ['label' => 'View Resident Reports Queue', 'group' => 'reports'])->id,
+        ]);
+
+        return $staff;
+    }
+
     public function test_queue_displays_manual_screening_badge_when_ai_status_is_failed(): void
     {
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithReportsView();
 
         $failedReport = Report::factory()->create([
             'tracking_code' => 'BRG-FAIL001',
@@ -40,7 +51,7 @@ class AdminReportAiFailureVisibilityTest extends TestCase
 
     public function test_queue_does_not_display_manual_screening_badge_when_ai_status_is_not_failed(): void
     {
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithReportsView();
 
         Report::factory()->create([
             'tracking_code' => 'BRG-DONE002',
@@ -58,7 +69,7 @@ class AdminReportAiFailureVisibilityTest extends TestCase
 
     public function test_queue_can_filter_by_ai_status_failed(): void
     {
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithReportsView();
 
         $failedReport = Report::factory()->create([
             'tracking_code' => 'BRG-FAIL003',
@@ -86,7 +97,7 @@ class AdminReportAiFailureVisibilityTest extends TestCase
 
     public function test_queue_can_filter_by_ai_status_done(): void
     {
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithReportsView();
 
         $failedReport = Report::factory()->create([
             'tracking_code' => 'BRG-FAIL004',
@@ -108,7 +119,7 @@ class AdminReportAiFailureVisibilityTest extends TestCase
 
     public function test_queue_rejects_invalid_ai_status_filter_safely(): void
     {
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithReportsView();
 
         $response = $this->actingAs($staff)
             ->get(route('admin.reports.index', ['ai_status' => 'malicious_injection']));
@@ -118,7 +129,7 @@ class AdminReportAiFailureVisibilityTest extends TestCase
 
     public function test_queue_pagination_preserves_ai_status_parameter(): void
     {
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithReportsView();
 
         Report::factory()->count(20)->create([
             'ai_status' => 'failed',
@@ -133,7 +144,7 @@ class AdminReportAiFailureVisibilityTest extends TestCase
 
     public function test_staff_can_review_and_classify_report_with_failed_ai_status(): void
     {
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithReportsView();
         $category = Category::query()->create([
             'name' => 'Road damage',
             'slug' => 'road-damage',
@@ -177,7 +188,7 @@ class AdminReportAiFailureVisibilityTest extends TestCase
 
     public function test_emergency_report_with_failed_ai_retains_visual_priority_and_emergency_styling(): void
     {
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithReportsView();
 
         $emergencyReport = Report::factory()->create([
             'tracking_code' => 'BRG-EMERG-FAIL',

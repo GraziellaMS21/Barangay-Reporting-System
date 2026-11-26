@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Category;
 use App\Models\DuplicateSuggestion;
 use App\Models\Office;
+use App\Models\Permission;
 use App\Models\Purok;
 use App\Models\Report;
 use App\Models\User;
@@ -29,6 +30,9 @@ class RecoveryAndDirectTransitionsTest extends TestCase
         parent::setUp();
 
         $this->staff = User::factory()->staff()->create();
+        $this->staff->permissions()->sync([
+            Permission::firstOrCreate(['slug' => 'reports.view'], ['label' => 'View Resident Reports Queue', 'group' => 'reports'])->id,
+        ]);
         $this->resident = User::factory()->create(['role' => 'resident']);
         $this->purok = Purok::factory()->create(['name' => 'Purok 1']);
         $office = Office::create([

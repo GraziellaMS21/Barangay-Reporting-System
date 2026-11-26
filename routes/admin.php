@@ -12,7 +12,7 @@ use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\UserSettingsController;
 use Illuminate\Support\Facades\Route;
 
-Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin,staff'])->group(function () {
+Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin,staff', 'permission:dashboard.view'])->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/dashboard', fn () => redirect()->route('admin.dashboard'))->name('dashboard.legacy');
 });

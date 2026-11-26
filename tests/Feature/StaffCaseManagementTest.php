@@ -7,6 +7,7 @@ use App\Events\ReportStatusChanged;
 use App\Events\ResolutionProposed;
 use App\Models\Category;
 use App\Models\Office;
+use App\Models\Permission;
 use App\Models\Purok;
 use App\Models\Report;
 use App\Models\User;
@@ -35,6 +36,10 @@ class StaffCaseManagementTest extends TestCase
         parent::setUp();
 
         $this->staff = User::factory()->staff()->create(['name' => 'Officer Staff']);
+        $this->staff->permissions()->sync([
+            Permission::firstOrCreate(['slug' => 'reports.view'], ['label' => 'View Resident Reports Queue', 'group' => 'reports'])->id,
+            Permission::firstOrCreate(['slug' => 'referrals.manage'], ['label' => 'Manage External Referrals', 'group' => 'referrals'])->id,
+        ]);
         $this->admin = User::factory()->admin()->create(['name' => 'Chief Admin']);
         $this->purok = Purok::factory()->create(['name' => 'Purok 1']);
         $this->category = Category::create([

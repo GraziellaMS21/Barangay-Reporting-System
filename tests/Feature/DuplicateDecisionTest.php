@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\Category;
 use App\Models\DuplicateSuggestion;
 use App\Models\Office;
+use App\Models\Permission;
 use App\Models\Report;
 use App\Models\ReportAiResult;
 use App\Models\RoutingRule;
@@ -28,6 +29,10 @@ class DuplicateDecisionTest extends TestCase
         parent::setUp();
 
         $this->staff = User::factory()->staff()->create();
+        $this->staff->permissions()->sync([
+            Permission::firstOrCreate(['slug' => 'reports.view'], ['label' => 'View Resident Reports Queue', 'group' => 'reports'])->id,
+            Permission::firstOrCreate(['slug' => 'dashboard.view'], ['label' => 'View Dashboard Analytics', 'group' => 'dashboard'])->id,
+        ]);
         $this->otherStaff = User::factory()->staff()->create();
         $this->category = Category::query()->create([
             'name' => 'Drainage & Flooding',

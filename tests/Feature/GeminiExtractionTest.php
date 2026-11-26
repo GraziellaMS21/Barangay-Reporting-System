@@ -7,6 +7,7 @@ use App\Models\AuditLog;
 use App\Models\Category;
 use App\Models\InfoRequest;
 use App\Models\Office;
+use App\Models\Permission;
 use App\Models\Purok;
 use App\Models\Report;
 use App\Models\RoutingRule;
@@ -26,6 +27,16 @@ use Tests\TestCase;
 class GeminiExtractionTest extends TestCase
 {
     use RefreshDatabase;
+
+    private function staffWithReportsView(array $attributes = []): User
+    {
+        $staff = User::factory()->create(array_merge(['role' => 'staff'], $attributes));
+        $staff->permissions()->sync([
+            Permission::firstOrCreate(['slug' => 'reports.view'], ['label' => 'View Resident Reports Queue', 'group' => 'reports'])->id,
+        ]);
+
+        return $staff;
+    }
 
     private const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
@@ -112,7 +123,7 @@ class GeminiExtractionTest extends TestCase
 
         Http::assertSentCount(1);
 
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithReportsView();
 
         $this->actingAs($staff)
             ->get(route('admin.reports.show', $report))
@@ -189,7 +200,7 @@ class GeminiExtractionTest extends TestCase
         ]);
         $this->assertSame('AI unavailable, needs manual review.', $report->aiResult->error);
 
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithReportsView();
         $drainageId = Category::query()->where('slug', 'drainage')->value('id');
 
         $this->actingAs($staff)
@@ -267,7 +278,7 @@ class GeminiExtractionTest extends TestCase
     {
         $this->seed(CategorySeeder::class);
         $category = Category::query()->where('slug', 'drainage')->firstOrFail();
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithReportsView();
         $report = Report::factory()->create([
             'description' => 'mabasura ang kanal',
             'ai_status' => 'failed',
@@ -317,7 +328,7 @@ class GeminiExtractionTest extends TestCase
     {
         $this->seed(CategorySeeder::class);
         $category = Category::query()->where('slug', 'drainage')->firstOrFail();
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithReportsView();
         $report = Report::factory()->create([
             'description' => 'The resident original text.',
             'ai_status' => 'done',
@@ -373,7 +384,7 @@ class GeminiExtractionTest extends TestCase
 
     public function test_pending_ai_report_still_shows_manual_review_fields(): void
     {
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithReportsView();
         $report = Report::factory()->create([
             'description' => 'Original report requiring manual review.',
             'ai_status' => 'pending',
@@ -393,7 +404,7 @@ class GeminiExtractionTest extends TestCase
     public function test_staff_review_rejects_an_inactive_category(): void
     {
         $this->seed(CategorySeeder::class);
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithReportsView();
         $report = Report::factory()->create();
         $inactiveCategory = Category::query()->create([
             'name' => 'Inactive test category',
@@ -420,7 +431,7 @@ class GeminiExtractionTest extends TestCase
     public function test_staff_review_rejects_an_unsupported_urgency(): void
     {
         $this->seed(CategorySeeder::class);
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithReportsView();
         $report = Report::factory()->create();
         $category = Category::query()->where('slug', 'drainage')->firstOrFail();
 
@@ -441,7 +452,7 @@ class GeminiExtractionTest extends TestCase
 
     public function test_staff_review_requires_category_urgency_and_description(): void
     {
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithReportsView();
         $report = Report::factory()->create();
 
         $this->actingAs($staff)
@@ -472,7 +483,7 @@ class GeminiExtractionTest extends TestCase
         $this->seed(CategorySeeder::class);
         Mail::fake();
         $category = Category::query()->where('slug', 'drainage')->firstOrFail();
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithReportsView();
         $report = Report::factory()->create([
             'description' => 'Emergency report text.',
             'reporter_name' => 'Private Reporter Name',
@@ -519,7 +530,7 @@ class GeminiExtractionTest extends TestCase
 
     public function test_confirm_and_route_saves_final_values_and_resident_snapshots_in_one_request(): void
     {
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithReportsView();
         $purok = Purok::factory()->create(['name' => 'Purok Original']);
         $residentCategory = Category::query()->create([
             'name' => 'Resident Category',
@@ -606,7 +617,7 @@ class GeminiExtractionTest extends TestCase
     public function test_late_ai_results_are_returned_without_changing_saved_staff_values(): void
     {
         $this->seed(CategorySeeder::class);
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithReportsView();
         $staffCategory = Category::query()->create([
             'name' => 'Staff Final Category',
             'slug' => 'staff-final-category',
@@ -646,7 +657,7 @@ class GeminiExtractionTest extends TestCase
 
     public function test_activity_merges_information_request_and_reply_and_escapes_resident_text(): void
     {
-        $staff = User::factory()->staff()->create(['name' => 'Review Officer']);
+        $staff = $this->staffWithReportsView(['name' => 'Review Officer']);
         $report = Report::factory()->create(['status' => 'under_review']);
         $infoRequest = InfoRequest::query()->create([
             'report_id' => $report->id,
@@ -699,7 +710,7 @@ class GeminiExtractionTest extends TestCase
                 ]],
             ]),
         ]);
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithReportsView();
         $report = Report::factory()->create(['ai_status' => 'failed']);
         $report->aiResult()->create([
             'suggested_category' => 'unclassified',

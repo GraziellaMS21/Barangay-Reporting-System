@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Category;
 use App\Models\Office;
+use App\Models\Permission;
 use App\Models\Purok;
 use App\Models\Referral;
 use App\Models\Report;
@@ -36,6 +37,10 @@ class ReferralsAndRoutingDirectoryTest extends TestCase
 
         $this->admin = User::factory()->admin()->create(['name' => 'Captain Admin']);
         $this->staff = User::factory()->staff()->create(['name' => 'Desk Staff']);
+        $this->staff->permissions()->sync([
+            Permission::firstOrCreate(['slug' => 'reports.view'], ['label' => 'View Resident Reports Queue', 'group' => 'reports'])->id,
+            Permission::firstOrCreate(['slug' => 'referrals.manage'], ['label' => 'Manage External Referrals', 'group' => 'referrals'])->id,
+        ]);
         $this->ownerStaff = User::factory()->staff()->create(['name' => 'Field Assignee']);
         $this->purok = Purok::factory()->create(['name' => 'Purok 2']);
         $this->category = Category::create([

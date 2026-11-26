@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Permission;
 use App\Models\Report;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -11,9 +12,19 @@ class ReportQueueTest extends TestCase
 {
     use RefreshDatabase;
 
+    private function staffWithReportsView(array $attributes = []): User
+    {
+        $staff = User::factory()->create(array_merge(['role' => 'staff'], $attributes));
+        $staff->permissions()->sync([
+            Permission::firstOrCreate(['slug' => 'reports.view'], ['label' => 'View Resident Reports Queue', 'group' => 'reports'])->id,
+        ]);
+
+        return $staff;
+    }
+
     public function test_queue_groups_lifecycle_statuses_and_filters_emergencies_independently(): void
     {
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithReportsView();
         $newReport = Report::factory()->create([
             'tracking_code' => 'BRG-NEW001',
             'status' => 'under_review',
@@ -136,7 +147,7 @@ class ReportQueueTest extends TestCase
 
     public function test_queue_keeps_the_emergency_filter_visible_when_there_are_no_emergencies(): void
     {
-        $staff = User::factory()->staff()->create();
+        $staff = $this->staffWithReportsView();
 
         $response = $this->actingAs($staff)
             ->get(route('admin.reports.index'))
@@ -149,7 +160,7 @@ class ReportQueueTest extends TestCase
 
     public function test_compact_queue_rows_layout_and_priority_badges(): void
     {
-        $staff = User::factory()->staff()->create([
+        $staff = $this->staffWithReportsView([
             'name' => 'Hon. Eduardo V. Alvarez',
         ]);
 

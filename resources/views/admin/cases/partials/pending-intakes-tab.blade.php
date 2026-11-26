@@ -76,7 +76,7 @@
                                     </div>
                                     <div class="text-[10px] text-slate-400">Occurred: {{ $intake->when_happened?->format('M j, Y g:i A') ?? 'Not specified' }}</div>
                                     <div class="mt-1">
-                                        @if($intake->ai_status === 'completed')
+                                        @if($intake->ai_status === 'done')
                                             <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">
                                                 <i class="fa-solid fa-wand-magic-sparkles text-[9px]"></i> AI extracted
                                             </span>

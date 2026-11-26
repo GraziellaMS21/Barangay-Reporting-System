@@ -3,9 +3,13 @@
 namespace App\Listeners\Engine;
 
 use App\Events\ReportSubmitted;
+use App\Models\Report;
+use App\Services\DuplicateService;
 use App\Services\GeminiService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class ProcessNewReport implements ShouldQueue
 {
@@ -30,8 +34,11 @@ class ProcessNewReport implements ShouldQueue
             return;
         }
 
-        // If staff already took official review action, do not run automated screening.
+        // If staff already took official review action, skip AI screening to protect official decisions,
+        // while still allowing advisory duplicate detection for non-merged reports.
         if ($report->reviewed_at !== null) {
+            $this->detectDuplicates($report);
+
             return;
         }
 
@@ -46,6 +53,31 @@ class ProcessNewReport implements ShouldQueue
             $throwOnTransient = ! $isSync && $this->attempts() < $this->tries;
 
             app(GeminiService::class)->analyze($report, $throwOnTransient);
+        }
+
+        $freshReport = $report->fresh();
+        if (! $freshReport || ! $freshReport->exists) {
+            return;
+        }
+
+        $this->detectDuplicates($freshReport);
+    }
+
+    private function detectDuplicates(Report $report): void
+    {
+        if ($report->status === 'merged') {
+            return;
+        }
+
+        try {
+            app(DuplicateService::class)->recordSuggestions($report);
+        } catch (Throwable $exception) {
+            Log::warning('Duplicate detection failed during asynchronous report processing.', [
+                'report_id' => $report->id,
+                'tracking_code' => $report->tracking_code,
+                'exception' => $exception::class,
+                'message' => $exception->getMessage(),
+            ]);
         }
     }
 }

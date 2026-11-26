@@ -1371,16 +1371,45 @@ class ReportController extends Controller
         Report $report,
         ReportStatusService $statusService
     ): RedirectResponse {
+        $user = $request->user();
+        abort_unless($user instanceof User && $user->role === 'admin', 403, 'Manual closure is restricted to administrators.');
+
+        abort_unless($report->status === ReportStatus::AWAITING_CONFIRMATION, 422, 'Only reports awaiting confirmation can be manually closed.');
+
+        if (! $report->proofPhotos()->exists()) {
+            throw ValidationException::withMessages([
+                'justification' => 'At least one proof photo is required before manual closure.',
+            ]);
+        }
+
         $validated = $request->validate([
-            'note' => ['nullable', 'string', 'max:500'],
+            'justification' => ['required', 'string', 'min:10', 'max:1000'],
+        ], [
+            'justification.required' => 'A justification is required to manually close this report.',
+            'justification.min' => 'The justification must be at least 10 characters.',
+            'justification.max' => 'The justification cannot exceed 1000 characters.',
         ]);
 
-        $statusService->transition(
-            $report,
-            ReportStatus::RESOLVED,
-            $validated['note'] ?: 'Case closed manually by staff after confirmation period.',
-            $request->user()
-        );
+        $previousStatus = $report->status;
+        $justification = $validated['justification'];
+
+        DB::transaction(function () use ($report, $previousStatus, $justification, $user, $statusService): void {
+            $statusService->transition(
+                $report,
+                ReportStatus::RESOLVED,
+                $justification,
+                $user
+            );
+
+            AuditLog::query()->create([
+                'user_id' => $user->id,
+                'action' => 'manual_close_report',
+                'model' => Report::class,
+                'model_id' => $report->id,
+                'old_values' => ['status' => $previousStatus],
+                'new_values' => ['status' => ReportStatus::RESOLVED, 'justification' => $justification],
+            ]);
+        });
 
         return back()->with('success', 'Case marked as resolved.');
     }

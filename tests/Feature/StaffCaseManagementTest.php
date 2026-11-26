@@ -10,6 +10,7 @@ use App\Models\Office;
 use App\Models\Permission;
 use App\Models\Purok;
 use App\Models\Report;
+use App\Models\ReportProofPhoto;
 use App\Models\User;
 use App\Services\ReportStatusService;
 use App\Support\ReportStatus;
@@ -244,15 +245,29 @@ class StaffCaseManagementTest extends TestCase
         Event::assertDispatched(ReportStatusChanged::class);
     }
 
-    public function test_staff_can_close_case_manually(): void
+    public function test_admin_can_close_case_manually_and_staff_is_forbidden(): void
     {
         $report = Report::factory()->create([
             'status' => ReportStatus::AWAITING_CONFIRMATION,
         ]);
+        ReportProofPhoto::create([
+            'report_id' => $report->id,
+            'path' => 'proof_photos/test.jpg',
+            'uploaded_by' => $this->staff->id,
+        ]);
 
+        // Staff is forbidden (403)
         $this->actingAs($this->staff)
             ->post(route('admin.reports.close', $report), [
-                'note' => 'Closed after auto-close period expired.',
+                'justification' => 'Attempted manual close by staff.',
+            ])
+            ->assertForbidden();
+
+        // Admin can close with valid justification (min 10 chars)
+        $admin = User::factory()->create(['role' => 'admin']);
+        $this->actingAs($admin)
+            ->post(route('admin.reports.close', $report), [
+                'justification' => 'Closed after auto-close period expired.',
             ])
             ->assertRedirect()
             ->assertSessionHas('success');

@@ -56,9 +56,12 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin,staff'])
         Route::post('/reports/{report}/updates', [AdminReportController::class, 'storeUpdate'])->name('reports.updates.store');
         Route::post('/reports/{report}/reopen', [AdminReportController::class, 'reopenReport'])->name('reports.reopen');
         Route::post('/reports/{report}/resolve', [AdminReportController::class, 'proposeResolution'])->name('reports.resolve');
-        Route::post('/reports/{report}/close', [AdminReportController::class, 'closeManually'])->name('reports.close');
         Route::post('/reports/{report}/escalate', [AdminReportController::class, 'escalate'])->name('reports.escalate');
         Route::get('/map', [AdminMapController::class, 'index'])->name('map');
+    });
+
+    Route::middleware(['role:admin', 'permission:reports.view'])->group(function () {
+        Route::post('/reports/{report}/close', [AdminReportController::class, 'closeManually'])->name('reports.close');
     });
 
     Route::middleware('permission:referrals.manage')->group(function () {

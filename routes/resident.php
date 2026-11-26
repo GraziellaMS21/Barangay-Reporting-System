@@ -19,6 +19,8 @@ Route::get('/report/success/{trackingCode}', [ReportController::class, 'success'
 Route::get('/track', [TrackController::class, 'index'])->name('track.index');
 Route::post('/track', [TrackController::class, 'search'])->name('track.search');
 Route::get('/track/{trackingCode}', [TrackController::class, 'show'])->name('track.show');
+Route::get('/track/{trackingCode}/proof-photos/{proofPhoto}', [TrackController::class, 'proofPhoto'])->name('track.proof-photo');
+Route::get('/track/{trackingCode}/legacy-proof/{proof}', [TrackController::class, 'legacyProofPhoto'])->name('track.legacy-proof');
 
 // Phase 9 tracking additions
 Route::post('/track/{trackingCode}/info-response', [TrackController::class, 'respondToInfoRequest'])->name('track.info-response');

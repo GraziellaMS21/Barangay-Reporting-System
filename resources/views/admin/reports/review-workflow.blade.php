@@ -1853,10 +1853,17 @@
         @elseif($report->status === 'awaiting_confirmation')
           <p class="review-next-summary">Waiting for the resident to confirm the resolution.</p>
           @if($report->due_at && $report->due_at->copy()->addDays($autoCloseDays)->isPast())
-            <form method="POST" action="{{ route('admin.reports.close', $report) }}" data-prevent-double-submit>
-              @csrf
-              <button type="submit" class="review-button review-button-outline" data-submit-once>Close case</button>
-            </form>
+            @if(auth()->user()?->role === 'admin')
+              <form method="POST" action="{{ route('admin.reports.close', $report) }}" data-prevent-double-submit style="margin-top:0.75rem;">
+                @csrf
+                <div class="review-form-field">
+                  <label for="close-justification">Manual Closure Justification <span style="color:var(--red);">*</span></label>
+                  <textarea id="close-justification" name="justification" rows="2" required minlength="10" maxlength="1000" placeholder="Provide reason for manual administrative closure (min. 10 chars)...">{{ old('justification') }}</textarea>
+                  @error('justification')<span class="review-field-error">{{ $message }}</span>@enderror
+                </div>
+                <button type="submit" class="review-button review-button-outline" data-submit-once>Close case</button>
+              </form>
+            @endif
           @endif
         @elseif(in_array($report->status, ['resolved', 'no_action'], true))
           <p class="review-next-summary">

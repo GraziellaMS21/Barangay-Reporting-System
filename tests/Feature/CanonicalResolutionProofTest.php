@@ -439,4 +439,147 @@ class CanonicalResolutionProofTest extends TestCase
 
         $this->assertSame(ReportStatus::ROUTED, $unrelatedReport->fresh()->status);
     }
+
+    public function test_manual_closure_hardening_and_safeguards(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        // 1. Missing justification rejected
+        $reportWithProof = Report::factory()->create(['status' => ReportStatus::AWAITING_CONFIRMATION]);
+        ReportProofPhoto::create([
+            'report_id' => $reportWithProof->id,
+            'path' => 'proof_photos/test1.jpg',
+            'uploaded_by' => $this->staff->id,
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('admin.reports.close', $reportWithProof), [])
+            ->assertRedirect()
+            ->assertSessionHasErrors('justification');
+        $this->assertSame(ReportStatus::AWAITING_CONFIRMATION, $reportWithProof->fresh()->status);
+
+        // 2. Justification shorter than 10 chars rejected
+        $this->actingAs($admin)
+            ->post(route('admin.reports.close', $reportWithProof), [
+                'justification' => 'Too short',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasErrors('justification');
+        $this->assertSame(ReportStatus::AWAITING_CONFIRMATION, $reportWithProof->fresh()->status);
+
+        // 3. Report without proof rejected for manual closure
+        $reportWithoutProof = Report::factory()->create(['status' => ReportStatus::AWAITING_CONFIRMATION]);
+        $this->actingAs($admin)
+            ->post(route('admin.reports.close', $reportWithoutProof), [
+                'justification' => 'Valid admin justification text for closure.',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasErrors('justification');
+        $this->assertSame(ReportStatus::AWAITING_CONFIRMATION, $reportWithoutProof->fresh()->status);
+
+        // 4. Legacy proof record alone does not satisfy canonical proof requirement
+        $reportLegacyOnly = Report::factory()->create(['status' => ReportStatus::AWAITING_CONFIRMATION]);
+        $reportLegacyOnly->resolutionProofs()->create([
+            'user_id' => $this->staff->id,
+            'note' => 'Legacy proof record',
+            'photo_path' => 'resolution_proofs/legacy.jpg',
+        ]);
+        $this->actingAs($admin)
+            ->post(route('admin.reports.close', $reportLegacyOnly), [
+                'justification' => 'Valid admin justification text for closure.',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasErrors('justification');
+        $this->assertSame(ReportStatus::AWAITING_CONFIRMATION, $reportLegacyOnly->fresh()->status);
+
+        // 5. Reports outside awaiting_confirmation cannot be manually closed (422)
+        $inProgressReport = Report::factory()->create(['status' => ReportStatus::IN_PROGRESS]);
+        ReportProofPhoto::create([
+            'report_id' => $inProgressReport->id,
+            'path' => 'proof_photos/test2.jpg',
+            'uploaded_by' => $this->staff->id,
+        ]);
+        $this->actingAs($admin)
+            ->post(route('admin.reports.close', $inProgressReport), [
+                'justification' => 'Valid admin justification text for closure.',
+            ])
+            ->assertStatus(422);
+        $this->assertSame(ReportStatus::IN_PROGRESS, $inProgressReport->fresh()->status);
+
+        // 6. Successful manual closure creates AuditLog entry and transitions status
+        $this->actingAs($admin)
+            ->post(route('admin.reports.close', $reportWithProof), [
+                'justification' => 'Resident reached confirmation deadline without dispute.',
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertSame(ReportStatus::RESOLVED, $reportWithProof->fresh()->status);
+        $this->assertDatabaseHas('audit_logs', [
+            'user_id' => $admin->id,
+            'action' => 'manual_close_report',
+            'model' => Report::class,
+            'model_id' => $reportWithProof->id,
+        ]);
+    }
+
+    public function test_resident_proof_photo_display_and_secure_streaming(): void
+    {
+        Storage::fake('public');
+        Storage::fake('local');
+
+        // Create report in awaiting_confirmation with 2 canonical proof photos
+        $report = Report::factory()->create([
+            'status' => ReportStatus::AWAITING_CONFIRMATION,
+            'category_id' => $this->category->id,
+        ]);
+
+        $proofFile1 = UploadedFile::fake()->image('proof1.jpg')->store('proof_photos', 'public');
+        $proofFile2 = UploadedFile::fake()->image('proof2.jpg')->store('proof_photos', 'public');
+
+        $proof1 = ReportProofPhoto::create([
+            'report_id' => $report->id,
+            'path' => $proofFile1,
+            'uploaded_by' => $this->staff->id,
+        ]);
+        $proof2 = ReportProofPhoto::create([
+            'report_id' => $report->id,
+            'path' => $proofFile2,
+            'uploaded_by' => $this->staff->id,
+        ]);
+
+        // 1. Resident show page renders links to both canonical proof photos
+        $response = $this->get(route('track.show', $report->tracking_code));
+        $response->assertOk();
+        $response->assertSee(route('track.proof-photo', [$report->tracking_code, $proof1]));
+        $response->assertSee(route('track.proof-photo', [$report->tracking_code, $proof2]));
+
+        // 2. Proof photo delivery route streams the image
+        $imgResponse = $this->get(route('track.proof-photo', [$report->tracking_code, $proof1]));
+        $imgResponse->assertOk();
+
+        // 3. Requesting proof photo with wrong tracking code returns 404
+        $otherReport = Report::factory()->create();
+        $this->get(route('track.proof-photo', [$otherReport->tracking_code, $proof1]))
+            ->assertNotFound();
+
+        // 4. Legacy fallback: when report has no canonical photos but has legacy ResolutionProof
+        $legacyReport = Report::factory()->create([
+            'status' => ReportStatus::AWAITING_CONFIRMATION,
+            'category_id' => $this->category->id,
+        ]);
+        $legacyFilePath = UploadedFile::fake()->image('legacy.jpg')->store('resolution_proofs', 'local');
+        $legacyProof = $legacyReport->resolutionProofs()->create([
+            'user_id' => $this->staff->id,
+            'note' => 'Legacy repair completed',
+            'photo_path' => $legacyFilePath,
+        ]);
+
+        $legacyShowResponse = $this->get(route('track.show', $legacyReport->tracking_code));
+        $legacyShowResponse->assertOk();
+        $legacyShowResponse->assertSee(route('track.legacy-proof', [$legacyReport->tracking_code, $legacyProof]));
+
+        $legacyImgResponse = $this->get(route('track.legacy-proof', [$legacyReport->tracking_code, $legacyProof]));
+        $legacyImgResponse->assertOk();
+    }
 }

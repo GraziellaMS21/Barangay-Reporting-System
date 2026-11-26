@@ -670,17 +670,21 @@
             Barangay personnel have worked on this report. Please review the details below.
           </p>
 
-          @if($latestResolutionProof)
+          @if($latestResolutionProof || $report->proofPhotos->isNotEmpty())
             @php
               $residentPhoto = $report->photo_path ?? $report->photos->first()?->photo_path;
-              $proofPhoto = $latestResolutionProof->photo_path;
+              $canonicalPhotos = $report->proofPhotos;
+              $hasCanonicalPhotos = $canonicalPhotos->isNotEmpty();
+              $legacyPhoto = $latestResolutionProof?->photo_path;
             @endphp
 
             <div class="proof-box">
-              <strong style="color:var(--ink);font-size:0.92rem;display:block;margin-bottom:0.35rem;">Staff Resolution Note:</strong>
-              <p style="margin:0;font-size:0.95rem;color:var(--tx);line-height:1.5;">{{ $latestResolutionProof->note }}</p>
+              @if($latestResolutionProof)
+                <strong style="color:var(--ink);font-size:0.92rem;display:block;margin-bottom:0.35rem;">Staff Resolution Note:</strong>
+                <p style="margin:0;font-size:0.95rem;color:var(--tx);line-height:1.5;">{{ $latestResolutionProof->note }}</p>
+              @endif
 
-              @if($proofPhoto)
+              @if($hasCanonicalPhotos || $legacyPhoto)
                 <div style="margin-top:1rem;">
                   <strong style="font-size:0.85rem;color:var(--ink);display:block;margin-bottom:0.5rem;">
                     <i class="fa-solid fa-images" style="color:var(--blue);"></i> Before vs. After Photo Comparison:
@@ -709,30 +713,46 @@
                       </div>
                     </div>
 
-                    <!-- After Photo -->
+                    <!-- After Photo(s) -->
                     <div style="border:1.5px solid #86efac;border-radius:10px;overflow:hidden;background:#f0fdf4;">
                       <div style="padding:0.4rem 0.75rem;background:#dcfce7;border-bottom:1px solid #86efac;display:flex;justify-content:space-between;align-items:center;">
                         <span style="font-weight:800;font-size:0.78rem;color:#15803d;">
-                          <i class="fa-solid fa-circle-check"></i> After / Staff Resolution Proof
+                          <i class="fa-solid fa-circle-check"></i> After / Staff Resolution Proof {{ $hasCanonicalPhotos && $canonicalPhotos->count() > 1 ? '('.$canonicalPhotos->count().')' : '' }}
                         </span>
-                        <small style="color:#166534;font-size:0.75rem;font-weight:600;">{{ $latestResolutionProof->created_at->format('M d, Y') }}</small>
+                        <small style="color:#166534;font-size:0.75rem;font-weight:600;">
+                          {{ ($latestResolutionProof?->created_at ?? $canonicalPhotos->first()?->created_at)?->format('M d, Y') }}
+                        </small>
                       </div>
                       <div style="padding:0.6rem;text-align:center;">
-                        <a href="{{ Storage::disk('local')->url($proofPhoto) }}" target="_blank" rel="noopener">
-                          <img src="{{ Storage::disk('local')->url($proofPhoto) }}" alt="After: Staff Resolution Proof"
-                            style="width:100%;max-height:220px;object-fit:cover;border-radius:8px;border:1px solid #86efac;box-shadow:0 2px 5px rgba(34,197,94,0.12);transition:transform 0.2s;"
-                            onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
-                        </a>
+                        @if($hasCanonicalPhotos)
+                          <div style="display:flex;flex-wrap:wrap;gap:0.5rem;justify-content:center;">
+                            @foreach($canonicalPhotos as $proof)
+                              <a href="{{ route('track.proof-photo', [$report->tracking_code, $proof]) }}" target="_blank" rel="noopener" style="flex:1 1 calc(50% - 0.5rem);min-width:120px;max-width:100%;">
+                                <img src="{{ route('track.proof-photo', [$report->tracking_code, $proof]) }}" alt="After: Staff Resolution Proof Photo"
+                                  style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;border:1px solid #86efac;box-shadow:0 2px 5px rgba(34,197,94,0.12);transition:transform 0.2s;"
+                                  onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                              </a>
+                            @endforeach
+                          </div>
+                        @elseif($legacyPhoto)
+                          <a href="{{ route('track.legacy-proof', [$report->tracking_code, $latestResolutionProof]) }}" target="_blank" rel="noopener">
+                            <img src="{{ route('track.legacy-proof', [$report->tracking_code, $latestResolutionProof]) }}" alt="After: Staff Resolution Proof"
+                              style="width:100%;max-height:220px;object-fit:cover;border-radius:8px;border:1px solid #86efac;box-shadow:0 2px 5px rgba(34,197,94,0.12);transition:transform 0.2s;"
+                              onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                          </a>
+                        @endif
                       </div>
                     </div>
                   </div>
                 </div>
               @endif
 
-              <small style="color:#64748b;display:block;margin-top:0.75rem;padding-top:0.6rem;border-top:1px solid #e2e8f0;">
-                <i class="fa-solid fa-user-check" style="color:#16a34a;"></i>
-                Resolved by {{ $latestResolutionProof->user?->name ?? 'Barangay Staff' }} on {{ $latestResolutionProof->created_at->format('M d, Y h:i A') }}
-              </small>
+              @if($latestResolutionProof)
+                <small style="color:#64748b;display:block;margin-top:0.75rem;padding-top:0.6rem;border-top:1px solid #e2e8f0;">
+                  <i class="fa-solid fa-user-check" style="color:#16a34a;"></i>
+                  Resolved by {{ $latestResolutionProof->user?->name ?? 'Barangay Staff' }} on {{ $latestResolutionProof->created_at->format('M d, Y h:i A') }}
+                </small>
+              @endif
             </div>
           @endif
 

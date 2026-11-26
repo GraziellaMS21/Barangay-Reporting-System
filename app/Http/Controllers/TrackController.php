@@ -5,14 +5,19 @@ namespace App\Http\Controllers;
 use App\Events\ResolutionConfirmed;
 use App\Models\Feedback;
 use App\Models\Report;
+use App\Models\ReportProofPhoto;
+use App\Models\ResolutionProof;
 use App\Models\StatusLog;
+use App\Services\ProofPhotoService;
 use App\Services\ReportStatusService;
 use App\Support\ReportStatus;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class TrackController extends Controller
 {
@@ -57,6 +62,7 @@ class TrackController extends Controller
                 'statusLogs' => fn ($query) => $query->with(['user:id,name,role', 'office:id,name'])->oldest(),
                 'infoRequests' => fn ($query) => $query->with('requester:id,name')->latest(),
                 'resolutionProofs' => fn ($query) => $query->with('user:id,name')->latest(),
+                'proofPhotos' => fn ($query) => $query->oldest(),
                 'feedback',
                 // Referral tracking: only the plain-language data the resident may see.
                 'activeReferral.office:id,name',
@@ -251,5 +257,32 @@ class TrackController extends Controller
 
         return redirect()->route('track.show', $report->tracking_code)
             ->with('status', 'Thank you for your feedback! Your rating helps improve barangay services.');
+    }
+
+    public function proofPhoto(
+        string $trackingCode,
+        ReportProofPhoto $proofPhoto,
+        ProofPhotoService $proofPhotoService
+    ): StreamedResponse {
+        $report = Report::where('tracking_code', $trackingCode)->firstOrFail();
+        abort_unless($proofPhoto->report_id === $report->id, 404);
+
+        return $proofPhotoService->response($proofPhoto);
+    }
+
+    public function legacyProofPhoto(
+        string $trackingCode,
+        ResolutionProof $proof
+    ): StreamedResponse {
+        $report = Report::where('tracking_code', $trackingCode)->firstOrFail();
+        abort_unless($proof->report_id === $report->id && $proof->photo_path, 404);
+
+        if (Storage::disk('public')->exists($proof->photo_path)) {
+            return Storage::disk('public')->response($proof->photo_path);
+        }
+
+        abort_unless(Storage::disk('local')->exists($proof->photo_path), 404);
+
+        return Storage::disk('local')->response($proof->photo_path);
     }
 }

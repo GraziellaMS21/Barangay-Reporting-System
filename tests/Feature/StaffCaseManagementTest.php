@@ -213,7 +213,7 @@ class StaffCaseManagementTest extends TestCase
     public function test_staff_can_propose_resolution_with_proof(): void
     {
         Event::fake([ResolutionProposed::class, ReportStatusChanged::class]);
-        Storage::fake('local');
+        Storage::fake('public');
 
         $report = Report::factory()->create([
             'status' => ReportStatus::IN_PROGRESS,
@@ -224,7 +224,7 @@ class StaffCaseManagementTest extends TestCase
         $this->actingAs($this->staff)
             ->post(route('admin.reports.resolve', $report), [
                 'note' => 'Fixed streetlight fixture and replaced bulb.',
-                'photo' => $file,
+                'proof_photos' => [$file],
             ])
             ->assertRedirect()
             ->assertSessionHas('success');

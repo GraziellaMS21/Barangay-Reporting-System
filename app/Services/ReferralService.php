@@ -202,12 +202,13 @@ class ReferralService
     }
 
     /**
-     * Close the referral. Resolved closes the report through ReportStatusService;
+     * Close the referral. A resolved agency outcome moves a referred report to
+     * in_progress for barangay staff verification and proof before resolution;
      * declined or no_response keeps the report open for the next action.
      */
     public function close(Referral $referral, User $user, string $outcome, string $note): Referral
     {
-        $resolvedReport = DB::transaction(function () use ($referral, $user, $outcome, $note): bool {
+        $movedToInProgress = DB::transaction(function () use ($referral, $user, $outcome, $note): bool {
             $attributes = [
                 'status' => 'closed',
                 'closed_at' => now(),
@@ -225,11 +226,11 @@ class ReferralService
                 'visible_to_resident' => $outcome === 'resolved',
             ]);
 
-            if ($outcome === 'resolved' && $referral->report->status !== 'resolved') {
+            if ($outcome === 'resolved' && $this->statusService->canTransition($referral->report->status, 'in_progress')) {
                 $this->statusService->transition(
                     $referral->report,
-                    'resolved',
-                    'Agency resolved the referred report: '.Str::limit($note, 150),
+                    'in_progress',
+                    'Agency reported the referred issue as resolved; awaiting barangay verification and proof: '.Str::limit($note, 150),
                     $user
                 );
 
@@ -246,11 +247,11 @@ class ReferralService
             return false;
         });
 
-        if ($resolvedReport) {
+        if ($movedToInProgress) {
             $this->notifyResident(
                 $referral->report,
-                'Your report has been resolved',
-                'The agency handling report '.$referral->report->tracking_code.' reported the issue as resolved. Please confirm it on the tracking page.',
+                'Agency completed work on your report',
+                'The agency handling report '.$referral->report->tracking_code.' reported the issue as completed. Barangay staff will verify and upload proof before final confirmation.',
                 'referral_closed'
             );
         }

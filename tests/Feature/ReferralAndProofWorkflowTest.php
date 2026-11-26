@@ -459,7 +459,7 @@ class ReferralAndProofWorkflowTest extends TestCase
         $this->assertSame('closed', $referral->status);
         $this->assertSame('resolved', $referral->outcome);
         $this->assertNotNull($referral->closed_at);
-        $this->assertSame('resolved', $report->status);
+        $this->assertSame('in_progress', $report->status);
     }
 
     public function test_close_referral_as_declined_keeps_the_report_open(): void

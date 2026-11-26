@@ -16,13 +16,14 @@ use Throwable;
  */
 class ProofPhotoService
 {
-    /** @return array{stored: int, skipped: list<string>} */
+    /** @return array{stored: int, skipped: list<string>, paths: list<string>} */
     public function storeMany(Report $report, array $files, User $user): array
     {
         $stored = 0;
         $skipped = [];
+        $paths = [];
 
-        DB::transaction(function () use ($report, $files, $user, &$stored, &$skipped): void {
+        DB::transaction(function () use ($report, $files, $user, &$stored, &$skipped, &$paths): void {
             foreach ($files as $file) {
                 if (! $file || ! $file->isValid()) {
                     $skipped[] = 'An unreadable file was skipped.';
@@ -31,6 +32,7 @@ class ProofPhotoService
                 }
 
                 $path = $file->store('proof_photos', 'public');
+                $paths[] = $path;
                 $report->proofPhotos()->create([
                     'path' => $path,
                     'uploaded_by' => $user->id,
@@ -48,7 +50,7 @@ class ProofPhotoService
             }
         });
 
-        return ['stored' => $stored, 'skipped' => $skipped];
+        return ['stored' => $stored, 'skipped' => $skipped, 'paths' => $paths];
     }
 
     public function delete(Report $report, ReportProofPhoto $proof, User $user): void

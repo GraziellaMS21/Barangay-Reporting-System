@@ -36,6 +36,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
@@ -1044,50 +1045,58 @@ class ReportController extends Controller
             'no_action_reason.required' => 'A reason code is required when taking no action.',
         ]);
 
-        DB::transaction(function () use ($report, $validated, $request, $routingService, $priorityService, $statusService) {
-            $toStatus = $validated['status'];
-            $note = $validated['note'] ?? null;
-            $officeId = $validated['office_id'] ?? null;
+        try {
+            DB::transaction(function () use ($report, $validated, $request, $routingService, $priorityService, $statusService) {
+                $toStatus = $validated['status'];
+                $note = $validated['note'] ?? null;
+                $officeId = $validated['office_id'] ?? null;
 
-            if ($report->is_emergency && $toStatus === 'in_progress') {
-                AuditLog::query()->create([
-                    'user_id' => $request->user()->id,
-                    'action' => 'emergency_handled_internally',
-                    'model' => Report::class,
-                    'model_id' => $report->id,
-                    'old_values' => ['status' => $report->status, 'is_emergency' => true],
-                    'new_values' => ['status' => 'in_progress', 'note' => $note],
-                ]);
-            }
-
-            if ($report->is_emergency) {
-                $report->office_id = null;
-                $report->priority_score = 0;
-            } else {
-                if ($officeId) {
-                    $report->office_id = $officeId;
-                } elseif ($report->category) {
-                    $recommendedOffice = $routingService->recommendedOffice($report->category);
-                    $report->office_id = $recommendedOffice?->id ?? $report->office_id;
+                if ($toStatus === ReportStatus::AWAITING_CONFIRMATION && ! $report->proofPhotos()->exists()) {
+                    throw new \InvalidArgumentException('At least one proof photo is required before awaiting confirmation.');
                 }
 
-                $report->priority_score = $priorityService->calculate($report);
-            }
+                if ($report->is_emergency && $toStatus === 'in_progress') {
+                    AuditLog::query()->create([
+                        'user_id' => $request->user()->id,
+                        'action' => 'emergency_handled_internally',
+                        'model' => Report::class,
+                        'model_id' => $report->id,
+                        'old_values' => ['status' => $report->status, 'is_emergency' => true],
+                        'new_values' => ['status' => 'in_progress', 'note' => $note],
+                    ]);
+                }
 
-            $report->save();
+                if ($report->is_emergency) {
+                    $report->office_id = null;
+                    $report->priority_score = 0;
+                } else {
+                    if ($officeId) {
+                        $report->office_id = $officeId;
+                    } elseif ($report->category) {
+                        $recommendedOffice = $routingService->recommendedOffice($report->category);
+                        $report->office_id = $recommendedOffice?->id ?? $report->office_id;
+                    }
 
-            $office = Office::find($report->office_id);
-            if (! $report->is_emergency && $toStatus === 'routed' && $report->category && $office && $office->is_external) {
-                $routingService->createReferral($report, $office, $request->user());
-            }
+                    $report->priority_score = $priorityService->calculate($report);
+                }
 
-            $extra = [];
-            if ($toStatus === ReportStatus::NO_ACTION) {
-                $extra['no_action_reason'] = $validated['no_action_reason'] ?? null;
-            }
+                $report->save();
 
-            $statusService->transition($report, $toStatus, $note, $request->user(), $extra);
-        });
+                $office = Office::find($report->office_id);
+                if (! $report->is_emergency && $toStatus === 'routed' && $report->category && $office && $office->is_external) {
+                    $routingService->createReferral($report, $office, $request->user());
+                }
+
+                $extra = [];
+                if ($toStatus === ReportStatus::NO_ACTION) {
+                    $extra['no_action_reason'] = $validated['no_action_reason'] ?? null;
+                }
+
+                $statusService->transition($report, $toStatus, $note, $request->user(), $extra);
+            });
+        } catch (\InvalidArgumentException $exception) {
+            return back()->withErrors(['status' => $exception->getMessage()])->withInput();
+        }
 
         return back()->with('success', 'Report status updated successfully.');
     }
@@ -1286,32 +1295,71 @@ class ReportController extends Controller
         $reviewer = $request->user();
         abort_unless($reviewer instanceof User, 403);
 
-        $photoPath = null;
-        if ($request->hasFile('photo')) {
-            $photoPath = $request->file('photo')->store('resolution_proofs', 'local');
+        $files = array_values($validated['proof_photos'] ?? []);
+        if ($files === [] && ! $report->proofPhotos()->exists()) {
+            throw ValidationException::withMessages([
+                'proof_photos' => 'Upload at least one proof photo before proposing resolution.',
+            ]);
         }
 
-        $proof = DB::transaction(function () use ($report, $validated, $reviewer, $photoPath, $proofPhotoService): ResolutionProof {
-            $proof = $report->resolutionProofs()->create([
-                'user_id' => $reviewer->id,
-                'note' => $validated['note'],
-                'photo_path' => $photoPath,
-            ]);
+        $storedPhotoPath = null;
+        $storedProofPaths = [];
 
-            $files = array_values($validated['proof_photos'] ?? []);
-            if ($files !== []) {
-                $proofPhotoService->storeMany($report, $files, $reviewer);
+        try {
+            if ($request->hasFile('photo')) {
+                $storedPhotoPath = $request->file('photo')->store('resolution_proofs', 'local');
             }
 
-            return $proof;
-        });
+            $proof = DB::transaction(function () use (
+                $report,
+                $validated,
+                $reviewer,
+                $storedPhotoPath,
+                $proofPhotoService,
+                $statusService,
+                $files,
+                &$storedProofPaths
+            ): ResolutionProof {
+                $proof = $report->resolutionProofs()->create([
+                    'user_id' => $reviewer->id,
+                    'note' => $validated['note'],
+                    'photo_path' => $storedPhotoPath,
+                ]);
 
-        $statusService->transition(
-            $report,
-            ReportStatus::AWAITING_CONFIRMATION,
-            'Resolution proposed with proof: '.str($validated['note'])->limit(120),
-            $reviewer
-        );
+                if ($files !== []) {
+                    $result = $proofPhotoService->storeMany($report, $files, $reviewer);
+                    $storedProofPaths = $result['paths'];
+                }
+
+                if (! $report->proofPhotos()->exists()) {
+                    throw ValidationException::withMessages([
+                        'proof_photos' => 'Upload at least one valid proof photo before proposing resolution.',
+                    ]);
+                }
+
+                $statusService->transition(
+                    $report,
+                    ReportStatus::AWAITING_CONFIRMATION,
+                    'Resolution proposed with proof: '.str($validated['note'])->limit(120),
+                    $reviewer
+                );
+
+                return $proof;
+            });
+        } catch (Throwable $exception) {
+            if ($storedPhotoPath !== null) {
+                Storage::disk('local')->delete($storedPhotoPath);
+            }
+            foreach ($storedProofPaths as $path) {
+                Storage::disk('public')->delete($path);
+            }
+
+            if ($exception instanceof \InvalidArgumentException) {
+                return back()->withErrors(['status' => $exception->getMessage()])->withInput();
+            }
+
+            throw $exception;
+        }
 
         event(new ResolutionProposed($report, $proof));
 
@@ -1524,6 +1572,11 @@ class ReportController extends Controller
                     $report->save();
                 } else {
                     $toStatus = $validated['status'];
+
+                    if ($toStatus === ReportStatus::AWAITING_CONFIRMATION && ! $report->proofPhotos()->exists()) {
+                        throw new \InvalidArgumentException('At least one proof photo is required before awaiting confirmation.');
+                    }
+
                     $report->office_id = $report->office_id
                         ?? ($report->category ? $routingService->recommendedOffice($report->category)?->id : null);
                     $report->priority_score = $priorityService->calculate($report);

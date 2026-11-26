@@ -128,6 +128,7 @@
   :categories="$categories"
   :staff-users="$staffUsers"
   :fiscal-years="$fiscalYears"
+  :ai-status-filter="$aiStatusFilter"
   :queue-route="$queueRoute"
 />
 
@@ -264,6 +265,11 @@
               @if($report->reopened_count > 0)
                 <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 shrink-0" title="Reopened">
                   <i class="fa-solid fa-arrow-rotate-left mr-0.5" aria-hidden="true"></i>Reopened
+                </span>
+              @endif
+              @if($report->ai_status === 'failed')
+                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 shrink-0" title="AI screening unavailable — manual review required.">
+                  <i class="fa-solid fa-triangle-exclamation mr-1" aria-hidden="true"></i>Manual screening
                 </span>
               @endif
               <span class="text-xs text-slate-700 truncate max-w-[200px] md:max-w-[220px] lg:max-w-[260px] inline-block" title="{{ $report->summary ?: $report->description }}">

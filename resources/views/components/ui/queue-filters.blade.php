@@ -15,6 +15,7 @@
     'categories' => collect(),
     'staffUsers' => collect(),
     'fiscalYears' => collect(),
+    'aiStatusFilter' => null,
     'queueRoute' => 'admin.reports.index',
 ])
 
@@ -63,7 +64,7 @@
         : $buildFilterUrl(['emergency' => 1]);
 
     // Active secondary filters count for badge
-    $activeSecondaryKeys = ['purok_id', 'category_id', 'assigned_to', 'status', 'year'];
+    $activeSecondaryKeys = ['purok_id', 'category_id', 'assigned_to', 'status', 'year', 'ai_status'];
     $secondaryFilterCount = 0;
     foreach ($activeSecondaryKeys as $key) {
         if ($key === 'assigned_to' && $isMyCases) {
@@ -75,7 +76,7 @@
     }
 
     // Secondary filters clear URL
-    $clearSecondaryUrl = $buildFilterUrl([], ['purok_id', 'category_id', 'assigned_to', 'status', 'year']);
+    $clearSecondaryUrl = $buildFilterUrl([], ['purok_id', 'category_id', 'assigned_to', 'status', 'year', 'ai_status']);
 
     // Build removable secondary filter chips
     $removableChips = [];
@@ -119,6 +120,19 @@
         $removableChips[] = [
             'label' => 'FY ' . request('year'),
             'url' => $buildFilterUrl([], ['year']),
+        ];
+    }
+    if (request()->filled('ai_status') && request('ai_status') !== 'all') {
+        $aiLabels = [
+            'failed' => 'Failed (Manual screening)',
+            'done' => 'Done',
+            'pending' => 'Pending',
+            'processing' => 'Processing',
+        ];
+        $aiLabel = $aiLabels[request('ai_status')] ?? ucfirst((string) request('ai_status'));
+        $removableChips[] = [
+            'label' => 'AI: ' . $aiLabel,
+            'url' => $buildFilterUrl([], ['ai_status']),
         ];
     }
 
@@ -294,6 +308,17 @@
                             </select>
                         </div>
                     @endif
+
+                    <div>
+                        <label for="queue-filter-ai-status" class="block font-semibold text-slate-700 mb-1">AI Screening</label>
+                        <select id="queue-filter-ai-status" name="ai_status" class="w-full rounded border border-slate-300 p-1.5 text-xs bg-white text-slate-800">
+                            <option value="">All AI statuses</option>
+                            <option value="failed" @selected(request('ai_status') === 'failed' || $aiStatusFilter === 'failed')>Failed (Manual screening)</option>
+                            <option value="done" @selected(request('ai_status') === 'done' || $aiStatusFilter === 'done')>Done</option>
+                            <option value="pending" @selected(request('ai_status') === 'pending' || $aiStatusFilter === 'pending')>Pending</option>
+                            <option value="processing" @selected(request('ai_status') === 'processing' || $aiStatusFilter === 'processing')>Processing</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="flex items-center justify-between pt-2 border-t border-slate-100">

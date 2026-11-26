@@ -114,6 +114,7 @@ class ReportController extends Controller
         $isMyCases = $request->routeIs('admin.reports.my-cases');
         $fiscalYears = FiscalYear::orderByDesc('year')->get();
         $yearFilter = $validated['year'] ?? null;
+        $aiStatusFilter = $validated['ai_status'] ?? null;
 
         return view('admin.reports.index', compact(
             'reports',
@@ -132,7 +133,8 @@ class ReportController extends Controller
             'emergencyOnly',
             'isMyCases',
             'fiscalYears',
-            'yearFilter'
+            'yearFilter',
+            'aiStatusFilter'
         ));
     }
 
@@ -149,6 +151,7 @@ class ReportController extends Controller
             'assigned_to' => ['nullable', 'string'],
             'overdue' => ['nullable', Rule::in(['0', '1'])],
             'year' => ['nullable', 'string', 'max:10'],
+            'ai_status' => ['nullable', 'string', Rule::in(['all', 'failed', 'done', 'pending', 'processing'])],
             'q' => ['nullable', 'string', 'max:255'],
             // Whitelisted sorting; unknown values silently fall back to the
             // default order inside applyQueueOrder instead of erroring.
@@ -243,6 +246,10 @@ class ReportController extends Controller
 
         if (isset($validated['year']) && $validated['year'] !== 'all' && $validated['year'] !== '') {
             $query->whereHas('fiscalYear', fn ($fyQuery) => $fyQuery->where('year', (int) $validated['year']));
+        }
+
+        if (filled($validated['ai_status'] ?? null) && $validated['ai_status'] !== 'all') {
+            $query->where('ai_status', $validated['ai_status']);
         }
 
         return $query;

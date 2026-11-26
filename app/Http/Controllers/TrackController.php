@@ -6,8 +6,11 @@ use App\Events\ResolutionConfirmed;
 use App\Models\Feedback;
 use App\Models\Report;
 use App\Models\StatusLog;
+use App\Services\ReportStatusService;
+use App\Support\ReportStatus;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -76,8 +79,11 @@ class TrackController extends Controller
         return view('resident.show', compact('report', 'pendingInfoRequest', 'latestResolutionProof'));
     }
 
-    public function respondToInfoRequest(Request $request, string $trackingCode): RedirectResponse
-    {
+    public function respondToInfoRequest(
+        Request $request,
+        string $trackingCode,
+        ReportStatusService $statusService
+    ): RedirectResponse {
         $data = $request->validate([
             'response' => ['required', 'string', 'min:2', 'max:2000'],
         ], [
@@ -86,30 +92,60 @@ class TrackController extends Controller
         ]);
 
         $report = Report::where('tracking_code', $trackingCode)->firstOrFail();
-        $infoRequest = $report->infoRequests()->whereNull('responded_at')->latest()->first();
+        $infoRequest = $report->infoRequests()->whereNull('responded_at')->latest('id')->first();
 
         if (! $infoRequest) {
             return back()->withErrors(['info_response' => 'No pending information request found for this report.']);
         }
 
-        $infoRequest->update([
-            'response' => $data['response'],
-            'responded_at' => now(),
-        ]);
+        DB::transaction(function () use ($report, $infoRequest, $data, $statusService) {
+            $infoRequest->update([
+                'response' => $data['response'],
+                'responded_at' => now(),
+            ]);
 
-        StatusLog::create([
-            'report_id' => $report->id,
-            'from_status' => $report->status,
-            'to_status' => $report->status,
-            'note' => 'Resident provided additional info: '.Str::limit($data['response'], 120),
-        ]);
+            $hasOtherPending = $report->infoRequests()
+                ->whereNull('responded_at')
+                ->where('id', '!=', $infoRequest->id)
+                ->exists();
+
+            if (! $hasOtherPending && $report->status === ReportStatus::NEEDS_INFO) {
+                $previousStatus = $report->statusLogs()
+                    ->where('to_status', ReportStatus::NEEDS_INFO)
+                    ->where('from_status', '!=', ReportStatus::NEEDS_INFO)
+                    ->latest('id')
+                    ->value('from_status');
+
+                $targetStatus = ($previousStatus && $statusService->canTransition(ReportStatus::NEEDS_INFO, $previousStatus))
+                    ? $previousStatus
+                    : ReportStatus::UNDER_REVIEW;
+
+                $statusService->transition(
+                    $report,
+                    $targetStatus,
+                    'Resident provided additional info: '.Str::limit($data['response'], 120),
+                    null,
+                    ['visible_to_resident' => true]
+                );
+            } else {
+                StatusLog::create([
+                    'report_id' => $report->id,
+                    'from_status' => $report->status,
+                    'to_status' => $report->status,
+                    'note' => 'Resident provided additional info: '.Str::limit($data['response'], 120),
+                ]);
+            }
+        });
 
         return redirect()->route('track.show', $report->tracking_code)
             ->with('status', 'Your response has been sent to barangay staff.');
     }
 
-    public function confirmResolution(Request $request, string $trackingCode): RedirectResponse
-    {
+    public function confirmResolution(
+        Request $request,
+        string $trackingCode,
+        ReportStatusService $statusService
+    ): RedirectResponse {
         $data = $request->validate([
             'rating' => ['nullable', 'integer', 'between:1,5'],
             'comment' => ['nullable', 'string', 'max:1000'],
@@ -117,40 +153,48 @@ class TrackController extends Controller
 
         $report = Report::where('tracking_code', $trackingCode)->firstOrFail();
 
-        $feedback = null;
-        if (! empty($data['rating'])) {
-            $feedback = Feedback::updateOrCreate(
-                ['report_id' => $report->id],
-                [
-                    'rating' => (int) $data['rating'],
-                    'comment' => $data['comment'] ?? null,
-                ]
-            );
+        if ($report->status !== ReportStatus::AWAITING_CONFIRMATION) {
+            return redirect()->route('track.show', $report->tracking_code)
+                ->withErrors(['status' => 'This report is not awaiting resolution confirmation.']);
         }
 
-        $previousStatus = $report->status;
-        $report->update([
-            'status' => 'resolved',
-            'resolved_at' => $report->resolved_at ?? now(),
-            'resolution_confirmed_at' => now(),
-        ]);
+        $feedback = null;
+        DB::transaction(function () use ($report, $data, $statusService, &$feedback) {
+            if (! empty($data['rating'])) {
+                $feedback = Feedback::updateOrCreate(
+                    ['report_id' => $report->id],
+                    [
+                        'rating' => (int) $data['rating'],
+                        'comment' => $data['comment'] ?? null,
+                    ]
+                );
+            }
 
-        StatusLog::create([
-            'report_id' => $report->id,
-            'from_status' => $previousStatus,
-            'to_status' => 'resolved',
-            'note' => 'Resident confirmed the problem has been resolved.',
-        ]);
+            $statusService->transition(
+                $report,
+                ReportStatus::RESOLVED,
+                'Resident confirmed the problem has been resolved.',
+                null,
+                ['visible_to_resident' => true]
+            );
+
+            $report->update([
+                'resolution_confirmed_at' => now(),
+            ]);
+        });
 
         // Contract: Dispatches ResolutionConfirmed
-        ResolutionConfirmed::dispatch($report, true, $feedback);
+        ResolutionConfirmed::dispatch($report->fresh(), true, $feedback);
 
         return redirect()->route('track.show', $report->tracking_code)
             ->with('status', 'Thank you! You have confirmed this report is resolved.');
     }
 
-    public function reopen(Request $request, string $trackingCode): RedirectResponse
-    {
+    public function reopen(
+        Request $request,
+        string $trackingCode,
+        ReportStatusService $statusService
+    ): RedirectResponse {
         $data = $request->validate([
             'reason' => ['required', 'string', 'min:10', 'max:1000'],
         ], [
@@ -159,23 +203,28 @@ class TrackController extends Controller
         ]);
 
         $report = Report::where('tracking_code', $trackingCode)->firstOrFail();
-        $previousStatus = $report->status;
 
-        $report->increment('reopened_count');
-        $report->update([
-            'status' => 'reopened',
-            'resolution_confirmed_at' => null,
-        ]);
+        if (! in_array($report->status, [ReportStatus::AWAITING_CONFIRMATION, ReportStatus::RESOLVED], true)) {
+            return redirect()->route('track.show', $report->tracking_code)
+                ->withErrors(['status' => 'This report cannot be reopened from its current status.']);
+        }
 
-        StatusLog::create([
-            'report_id' => $report->id,
-            'from_status' => $previousStatus,
-            'to_status' => 'reopened',
-            'note' => 'Resident reopened report: '.$data['reason'],
-        ]);
+        DB::transaction(function () use ($report, $data, $statusService) {
+            $statusService->transition(
+                $report,
+                ReportStatus::REOPENED,
+                'Resident reopened report: '.$data['reason'],
+                null,
+                ['visible_to_resident' => true]
+            );
+
+            $report->update([
+                'resolution_confirmed_at' => null,
+            ]);
+        });
 
         // Contract: Dispatches ResolutionConfirmed
-        ResolutionConfirmed::dispatch($report, false, null);
+        ResolutionConfirmed::dispatch($report->fresh(), false, null);
 
         return redirect()->route('track.show', $report->tracking_code)
             ->with('status', 'Report has been reopened. Barangay staff will follow up on your concern.');

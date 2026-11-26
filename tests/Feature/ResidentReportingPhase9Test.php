@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Events\ReportStatusChanged;
 use App\Events\ReportSubmitted;
 use App\Events\ResolutionConfirmed;
 use App\Models\Category;
@@ -9,7 +10,9 @@ use App\Models\Feedback;
 use App\Models\InfoRequest;
 use App\Models\Purok;
 use App\Models\Report;
+use App\Models\StatusLog;
 use App\Models\User;
+use App\Support\ReportStatus;
 use Database\Seeders\CategoryQuestionSeeder;
 use Database\Seeders\CategorySeeder;
 use Database\Seeders\PurokSeeder;
@@ -140,6 +143,8 @@ class ResidentReportingPhase9Test extends TestCase
 
     public function test_resident_can_respond_to_staff_info_request(): void
     {
+        Event::fake([ReportStatusChanged::class]);
+
         $staff = User::factory()->create(['role' => 'staff']);
         $report = Report::factory()->create([
             'status' => 'needs_info',
@@ -169,11 +174,122 @@ class ResidentReportingPhase9Test extends TestCase
         ]);
 
         $this->assertNotNull($infoRequest->fresh()->responded_at);
+
+        $report->refresh();
+        $this->assertEquals(ReportStatus::UNDER_REVIEW, $report->status);
+
+        Event::assertDispatched(ReportStatusChanged::class, function ($event) use ($report) {
+            return $event->report->id === $report->id
+                && $event->from === ReportStatus::NEEDS_INFO
+                && $event->to === ReportStatus::UNDER_REVIEW;
+        });
+    }
+
+    public function test_resident_response_resumes_to_previous_active_status(): void
+    {
+        Event::fake([ReportStatusChanged::class]);
+
+        $staff = User::factory()->create(['role' => 'staff']);
+        $report = Report::factory()->create([
+            'status' => 'needs_info',
+            'tracking_code' => 'BRG-TST-RESUME',
+        ]);
+
+        StatusLog::create([
+            'report_id' => $report->id,
+            'from_status' => ReportStatus::IN_PROGRESS,
+            'to_status' => ReportStatus::NEEDS_INFO,
+            'note' => 'Clarification requested by staff',
+        ]);
+
+        InfoRequest::create([
+            'report_id' => $report->id,
+            'requested_by' => $staff->id,
+            'question' => 'Is the water line still leaking?',
+        ]);
+
+        $response = $this->post(route('track.info-response', $report->tracking_code), [
+            'response' => 'Yes, still leaking heavily near the corner meter.',
+        ]);
+
+        $response->assertRedirect(route('track.show', $report->tracking_code));
+        $report->refresh();
+        $this->assertEquals(ReportStatus::IN_PROGRESS, $report->status);
+
+        Event::assertDispatched(ReportStatusChanged::class, function ($event) use ($report) {
+            return $event->report->id === $report->id
+                && $event->from === ReportStatus::NEEDS_INFO
+                && $event->to === ReportStatus::IN_PROGRESS;
+        });
+    }
+
+    public function test_resident_response_does_not_resume_if_other_info_requests_remain_pending(): void
+    {
+        Event::fake([ReportStatusChanged::class]);
+
+        $staff = User::factory()->create(['role' => 'staff']);
+        $report = Report::factory()->create([
+            'status' => 'needs_info',
+            'tracking_code' => 'BRG-TST-MULTI',
+        ]);
+
+        StatusLog::create([
+            'report_id' => $report->id,
+            'from_status' => ReportStatus::IN_PROGRESS,
+            'to_status' => ReportStatus::NEEDS_INFO,
+            'note' => 'Need additional details',
+        ]);
+
+        $firstRequest = InfoRequest::forceCreate([
+            'report_id' => $report->id,
+            'requested_by' => $staff->id,
+            'question' => 'Question 1: What is the house number?',
+            'created_at' => now()->subMinutes(10),
+            'updated_at' => now()->subMinutes(10),
+        ]);
+
+        $secondRequest = InfoRequest::forceCreate([
+            'report_id' => $report->id,
+            'requested_by' => $staff->id,
+            'question' => 'Question 2: Who owns the property?',
+            'created_at' => now()->subMinutes(5),
+            'updated_at' => now()->subMinutes(5),
+        ]);
+
+        // Responding to the latest one (secondRequest)
+        $response = $this->post(route('track.info-response', $report->tracking_code), [
+            'response' => 'The property belongs to Mr. Santos.',
+        ]);
+
+        $response->assertRedirect(route('track.show', $report->tracking_code));
+        $report->refresh();
+
+        // Still needs_info because firstRequest is still unfulfilled
+        $this->assertEquals(ReportStatus::NEEDS_INFO, $report->status);
+        $this->assertNotNull($secondRequest->fresh()->responded_at);
+        $this->assertNull($firstRequest->fresh()->responded_at);
+        Event::assertNotDispatched(ReportStatusChanged::class);
+
+        // Now respond to the remaining one
+        $response2 = $this->post(route('track.info-response', $report->tracking_code), [
+            'response' => 'House number is #15-B.',
+        ]);
+
+        $response2->assertRedirect(route('track.show', $report->tracking_code));
+        $report->refresh();
+        $this->assertEquals(ReportStatus::IN_PROGRESS, $report->status);
+        $this->assertNotNull($firstRequest->fresh()->responded_at);
+
+        Event::assertDispatched(ReportStatusChanged::class, function ($event) use ($report) {
+            return $event->report->id === $report->id
+                && $event->from === ReportStatus::NEEDS_INFO
+                && $event->to === ReportStatus::IN_PROGRESS;
+        });
     }
 
     public function test_resident_can_confirm_resolution_and_leave_feedback(): void
     {
-        Event::fake([ResolutionConfirmed::class]);
+        Event::fake([ResolutionConfirmed::class, ReportStatusChanged::class]);
 
         $report = Report::factory()->create([
             'status' => 'awaiting_confirmation',
@@ -194,6 +310,7 @@ class ResidentReportingPhase9Test extends TestCase
 
         $report->refresh();
         $this->assertEquals('resolved', $report->status);
+        $this->assertNotNull($report->resolved_at);
         $this->assertNotNull($report->resolution_confirmed_at);
 
         $this->assertDatabaseHas('feedback', [
@@ -202,14 +319,45 @@ class ResidentReportingPhase9Test extends TestCase
             'comment' => 'The team arrived on time and completely cleared the canal!',
         ]);
 
+        Event::assertDispatched(ReportStatusChanged::class, function ($event) use ($report) {
+            return $event->report->id === $report->id
+                && $event->from === ReportStatus::AWAITING_CONFIRMATION
+                && $event->to === ReportStatus::RESOLVED;
+        });
+
         Event::assertDispatched(ResolutionConfirmed::class, function ($event) use ($report) {
             return $event->report->id === $report->id && $event->confirmed === true && $event->feedback instanceof Feedback;
         });
     }
 
+    public function test_confirm_resolution_rejects_invalid_source_status(): void
+    {
+        Event::fake([ResolutionConfirmed::class, ReportStatusChanged::class]);
+
+        $report = Report::factory()->create([
+            'status' => ReportStatus::SUBMITTED,
+            'tracking_code' => 'BRG-TST-INVALID-CONFIRM',
+        ]);
+
+        $response = $this->post(route('track.confirm', $report->tracking_code), [
+            'rating' => 5,
+        ]);
+
+        $response->assertRedirect(route('track.show', $report->tracking_code));
+        $response->assertSessionHasErrors(['status']);
+
+        $report->refresh();
+        $this->assertEquals(ReportStatus::SUBMITTED, $report->status);
+        $this->assertNull($report->resolution_confirmed_at);
+        $this->assertDatabaseMissing('feedback', ['report_id' => $report->id]);
+
+        Event::assertNotDispatched(ResolutionConfirmed::class);
+        Event::assertNotDispatched(ReportStatusChanged::class);
+    }
+
     public function test_resident_can_reopen_unresolved_report(): void
     {
-        Event::fake([ResolutionConfirmed::class]);
+        Event::fake([ResolutionConfirmed::class, ReportStatusChanged::class]);
 
         $report = Report::factory()->create([
             'status' => 'awaiting_confirmation',
@@ -229,9 +377,74 @@ class ResidentReportingPhase9Test extends TestCase
         $this->assertEquals(1, $report->reopened_count);
         $this->assertNull($report->resolution_confirmed_at);
 
+        Event::assertDispatched(ReportStatusChanged::class, function ($event) use ($report) {
+            return $event->report->id === $report->id
+                && $event->from === ReportStatus::AWAITING_CONFIRMATION
+                && $event->to === ReportStatus::REOPENED;
+        });
+
         Event::assertDispatched(ResolutionConfirmed::class, function ($event) use ($report) {
             return $event->report->id === $report->id && $event->confirmed === false && $event->feedback === null;
         });
+    }
+
+    public function test_resident_can_reopen_from_resolved_status(): void
+    {
+        Event::fake([ResolutionConfirmed::class, ReportStatusChanged::class]);
+
+        $report = Report::factory()->create([
+            'status' => ReportStatus::RESOLVED,
+            'tracking_code' => 'BRG-TST-REOPEN-RESOLVED',
+            'reopened_count' => 1,
+            'resolution_confirmed_at' => now(),
+        ]);
+
+        $response = $this->post(route('track.reopen', $report->tracking_code), [
+            'reason' => 'The clog came back after two days and water is spilling again.',
+        ]);
+
+        $response->assertRedirect(route('track.show', $report->tracking_code));
+        $response->assertSessionHas('status');
+
+        $report->refresh();
+        $this->assertEquals(ReportStatus::REOPENED, $report->status);
+        $this->assertEquals(2, $report->reopened_count);
+        $this->assertNull($report->resolution_confirmed_at);
+
+        Event::assertDispatched(ReportStatusChanged::class, function ($event) use ($report) {
+            return $event->report->id === $report->id
+                && $event->from === ReportStatus::RESOLVED
+                && $event->to === ReportStatus::REOPENED;
+        });
+
+        Event::assertDispatched(ResolutionConfirmed::class, function ($event) use ($report) {
+            return $event->report->id === $report->id && $event->confirmed === false && $event->feedback === null;
+        });
+    }
+
+    public function test_reopen_rejects_invalid_source_status(): void
+    {
+        Event::fake([ResolutionConfirmed::class, ReportStatusChanged::class]);
+
+        $report = Report::factory()->create([
+            'status' => ReportStatus::SUBMITTED,
+            'tracking_code' => 'BRG-TST-INVALID-REOPEN',
+            'reopened_count' => 0,
+        ]);
+
+        $response = $this->post(route('track.reopen', $report->tracking_code), [
+            'reason' => 'Attempting to reopen an unreviewed submitted report.',
+        ]);
+
+        $response->assertRedirect(route('track.show', $report->tracking_code));
+        $response->assertSessionHasErrors(['status']);
+
+        $report->refresh();
+        $this->assertEquals(ReportStatus::SUBMITTED, $report->status);
+        $this->assertEquals(0, $report->reopened_count);
+
+        Event::assertNotDispatched(ResolutionConfirmed::class);
+        Event::assertNotDispatched(ReportStatusChanged::class);
     }
 
     public function test_resident_reopen_requires_minimum_ten_characters(): void

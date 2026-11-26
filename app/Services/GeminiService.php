@@ -48,8 +48,13 @@ class GeminiService
     /**
      * Request and persist AI suggestions without preventing report submission.
      */
-    public function analyze(Report $report): void
+    public function analyze(Report $report, bool $throwOnTransient = false): void
     {
+        // If staff already reviewed this report, abort analysis to protect official decisions.
+        if ($report->fresh()?->reviewed_at !== null) {
+            return;
+        }
+
         $cachedResult = $report->aiResult()
             ->whereNull('error')
             ->whereNotNull('raw_response')
@@ -111,6 +116,13 @@ class GeminiService
                 $categories->pluck('slug')->all()
             );
         } catch (ConnectionException|RequestException|JsonException|UnexpectedValueException $exception) {
+            $isTransient = $exception instanceof ConnectionException
+                || ($exception instanceof RequestException && in_array($exception->response?->status(), [429, 500, 502, 503, 504], true));
+
+            if ($throwOnTransient && $isTransient) {
+                throw $exception;
+            }
+
             Log::warning('Gemini extraction failed; report requires manual review.', [
                 'report_id' => $report->id,
                 'exception' => $exception::class,
@@ -310,8 +322,15 @@ class GeminiService
         string $model
     ): void {
         DB::transaction(function () use ($report, $suggestion, $rawResponse, $model): void {
-            $report->aiResult()->updateOrCreate(
-                ['report_id' => $report->id],
+            // Lock and inspect fresh report state to ensure staff review did not occur while Gemini was processing.
+            $lockedReport = Report::query()->whereKey($report->id)->lockForUpdate()->first();
+
+            if (! $lockedReport || $lockedReport->reviewed_at !== null) {
+                return;
+            }
+
+            $lockedReport->aiResult()->updateOrCreate(
+                ['report_id' => $lockedReport->id],
                 [
                     'suggested_category' => $suggestion['category'],
                     'suggested_urgency' => $suggestion['urgency'],
@@ -330,7 +349,7 @@ class GeminiService
                 ]
             );
 
-            $report->update(['ai_status' => 'done']);
+            $lockedReport->update(['ai_status' => 'done']);
         });
     }
 
@@ -340,8 +359,14 @@ class GeminiService
     private function markFailed(Report $report, ?string $model, ?array $rawResponse): void
     {
         DB::transaction(function () use ($report, $model, $rawResponse): void {
-            $report->aiResult()->updateOrCreate(
-                ['report_id' => $report->id],
+            $lockedReport = Report::query()->whereKey($report->id)->lockForUpdate()->first();
+
+            if (! $lockedReport || $lockedReport->reviewed_at !== null) {
+                return;
+            }
+
+            $lockedReport->aiResult()->updateOrCreate(
+                ['report_id' => $lockedReport->id],
                 [
                     'suggested_category' => self::UNCLASSIFIED,
                     'raw_response' => $rawResponse,
@@ -352,7 +377,7 @@ class GeminiService
                 ]
             );
 
-            $report->update(['ai_status' => 'failed']);
+            $lockedReport->update(['ai_status' => 'failed']);
         });
     }
 

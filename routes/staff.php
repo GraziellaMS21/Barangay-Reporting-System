@@ -32,6 +32,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin,staff'])
     Route::patch('/reports/{report}/photo-mismatch', [AdminReportController::class, 'resolvePhotoMismatch'])->name('reports.photo-mismatch');
     Route::patch('/reports/{report}/refer', [AdminReportController::class, 'referReport'])->name('reports.refer');
     Route::patch('/reports/{report}/duplicate', [AdminReportController::class, 'markDuplicate'])->name('reports.duplicate');
+    Route::patch('/reports/{report}/duplicate-suggestions/{suggestion}/dismiss', [AdminReportController::class, 'dismissDuplicate'])->name('reports.duplicate.dismiss');
     Route::patch('/reports/{report}/unmerge', [AdminReportController::class, 'unmerge'])->name('reports.unmerge');
     Route::patch('/reports/{report}/accept-review', [AdminReportController::class, 'acceptReview'])->name('reports.accept-review');
     Route::patch('/reports/{report}/route', [AdminReportController::class, 'routeReport'])->name('reports.route');

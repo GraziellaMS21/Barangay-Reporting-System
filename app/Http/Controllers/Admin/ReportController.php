@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreReportUpdateRequest;
 use App\Models\AuditLog;
 use App\Models\Category;
+use App\Models\DuplicateSuggestion;
 use App\Models\FiscalYear;
 use App\Models\Office;
 use App\Models\Purok;
@@ -892,6 +893,65 @@ class ReportController extends Controller
         });
 
         return back()->with('success', 'Report unmerged and returned to review.');
+    }
+
+    public function dismissDuplicate(
+        Request $request,
+        Report $report,
+        DuplicateSuggestion $suggestion
+    ): RedirectResponse {
+        $reviewer = $request->user();
+        abort_unless($reviewer instanceof User && in_array($reviewer->role, ['admin', 'staff'], true), 403);
+        abort_if($suggestion->report_id !== $report->id, 404);
+
+        $validated = $request->validate([
+            'note' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $wasUpdated = DB::transaction(function () use ($report, $suggestion, $reviewer, $validated): bool {
+            $lockedSuggestion = DuplicateSuggestion::query()
+                ->whereKey($suggestion->id)
+                ->where('report_id', $report->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($lockedSuggestion->decision !== 'pending') {
+                return false;
+            }
+
+            $lockedSuggestion->decision = 'dismissed';
+            $lockedSuggestion->decided_by = $reviewer->id;
+            $lockedSuggestion->save();
+
+            AuditLog::query()->create([
+                'user_id' => $reviewer->id,
+                'action' => 'dismiss_duplicate_suggestion',
+                'model' => Report::class,
+                'model_id' => $report->id,
+                'old_values' => [
+                    'suggestion_id' => $lockedSuggestion->id,
+                    'candidate_id' => $lockedSuggestion->candidate_id,
+                    'decision' => 'pending',
+                ],
+                'new_values' => array_filter([
+                    'suggestion_id' => $lockedSuggestion->id,
+                    'candidate_id' => $lockedSuggestion->candidate_id,
+                    'decision' => 'dismissed',
+                    'decided_by' => $reviewer->id,
+                    'note' => $validated['note'] ?? null,
+                ], static fn (mixed $value): bool => $value !== null && $value !== ''),
+            ]);
+
+            return true;
+        });
+
+        if (! $wasUpdated) {
+            return back()->withErrors([
+                'duplicate' => 'This duplicate suggestion has already been resolved.',
+            ]);
+        }
+
+        return back()->with('success', 'Duplicate suggestion dismissed.');
     }
 
     public function retryAiAnalysis(

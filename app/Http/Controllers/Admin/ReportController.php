@@ -358,7 +358,28 @@ class ReportController extends Controller
             'proofPhotos',
             'activeReferral.office',
             'activeReferral.updates.user',
-            'duplicateSuggestions.candidate',
+            'duplicateSuggestions' => fn ($query) => $query
+                ->where('decision', 'pending')
+                ->orderByDesc('score')
+                ->orderByDesc('id'),
+            'duplicateSuggestions.candidate' => fn ($query) => $query
+                ->select([
+                    'id',
+                    'tracking_code',
+                    'status',
+                    'is_emergency',
+                    'category_id',
+                    'resident_category_id',
+                    'purok_id',
+                    'resident_purok_id',
+                    'landmark',
+                    'description',
+                    'created_at',
+                ]),
+            'duplicateSuggestions.candidate.category:id,name',
+            'duplicateSuggestions.candidate.residentCategory:id,name',
+            'duplicateSuggestions.candidate.purok:id,name',
+            'duplicateSuggestions.candidate.residentPurok:id,name',
         ]);
 
         $manualStatuses = $report->is_emergency
@@ -419,9 +440,22 @@ class ReportController extends Controller
         $autoCloseDays = (int) Setting::value('auto_close_days', 5);
         $aiConfidenceThreshold = (float) Setting::value('ai_confidence_threshold', 0.8);
         $aiConfidenceLowThreshold = (float) Setting::value('ai_confidence_low_threshold', 0.6);
+        $actionableDuplicateSuggestions = $report->duplicateSuggestions
+            ->filter(function (DuplicateSuggestion $suggestion): bool {
+                $candidate = $suggestion->candidate;
+
+                return $suggestion->decision === 'pending'
+                    && $candidate !== null
+                    && $candidate->status !== 'merged';
+            })
+            ->sortByDesc('score')
+            ->values();
+
         $duplicateCandidates = Report::query()
             ->where('id', '!=', $report->id)
             ->where('status', '!=', 'merged')
+            ->where('is_emergency', false)
+            ->where('status', '!=', 'emergency_flagged')
             ->latest('created_at')
             ->limit(50)
             ->get(['id', 'tracking_code', 'description', 'created_at']);
@@ -506,6 +540,7 @@ class ReportController extends Controller
             'autoCloseDays',
             'aiConfidenceThreshold',
             'aiConfidenceLowThreshold',
+            'actionableDuplicateSuggestions',
             'duplicateCandidates',
             'activityEntries',
             'photoMismatchReviewed',

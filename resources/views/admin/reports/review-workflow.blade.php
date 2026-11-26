@@ -74,7 +74,16 @@
       || ($aiReady && (bool) $aiResult->emergency_flag && ! $emergencyFlagReviewed);
   $emergencyActionOnly = $hasEmergencyFlag;
   $canResolveEmergency = ! in_array($report->status, \App\Models\Report::CLOSED_STATUSES, true);
-  $pendingDuplicate = $report->duplicateSuggestions->firstWhere('decision', 'pending');
+  $actionableDuplicates = ($actionableDuplicateSuggestions ?? $report->duplicateSuggestions)
+      ->filter(fn ($suggestion) => $suggestion->decision === 'pending'
+          && $suggestion->candidate !== null
+          && $suggestion->candidate->status !== 'merged')
+      ->sortByDesc('score')
+      ->values();
+  $pendingDuplicate = $actionableDuplicates->first();
+  $canMergeDuplicate = ! $report->is_emergency
+      && $report->status !== 'emergency_flagged'
+      && in_array($report->status, ['submitted', 'under_review', 'reopened'], true);
   $hasPhotoMismatch = ! $hasEmergencyFlag
       && ! $photoMismatchReviewed
       && ($report->photo_mismatch || ($aiReady && (bool) $aiResult->photo_mismatch));
@@ -217,19 +226,17 @@
         @endif
       </div>
     </section>
-  @elseif($pendingDuplicate)
+  @endif
+
+  @if($actionableDuplicates->isNotEmpty() && $report->status !== 'merged')
     <section class="review-flag review-flag-amber">
       <div>
-        <strong><i class="fa-solid fa-copy" aria-hidden="true"></i> Possible duplicate</strong>
+        <strong><i class="fa-solid fa-copy" aria-hidden="true"></i> {{ $actionableDuplicates->count() }} possible {{ \Illuminate\Support\Str::plural('duplicate', $actionableDuplicates->count()) }}</strong>
         <p>
-          @if($pendingDuplicate->candidate)
-            Similar to {{ $pendingDuplicate->candidate->tracking_code }} ({{ number_format((float) $pendingDuplicate->score, 2) }} match score).
-          @else
-            A possible duplicate was detected.
-          @endif
+          Top match: {{ $pendingDuplicate->candidate->tracking_code }} ({{ (int) round((float) $pendingDuplicate->score * 100) }}% similarity).
         </p>
       </div>
-      <button type="button" class="review-text-link" data-open-dialog="duplicate-modal">Review duplicate options</button>
+      <a href="#duplicate-suggestions-section" class="review-text-link">Review suggestions</a>
     </section>
   @endif
 
@@ -669,7 +676,7 @@
                     <span>Ask Reporter for Info</span>
                   </button>
                 @endif
-                @if(in_array($report->status, ['submitted', 'under_review', 'reopened'], true))
+                @if($canMergeDuplicate)
                   <button type="button" class="kebab-item" data-open-dialog="duplicate-modal"
                           style="display:flex;align-items:center;gap:0.5rem;width:100%;padding:0.5rem 0.85rem;font-size:0.82rem;text-align:left;border:none;background:transparent;cursor:pointer;">
                     <i class="fa-solid fa-copy text-amber-600" aria-hidden="true"></i>
@@ -1467,7 +1474,113 @@
     </form>
   @endif
 
-    @if(in_array($report->status, ['submitted', 'under_review', 'reopened'], true))
+    @if($report->status !== 'merged')
+      <section class="review-workflow-card" id="duplicate-suggestions-section" aria-labelledby="duplicate-suggestions-heading">
+        <div class="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-200">
+          <div>
+            <h2 id="duplicate-suggestions-heading" class="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <i class="fa-solid fa-copy text-amber-600" aria-hidden="true"></i>
+              <span>Possible Duplicate Reports</span>
+              <span class="review-badge {{ $actionableDuplicates->isNotEmpty() ? 'review-badge-amber' : 'review-badge-gray' }}">
+                {{ $actionableDuplicates->count() }} pending
+              </span>
+            </h2>
+            <p class="text-xs text-slate-600 mt-1">
+              Comparing suggested candidates against current report <strong>{{ $report->tracking_code }}</strong>
+              ({{ $report->category?->name ?? $report->residentCategory?->name ?? 'Uncategorized' }}).
+              The system suggests possible duplicates; authorized staff decide.
+            </p>
+          </div>
+          @if($canMergeDuplicate)
+            <button type="button" class="review-button review-button-outline text-xs" data-open-dialog="duplicate-modal">
+              <i class="fa-solid fa-code-merge" aria-hidden="true"></i> Manual merge
+            </button>
+          @endif
+        </div>
+
+        @if($actionableDuplicates->isEmpty())
+          <div class="rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-4 text-xs text-slate-600">
+            No pending duplicate suggestions for <strong>{{ $report->tracking_code }}</strong>.
+          </div>
+        @else
+          <div class="space-y-3">
+            @foreach($actionableDuplicates as $index => $suggestion)
+              @php
+                $candidate = $suggestion->candidate;
+                $similarityPct = (int) round((float) $suggestion->score * 100);
+                $candidateCategory = $candidate->category?->name ?? $candidate->residentCategory?->name ?? 'Uncategorized';
+                $candidatePurok = $candidate->purok?->name ?? $candidate->residentPurok?->name;
+                $candidateIsEmergency = $candidate->is_emergency || $candidate->status === 'emergency_flagged';
+              @endphp
+              <article class="rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs space-y-2.5" data-duplicate-card="{{ $suggestion->id }}">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700">
+                      #{{ $index + 1 }}
+                    </span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                      {{ $similarityPct }}% similarity
+                    </span>
+                    <a href="{{ route('admin.reports.show', $candidate) }}"
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       class="font-mono text-xs font-bold text-blue-700 hover:underline">
+                      {{ $candidate->tracking_code }}
+                      <i class="fa-solid fa-arrow-up-right-from-square text-[10px] ml-0.5" aria-hidden="true"></i>
+                    </a>
+                    <x-status-badge :status="$candidate->status" class="text-[11px]" />
+                  </div>
+                  <span class="text-[11px] text-slate-500">
+                    Submitted {{ $candidate->created_at?->format('M d, Y h:i A') }}
+                  </span>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
+                  <span><strong>Category:</strong> {{ $candidateCategory }}</span>
+                  <span>
+                    <strong>Location:</strong>
+                    {{ $candidatePurok ?? 'No purok' }}@if($candidate->landmark) · {{ \Illuminate\Support\Str::limit($candidate->landmark, 60) }}@endif
+                  </span>
+                </div>
+
+                <p class="text-xs text-slate-700 leading-relaxed bg-slate-50 rounded-lg p-2.5 border border-slate-100">
+                  {{ \Illuminate\Support\Str::limit($candidate->description, 180) }}
+                </p>
+
+                <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+                  <form method="POST" action="{{ route('admin.reports.duplicate.dismiss', [$report, $suggestion]) }}" class="flex flex-wrap items-center gap-2 flex-1 min-w-[220px]">
+                    @csrf
+                    @method('PATCH')
+                    <input type="text"
+                           name="note"
+                           maxlength="500"
+                           placeholder="Optional dismissal note..."
+                           aria-label="Optional dismissal note for {{ $candidate->tracking_code }}"
+                           class="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 flex-1 min-w-[160px] bg-white text-slate-800">
+                    <button type="submit" class="review-button review-button-outline text-xs">
+                      <i class="fa-solid fa-xmark" aria-hidden="true"></i> Dismiss
+                    </button>
+                  </form>
+
+                  @if($canMergeDuplicate && ! $candidateIsEmergency)
+                    <button type="button"
+                            class="review-button review-button-primary text-xs"
+                            data-open-dialog="duplicate-modal"
+                            data-duplicate-candidate-id="{{ $candidate->id }}">
+                      <i class="fa-solid fa-copy" aria-hidden="true"></i> Merge into {{ $candidate->tracking_code }}
+                    </button>
+                  @elseif($candidateIsEmergency)
+                    <span class="text-[11px] text-rose-700 font-medium">Emergency candidate cannot be selected for merge</span>
+                  @endif
+                </div>
+              </article>
+            @endforeach
+          </div>
+        @endif
+      </section>
+    @endif
+
+    @if($canMergeDuplicate)
       <dialog id="duplicate-modal" class="review-modal">
         <form method="POST" action="{{ route('admin.reports.duplicate', $report) }}">
           @csrf
@@ -1481,25 +1594,33 @@
               Merge this report into the one it duplicates. The report is hidden from the queue and its reporter
               is pointed to the kept report.
             </p>
+            @php
+              $mergeSelectableCandidates = $actionableDuplicates
+                  ->pluck('candidate')
+                  ->filter(fn ($candidate) => $candidate !== null && ! $candidate->is_emergency && $candidate->status !== 'emergency_flagged')
+                  ->concat($duplicateCandidates)
+                  ->unique('id')
+                  ->values();
+            @endphp
             <label for="duplicate-candidate">Duplicate of</label>
             <select id="duplicate-candidate" name="candidate_id" required>
               <option value="">Select a report</option>
-              @foreach($duplicateCandidates as $candidate)
+              @foreach($mergeSelectableCandidates as $candidate)
                 <option value="{{ $candidate->id }}"
-                        @selected($pendingDuplicate && (string) $pendingDuplicate->candidate_id === (string) $candidate->id)>
+                        @selected($pendingDuplicate && ! $pendingDuplicate->candidate->is_emergency && $pendingDuplicate->candidate->status !== 'emergency_flagged' && (string) $pendingDuplicate->candidate_id === (string) $candidate->id)>
                   {{ $candidate->tracking_code }} — {{ \Illuminate\Support\Str::limit($candidate->description, 70) }}
                 </option>
               @endforeach
             </select>
             @if($pendingDuplicate && $pendingDuplicate->candidate)
-              <p class="review-field-hint">Possible match: {{ $pendingDuplicate->candidate->tracking_code }} ({{ number_format((float) $pendingDuplicate->score, 2) }} match score).</p>
+              <p class="review-field-hint">Top suggested match: {{ $pendingDuplicate->candidate->tracking_code }} ({{ (int) round((float) $pendingDuplicate->score * 100) }}% similarity).</p>
             @endif
             <label for="duplicate-note">Merge note</label>
             <textarea id="duplicate-note" name="note" rows="2" required maxlength="500" placeholder="Why these are the same report."></textarea>
           </div>
           <footer class="review-modal-footer">
             <button type="button" class="review-button review-button-outline" data-close-modal>Cancel</button>
-            <button type="submit" class="review-button review-button-primary" @disabled($duplicateCandidates->isEmpty())>Mark duplicate</button>
+            <button type="submit" class="review-button review-button-primary" @disabled($mergeSelectableCandidates->isEmpty())>Mark duplicate</button>
           </footer>
         </form>
       </dialog>
@@ -2181,6 +2302,12 @@
     button.addEventListener('click', () => {
       const dialog = document.getElementById(button.dataset.openDialog);
       if (dialog) {
+        if (button.dataset.duplicateCandidateId) {
+          const candidateSelect = dialog.querySelector('#duplicate-candidate');
+          if (candidateSelect) {
+            candidateSelect.value = button.dataset.duplicateCandidateId;
+          }
+        }
         dialog.showModal();
         dialog.querySelector('textarea, select, input')?.focus();
       }

@@ -2,9 +2,6 @@
 
 namespace App\Providers;
 
-use App\Events\ReportSubmitted;
-use App\Listeners\Engine\ProcessNewReport;
-use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -23,8 +20,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        Event::listen(ReportSubmitted::class, ProcessNewReport::class);
-
         Gate::before(function ($user) {
             if (method_exists($user, 'isAdmin') && $user->isAdmin()) {
                 return true;

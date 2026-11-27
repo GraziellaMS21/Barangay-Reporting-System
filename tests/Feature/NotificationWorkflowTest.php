@@ -566,4 +566,49 @@ class NotificationWorkflowTest extends TestCase
         Mail::assertSent(ResidentDisputeMail::class, fn (ResidentDisputeMail $m): bool => $m->disputeReason === 'Second dispute reason.');
         Mail::assertSent(ResidentDisputeMail::class, fn (ResidentDisputeMail $m): bool => $m->disputeReason === 'First dispute reason.');
     }
+
+    public function test_mailables_render_safe_urls_and_expected_content(): void
+    {
+        $report = Report::factory()->create([
+            'category_id' => $this->category->id,
+            'purok_id' => $this->purok->id,
+            'reporter_name' => null,
+        ]);
+
+        $trackingUrl = route('track.show', $report->tracking_code);
+        $adminReviewUrl = route('admin.reports.show', $report);
+
+        $receivedHtml = (new ReportReceivedMail($report))->render();
+        $this->assertStringContainsString($trackingUrl, $receivedHtml);
+        $this->assertStringContainsString($report->tracking_code, $receivedHtml);
+        $this->assertStringNotContainsString('/admin/reports/', $receivedHtml);
+        $this->assertStringNotContainsString('storage/app', $receivedHtml);
+
+        $infoRequest = InfoRequest::create([
+            'report_id' => $report->id,
+            'requested_by' => $this->staff->id,
+            'question' => 'Is the pole near the basketball court?',
+        ]);
+        $infoHtml = (new InfoRequestedMail($report, $infoRequest))->render();
+        $this->assertStringContainsString($trackingUrl, $infoHtml);
+        $this->assertStringContainsString('Is the pole near the basketball court?', $infoHtml);
+        $this->assertStringNotContainsString('/admin/reports/', $infoHtml);
+        $this->assertStringNotContainsString('storage/app', $infoHtml);
+
+        $proof = ResolutionProof::create([
+            'report_id' => $report->id,
+            'user_id' => $this->staff->id,
+            'note' => 'Replaced LED fixture and verified illumination.',
+            'photo_path' => 'resolution_proofs/private-secret.jpg',
+        ]);
+        $proposedHtml = (new ResolutionProposedMail($report, $proof))->render();
+        $this->assertStringContainsString($trackingUrl, $proposedHtml);
+        $this->assertStringContainsString('Replaced LED fixture and verified illumination.', $proposedHtml);
+        $this->assertStringNotContainsString('resolution_proofs/private-secret.jpg', $proposedHtml);
+        $this->assertStringNotContainsString('/admin/reports/', $proposedHtml);
+
+        $disputeHtml = (new ResidentDisputeMail($report, 'Lamp still flickers after midnight.'))->render();
+        $this->assertStringContainsString($adminReviewUrl, $disputeHtml);
+        $this->assertStringContainsString('Lamp still flickers after midnight.', $disputeHtml);
+    }
 }

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Events\ReportSubmitted;
 use App\Listeners\Engine\ProcessNewReport;
+use App\Listeners\Notifications\SendReportReceived;
 use App\Models\Category;
 use App\Models\Permission;
 use App\Models\Purok;
@@ -68,6 +69,27 @@ class AsyncReportScreeningTest extends TestCase
                 && $job->data[0] instanceof ReportSubmitted
                 && $job->data[0]->report->id === $report->id;
         });
+    }
+
+    public function test_report_submitted_queues_process_new_report_and_send_report_received_once_each(): void
+    {
+        Queue::fake();
+
+        $report = Report::factory()->create();
+        ReportSubmitted::dispatch($report);
+
+        $pushed = Queue::pushed(CallQueuedListener::class);
+
+        $processNewReportCount = $pushed->filter(
+            fn (CallQueuedListener $job): bool => $job->class === ProcessNewReport::class
+        )->count();
+
+        $sendReportReceivedCount = $pushed->filter(
+            fn (CallQueuedListener $job): bool => $job->class === SendReportReceived::class
+        )->count();
+
+        $this->assertSame(1, $processNewReportCount);
+        $this->assertSame(1, $sendReportReceivedCount);
     }
 
     public function test_resident_submission_does_not_make_synchronous_gemini_api_call(): void

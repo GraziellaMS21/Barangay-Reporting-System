@@ -531,7 +531,7 @@ class CaseWorkflowController extends Controller
                 'user_id' => $request->user()->id,
                 'from_status' => $previousStatus,
                 'to_status' => $caseUpdates['status'],
-                'note' => "Hearing outcome recorded as '{$outcome}'." . (! empty($validated['notes']) ? " {$validated['notes']}" : ''),
+                'note' => "Hearing outcome recorded as '{$outcome}'.".(! empty($validated['notes']) ? " {$validated['notes']}" : ''),
                 'created_at' => now(),
             ]);
         }

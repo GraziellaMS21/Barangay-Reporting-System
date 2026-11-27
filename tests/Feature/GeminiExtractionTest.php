@@ -688,7 +688,10 @@ class GeminiExtractionTest extends TestCase
             ->assertSee("Resident replied: <img src=x onerror=alert('reply')>")
             ->assertDontSee("<script>alert('request')</script>", false)
             ->assertDontSee("<img src=x onerror=alert('reply')>", false);
-        $this->assertSame(1, substr_count($response->getContent(), 'Information request'));
+
+        preg_match('/<ol class="review-activity-list">.*?<\/ol>/s', $response->getContent(), $activityFeed);
+        $this->assertNotEmpty($activityFeed);
+        $this->assertSame(1, substr_count($activityFeed[0], 'Information request'));
     }
 
     public function test_staff_can_retry_failed_ai_analysis(): void

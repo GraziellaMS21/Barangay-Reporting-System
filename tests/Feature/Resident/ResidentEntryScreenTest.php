@@ -49,15 +49,15 @@ class ResidentEntryScreenTest extends TestCase
 
     public function test_resident_landing_screen_displays_three_action_pathways(): void
     {
-        $response = $this->get(route('reports.create'));
+        $response = $this->get(route('home'));
 
         $response->assertOk();
         // 1. Emergency action
         $response->assertSee('Emergency / 911');
         // 2. Community problem report action
-        $response->assertSee('Report a community problem');
+        $response->assertSee('Report a Community Problem');
         // 3. Dispute complaint action
-        $response->assertSee('File a complaint');
+        $response->assertSee('File a Complaint');
         $response->assertSee(route('complaint.create'));
         // Track report action
         $response->assertSee(route('track.index'));

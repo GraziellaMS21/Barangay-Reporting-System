@@ -27,12 +27,12 @@ class ReportStatusServiceTest extends TestCase
         $this->assertTrue($this->service->canTransition(ReportStatus::SUBMITTED, ReportStatus::NO_ACTION));
         $this->assertTrue($this->service->canTransition(ReportStatus::SUBMITTED, ReportStatus::EMERGENCY_FLAGGED));
 
-        // In Progress can move to awaiting_confirmation, resolved, needs_info, referred, no_action, emergency_flagged
+        // In Progress can move to awaiting_confirmation, needs_info, referred, no_action, emergency_flagged
         $this->assertTrue($this->service->canTransition(ReportStatus::IN_PROGRESS, ReportStatus::AWAITING_CONFIRMATION));
-        $this->assertTrue($this->service->canTransition(ReportStatus::IN_PROGRESS, ReportStatus::RESOLVED));
         $this->assertTrue($this->service->canTransition(ReportStatus::IN_PROGRESS, ReportStatus::NEEDS_INFO));
         $this->assertTrue($this->service->canTransition(ReportStatus::IN_PROGRESS, ReportStatus::REFERRED));
         $this->assertTrue($this->service->canTransition(ReportStatus::IN_PROGRESS, ReportStatus::NO_ACTION));
+        $this->assertTrue($this->service->canTransition(ReportStatus::IN_PROGRESS, ReportStatus::EMERGENCY_FLAGGED));
 
         // Awaiting confirmation can be confirmed (resolved) or disputed (reopened)
         $this->assertTrue($this->service->canTransition(ReportStatus::AWAITING_CONFIRMATION, ReportStatus::RESOLVED));
@@ -83,6 +83,9 @@ class ReportStatusServiceTest extends TestCase
         // Submitted cannot jump directly to resolved or awaiting_confirmation
         $this->assertFalse($this->service->canTransition(ReportStatus::SUBMITTED, ReportStatus::RESOLVED));
         $this->assertFalse($this->service->canTransition(ReportStatus::SUBMITTED, ReportStatus::AWAITING_CONFIRMATION));
+
+        // In Progress cannot jump directly to resolved without awaiting_confirmation
+        $this->assertFalse($this->service->canTransition(ReportStatus::IN_PROGRESS, ReportStatus::RESOLVED));
 
         // Resolved cannot jump directly to routed or submitted
         $this->assertFalse($this->service->canTransition(ReportStatus::RESOLVED, ReportStatus::ROUTED));

@@ -205,6 +205,11 @@
                                             <strong>Hearing outcome:</strong> {{ ucfirst(str_replace('_', ' ', $h->status)) }}
                                             · Complainant: {{ ucfirst(str_replace('_', ' ', $h->complainant_attendance ?? 'pending')) }}
                                             · Respondent: {{ ucfirst(str_replace('_', ' ', $h->respondent_attendance ?? 'pending')) }}
+                                            @if($h->respondent_barred_counterclaim)
+                                                <span class="ml-1 inline-flex items-center gap-1 rounded bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-800">
+                                                    Respondent Counterclaim Barred (Sec. 412(b))
+                                                </span>
+                                            @endif
                                         </span>
                                     @else
                                         <span class="text-slate-700 font-medium">Hearing outcome: pending</span>

@@ -3,10 +3,19 @@
 namespace Tests\Unit;
 
 use App\Support\WorkingDays;
-use PHPUnit\Framework\TestCase;
+use Illuminate\Support\Facades\Cache;
+use Tests\TestCase;
 
 class WorkingDaysTest extends TestCase
 {
+    protected bool $seedSetup = false;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        Cache::forever('setting.cases.working_days', '');
+    }
+
     public function test_identifies_weekends_correctly(): void
     {
         // 2026-11-20 is Friday, 2026-11-21 is Saturday, 2026-11-22 is Sunday, 2026-11-23 is Monday

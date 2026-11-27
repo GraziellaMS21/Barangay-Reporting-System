@@ -1,6 +1,7 @@
 <?php
 
 // Engine routes
+use App\Http\Controllers\ReportController;
 use App\Models\Report;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -59,3 +60,7 @@ Route::get('/api/nearby-reports', function (Request $request) {
 
     return response()->json($nearby);
 });
+
+Route::post('/api/detect-location', [ReportController::class, 'detectLocation'])
+    ->middleware('throttle:30,1')
+    ->name('api.detect-location');

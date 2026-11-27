@@ -29,7 +29,8 @@ The system provides a lightweight, mobile-responsive web platform where:
 - **Pilot Location**: Exclusively clamped to the administrative territory of **Barangay Calarian, Zamboanga City** `[IMPLEMENTED]`.
 - **Geographic Bounding Box**: Latitude `6.905` to `6.940`, Longitude `122.060` to `122.098` `[IMPLEMENTED]`.
 - **Map Center**: Centered on Barangay Calarian proper (bounded in Leaflet via tile layer clamping) `[IMPLEMENTED]`.
-- **Territorial Subdivisions**: Seeded with local Calarian puroks (Purok 1 through Purok 7, Calarian proper) `[IMPLEMENTED]`.
+- **Territorial Subdivisions**: Seeded with local Calarian puroks (Purok 1 through Purok 7, Calarian proper, with stable `code` slugs and nullable GeoJSON `boundary_geometry` column) `[IMPLEMENTED]`.
+- **GIS Boundary Detection Engine (`BoundaryService` & `POST /api/detect-location`)**: Pure-PHP Ray-Casting Point-in-Polygon engine supporting GeoJSON `Polygon` (with holes) and `MultiPolygon` `[IMPLEMENTED — TR2.4.2 Backend Foundation]`. **Automatic Calarian Purok assignment is NOT yet active**; production Purok geometries remain `null` until the official Barangay Calarian boundary dataset is obtained and imported, and Step 2 resident UI integration is reserved for TR2.4.3.
 
 ### 1.3 Active Scope vs. Deferred Features
 - **Active Scope (`[IMPLEMENTED]`, `[PARTIALLY IMPLEMENTED]`, or `[APPROVED DESIGN]`)**:

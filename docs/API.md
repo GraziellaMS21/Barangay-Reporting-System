@@ -57,6 +57,14 @@ Routing is modularized under `routes/` and registered via `routes/web.php`:
 - **Success Response (`200 OK`)**: Returns `{ success: true, data: { classification ('community_problem'|'incident'|'possible_formal_complaint'|'uncertain'), suggested_category ({ id, slug, name }|null), summary, clarification_questions, is_emergency, confidence } }`.
 - **AI Failure / Unavailable Response (`503 Service Unavailable`)**: Returns `{ success: false, available: false, message }` without exposing credentials or stack traces, allowing manual submission to proceed.
 
+### `POST /api/detect-location` (`api.detect-location`)
+- **Controller**: `ReportController@detectLocation` (`routes/engine.php`)
+- **Status**: Built (TR2.4.2 Backend Foundation; Step 2 resident UI integration pending TR2.4.3 and official GeoJSON import)
+- **Middleware**: `throttle:30,1` (guest-accessible, CSRF-protected)
+- **Payload**: `{ lat: float (-90..90), lng: float (-180..180) }`
+- **Response (`200 OK`)**: `{ status ('exact'|'boundary_ambiguous'|'outside_barangay'|'purok_unresolved'|'no_coordinates'|'boundary_data_unavailable'|'invalid_boundary_data'), in_barangay (bool|null), purok ({ id, code, name }|null), candidates (array), message }`.
+- **Note**: Returns `boundary_data_unavailable` until official Barangay Calarian Purok GeoJSON polygons are imported. Never creates or mutates Report records.
+
 ### `POST /report`
 - **Controller**: `ReportController@store`
 - **Status**: Built (Guest & Anonymous additions Planned, [DECIDED, D7])

@@ -9,6 +9,7 @@ use App\Models\Purok;
 use App\Models\Report;
 use App\Models\ReportAudio;
 use App\Models\StatusLog;
+use App\Services\BoundaryService;
 use App\Services\FiscalYearService;
 use App\Services\GeminiService;
 use Illuminate\Http\JsonResponse;
@@ -81,6 +82,37 @@ class ReportController extends Controller
                 'confidence' => $result['confidence'],
             ],
         ]);
+    }
+
+    /**
+     * Stateless read-only Purok & Barangay boundary detection for a coordinate pair.
+     */
+    public function detectLocation(Request $request, BoundaryService $boundaryService): JsonResponse
+    {
+        $data = $request->validate([
+            'lat' => ['required', 'numeric', 'between:-90,90'],
+            'lng' => ['required', 'numeric', 'between:-180,180'],
+        ], [
+            'lat.required' => 'Latitude is required.',
+            'lat.between' => 'Latitude must be between -90 and 90.',
+            'lng.required' => 'Longitude is required.',
+            'lng.between' => 'Longitude must be between -180 and 180.',
+        ]);
+
+        $barangayBoundary = null;
+        $path = config('reports.gis.barangay_boundary_path');
+        if (is_string($path) && trim($path) !== '' && is_file($path) && is_readable($path)) {
+            $decoded = json_decode((string) file_get_contents($path), true);
+            if (is_array($decoded)) {
+                $barangayBoundary = ($decoded['type'] ?? null) === 'FeatureCollection'
+                    ? ($decoded['features'][0]['geometry'] ?? null)
+                    : (($decoded['type'] ?? null) === 'Feature' ? ($decoded['geometry'] ?? null) : $decoded);
+            }
+        }
+
+        return response()->json(
+            $boundaryService->detectLocation((float) $data['lat'], (float) $data['lng'], $barangayBoundary)
+        );
     }
 
     public function store(Request $request): RedirectResponse

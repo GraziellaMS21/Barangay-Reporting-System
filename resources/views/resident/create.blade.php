@@ -1944,7 +1944,7 @@
         ai_assist_loading: "Analyzing your concern description...",
         ai_assist_unavailable: "AI assistance is temporarily unavailable. You can still continue and submit your concern manually.",
         ai_assist_rate_limit: "Too many analysis requests. Please wait a moment or continue submitting your concern manually.",
-        ai_assist_stale: "Your description has changed since the last analysis. These earlier suggestions may no longer apply — click Analyze Concern to refresh.",
+        ai_assist_stale: "Your description or selected category has changed since the last analysis. These earlier suggestions may no longer apply — click Analyze Concern to refresh.",
         ai_assist_max_len: "Your concern description cannot exceed 2000 characters.",
         ai_lbl_classification: "Suggested type:",
         ai_lbl_summary: "AI Summary (for your review)",
@@ -2055,7 +2055,7 @@
         ai_assist_loading: "Sinusuri ang iyong paglalarawan...",
         ai_assist_unavailable: "Pansamantalang hindi magagamit ang tulong ng AI. Maaari ka pa ring magpatuloy at magsumite nang manu-mano.",
         ai_assist_rate_limit: "Masyadong maraming kahilingan. Maghintay sandali o magpatuloy sa manu-manong pagsusumite.",
-        ai_assist_stale: "Nagbago ang iyong paglalarawan mula nang huling suriin. Maaaring hindi na tugma ang mga naunang mungkahi — pindutin ang Suriin ang Concern upang i-refresh.",
+        ai_assist_stale: "Nagbago ang iyong paglalarawan o napiling kategorya mula nang huling suriin. Maaaring hindi na tugma ang mga naunang mungkahi — pindutin ang Suriin ang Concern upang i-refresh.",
         ai_assist_max_len: "Hindi maaaring lumagpas sa 2000 titik ang paglalarawan.",
         ai_lbl_classification: "Iminungkahing uri:",
         ai_lbl_summary: "Buod ng AI (para sa iyong pagsusuri)",
@@ -3362,9 +3362,26 @@
     let aiAnalysisInFlight = false;
     let aiAnalysisRequestSeq = 0;
     let aiLastAnalyzedDescription = '';
+    let aiLastAnalyzedCategoryId = null;
     let aiLastResultData = null;
     let aiIsStale = false;
     let aiCategoryDecision = null; // null | 'accepted' | 'dismissed'
+
+    function getCurrentSelectedCategoryId() {
+      const raw = document.getElementById('category_id_input')?.value || '';
+      return /^\d+$/.test(raw) ? parseInt(raw, 10) : null;
+    }
+
+    function refreshAiStaleState() {
+      if (!aiLastResultData) return;
+      const currentDesc = (document.getElementById('description')?.value || '').trim();
+      const currentCatId = getCurrentSelectedCategoryId();
+      const nextStale = (currentDesc !== aiLastAnalyzedDescription) || (currentCatId !== aiLastAnalyzedCategoryId);
+      if (nextStale !== aiIsStale) {
+        aiIsStale = nextStale;
+        renderAiAnalysisResult();
+      }
+    }
 
     function getAiDict() {
       return i18n[currentLang] || i18n.en;
@@ -3578,11 +3595,13 @@
         }
 
         aiLastAnalyzedDescription = descVal;
+        aiLastAnalyzedCategoryId = catId;
         aiLastResultData = json.data;
         aiCategoryDecision = null;
 
         const currentDesc = (document.getElementById('description')?.value || '').trim();
-        aiIsStale = currentDesc !== aiLastAnalyzedDescription;
+        const currentCatId = getCurrentSelectedCategoryId();
+        aiIsStale = (currentDesc !== aiLastAnalyzedDescription) || (currentCatId !== aiLastAnalyzedCategoryId);
 
         renderAiAnalysisResult();
       } catch (networkErr) {
@@ -3606,10 +3625,15 @@
       const targetId = parseInt(aiLastResultData.suggested_category.id, 10);
       if (Number.isNaN(targetId)) return;
 
-      const currentId = document.getElementById('category_id_input')?.value || '';
-      if (String(currentId) !== String(targetId)) {
+      // Ensure suggested category is active and present on the form
+      const chipExists = document.querySelector(`.cat-chip[data-cat-id="${targetId}"]`);
+      if (!chipExists) return;
+
+      const currentId = getCurrentSelectedCategoryId();
+      if (currentId !== targetId) {
         selectCategory(targetId);
       }
+      aiLastAnalyzedCategoryId = targetId;
       aiCategoryDecision = 'accepted';
       renderAiAnalysisResult();
     }
@@ -3620,17 +3644,16 @@
       renderAiAnalysisResult();
     }
 
-    // Mark AI results as stale if resident edits description after analysis
+    // Mark AI results as stale if resident edits description or changes category after analysis
     const aiDescInput = document.getElementById('description');
     if (aiDescInput) {
-      aiDescInput.addEventListener('input', () => {
-        if (!aiLastResultData) return;
-        const current = aiDescInput.value.trim();
-        const nextStale = current !== aiLastAnalyzedDescription;
-        if (nextStale !== aiIsStale) {
-          aiIsStale = nextStale;
-          renderAiAnalysisResult();
-        }
-      });
+      aiDescInput.addEventListener('input', refreshAiStaleState);
     }
-  <
+
+    document.querySelectorAll('.cat-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        setTimeout(refreshAiStaleState, 0);
+      });
+    });
+  </script>
+@endsection

@@ -1610,6 +1610,46 @@
             </div>
           </div>
 
+          @php
+            $hasMockPuroks = app()->environment('local', 'testing')
+                && $puroks->contains(fn ($p): bool => str_starts_with((string) $p->code, 'mock-'));
+          @endphp
+
+          <!-- Step 2: Geographic Boundary & Purok Detection Assistance -->
+          <div id="location-detection-panel" style="margin-top:0.9rem;display:flex;flex-direction:column;gap:0.6rem;">
+            @if($hasMockPuroks)
+              <div id="mock-purok-disclosure" style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:0.55rem 0.85rem;font-size:0.78rem;color:#92400e;display:flex;align-items:center;gap:0.45rem;" role="note">
+                <i class="fa-solid fa-flask" aria-hidden="true"></i>
+                <span data-i18n="loc_mock_notice">Development Preview: These Purok boundaries are temporary mock data and do not represent official Barangay Calarian boundaries.</span>
+              </div>
+            @endif
+
+            <div id="loc-detect-loading" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:0.6rem 0.85rem;font-size:0.81rem;color:#1d4ed8;font-weight:600;" aria-live="polite">
+              <i class="fa-solid fa-spinner fa-spin" style="margin-right:0.4rem;" aria-hidden="true"></i>
+              <span data-i18n="loc_detect_loading">Checking Barangay &amp; Purok boundaries...</span>
+            </div>
+
+            <div id="loc-detect-result" style="display:none;border-radius:12px;padding:0.75rem 0.95rem;font-size:0.83rem;border:1px solid #e2e8f0;background:#f8fafc;" aria-live="polite">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.75rem;flex-wrap:wrap;">
+                <div style="display:flex;align-items:flex-start;gap:0.55rem;min-width:0;flex:1;">
+                  <i id="loc-detect-icon" class="fa-solid fa-location-dot" style="margin-top:0.15rem;flex-shrink:0;" aria-hidden="true"></i>
+                  <div style="min-width:0;">
+                    <strong id="loc-detect-title" style="display:block;font-size:0.85rem;"></strong>
+                    <p id="loc-detect-desc" style="margin:0.15rem 0 0;font-size:0.79rem;line-height:1.4;"></p>
+                  </div>
+                </div>
+                <div id="loc-detect-actions" style="display:none;align-items:center;gap:0.45rem;flex-shrink:0;">
+                  <button type="button" id="btn-confirm-detected-purok" onclick="confirmDetectedPurok()" style="background:var(--wiz-blue);color:#fff;border:none;border-radius:8px;padding:0.35rem 0.75rem;font-size:0.78rem;font-weight:700;cursor:pointer;" data-i18n="loc_btn_confirm_purok">
+                    Confirm Purok
+                  </button>
+                  <button type="button" id="btn-dismiss-detected-purok" onclick="dismissDetectedPurok()" style="background:#ffffff;color:var(--wiz-muted);border:1px solid #cbd5e1;border-radius:8px;padding:0.35rem 0.65rem;font-size:0.78rem;font-weight:600;cursor:pointer;" data-i18n="ai_btn_dismiss_cat">
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Photo Upload Section in Step 2 -->
           <div style="margin-top:1.25rem;">
             <div class="card-section-heading">
@@ -1964,7 +2004,24 @@
         ai_class_possible_formal_complaint: "May Require a Formal Complaint",
         ai_class_uncertain: "Needs More Information",
         ai_confidence_prefix: "AI Confidence:",
-        ai_confidence_suffix: "(advisory only)"
+        ai_confidence_suffix: "(advisory only)",
+        loc_mock_notice: "Development Preview: These Purok boundaries are temporary mock data and do not represent official Barangay Calarian boundaries.",
+        loc_detect_loading: "Checking Barangay & Purok boundaries...",
+        loc_btn_confirm_purok: "Confirm Purok",
+        loc_exact_title: "Suggested Purok:",
+        loc_exact_desc: "Please confirm to apply this Purok, or dismiss to choose manually.",
+        loc_exact_confirmed: "Confirmed and selected.",
+        loc_exact_dismissed: "Suggestion dismissed. You can select your Purok manually.",
+        loc_ambiguous_title: "Near a Purok boundary",
+        loc_ambiguous_desc: "This pin is near a boundary or overlaps multiple areas. Please select your Purok manually.",
+        loc_outside_title: "Outside provisional Barangay Calarian boundary",
+        loc_outside_desc: "This pin appears outside the provisional Barangay Calarian boundary. You may adjust the pin or still submit for staff review.",
+        loc_unresolved_title: "Purok could not be identified automatically",
+        loc_unresolved_desc: "Please select your Purok from the dropdown or enter a landmark.",
+        loc_in_provisional_title: "Inside provisional Barangay Calarian boundary",
+        loc_in_provisional_desc: "Automatic Purok identification is unavailable because Purok boundary data is not configured. Please select your Purok or enter a landmark manually.",
+        loc_unavailable_title: "Automatic Purok detection unavailable",
+        loc_unavailable_desc: "Please select your Purok or enter a landmark manually."
       },
       fil: {
         hero_title: "Mag-ulat ng concern sa Barangay Calarian",
@@ -2075,7 +2132,24 @@
         ai_class_possible_formal_complaint: "Maaaring Nangangailangan ng Pormal na Reklamo",
         ai_class_uncertain: "Kailangan ng Karagdagang Impormasyon",
         ai_confidence_prefix: "Kumpiyansa ng AI:",
-        ai_confidence_suffix: "(gabay lamang)"
+        ai_confidence_suffix: "(gabay lamang)",
+        loc_mock_notice: "Development Preview: Ang mga hangganan ng Purok na ito ay pansamantalang mock data lamang at hindi opisyal na hangganan ng Barangay Calarian.",
+        loc_detect_loading: "Sinusuri ang hangganan ng Barangay at Purok...",
+        loc_btn_confirm_purok: "Kumpirmahin ang Purok",
+        loc_exact_title: "Iminungkahing Purok:",
+        loc_exact_desc: "Paki-kumpirma upang gamitin ang Purok na ito, o balewalain upang pumili nang manu-mano.",
+        loc_exact_confirmed: "Nakumpirma at napili na.",
+        loc_exact_dismissed: "Binalewala ang mungkahi. Maaari kang pumili ng Purok nang manu-mano.",
+        loc_ambiguous_title: "Malapit sa hangganan ng Purok",
+        loc_ambiguous_desc: "Ang pin ay malapit sa hangganan o sumasaklaw sa higit sa isang lugar. Paki-pili ang iyong Purok nang manu-mano.",
+        loc_outside_title: "Labas sa pansamantalang hangganan ng Barangay Calarian",
+        loc_outside_desc: "Mukhang nasa labas ito ng pansamantalang hangganan ng Barangay Calarian. Maaari mong ilipat ang pin o isumite pa rin para sa pagsusuri.",
+        loc_unresolved_title: "Hindi matukoy nang awtomatiko ang Purok",
+        loc_unresolved_desc: "Paki-pili ang iyong Purok sa listahan o maglagay ng landmark.",
+        loc_in_provisional_title: "Nasa loob ng pansamantalang hangganan ng Barangay Calarian",
+        loc_in_provisional_desc: "Hindi magagamit ang awtomatikong pagtukoy ng Purok dahil hindi pa naka-configure ang datos ng hangganan ng Purok. Paki-pili ang iyong Purok o maglagay ng landmark nang manu-mano.",
+        loc_unavailable_title: "Hindi magagamit ang awtomatikong pagtukoy ng Purok",
+        loc_unavailable_desc: "Paki-pili ang iyong Purok o maglagay ng landmark nang manu-mano."
       }
     };
 
@@ -2279,6 +2353,7 @@
       updateCharCounter();
       updateLocationStatusPill();
       if (typeof renderAiAnalysisResult === 'function' && aiLastResultData) renderAiAnalysisResult();
+      if (typeof renderLocationDetectionResult === 'function' && locDetectLastResult) renderLocationDetectionResult();
     }
 
     function toggleDanger(checked) {
@@ -2667,12 +2742,12 @@
     // Leaflet Map Initialization
     let mapInstance = null;
     document.addEventListener('DOMContentLoaded', () => {
-      const CALARIAN_CENTER = [6.921, 122.078];
-      const CALARIAN_BOUNDS = [[6.905, 122.060], [6.940, 122.098]];
+      const CALARIAN_CENTER = [6.925, 122.032];
+      const CALARIAN_BOUNDS = [[6.905, 122.010], [6.945, 122.105]];
       if (typeof L !== 'undefined') {
         const mapEl = document.getElementById('map');
         if (mapEl && !mapEl._leaflet_id) {
-          mapInstance = L.map('map', { scrollWheelZoom: false }).setView(CALARIAN_CENTER, 15);
+          mapInstance = L.map('map', { scrollWheelZoom: false }).setView(CALARIAN_CENTER, 14);
           window.leafletMapInstance = mapInstance;
           if (window.setupCooperativeMapGestures) {
             window.setupCooperativeMapGestures(mapInstance, mapEl);
@@ -2698,6 +2773,7 @@
             const step2Err = document.getElementById('step2-error');
             if (step2Err) step2Err.classList.remove('is-visible');
             triggerNearbyReportsCheck();
+            scheduleLocationDetection(p.lat, p.lng);
           });
           document.getElementById('lat').value = lat;
           document.getElementById('lng').value = lng;
@@ -2705,6 +2781,7 @@
           const step2Err = document.getElementById('step2-error');
           if (step2Err) step2Err.classList.remove('is-visible');
           triggerNearbyReportsCheck();
+          scheduleLocationDetection(lat, lng);
         }
 
         const oldLat = parseFloat(document.getElementById('lat').value);
@@ -3655,5 +3732,171 @@
         setTimeout(refreshAiStaleState, 0);
       });
     });
+
+    // --- Step 2: Geographic Boundary & Purok Detection Assistance ---
+    let locDetectTimer = null;
+    let locDetectSeq = 0;
+    let locDetectLastResult = null;
+    let locDetectDecision = null; // null | 'confirmed' | 'dismissed'
+    let locPurokManuallyEdited = false;
+
+    const purokDropdownEl = document.getElementById('purok_id');
+    if (purokDropdownEl) {
+      purokDropdownEl.addEventListener('change', () => {
+        locPurokManuallyEdited = true;
+        if (locDetectLastResult && locDetectLastResult.status === 'exact' && locDetectDecision !== 'confirmed') {
+          locDetectDecision = 'dismissed';
+          renderLocationDetectionResult();
+        }
+      });
+    }
+
+    function scheduleLocationDetection(lat, lng) {
+      if (locDetectTimer) clearTimeout(locDetectTimer);
+      locDetectSeq += 1;
+      const currentSeq = locDetectSeq;
+      locDetectDecision = null;
+
+      locDetectTimer = setTimeout(() => {
+        runLocationDetection(lat, lng, currentSeq);
+      }, 300);
+    }
+
+    async function runLocationDetection(lat, lng, seq) {
+      const loadingEl = document.getElementById('loc-detect-loading');
+      const resultEl = document.getElementById('loc-detect-result');
+      if (loadingEl) loadingEl.style.display = 'block';
+      if (resultEl) resultEl.style.display = 'none';
+
+      const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+      try {
+        const res = await fetch('{{ route('api.detect-location') }}', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': csrfToken
+          },
+          body: JSON.stringify({ lat: Number(lat), lng: Number(lng) })
+        });
+
+        if (seq !== locDetectSeq) return;
+
+        let json = null;
+        try { json = await res.json(); } catch (e) { json = null; }
+
+        if (!res.ok || !json || typeof json.status !== 'string') {
+          locDetectLastResult = { status: 'boundary_data_unavailable', candidates: [] };
+        } else {
+          locDetectLastResult = json;
+        }
+        renderLocationDetectionResult();
+      } catch (err) {
+        if (seq !== locDetectSeq) return;
+        locDetectLastResult = { status: 'boundary_data_unavailable', candidates: [] };
+        renderLocationDetectionResult();
+      } finally {
+        if (seq === locDetectSeq && loadingEl) {
+          loadingEl.style.display = 'none';
+        }
+      }
+    }
+
+    function renderLocationDetectionResult() {
+      const box = document.getElementById('loc-detect-result');
+      const iconEl = document.getElementById('loc-detect-icon');
+      const titleEl = document.getElementById('loc-detect-title');
+      const descEl = document.getElementById('loc-detect-desc');
+      const actionsEl = document.getElementById('loc-detect-actions');
+      if (!box || !locDetectLastResult) return;
+
+      const dict = getAiDict();
+      const res = locDetectLastResult;
+      if (actionsEl) actionsEl.style.display = 'none';
+
+      if (res.status === 'no_coordinates') {
+        box.style.display = 'none';
+        return;
+      }
+
+      if (res.status === 'exact' && res.purok) {
+        box.style.background = '#ecfdf5';
+        box.style.borderColor = '#a7f3d0';
+        box.style.color = '#065f46';
+        if (iconEl) iconEl.className = 'fa-solid fa-circle-check';
+        if (titleEl) titleEl.textContent = `${dict.loc_exact_title || 'Suggested Purok:'} ${res.purok.name}`;
+        if (locDetectDecision === 'confirmed') {
+          if (descEl) descEl.textContent = dict.loc_exact_confirmed || 'Confirmed and selected.';
+        } else if (locDetectDecision === 'dismissed') {
+          if (descEl) descEl.textContent = dict.loc_exact_dismissed || 'Suggestion dismissed. You can select your Purok manually.';
+        } else {
+          if (descEl) descEl.textContent = dict.loc_exact_desc || 'Please confirm to apply this Purok, or dismiss to choose manually.';
+          if (actionsEl) actionsEl.style.display = 'flex';
+        }
+      } else if (res.status === 'boundary_ambiguous') {
+        box.style.background = '#fffbeb';
+        box.style.borderColor = '#fde68a';
+        box.style.color = '#92400e';
+        if (iconEl) iconEl.className = 'fa-solid fa-circle-half-stroke';
+        if (titleEl) titleEl.textContent = dict.loc_ambiguous_title || 'Near a Purok boundary';
+        const candidateNames = Array.isArray(res.candidates) ? res.candidates.map(c => c.name).filter(Boolean).join(', ') : '';
+        if (descEl) descEl.textContent = (dict.loc_ambiguous_desc || 'This pin is near a boundary or overlaps multiple areas. Please select your Purok manually.') + (candidateNames ? ` (${candidateNames})` : '');
+      } else if (res.status === 'outside_barangay') {
+        box.style.background = '#fffbeb';
+        box.style.borderColor = '#fcd34d';
+        box.style.color = '#92400e';
+        if (iconEl) iconEl.className = 'fa-solid fa-triangle-exclamation';
+        if (titleEl) titleEl.textContent = dict.loc_outside_title || 'Outside provisional Barangay Calarian boundary';
+        if (descEl) descEl.textContent = dict.loc_outside_desc || 'This pin appears outside the provisional Barangay Calarian boundary. You may adjust the pin or still submit for staff review.';
+      } else if (res.status === 'purok_unresolved') {
+        box.style.background = '#eff6ff';
+        box.style.borderColor = '#bfdbfe';
+        box.style.color = '#1e40af';
+        if (iconEl) iconEl.className = 'fa-solid fa-location-dot';
+        if (titleEl) titleEl.textContent = dict.loc_unresolved_title || 'Purok could not be identified automatically';
+        if (descEl) descEl.textContent = dict.loc_unresolved_desc || 'Please select your Purok from the dropdown or enter a landmark.';
+      } else if (res.status === 'boundary_data_unavailable' && res.in_barangay === true) {
+        box.style.background = '#eff6ff';
+        box.style.borderColor = '#bfdbfe';
+        box.style.color = '#1e40af';
+        if (iconEl) iconEl.className = 'fa-solid fa-location-dot';
+        if (titleEl) titleEl.textContent = dict.loc_in_provisional_title || 'Inside provisional Barangay Calarian boundary';
+        if (descEl) descEl.textContent = dict.loc_in_provisional_desc || 'Automatic Purok identification is unavailable because Purok boundary data is not configured. Please select your Purok or enter a landmark manually.';
+      } else {
+        // boundary_data_unavailable (in_barangay null) or invalid_boundary_data
+        box.style.background = '#f8fafc';
+        box.style.borderColor = '#e2e8f0';
+        box.style.color = '#475569';
+        if (iconEl) iconEl.className = 'fa-solid fa-circle-info';
+        if (titleEl) titleEl.textContent = dict.loc_unavailable_title || 'Automatic Purok detection unavailable';
+        if (descEl) descEl.textContent = dict.loc_unavailable_desc || 'Please select your Purok or enter a landmark manually.';
+      }
+
+      box.style.display = 'block';
+    }
+
+    function confirmDetectedPurok() {
+      if (!locDetectLastResult || locDetectLastResult.status !== 'exact' || !locDetectLastResult.purok) return;
+      const sel = document.getElementById('purok_id');
+      if (sel) {
+        const targetVal = String(locDetectLastResult.purok.id);
+        const opt = Array.from(sel.options).find(o => o.value === targetVal);
+        if (opt) {
+          sel.value = targetVal;
+          updateLocationStatusPill();
+          const step2Err = document.getElementById('step2-error');
+          if (step2Err) step2Err.classList.remove('is-visible');
+        }
+      }
+      locDetectDecision = 'confirmed';
+      renderLocationDetectionResult();
+    }
+
+    function dismissDetectedPurok() {
+      if (!locDetectLastResult) return;
+      locDetectDecision = 'dismissed';
+      renderLocationDetectionResult();
+    }
   </script>
 @endsection

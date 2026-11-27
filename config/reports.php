@@ -25,7 +25,7 @@ return [
         // Algorithmic edge-proximity tolerance in meters for boundary ambiguity flagging.
         // Note: This is a geometric edge tolerance, not a claim of actual GPS device accuracy.
         'boundary_tolerance_meters' => (float) env('GIS_BOUNDARY_TOLERANCE_METERS', 5.0),
-        // Optional path to official Barangay Calarian outer polygon GeoJSON (null until supplied).
-        'barangay_boundary_path' => env('GIS_BARANGAY_BOUNDARY_PATH'),
+        // Optional path to official Barangay Calarian outer polygon GeoJSON (provisional simplified boundary tracked in resources/gis).
+        'barangay_boundary_path' => env('GIS_BARANGAY_BOUNDARY_PATH', resource_path('gis/calarian_simplified.geojson')),
     ],
 ];

@@ -59,11 +59,11 @@ Routing is modularized under `routes/` and registered via `routes/web.php`:
 
 ### `POST /api/detect-location` (`api.detect-location`)
 - **Controller**: `ReportController@detectLocation` (`routes/engine.php`)
-- **Status**: Built (TR2.4.2 Backend Foundation; Step 2 resident UI integration pending TR2.4.3 and official GeoJSON import)
+- **Status**: Built (TR2.4.2 Backend & TR2.4.3 Step 2 UI Integration; uses Git-tracked provisional outer boundary `resources/gis/calarian_simplified.geojson` and optional `local`/`testing`-only mock Puroks)
 - **Middleware**: `throttle:30,1` (guest-accessible, CSRF-protected)
 - **Payload**: `{ lat: float (-90..90), lng: float (-180..180) }`
 - **Response (`200 OK`)**: `{ status ('exact'|'boundary_ambiguous'|'outside_barangay'|'purok_unresolved'|'no_coordinates'|'boundary_data_unavailable'|'invalid_boundary_data'), in_barangay (bool|null), purok ({ id, code, name }|null), candidates (array), message }`.
-- **Note**: Returns `boundary_data_unavailable` until official Barangay Calarian Purok GeoJSON polygons are imported. Never creates or mutates Report records.
+- **Note**: Without mock or official Purok polygons, returns `boundary_data_unavailable` (with `in_barangay: true` inside the provisional Calarian polygon and `outside_barangay` outside it). Never creates or mutates Report records, and never assigns official Puroks automatically.
 
 ### `POST /report`
 - **Controller**: `ReportController@store`

@@ -32,7 +32,11 @@ class ReportController extends Controller
     public function create(): View
     {
         return view('resident.create', [
-            'puroks' => Purok::orderBy('name')->get(),
+            'puroks' => Purok::query()
+                ->visibleInCurrentEnvironment()
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get(),
             'contacts' => EmergencyContact::query()->active()->ordered()->get(),
             'categories' => Category::query()
                 ->where('is_active', true)

@@ -147,6 +147,7 @@ class BoundaryService
         }
 
         $puroks = Purok::query()
+            ->visibleInCurrentEnvironment()
             ->where('is_active', true)
             ->whereNotNull('boundary_geometry')
             ->orderBy('id')

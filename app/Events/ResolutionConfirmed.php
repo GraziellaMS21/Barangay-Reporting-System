@@ -11,5 +11,10 @@ class ResolutionConfirmed
 {
     use Dispatchable, SerializesModels;
 
-    public function __construct(public Report $report, public bool $confirmed, public ?Feedback $feedback = null) {}
+    public function __construct(
+        public Report $report,
+        public bool $confirmed,
+        public ?Feedback $feedback = null,
+        public ?string $disputeReason = null
+    ) {}
 }

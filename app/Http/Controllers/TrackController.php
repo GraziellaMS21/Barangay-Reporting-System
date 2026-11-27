@@ -230,7 +230,7 @@ class TrackController extends Controller
         });
 
         // Contract: Dispatches ResolutionConfirmed
-        ResolutionConfirmed::dispatch($report->fresh(), false, null);
+        ResolutionConfirmed::dispatch($report->fresh(), false, null, $data['reason']);
 
         return redirect()->route('track.show', $report->tracking_code)
             ->with('status', 'Report has been reopened. Barangay staff will follow up on your concern.');

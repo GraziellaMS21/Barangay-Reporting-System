@@ -36,6 +36,51 @@ php artisan route:list               # Inspect routing table
 php artisan config:clear             # Clear cached configuration
 ```
 
+## Local Queue Worker & Email Testing
+
+By default (`.env.example`), the application uses `QUEUE_CONNECTION=database` (storing pending jobs in the `jobs` table) and `MAIL_MAILER=log`.
+
+### 1. Running the Queue Worker
+
+`composer run dev` starts the Laravel web server and Vite bundler, **not** the queue worker. Because report notifications and AI screening run asynchronously on the `database` queue, you must run the queue worker in a **second terminal** while developing locally:
+
+```sh
+php artisan queue:work
+```
+
+To process just one pending job manually during testing:
+
+```sh
+php artisan queue:work --once
+```
+
+### 2. Stopping and Restarting the Worker
+
+- **Stop safely:** Press `Ctrl+C` in the worker terminal.
+- **Restart after code changes:** `queue:work` keeps the application loaded in memory. After editing listeners, Mailables, or services, run `php artisan queue:restart` (or stop with `Ctrl+C` and start `php artisan queue:work` again).
+
+### 3. Inspecting Locally Logged Emails
+
+With `MAIL_MAILER=log`, Laravel **does not send real emails** over SMTP. Instead, all rendered email subjects, recipients, and HTML bodies are written to:
+
+- `storage/logs/laravel.log`
+
+### 4. Important Queue Behavior
+
+- **After-commit safety:** Notification listeners implement `ShouldHandleEventsAfterCommit`, so jobs are only queued after the related database transaction commits.
+- **Worker requirement:** Pending jobs remain in the `jobs` table until `php artisan queue:work` is running.
+- **Retry behavior:** Notification listeners are configured with `$tries = 1` (preventing duplicate emails on failure; failed attempts are recorded in `notification_logs` and `failed_jobs`). AI screening (`ProcessNewReport`) uses `$tries = 2` with a 10-second backoff.
+- **PHPUnit vs. local dev:** `phpunit.xml` uses `QUEUE_CONNECTION=sync` and `MAIL_MAILER=array` by default. Passing automated tests does **not** test or prove real SMTP delivery.
+
+### 5. Troubleshooting
+
+```sh
+php artisan queue:monitor database:default   # Check pending job count on the default queue
+php artisan queue:failed                     # List jobs that failed and moved to failed_jobs
+```
+
+If an expected email does not appear in `storage/logs/laravel.log`, verify that `php artisan queue:work` is running, check `php artisan queue:failed`, and inspect `storage/logs/laravel.log` for errors.
+
 ## Documentation
 
 Full project documentation is organized in [`docs/`](file:///C:/githubFiles/Barangay-Reporting-System-1/docs):

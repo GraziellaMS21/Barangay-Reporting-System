@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\CaseType;
 use App\Models\ComplaintIntake;
-use App\Models\Setting;
 use App\Services\GeminiService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -14,7 +13,7 @@ use Illuminate\View\View;
 class ComplaintController extends Controller
 {
     /**
-     * Show the resident dispute complaint intake form with VAWC screening.
+     * Show the resident dispute complaint intake form.
      */
     public function create(Request $request): View
     {
@@ -24,17 +23,8 @@ class ComplaintController extends Controller
             ->orderBy('name')
             ->get();
 
-        $hotlines = [
-            'vawc_national' => Setting::value('hotline.vawc.national') ?? '911',
-            'vawc_pnp' => Setting::value('hotline.vawc.pnp') ?? '0919-777-7377',
-            'bcpc_national' => Setting::value('hotline.bcpc.national') ?? '163',
-            'vawc_barangay' => Setting::value('hotline.vawc.barangay') ?? '0917-123-4567',
-            'bcpc_cswdo' => Setting::value('hotline.bcpc.cswdo') ?? '0917-765-4321',
-        ];
-
         return view('resident.complaint.create', [
             'caseTypes' => $caseTypes,
-            'hotlines' => $hotlines,
         ]);
     }
 
@@ -46,11 +36,6 @@ class ComplaintController extends Controller
         // Honeypot spam defense: bots filling hidden dummy field are redirected silently
         if ($request->filled('honeypot_website') || $request->filled('sp_check')) {
             return redirect()->route('complaint.received');
-        }
-
-        // Confidentiality gate: If user selected VAWC/child protection, do NOT save; direct to hotlines
-        if ($request->boolean('involves_confidential_matter')) {
-            return redirect()->route('complaint.create', ['confidential_alert' => '1']);
         }
 
         $validated = $request->validate([

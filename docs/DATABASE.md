@@ -693,7 +693,7 @@ Stores citizen-initiated dispute complaint requests prior to staff review and of
 | `rights_violated` | `text` | Required | Specific statement of rights violated / damages suffered. |
 | `relief_requested` | `text` | Required | Remedies or settlement terms sought by complainant. |
 | `case_type_suggestion` | `string(100)` | Nullable | Resident-selected dispute category. |
-| `confidentiality_screen_passed` | `boolean` | Default `true` | Confirms user passed the VAWC/child-protection screening gate. |
+| `confidentiality_screen_passed` | `boolean` | Default `true` | Legacy schema flag (defaults `true`; no upfront VAWC/911 screening gate). |
 | `consent_at` | `timestamp` | Required | Explicit RA 10173 data privacy consent timestamp (never auto-ticked). |
 | `status` | `string(30)` | Default `'pending'` | Intake status: `pending`, `docketed`, `redirected`, `rejected`. |
 | `reviewed_by` | `bigint unsigned` | FK -> `users.id`, nullable | Staff user who reviewed the submission. |
@@ -712,11 +712,6 @@ Stores citizen-initiated dispute complaint requests prior to staff review and of
 - **Privacy Rule**: Rate limiting uses transient ephemeral cache keys; IP addresses and hardware device identifiers are **never** stored in the database.
 
 ### Planned Settings Keys (`settings` table)
-- `hotline.vawc.national` (string, default `'911'`): National emergency hotline.
-- `hotline.vawc.pnp` (string, default `'0919-777-7377'`): PNP Aleng Pulis hotline.
-- `hotline.bcpc.national` (string, default `'163'`): Bantay Bata child protection hotline.
-- `hotline.vawc.barangay` (string, nullable): Official local Calarian VAW Desk hotline.
-- `hotline.bcpc.cswdo` (string, nullable): Zamboanga City CSWDO hotline.
 - `reminders.settlement_compliance` (boolean, default `false`): Optional reminder when settlement terms mature.
 - `reminders.pangkat_convening` (boolean, default `false`): Optional reminder 3 days after Pangkat constitution.
 - `reminders.kp_accomplishment_yearly` (boolean, default `false`): Optional reminder for annual KP report.

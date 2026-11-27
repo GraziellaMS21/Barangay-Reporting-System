@@ -95,8 +95,8 @@ To prevent migration filename timestamp ordering conflicts when workstreams merg
 
 - **Human-in-the-Loop Docketing**: The resident complaint intake never creates cases or parties automatically. Respondent details are stored as unverified free text and are only linked to canonical `parties` when authorized staff verify and execute "Docket this".
 - **Respondent Privacy on Public Pages**: Resident-facing complaint intake pages and acknowledgement receipts must never display case status, respondent data, or dispute tracking timelines.
-- **Confidential Matters Exclusion**: Confidential case types (VAWC, child protection) are strictly excluded from public web forms and must redirect to emergency hotlines and the physical barangay hall.
+- **Agency-Related VAWC Handling**: VAWC-related matters are handled as agency-related referrals through the VAWC office representative in the barangay; no upfront 911 or VAWC screening gate is required on public forms.
 - **Migration Prefixes**: New complaint intake, party, or eligibility migrations must strictly use the WS3 prefix (`2026_12_01_30NNNN_`); summons, hearing, deadline, and procedural migrations must use the WS4 prefix (`2026_12_01_40NNNN_`).
 - **Reminders and Status Invariance**: Reminders, warnings, and deadline badge states on summons or non-appearance must never trigger automatic status transitions. Status transitions require explicit authorized staff or official actions.
 - **Anonymous Reporting Integrity**: Anonymous community problem reports store no identifying data (no reporter name, contact, IP address, or device ID) and must never be transitioned to `no_action` with `resident_unreachable` solely for being anonymous.
-- **Dynamic Hotline Governance**: All emergency, VAWC, and child-protection hotline numbers must be loaded dynamically from `setting()`, never hardcoded in Blade views or frontend JavaScript.
+- **Dynamic Hotline Governance**: All emergency hotline numbers must be loaded dynamically from `setting()`, never hardcoded in Blade views or frontend JavaScript.

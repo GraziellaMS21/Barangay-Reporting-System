@@ -438,7 +438,7 @@ Protected by `auth`, `role:staff`, `permission:imports.manage`.
 - **Controller**: `Resident\ComplaintController@create` (Planned)
 - **Status**: Planned ([DECIDED, D2, D4, D4a])
 - **Middleware**: `web` (Turbo Drive disabled, 375px mobile first)
-- **Description**: Displays the resident dispute filing interface with an upfront confidential screening question (VAWC / child protection). If answered "Yes", the form is hidden, no data is stored, and the user is shown emergency hotlines (911, PNP Aleng Pulis, Bantay Bata) with a "Leave this page" quick-exit button. If answered "No", displays the compact single-card complaint form.
+- **Description**: Displays the compact single-card resident dispute complaint intake form directly without an upfront 911 or VAWC screening gate.
 
 #### `POST /complaint`
 - **Controller**: `Resident\ComplaintController@store` (Planned)

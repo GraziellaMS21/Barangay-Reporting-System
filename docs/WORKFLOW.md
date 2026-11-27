@@ -218,9 +218,9 @@ stateDiagram-v2
 
 ### 8.2 Lifecycle Stages & Statutory Deadlines
 
-0. **Resident Complaint Intake (Planned, [DECIDED, D4, D4a])**:
+0. **Resident Complaint Intake (Planned, [DECIDED, D4])**:
    - Residents may initiate a dispute filing via the online form ("File a Complaint"), which creates a **pending complaint intake**, never an active case.
-   - Screened upfront for confidential matters: VAWC and child protection concerns are excluded from the online form and directed immediately to emergency hotlines and the barangay hall / VAW Desk ([DECIDED, D4a]).
+   - No upfront 911 or VAWC screening gate is shown on the online form; VAWC-related matters are handled as agency-related referrals through the VAWC office representative in the barangay.
    - Staff review pending intakes in the "Pending intake" tab on the Cases Docket.
    - Staff check eligibility, residency, and duplicate warnings, then click **"Docket this"** to open the prefilled intake form. Only upon official confirmation is the case created at `filed` and the blotter entry logged.
    - Complainant and respondent details are **not** auto-created as parties; staff confirm them during docketing.
@@ -237,7 +237,7 @@ stateDiagram-v2
    - Staff complete an informational **eligibility checklist** ([PROPOSED, P1]):
      1. Parties are individuals actually residing in the same barangay (or covered adjoining arrangement); juridical entities excluded.
      2. Matter is covered by Katarungang Pambarangay and not excluded (e.g. accused in police custody).
-     3. Dispute is not confidential (VAWC, child protection handled outside normal public flow).
+     3. Dispute is not an agency-only exclusion (VAWC-related matters are coordinated through the VAWC office representative in the barangay).
      4. Residency verification of both parties recorded.
    - Reminder: "Summons not yet delivered" ([CONFIRMED, C14]). Reminders are informational only and never block or auto-transition the case.
 

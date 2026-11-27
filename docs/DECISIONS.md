@@ -415,11 +415,11 @@
 - **Context**: Republic Act 7160 requires in-person appearance and sworn signatures for Katarungang Pambarangay disputes. Online submissions cannot auto-docket or bypass official intake.
 - **Decision**: The resident complaint form creates only a `pending` complaint intake, never a case. Staff review submissions in the "Pending intake" tab on the Cases Docket. Clicking "Docket this" prefills the intake form, confirms parties, and creates the case at `filed`. Residents see an acknowledgement screen only ("received, please visit the barangay hall to sign and complete filing"), revealing no case status, no respondent data, and no tracking. Respondent details are never auto-created as parties.
 
-### Decision 85: Confidential Matters (VAWC, Child Protection) Excluded from Online Forms
-- **Status**: Decided ([DECIDED, D4a])
-- **Date**: 2026-11-24
-- **Context**: Sensitive domestic violence and child protection matters require immediate in-person protection or emergency intervention, not unmonitored web queue submissions.
-- **Decision**: The complaint form introduces an upfront screening step. If the concern involves violence against women and children (VAWC) or child abuse, the form is not displayed, nothing is saved to the database, and the user is directed to 911, the PNP Aleng Pulis desk, Bantay Bata, or the physical Barangay VAW Desk, with a "Leave this page" quick-exit button.
+### Decision 85: Confidential Matters (VAWC, Child Protection) Screening [REMOVED / SUPERSEDED]
+- **Status**: Superseded
+- **Date**: 2026-11-27
+- **Context**: There is a VAWC office representative in the barangay, so VAWC-related matters are handled as agency-related referrals rather than via an online emergency/abuse screening gate.
+- **Decision**: Removed the upfront 911/VAWC screening gate and VAW Desk emergency screen from the online resident complaint form.
 
 ### Decision 86: Pre-Summons Classification, Proposed Eligibility Checklist, and Delivery Reminders
 - **Status**: Confirmed & Proposed ([CONFIRMED, C9, C14; PROPOSED, P1])
@@ -457,11 +457,11 @@
 - **Context**: Resolving Secretary Q14 ("Not sure"). Community infrastructure issues (potholes, garbage, unlit poles) benefit from frictionless public reporting.
 - **Decision**: Community problem reports (Report Queue) may be submitted without logging in or creating an account, and may be submitted anonymously. Anonymous submissions store no name, contact, IP address, or device identifier. An optional single-view tracking code is displayed upon submission. Anonymity is strictly NOT offered on dispute complaints.
 
-### Decision 92: VAWC and Child-Protection Guidance Screen with Quick Exit
-- **Status**: Proposed, Pending Confirmation ([PROPOSED, P9; DECIDED, D4a])
-- **Date**: 2026-11-24
-- **Context**: Screening out confidential matters requires actionable offline guidance, emergency hotlines, and privacy-preserving quick exit.
-- **Decision**: When screening triggers for VAWC or child abuse, render guidance text in English and Filipino, show emergency hotlines (911, PNP Aleng Pulis, Bantay Bata), provide a "Leave this page" quick-exit button, and retain zero database records. All hotline phone numbers must be read dynamically from `setting()` keys, never hardcoded in Blade views.
+### Decision 92: VAWC and Child-Protection Guidance Screen with Quick Exit [REMOVED / SUPERSEDED]
+- **Status**: Superseded
+- **Date**: 2026-11-27
+- **Context**: VAWC-related matters are handled as agency-related referrals through the VAWC office representative in the barangay.
+- **Decision**: Removed the VAWC/abuse emergency screening screen and its dedicated `hotline.vawc.*` / `hotline.bcpc.*` prompts from the complaint intake flow.
 
 ### Decision 93: Standardized Case Reminders and 3-Day Referral Follow-Up
 - **Status**: Confirmed & Proposed ([CONFIRMED, C6, C14; PROPOSED, P10])

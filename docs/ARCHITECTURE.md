@@ -74,7 +74,7 @@ The presentation layer includes a resident entry screen with three buttons ([DEC
 | **`GlobalSearchService`** | `app/Services/GlobalSearchService.php` | Cross-entity universal search indexing reports, cases, parties, and referrals. |
 | **`PartyMatchingService`** | `app/Services/Cases/PartyMatchingService.php` | Duplicate party detection and merge assistance. |
 | **`LegacyImportService`** | `app/Services/Imports/LegacyImportService.php` | Chunked CSV/Excel legacy file ingestion with validation and rollback. |
-| **`ComplaintIntakeService`** | `app/Services/Cases/ComplaintIntakeService.php` | *(Planned, WS3)* Handles resident complaint submission, confidential screening gate (VAWC/child protection), pending intake queue management, and the atomic "Docket this" transaction. |
+| **`ComplaintIntakeService`** | `app/Services/Cases/ComplaintIntakeService.php` | *(Planned, WS3)* Handles resident complaint submission, pending intake queue management, and the atomic "Docket this" transaction. |
 | **`EligibilityCheckService`** | `app/Services/Cases/EligibilityCheckService.php` | *(Planned, WS3)* Assists staff in evaluating pre-summons statutory criteria (same-barangay residents, KP legal scope, non-confidentiality, residency verification). |
 | **`PrintableDocumentService`** | `app/Services/Cases/PrintableDocumentService.php` | *(Planned, WS4)* Maps case, blotter, summons, hearing, settlement, and CFA data to printable templates, resolving signatories dynamically via `SignatoryResolver`. |
 

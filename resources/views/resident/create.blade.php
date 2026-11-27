@@ -34,73 +34,369 @@
   @endphp
 
   <style>
-    /* Card Container Enhancements */
+    /* Card Container & Design Tokens */
     .report-card {
-      border: 1px solid #e2e8f0;
-      border-radius: 20px;
-      padding: 2.25rem;
+      --wiz-ink: var(--ink, #0b1f4b);
+      --wiz-blue: #2563eb;
+      --wiz-red: var(--red, #e0352b);
+      --wiz-gold: var(--gold, #ffc21a);
+      --wiz-surface: #f8fafc;
+      --wiz-border: #e2e8f0;
+      --wiz-muted: #64748b;
+      max-width: 1120px;
+      width: 100%;
+      margin: 0 auto;
       background: #ffffff;
-      box-shadow: 0 4px 6px -1px rgba(11, 31, 75, 0.04), 0 20px 30px -4px rgba(11, 31, 75, 0.08);
-      transition: box-shadow 0.25s ease;
+      border: 1px solid var(--wiz-border);
+      border-radius: 20px;
+      overflow: hidden;
+      padding: 0;
+      box-shadow: 0 4px 6px -1px rgba(11, 31, 75, 0.04), 0 16px 32px -8px rgba(11, 31, 75, 0.08);
       position: relative;
     }
 
-    @media (max-width: 640px) {
-      .report-card {
-        padding: 1.25rem;
-        border-radius: 16px;
-      }
-    }
-
-    /* Top Action Bar */
+    /* Zone 1: Top Utility Bar & Slim Dispute Strip */
     .card-topbar {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 1rem;
+      gap: 0.75rem;
       flex-wrap: wrap;
-      padding-bottom: 1.25rem;
-      margin-bottom: 1.5rem;
-      border-bottom: 1px solid #f1f5f9;
+      padding: 0.8rem 1.5rem;
+      background: var(--wiz-surface);
+      border-bottom: 1px solid var(--wiz-border);
     }
 
     .emergency-pill-strip {
       display: inline-flex;
       align-items: center;
-      gap: 0.65rem;
+      gap: 0.55rem;
       background: #fef2f2;
       border: 1px solid #fecaca;
       border-radius: 999px;
-      padding: 0.3rem 0.5rem 0.3rem 0.85rem;
-      font-size: 0.85rem;
+      padding: 0.28rem 0.4rem 0.28rem 0.8rem;
+      font-size: 0.82rem;
     }
 
     .emergency-pill-strip .emg-label {
-      color: var(--red);
+      color: var(--wiz-red);
       font-weight: 700;
       display: inline-flex;
       align-items: center;
-      gap: 0.4rem;
+      gap: 0.35rem;
     }
 
     .emergency-pill-strip .emg-action-btn {
-      background: var(--red);
+      background: var(--wiz-red);
       color: #ffffff;
       border: none;
-      padding: 0.25rem 0.75rem;
+      padding: 0.26rem 0.75rem;
       border-radius: 999px;
-      font-size: 0.78rem;
+      font-size: 0.76rem;
       font-weight: 700;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
       gap: 0.35rem;
-      transition: background 0.15s, transform 0.15s;
+      transition: all 160ms cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     .emergency-pill-strip .emg-action-btn:hover {
       background: #b91c1c;
       transform: translateY(-1px);
+    }
+
+    .emergency-pill-strip .emg-action-btn:active {
+      transform: scale(0.98);
+    }
+
+    .lang-segmented-control {
+      display: inline-flex;
+      background: #e2e8f0;
+      border: 1px solid #cbd5e1;
+      border-radius: 999px;
+      padding: 2px;
+      gap: 2px;
+    }
+
+    .lang-segmented-btn {
+      border: none;
+      background: transparent;
+      padding: 0.28rem 0.8rem;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--wiz-muted);
+      cursor: pointer;
+      transition: all 160ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .lang-segmented-btn:hover:not(.active) {
+      color: var(--wiz-ink);
+    }
+
+    .lang-segmented-btn.active {
+      background: var(--wiz-ink);
+      color: #ffffff;
+      box-shadow: 0 2px 4px rgba(11, 31, 75, 0.2);
+    }
+
+    .dispute-slim-bar {
+      padding: 0.55rem 1.5rem;
+      background: #fffbeb;
+      border-bottom: 1px solid #fde68a;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      font-size: 0.82rem;
+      color: #92400e;
+    }
+
+    .dispute-slim-left {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-weight: 600;
+    }
+
+    .dispute-slim-link {
+      font-weight: 700;
+      color: #92400e;
+      text-decoration: underline;
+      white-space: nowrap;
+      transition: color 160ms ease;
+    }
+
+    .dispute-slim-link:hover {
+      color: #78350f;
+    }
+
+    /* Zone 2: 3-Step Interactive Progress Stepper */
+    .wizard-stepper-wrap {
+      padding: 1.1rem 1.75rem 1rem;
+      background: #ffffff;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .wizard-stepper-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      position: relative;
+      align-items: start;
+    }
+
+    .wizard-track-rail {
+      position: absolute;
+      top: 14px;
+      left: calc(100% / 6);
+      right: calc(100% / 6);
+      height: 3px;
+      background: #e2e8f0;
+      border-radius: 999px;
+      z-index: 1;
+      overflow: hidden;
+    }
+
+    #wizard-progress-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--wiz-blue);
+      border-radius: 999px;
+      transition: width 350ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .wizard-step-tab {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.4rem;
+      background: transparent;
+      border: none;
+      padding: 0 0.25rem;
+      cursor: default;
+      text-align: center;
+      font-family: inherit;
+    }
+
+    .wizard-step-tab.is-completed {
+      cursor: pointer;
+    }
+
+    .wizard-step-circle {
+      width: 30px;
+      height: 30px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.82rem;
+      font-weight: 800;
+      background: #ffffff;
+      border: 2px solid #cbd5e1;
+      color: var(--wiz-muted);
+      transition: all 200ms ease;
+    }
+
+    .wizard-step-label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--wiz-muted);
+      line-height: 1.2;
+      transition: color 200ms ease;
+    }
+
+    .wizard-step-tab.is-active .wizard-step-circle {
+      background: var(--wiz-blue);
+      border-color: var(--wiz-blue);
+      color: #ffffff;
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.14);
+      transform: scale(1.06);
+    }
+
+    .wizard-step-tab.is-active .wizard-step-label {
+      color: var(--wiz-ink);
+      font-weight: 700;
+    }
+
+    .wizard-step-tab.is-completed .wizard-step-circle {
+      background: #10b981;
+      border-color: #10b981;
+      color: #ffffff;
+    }
+
+    .wizard-step-tab.is-completed .wizard-step-label {
+      color: #065f46;
+      font-weight: 700;
+    }
+
+    .wizard-step-tab.is-completed:hover .wizard-step-circle {
+      transform: scale(1.05);
+      box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.14);
+    }
+
+    /* Zone 3: Active Step Content Body */
+    .wizard-body {
+      padding: 1.5rem 1.75rem;
+    }
+
+    .wizard-panel {
+      display: none;
+    }
+
+    .wizard-panel.is-active {
+      display: block;
+    }
+
+    .wizard-panel.anim-slide-right {
+      animation: stepSlideInRight 260ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .wizard-panel.anim-slide-left {
+      animation: stepSlideInLeft 260ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes stepSlideInRight {
+      from { opacity: 0; transform: translateX(16px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    @keyframes stepSlideInLeft {
+      from { opacity: 0; transform: translateX(-16px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    @keyframes panelFadeDown {
+      from { opacity: 0; transform: translateY(-6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes badgePop {
+      from { opacity: 0; transform: scale(0.9); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    @keyframes gentleShake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      75% { transform: translateX(5px); }
+    }
+
+    .gentle-shake {
+      animation: gentleShake 260ms ease-in-out;
+    }
+
+    /* Voice Strip (Compact Inline Trigger) */
+    .voice-strip-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .voice-strip-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .voice-strip-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: #dbeafe;
+      color: var(--wiz-blue);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.95rem;
+      flex-shrink: 0;
+    }
+
+    .voice-trigger-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      background: #ffffff;
+      color: #1d4ed8;
+      border: 1.5px solid #bfdbfe;
+      border-radius: 10px;
+      padding: 0.48rem 0.9rem;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 1px 2px rgba(11, 31, 75, 0.04);
+      transition: all 160ms cubic-bezier(0.4, 0, 0.2, 1);
+      white-space: nowrap;
+    }
+
+    .voice-trigger-btn:hover {
+      background: #eff6ff;
+      border-color: #93c5fd;
+      transform: translateY(-1px);
+    }
+
+    .voice-trigger-btn:active {
+      transform: scale(0.98);
+    }
+
+    .voice-saved-pill {
+      display: none;
+      align-items: center;
+      gap: 0.35rem;
+      background: #ecfdf5;
+      color: #065f46;
+      border: 1px solid #a7f3d0;
+      border-radius: 999px;
+      padding: 0.2rem 0.6rem;
+      font-size: 0.74rem;
+      font-weight: 700;
     }
 
     .from-recording-badge {
@@ -111,108 +407,79 @@
       color: #065f46;
       border: 1px solid #a7f3d0;
       border-radius: 999px;
-      padding: 0.15rem 0.55rem;
+      padding: 0.14rem 0.55rem;
       font-size: 0.72rem;
       font-weight: 700;
       margin-left: 0.4rem;
       vertical-align: middle;
-    }
-
-    .lang-segmented-control {
-      display: inline-flex;
-      background: #f1f5f9;
-      border: 1px solid #e2e8f0;
-      border-radius: 999px;
-      padding: 3px;
-      gap: 2px;
-    }
-
-    .lang-segmented-btn {
-      border: none;
-      background: transparent;
-      padding: 0.3rem 0.85rem;
-      border-radius: 999px;
-      font-size: 0.8rem;
-      font-weight: 700;
-      color: #64748b;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    .lang-segmented-btn:hover:not(.active) {
-      color: var(--ink);
-    }
-
-    .lang-segmented-btn.active {
-      background: var(--ink);
-      color: #ffffff;
-      box-shadow: 0 2px 4px rgba(11, 31, 75, 0.2);
+      animation: badgePop 180ms ease-out;
     }
 
     /* Section Headings */
     .card-section-heading {
       display: flex;
       align-items: center;
-      gap: 0.65rem;
-      margin-bottom: 0.85rem;
+      gap: 0.55rem;
+      margin-bottom: 0.75rem;
     }
 
     .card-section-icon {
       display: inline-grid;
       place-items: center;
-      width: 34px;
-      height: 34px;
-      border-radius: 10px;
+      width: 30px;
+      height: 30px;
+      border-radius: 9px;
       background: #eff6ff;
-      color: var(--blue);
-      font-size: 0.95rem;
+      color: var(--wiz-blue);
+      font-size: 0.85rem;
       flex-shrink: 0;
     }
 
     .card-section-title {
-      font-size: 1.12rem;
+      font-size: 1rem;
       font-weight: 700;
-      color: var(--ink);
+      color: var(--wiz-ink);
       margin: 0;
       letter-spacing: -0.01em;
     }
 
-    .badge-optional {
-      font-size: 0.78rem;
-      font-weight: 500;
-      color: #64748b;
-      margin-left: 0.25rem;
+    .optional-pill-badge {
+      background: #f1f5f9;
+      color: var(--wiz-muted);
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
     }
 
     /* Category Chips */
     .cat-chips-wrap {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.6rem;
-      margin-bottom: 1.25rem;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
     }
 
     .cat-chip {
       display: inline-flex;
       align-items: center;
-      gap: 0.5rem;
-      padding: 0.55rem 1.05rem;
+      gap: 0.45rem;
+      padding: 0.48rem 0.9rem;
       border: 1.5px solid #e2e8f0;
       border-radius: 999px;
       background: #f8fafc;
       color: var(--tx);
-      font-size: 0.875rem;
+      font-size: 0.84rem;
       font-weight: 600;
       cursor: pointer;
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: all 160ms cubic-bezier(0.4, 0, 0.2, 1);
       user-select: none;
-      box-shadow: 0 1px 2px rgba(11, 31, 75, 0.03);
     }
 
     .cat-chip i {
-      color: #64748b;
-      font-size: 0.95rem;
-      transition: color 0.2s, transform 0.2s;
+      color: var(--wiz-muted);
+      font-size: 0.88rem;
+      transition: color 160ms, transform 160ms;
     }
 
     .cat-chip:hover {
@@ -220,19 +487,21 @@
       border-color: #93c5fd;
       color: #1d4ed8;
       transform: translateY(-1px);
-      box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.08);
     }
 
     .cat-chip:hover i {
-      color: #2563eb;
-      transform: scale(1.1);
+      color: var(--wiz-blue);
+    }
+
+    .cat-chip:active {
+      transform: scale(0.98);
     }
 
     .cat-chip.selected {
       background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
       color: #ffffff;
       border-color: #1e40af;
-      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+      box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
       transform: translateY(-1px);
     }
 
@@ -244,38 +513,127 @@
     #dynamic-questions-container {
       background: #f8fafc;
       border: 1px solid #e2e8f0;
-      border-left: 4px solid var(--blue);
-      border-radius: 14px;
-      padding: 1.25rem 1.5rem;
-      margin-bottom: 1.25rem;
-      animation: fadeIn 0.25s ease-out;
+      border-left: 3.5px solid var(--wiz-blue);
+      border-radius: 12px;
+      padding: 0.95rem 1.1rem;
+      margin-bottom: 1.1rem;
+      animation: panelFadeDown 220ms ease-out;
     }
 
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-4px); }
-      to { opacity: 1; transform: translateY(0); }
+    .dynamic-opt-chip {
+      min-height: 38px;
+      padding: 0.35rem 0.85rem;
+      border-radius: 999px;
+      border: 1.5px solid #cbd5e1;
+      background: #ffffff;
+      color: var(--wiz-ink);
+      font-size: 0.83rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+      transition: all 160ms cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    /* Section Dividers */
-    .card-divider {
-      border: 0;
-      height: 1px;
-      background: linear-gradient(to right, transparent, #e2e8f0 10%, #e2e8f0 90%, transparent);
-      margin: 1.75rem 0;
+    .dynamic-opt-chip:hover {
+      border-color: #93c5fd;
+      background: #eff6ff;
+      transform: translateY(-1px);
     }
 
-    /* Danger Callout Box */
+    .dynamic-opt-chip:active {
+      transform: scale(0.98);
+    }
+
+    .dynamic-opt-chip.active {
+      background: #eff6ff;
+      border-color: var(--wiz-blue);
+      color: var(--wiz-blue);
+      font-weight: 700;
+      box-shadow: 0 0 0 1px var(--wiz-blue);
+    }
+
+    /* Problem Description */
+    .desc-label-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.4rem;
+    }
+
+    .wizard-textarea {
+      width: 100%;
+      border-radius: 12px;
+      border: 1.5px solid #cbd5e1;
+      padding: 0.7rem 0.9rem;
+      font-size: 0.93rem;
+      color: var(--wiz-ink);
+      background: #ffffff;
+      transition: border-color 160ms ease, box-shadow 160ms ease;
+      resize: vertical;
+    }
+
+    .wizard-textarea:focus {
+      outline: none;
+      border-color: var(--wiz-blue);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    }
+
+    .wizard-input,
+    .wizard-select {
+      width: 100%;
+      height: 44px;
+      border-radius: 10px;
+      border: 1.5px solid #cbd5e1;
+      padding: 0 0.85rem;
+      font-size: 0.92rem;
+      color: var(--wiz-ink);
+      background: #ffffff;
+      transition: border-color 160ms ease, box-shadow 160ms ease;
+    }
+
+    .wizard-input:focus,
+    .wizard-select:focus {
+      outline: none;
+      border-color: var(--wiz-blue);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    }
+
+    /* Step Inline Error Alert */
+    .step-inline-error {
+      display: none;
+      margin-top: 0.55rem;
+      padding: 0.55rem 0.85rem;
+      border-radius: 10px;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #b91c1c;
+      font-size: 0.82rem;
+      font-weight: 600;
+      align-items: center;
+      gap: 0.45rem;
+      animation: panelFadeDown 220ms ease-out;
+    }
+
+    .step-inline-error.is-visible {
+      display: flex;
+    }
+
+    /* Danger Callout & Inline Emergency */
     .danger-callout-box {
       background: #fff8f8;
-      border: 1px solid #fee2e2;
+      border: 1px solid #fecaca;
       border-radius: 12px;
-      padding: 0.85rem 1.15rem;
-      margin-bottom: 1.25rem;
+      padding: 0.7rem 1rem;
+      margin-bottom: 0.75rem;
       display: flex;
       align-items: center;
-      gap: 0.75rem;
+      gap: 0.7rem;
       cursor: pointer;
-      transition: background 0.2s, border-color 0.2s;
+      transition: background 160ms, border-color 160ms;
     }
 
     .danger-callout-box:hover {
@@ -283,14 +641,18 @@
       border-color: #fca5a5;
     }
 
-    /* Custom Collapsible Card Sections */
+    #inline-emergency {
+      animation: panelFadeDown 220ms ease-out;
+    }
+
+    /* Collapsible Card Sections */
     .card-collapsible {
       border: 1px solid #e2e8f0;
-      border-radius: 14px;
-      margin-bottom: 1.25rem;
+      border-radius: 12px;
+      margin-bottom: 0;
       background: #ffffff;
       overflow: hidden;
-      transition: border-color 0.2s, box-shadow 0.2s;
+      transition: border-color 160ms, box-shadow 160ms;
     }
 
     .card-collapsible[open] {
@@ -299,10 +661,10 @@
     }
 
     .card-collapsible summary {
-      padding: 1rem 1.25rem;
+      padding: 0.75rem 1rem;
       font-weight: 700;
-      font-size: 0.95rem;
-      color: var(--ink);
+      font-size: 0.88rem;
+      color: var(--wiz-ink);
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -320,9 +682,9 @@
       content: '\f078';
       font-family: 'Font Awesome 6 Free';
       font-weight: 900;
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       color: #94a3b8;
-      transition: transform 0.2s ease;
+      transition: transform 200ms ease;
     }
 
     .card-collapsible[open] summary::after {
@@ -330,7 +692,7 @@
     }
 
     .card-collapsible-content {
-      padding: 1.25rem;
+      padding: 1rem 1.1rem;
       border-top: 1px solid #f1f5f9;
       background: #ffffff;
     }
@@ -340,7 +702,7 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 1rem;
+      gap: 0.75rem;
       flex-wrap: wrap;
     }
 
@@ -356,151 +718,327 @@
     }
 
     .toggle-btn {
-      min-height: 44px;
-      padding: 0.4rem 1rem;
+      min-height: 36px;
+      padding: 0.3rem 0.85rem;
       border: none;
       background: transparent;
       cursor: pointer;
-      font-size: 0.85rem;
+      font-size: 0.82rem;
       font-weight: 700;
-      color: #64748b;
+      color: var(--wiz-muted);
       border-radius: 8px;
-      transition: all 0.2s ease;
+      transition: all 160ms cubic-bezier(0.4, 0, 0.2, 1);
       display: inline-flex;
       align-items: center;
       justify-content: center;
+    }
+
+    .toggle-btn:hover:not(.active) {
+      color: var(--wiz-ink);
     }
 
     .toggle-btn.active {
-      background: var(--blue);
+      background: var(--wiz-blue);
       color: #ffffff;
-      box-shadow: 0 2px 4px rgba(36, 86, 214, 0.2);
+      box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
     }
 
-    .toggle-btn:focus-within {
-      outline: 2px solid var(--blue);
-      outline-offset: 2px;
-    }
-
-    .dynamic-opt-chip {
-      min-height: 44px;
-      padding: 0.45rem 1rem;
-      border-radius: 999px;
-      border: 1.5px solid var(--line);
-      background: #f8fafc;
-      color: var(--ink);
-      font-size: 0.85rem;
-      font-weight: 600;
-      cursor: pointer;
+    /* Step 2: Location Grid & Status Pill */
+    .location-status-pill {
       display: inline-flex;
       align-items: center;
-      justify-content: center;
       gap: 0.35rem;
-      transition: all 0.15s ease-in-out;
-    }
-
-    .dynamic-opt-chip:hover {
-      border-color: #cbd5e1;
-      background: #f1f5f9;
-    }
-
-    .dynamic-opt-chip.active {
-      background: #eff6ff;
-      border-color: var(--blue);
-      color: var(--blue);
+      padding: 0.22rem 0.7rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
       font-weight: 700;
-      box-shadow: 0 0 0 1px var(--blue);
+      background: #f1f5f9;
+      color: var(--wiz-muted);
+      border: 1px solid #e2e8f0;
+      transition: all 200ms ease;
     }
 
-    .dynamic-opt-chip:focus-visible {
-      outline: 2px solid var(--blue);
-      outline-offset: 2px;
+    .location-status-pill.is-ready {
+      background: #ecfdf5;
+      color: #065f46;
+      border-color: #a7f3d0;
     }
 
-    @media (max-width: 640px) {
-      .card-submit-bar {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 1.25rem;
-      }
-      #btn-final-submit {
-        width: 100% !important;
-        min-height: 48px;
-        justify-content: center;
-      }
+    .step2-split-grid {
+      display: grid;
+      grid-template-columns: 1.25fr 1fr;
+      gap: 1.15rem;
+      align-items: start;
     }
 
-    /* Map Box */
     .map-container-box {
-      border: 1.5px solid #e2e8f0;
+      border: 1.5px solid #cbd5e1;
       border-radius: 14px;
       overflow: hidden;
       box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
     }
 
-    /* Photo Guidance Box */
-    .photo-guidance-card {
+    .btn-gps-action {
+      width: 100%;
+      height: 44px;
       background: #eff6ff;
-      border-left: 4px solid var(--blue);
-      border-radius: 0 10px 10px 0;
-      padding: 0.85rem 1rem;
-      margin-bottom: 1rem;
-      font-size: 0.85rem;
-      color: #1e3a8a;
-      display: flex;
-      align-items: flex-start;
-      gap: 0.65rem;
+      border: 1.5px solid #bfdbfe;
+      color: #1d4ed8;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 0.88rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      transition: all 160ms cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    /* Footer & Submit Area */
-    .card-submit-bar {
+    .btn-gps-action:hover {
+      background: #dbeafe;
+      border-color: #93c5fd;
+      transform: translateY(-1px);
+    }
+
+    .btn-gps-action:active {
+      transform: scale(0.98);
+    }
+
+    /* Step 3: Photo Dropzone & Previews */
+    .photo-dropzone {
+      border: 2px dashed #cbd5e1;
+      border-radius: 14px;
+      background: #f8fafc;
+      padding: 1.25rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 160ms cubic-bezier(0.4, 0, 0.2, 1);
+      margin-bottom: 1rem;
+    }
+
+    .photo-dropzone:hover,
+    .photo-dropzone.is-dragover {
+      border-color: var(--wiz-blue);
+      background: #eff6ff;
+    }
+
+    .photo-dropzone-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 999px;
+      background: #dbeafe;
+      color: var(--wiz-blue);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      margin-bottom: 0.45rem;
+    }
+
+    #photo-previews.photo-preview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+      gap: 0.65rem;
+      margin-top: 0.75rem;
+    }
+
+    #photo-previews:empty {
+      display: none;
+    }
+
+    #anon-notice-banner {
+      animation: panelFadeDown 220ms ease-out;
+    }
+
+    .consent-slate-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 0.9rem 1rem;
+      margin-top: 1rem;
+      font-size: 0.83rem;
+      line-height: 1.45;
+    }
+
+    /* Zone 4: Unified Wizard Footer Bar */
+    .wizard-footer-bar {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 1.25rem;
-      flex-wrap: wrap;
-      padding-top: 0.5rem;
+      gap: 0.75rem;
+      padding: 1rem 1.75rem;
+      background: var(--wiz-surface);
+      border-top: 1px solid var(--wiz-border);
     }
 
-    .consent-checkbox-wrap {
-      display: flex;
+    .wizard-btn-primary {
+      display: inline-flex;
       align-items: center;
-      gap: 0.65rem;
-      font-size: 0.88rem;
-      font-weight: 600;
-      color: var(--tx);
+      justify-content: center;
+      gap: 0.5rem;
+      background: var(--wiz-blue);
+      color: #ffffff;
+      border: none;
+      border-radius: 11px;
+      padding: 0.65rem 1.35rem;
+      min-height: 44px;
+      font-size: 0.92rem;
+      font-weight: 700;
       cursor: pointer;
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+      transition: all 160ms cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    .consent-checkbox-wrap input[type="checkbox"] {
-      width: 1.15rem;
-      height: 1.15rem;
-      accent-color: var(--blue);
+    .wizard-btn-primary:hover {
+      background: #1d4ed8;
+      transform: translateY(-1px);
+    }
+
+    .wizard-btn-primary:active {
+      transform: scale(0.98);
+    }
+
+    .wizard-btn-outline {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      background: #ffffff;
+      color: var(--wiz-ink);
+      border: 1.5px solid #cbd5e1;
+      border-radius: 11px;
+      padding: 0.6rem 1.15rem;
+      min-height: 44px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      text-decoration: none;
       cursor: pointer;
+      transition: all 160ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .wizard-btn-outline:hover {
+      background: #f1f5f9;
+      border-color: #94a3b8;
+      transform: translateY(-1px);
+    }
+
+    .wizard-btn-outline:active {
+      transform: scale(0.98);
+    }
+
+    #btn-final-submit {
+      min-width: 190px;
+      min-height: 46px;
+      font-weight: 800;
+      font-size: 0.96rem;
+      padding: 0.65rem 1.5rem;
+      border-radius: 11px;
+      box-shadow: 0 4px 12px rgba(255, 194, 26, 0.35);
+      transition: all 160ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    #btn-final-submit:hover {
+      transform: translateY(-1px);
+    }
+
+    #btn-final-submit:active {
+      transform: scale(0.98);
+    }
+
+    /* Responsive Breakpoints */
+    @media (max-width: 768px) {
+      .step2-split-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .report-card {
+        border-radius: 16px;
+      }
+      .card-topbar,
+      .dispute-slim-bar {
+        padding-left: 1.15rem;
+        padding-right: 1.15rem;
+      }
+      .wizard-stepper-wrap {
+        padding: 0.95rem 1rem 0.85rem;
+      }
+      .wizard-body {
+        padding: 1.15rem;
+      }
+      .wizard-footer-bar {
+        padding: 0.9rem 1.15rem;
+      }
+      .wizard-footer-bar.is-step-1,
+      .wizard-footer-bar.is-step-2 {
+        flex-direction: row;
+      }
+      .wizard-footer-bar.is-step-1 > *,
+      .wizard-footer-bar.is-step-2 > * {
+        flex: 1;
+      }
+      .wizard-footer-bar.is-step-3 {
+        flex-direction: column-reverse;
+        align-items: stretch;
+      }
+      .wizard-footer-bar.is-step-3 #btn-final-submit,
+      .wizard-footer-bar.is-step-3 #btn-prev-3 {
+        width: 100%;
+        min-height: 46px;
+        justify-content: center;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .wizard-panel.anim-slide-right,
+      .wizard-panel.anim-slide-left,
+      #dynamic-questions-container,
+      #inline-emergency,
+      #anon-notice-banner,
+      .from-recording-badge,
+      .gentle-shake {
+        animation: none !important;
+      }
+      #wizard-progress-fill,
+      .wizard-step-circle,
+      .cat-chip,
+      .dynamic-opt-chip,
+      .toggle-btn,
+      .wizard-btn-primary,
+      .wizard-btn-outline,
+      #btn-final-submit,
+      .photo-dropzone {
+        transition: none !important;
+      }
     }
 
     /* Emergency Hotlines Screen Card */
     .emergency-hero-card {
+      max-width: 1120px;
+      width: 100%;
+      margin: 0 auto;
       border: 2px solid #ef4444;
       border-radius: 20px;
       background: #ffffff;
-      padding: 2.25rem;
+      padding: 2rem;
       box-shadow: 0 10px 25px -5px rgba(224, 53, 43, 0.15);
-      animation: fadeIn 0.25s ease-out;
+      animation: panelFadeDown 220ms ease-out;
     }
 
     .hotline-card-enhanced {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 1rem 1.25rem;
+      padding: 0.95rem 1.15rem;
       border-radius: 12px;
       border: 1.5px solid #e2e8f0;
       background: #f8fafc;
       color: var(--ink);
       font-weight: 700;
       text-decoration: none;
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: all 160ms cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     .hotline-card-enhanced:hover {
@@ -515,7 +1053,7 @@
       background: #fee2e2;
       border-color: #fca5a5;
       color: #b91c1c;
-      font-size: 1.1rem;
+      font-size: 1.05rem;
     }
 
     .hotline-card-primary:hover {
@@ -578,27 +1116,16 @@
 
   <!-- Main Report Form Card -->
   <section id="report-form" class="card report-card">
-    @if($errors->any())
-      <div role="alert" class="form-errors" style="margin-bottom:1.5rem;border-radius:12px;padding:1rem 1.25rem;">
-        <div style="display:flex;align-items:center;gap:0.5rem;font-weight:700;margin-bottom:0.4rem;color:#b91c1c;">
-          <i class="fa-solid fa-circle-exclamation"></i> Please correct the errors below:
-        </div>
-        <ul style="margin:0;padding-left:1.4rem;">
-          @foreach($errors->all() as $error)
-            <li>{{ $error }}</li>
-          @endforeach
-        </ul>
-      </div>
-    @endif
-
-    <!-- Top Action Bar -->
+    <!-- Zone 1: Consolidated Utility Header -->
     <div class="card-topbar">
       <div class="emergency-pill-strip">
-        <span class="emg-label" data-i18n="emg_strip">
-          <i class="fa-solid fa-triangle-exclamation"></i> Emergency? Call 911
+        <span class="emg-label">
+          <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+          <span data-i18n="emg_strip">Emergency? Call 911</span>
         </span>
-        <button type="button" class="emg-action-btn" onclick="showEmergency()" data-i18n="emg_btn">
-          <i class="fa-solid fa-phone-flip"></i> Emergency / Crime
+        <button type="button" class="emg-action-btn" onclick="showEmergency()">
+          <i class="fa-solid fa-phone-flip" aria-hidden="true"></i>
+          <span data-i18n="emg_btn">Emergency / Crime</span>
         </button>
       </div>
 
@@ -608,16 +1135,38 @@
       </div>
     </div>
 
-    <!-- Wrong-Door Guidance Notice (Interpersonal Dispute Exclusion) -->
-    <div class="wrong-door-notice" style="background:#fffbeb;border:1.5px solid #fde68a;border-radius:12px;padding:0.9rem 1.15rem;margin-bottom:1.5rem;display:flex;align-items:flex-start;gap:0.75rem;">
-      <i class="fa-solid fa-circle-info" style="color:#d97706;font-size:1.15rem;margin-top:0.15rem;flex-shrink:0;" aria-hidden="true"></i>
-      <div style="font-size:0.88rem;color:#78350f;line-height:1.5;">
-        <strong style="color:#92400e;">Is this a dispute with a specific person?</strong>
-        <p style="margin:0.2rem 0 0;font-size:0.84rem;color:#b45309;">
-          If this concern is an interpersonal conflict (such as a neighbor disagreement, debt, property boundary, or physical altercation), please
-          <a href="{{ route('complaint.create') }}" style="font-weight:700;color:#92400e;text-decoration:underline;">File a Dispute Complaint</a>
-          instead, or visit the Barangay Calarian Hall for conciliation.
-        </p>
+    <!-- Slim Dispute Redirect Bar -->
+    <div class="dispute-slim-bar">
+      <span class="dispute-slim-left">
+        <i class="fa-solid fa-circle-info" style="color:#d97706;" aria-hidden="true"></i>
+        <span data-i18n="dispute_prompt">Is this a dispute with a specific person?</span>
+      </span>
+      <a href="{{ route('complaint.create') }}" class="dispute-slim-link" data-i18n="dispute_link">
+        File a Dispute Complaint &rarr;
+      </a>
+    </div>
+
+    <!-- Zone 2: 3-Step Interactive Progress Stepper -->
+    <div class="wizard-stepper-wrap" aria-label="Report progress">
+      <div class="wizard-stepper-grid">
+        <div class="wizard-track-rail" aria-hidden="true">
+          <div id="wizard-progress-fill"></div>
+        </div>
+
+        <button type="button" class="wizard-step-tab is-active" data-step="1" onclick="handleStepTabClick(1)" aria-current="step">
+          <span class="wizard-step-circle" data-step-num="1">1</span>
+          <span class="wizard-step-label" data-i18n="wiz_step_1">Issue Details</span>
+        </button>
+
+        <button type="button" class="wizard-step-tab" data-step="2" onclick="handleStepTabClick(2)">
+          <span class="wizard-step-circle" data-step-num="2">2</span>
+          <span class="wizard-step-label" data-i18n="wiz_step_2">Location</span>
+        </button>
+
+        <button type="button" class="wizard-step-tab" data-step="3" onclick="handleStepTabClick(3)">
+          <span class="wizard-step-circle" data-step-num="3">3</span>
+          <span class="wizard-step-label" data-i18n="wiz_step_3">Photo &amp; Submit</span>
+        </button>
       </div>
     </div>
 
@@ -632,320 +1181,459 @@
       <input type="hidden" name="is_recurring" id="is_recurring" value="{{ old('is_recurring') !== null ? old('is_recurring') : '' }}">
       <div id="voice-provenance-container"></div>
 
-      @if($residentVoiceEnabled)
-        <!-- Quick Report by Voice Strip -->
-        <div id="voice-intake-strip" style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:14px;padding:1.15rem 1.25rem;margin-bottom:1.75rem;">
-          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.75rem;">
-            <div style="display:flex;align-items:center;gap:0.5rem;">
-              <div style="width:28px;height:28px;border-radius:50%;background:#eff6ff;color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:0.85rem;">
-                <i class="fa-solid fa-bolt"></i>
+      <!-- Zone 3: Active Step Content Body -->
+      <div class="wizard-body">
+        @if($errors->any())
+          <div role="alert" class="form-errors" style="margin-bottom:1.1rem;border-radius:12px;padding:0.85rem 1rem;">
+            <div style="display:flex;align-items:center;gap:0.5rem;font-weight:700;margin-bottom:0.35rem;color:#b91c1c;">
+              <i class="fa-solid fa-circle-exclamation"></i> Please correct the errors below:
+            </div>
+            <ul style="margin:0;padding-left:1.3rem;">
+              @foreach($errors->all() as $error)
+                <li>{{ $error }}</li>
+              @endforeach
+            </ul>
+          </div>
+        @endif
+
+        <!-- STEP 1: Issue Details -->
+        <div class="wizard-panel is-active" data-wizard-panel="1">
+          @if($residentVoiceEnabled)
+            <!-- Quick Report by Voice Strip (Compact Inline Trigger) -->
+            <div id="voice-intake-strip" class="voice-strip-card">
+              <div class="voice-strip-row">
+                <div style="display:flex;align-items:center;gap:0.75rem;min-width:0;">
+                  <div class="voice-strip-icon" aria-hidden="true">
+                    <i class="fa-solid fa-microphone-lines"></i>
+                  </div>
+                  <div style="min-width:0;">
+                    <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+                      <strong style="font-size:0.9rem;color:var(--wiz-ink);">Prefer to speak? Quick report by voice</strong>
+                      <span id="voice-saved-pill" class="voice-saved-pill">
+                        <i class="fa-solid fa-circle-check"></i>
+                        <span data-i18n="voice_saved_badge">Recording saved</span>
+                      </span>
+                    </div>
+                    <div style="font-size:0.77rem;color:var(--wiz-muted);margin-top:0.1rem;">
+                      AI transcribes English, Filipino, Bisaya, or Chavacano to prefill fields &middot;
+                      <a href="#category-heading" style="color:var(--wiz-muted);text-decoration:none;">or fill in the form yourself below &darr;</a>
+                    </div>
+                  </div>
+                </div>
+
+                <button type="button" id="btn-open-voice-modal" class="voice-trigger-btn" onclick="openVoiceModal()">
+                  <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+                  <span id="btn-open-voice-label" data-i18n="voice_btn_trigger">Record / Try Demo</span>
+                </button>
               </div>
-              <strong style="font-size:0.95rem;color:var(--ink);">Quick report by voice</strong>
+
+              {{-- Clarity / Feedback Banner inside strip --}}
+              <div id="resident-voice-clarity-banner" style="display:none;margin-top:0.75rem;padding:0.7rem 0.9rem;border-radius:8px;font-size:0.84rem;" aria-live="polite"></div>
             </div>
-            <a href="#category-heading" style="font-size:0.8rem;color:#64748b;text-decoration:none;">
-              or fill in the form yourself below &darr;
-            </a>
-          </div>
-
-          {{-- Clarity / Feedback Banner inside strip --}}
-          <div id="resident-voice-clarity-banner" style="display:none;margin-bottom:0.75rem;padding:0.75rem 0.9rem;border-radius:8px;font-size:0.84rem;" aria-live="polite"></div>
-
-          <x-voice.recorder target-input="description" origin="resident" analyze-url="{{ route('reports.voice.analyze') }}" />
-        </div>
-      @endif
-
-      <!-- 1. Category Selection (Others guaranteed at last) -->
-      <div class="card-section-heading" id="category-heading">
-        <div class="card-section-icon"><i class="fa-solid fa-tags"></i></div>
-        <h2 class="card-section-title">
-          <span data-i18n="choose_category">Choose a category (optional)</span>
-        </h2>
-      </div>
-
-      <div class="cat-chips-wrap">
-        @foreach($sortedCategories as $category)
-          <button type="button" class="cat-chip {{ old('category_id') == $category->id ? 'selected' : '' }}"
-            data-cat-id="{{ $category->id }}" data-cat-slug="{{ $category->slug }}"
-            onclick="selectCategory({{ $category->id }})"
-            aria-pressed="{{ old('category_id') == $category->id ? 'true' : 'false' }}">
-            @if($category->slug === 'drainage') <i class="fa-solid fa-water"></i>
-            @elseif($category->slug === 'garbage') <i class="fa-solid fa-trash-can"></i>
-            @elseif($category->slug === 'road-damage') <i class="fa-solid fa-road"></i>
-            @elseif($category->slug === 'streetlight') <i class="fa-solid fa-lightbulb"></i>
-            @elseif($category->slug === 'flooding') <i class="fa-solid fa-house-flood-water"></i>
-            @elseif(in_array(strtolower($category->slug), ['other', 'others']) || in_array(strtolower($category->name), ['other', 'others'])) <i class="fa-solid fa-ellipsis"></i>
-            @else <i class="fa-solid fa-circle-question"></i>
-            @endif
-            <span class="cat-name-label" data-slug="{{ $category->slug }}" data-name-en="{{ $category->name }}">{{ $category->name }}</span>
-          </button>
-        @endforeach
-      </div>
-      @error('category_id')
-        <p class="field-error" style="margin-top:-0.5rem;margin-bottom:1rem;">{{ $message }}</p>
-      @enderror
-
-      <!-- Dynamic Questions (Rendered on Category Selection) -->
-      <div id="dynamic-questions-container" style="display:none;">
-        <div id="dynamic-questions-fields"></div>
-      </div>
-
-      <!-- 2. Problem Description -->
-      <div class="field" style="margin-bottom:1.25rem;">
-        <label for="description" style="font-size:0.95rem;font-weight:700;">
-          <i class="fa-solid fa-align-left" style="color:var(--blue);"></i>
-          <span id="description-label" data-i18n="lbl_description">What is the problem?</span> <span style="color:var(--red);">*</span>
-        </label>
-        <textarea id="description" name="description" rows="4" required minlength="10" maxlength="2000"
-          placeholder="Please describe the issue in detail...">{{ old('description') }}</textarea>
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-top:0.35rem;">
-          <p class="field-hint" data-i18n="hint_description" style="margin:0;">
-            You may write in English, Filipino, Bisaya, or Chavacano (minimum 10 characters).
-          </p>
-          <div id="description-char-counter" class="field-hint" style="margin:0;font-size:0.8rem;font-weight:700;color:#64748b;" aria-live="polite">
-            <span id="desc-char-count">0</span> / 10 <span id="desc-char-status">min</span>
-          </div>
-        </div>
-        @error('description')
-          <p class="field-error">{{ $message }}</p>
-        @enderror
-      </div>
-
-      <!-- Danger Right Now Checkbox -->
-      <label class="danger-callout-box">
-        <input type="checkbox" id="people_at_risk_cb" name="people_at_risk" value="1"
-          {{ old('people_at_risk') ? 'checked' : '' }} onchange="toggleDanger(this.checked)"
-          style="width:1.15rem;height:1.15rem;accent-color:var(--red);cursor:pointer;flex-shrink:0;">
-        <div style="flex:1;">
-          <span style="font-weight:700;color:#991b1b;font-size:0.92rem;" data-i18n="danger_checkbox">
-            Someone is in danger right now
-          </span>
-          <p style="margin:0.15rem 0 0;font-size:0.8rem;color:#b91c1c;">
-            Check this if there is immediate risk to health, safety, or life.
-          </p>
-        </div>
-      </label>
-
-      <!-- Inline Emergency Warning -->
-      <div id="inline-emergency"
-        style="display:none;background:#fef2f2;border:1.5px solid #fecaca;border-left:4px solid var(--red);border-radius:12px;padding:1rem 1.25rem;margin-bottom:1.5rem;">
-        <p style="color:#b91c1c;font-weight:800;margin:0 0 0.5rem;display:flex;align-items:center;gap:0.5rem;" data-i18n="emg_inline">
-          <i class="fa-solid fa-phone-volume"></i> Emergency contacts
-        </p>
-        <a href="tel:911" class="hotline-card-enhanced hotline-card-primary" style="margin-bottom:0.5rem;">
-          <span>911 — National Emergency Hotline</span>
-          <span style="font-size:0.8rem;background:var(--red);color:#fff;padding:0.2rem 0.6rem;border-radius:999px;">CALL NOW</span>
-        </a>
-        @foreach($contacts as $contact)
-          @php $num = trim((string) $contact->number); @endphp
-          @if($num !== '' && stripos($num, 'N/A') === false && $num !== '911')
-            <a href="tel:{{ preg_replace('/[^0-9+]/', '', $num) }}" class="hotline-card-enhanced" style="margin-bottom:0.4rem;padding:0.65rem 1rem;">
-              <span>{{ $contact->name }}</span>
-              <span style="color:var(--blue);font-family:monospace;">{{ $num }}</span>
-            </a>
           @endif
-        @endforeach
-      </div>
 
-      <!-- More Details (Collapsible Card Section) -->
-      <details class="card-collapsible">
-        <summary>
-          <span style="display:flex;align-items:center;gap:0.5rem;">
-            <i class="fa-solid fa-sliders" style="color:var(--blue);"></i>
-            <span data-i18n="more_details">More details (optional)</span>
-          </span>
-        </summary>
-        <div class="card-collapsible-content">
-          <div class="toggle-row" style="margin-bottom:1rem;">
+          <!-- Category Selection -->
+          <div class="card-section-heading" id="category-heading" aria-label="Choose a category (optional)">
+            <div class="card-section-icon"><i class="fa-solid fa-tags"></i></div>
+            <h2 class="card-section-title" data-i18n="choose_category">Choose a category</h2>
+            <span class="optional-pill-badge" data-i18n="lbl_optional_pill">Optional</span>
+          </div>
+
+          <div class="cat-chips-wrap">
+            @foreach($sortedCategories as $category)
+              <button type="button" class="cat-chip {{ old('category_id') == $category->id ? 'selected' : '' }}"
+                data-cat-id="{{ $category->id }}" data-cat-slug="{{ $category->slug }}"
+                onclick="selectCategory({{ $category->id }})"
+                aria-pressed="{{ old('category_id') == $category->id ? 'true' : 'false' }}">
+                @if($category->slug === 'drainage') <i class="fa-solid fa-water"></i>
+                @elseif($category->slug === 'garbage') <i class="fa-solid fa-trash-can"></i>
+                @elseif($category->slug === 'road-damage') <i class="fa-solid fa-road"></i>
+                @elseif($category->slug === 'streetlight') <i class="fa-solid fa-lightbulb"></i>
+                @elseif($category->slug === 'flooding') <i class="fa-solid fa-house-flood-water"></i>
+                @elseif(in_array(strtolower($category->slug), ['other', 'others']) || in_array(strtolower($category->name), ['other', 'others'])) <i class="fa-solid fa-ellipsis"></i>
+                @else <i class="fa-solid fa-circle-question"></i>
+                @endif
+                <span class="cat-name-label" data-slug="{{ $category->slug }}" data-name-en="{{ $category->name }}">{{ $category->name }}</span>
+              </button>
+            @endforeach
+          </div>
+          @error('category_id')
+            <p class="field-error" style="margin-top:-0.4rem;margin-bottom:0.85rem;">{{ $message }}</p>
+          @enderror
+
+          <!-- Dynamic Questions (Rendered on Category Selection) -->
+          <div id="dynamic-questions-container" style="display:none;">
+            <div id="dynamic-questions-fields"></div>
+          </div>
+
+          <!-- Problem Description -->
+          <div class="field" style="margin-bottom:1rem;">
+            <div class="desc-label-row">
+              <label for="description" style="font-size:0.93rem;font-weight:700;margin:0;display:inline-flex;align-items:center;gap:0.4rem;">
+                <i class="fa-solid fa-align-left" style="color:var(--wiz-blue);"></i>
+                <span id="description-label" data-i18n="lbl_description">What is the problem?</span>
+                <span style="color:var(--wiz-red);">*</span>
+              </label>
+              <div id="description-char-counter" style="font-size:0.78rem;font-weight:700;color:#64748b;" aria-live="polite">
+                <span id="desc-char-count">0</span> / 10 <span id="desc-char-status">min</span>
+              </div>
+            </div>
+            <textarea id="description" name="description" class="wizard-textarea" rows="3" required minlength="10" maxlength="2000"
+              placeholder="Please describe the issue in detail...">{{ old('description') }}</textarea>
+            <p class="field-hint" data-i18n="hint_description" style="margin:0.35rem 0 0;font-size:0.78rem;color:var(--wiz-muted);">
+              English, Filipino, Bisaya, or Chavacano
+            </p>
+            <div id="step1-error" class="step-inline-error" role="alert">
+              <i class="fa-solid fa-circle-exclamation"></i>
+              <span data-i18n="err_step1_desc">Please enter at least 10 characters describing the problem.</span>
+            </div>
+            @error('description')
+              <p class="field-error" style="margin-top:0.35rem;">{{ $message }}</p>
+            @enderror
+          </div>
+
+          <!-- Danger Right Now Checkbox -->
+          <label class="danger-callout-box">
+            <input type="checkbox" id="people_at_risk_cb" name="people_at_risk" value="1"
+              {{ old('people_at_risk') ? 'checked' : '' }} onchange="toggleDanger(this.checked)"
+              style="width:1.1rem;height:1.1rem;accent-color:var(--wiz-red);cursor:pointer;flex-shrink:0;">
+            <div style="flex:1;">
+              <span style="font-weight:700;color:#991b1b;font-size:0.9rem;" data-i18n="danger_checkbox">
+                Someone is in danger right now
+              </span>
+              <p style="margin:0.1rem 0 0;font-size:0.78rem;color:#b91c1c;" data-i18n="danger_sub">
+                Check this if there is immediate risk to health, safety, or life.
+              </p>
+            </div>
+          </label>
+
+          <!-- Inline Emergency Warning -->
+          <div id="inline-emergency"
+            style="display:none;background:#fef2f2;border:1.5px solid #fecaca;border-left:4px solid var(--wiz-red);border-radius:12px;padding:0.9rem 1.1rem;margin-bottom:0.85rem;">
+            <p style="color:#b91c1c;font-weight:800;margin:0 0 0.5rem;display:flex;align-items:center;gap:0.5rem;font-size:0.9rem;" data-i18n="emg_inline">
+              <i class="fa-solid fa-phone-volume"></i> Emergency contacts
+            </p>
+            <a href="tel:911" class="hotline-card-enhanced hotline-card-primary" style="margin-bottom:0.45rem;padding:0.75rem 1rem;">
+              <span>911 — National Emergency Hotline</span>
+              <span style="font-size:0.75rem;background:var(--wiz-red);color:#fff;padding:0.2rem 0.6rem;border-radius:999px;">CALL NOW</span>
+            </a>
+            @foreach($contacts as $contact)
+              @php $num = trim((string) $contact->number); @endphp
+              @if($num !== '' && stripos($num, 'N/A') === false && $num !== '911')
+                <a href="tel:{{ preg_replace('/[^0-9+]/', '', $num) }}" class="hotline-card-enhanced" style="margin-bottom:0.35rem;padding:0.6rem 0.9rem;">
+                  <span>{{ $contact->name }}</span>
+                  <span style="color:var(--wiz-blue);font-family:monospace;">{{ $num }}</span>
+                </a>
+              @endif
+            @endforeach
+          </div>
+
+          <!-- More Details (Collapsible Card Section) -->
+          <details class="card-collapsible">
+            <summary>
+              <span style="display:flex;align-items:center;gap:0.5rem;">
+                <i class="fa-solid fa-sliders" style="color:var(--wiz-blue);"></i>
+                <span data-i18n="more_details">More details (optional)</span>
+              </span>
+            </summary>
+            <div class="card-collapsible-content">
+              <div class="toggle-row" style="margin-bottom:0.85rem;">
+                <div>
+                  <strong style="color:var(--wiz-ink);display:block;font-size:0.88rem;" data-i18n="q_ongoing">Is this happening right now?</strong>
+                  <small style="color:var(--wiz-muted);font-size:0.78rem;" data-i18n="q_ongoing_sub">Indicate whether the incident is currently active</small>
+                </div>
+                <div class="toggle-btns" id="ongoing-toggle-btns">
+                  <button type="button" class="toggle-btn {{ old('is_ongoing') === '1' || old('is_ongoing') === 1 ? 'active' : '' }}"
+                    onclick="setBinaryField('is_ongoing', 1, this)" data-i18n="btn_yes">Yes</button>
+                  <button type="button" class="toggle-btn {{ old('is_ongoing') === '0' || (old('is_ongoing') === 0 && old('is_ongoing') !== null && old('is_ongoing') !== '') ? 'active' : '' }}"
+                    onclick="setBinaryField('is_ongoing', 0, this)" data-i18n="btn_no">No</button>
+                  <button type="button" class="toggle-btn"
+                    onclick="setBinaryField('is_ongoing', '', this)" data-i18n="btn_not_sure">Not sure</button>
+                </div>
+              </div>
+
+              <div class="toggle-row" style="padding-top:0.75rem;border-top:1px dashed #e2e8f0;">
+                <div>
+                  <strong style="color:var(--wiz-ink);display:block;font-size:0.88rem;" data-i18n="q_recurring">Recurring or one-time?</strong>
+                  <small style="color:var(--wiz-muted);font-size:0.78rem;" data-i18n="q_recurring_sub">Has this problem happened repeatedly in your area?</small>
+                </div>
+                <div class="toggle-btns" id="recurring-toggle-btns">
+                  <button type="button" class="toggle-btn {{ old('is_recurring') === '1' || old('is_recurring') === 1 ? 'active' : '' }}"
+                    onclick="setBinaryField('is_recurring', 1, this)" data-i18n="btn_recurring">Recurring</button>
+                  <button type="button" class="toggle-btn {{ old('is_recurring') === '0' || (old('is_recurring') === 0 && old('is_recurring') !== null && old('is_recurring') !== '') ? 'active' : '' }}"
+                    onclick="setBinaryField('is_recurring', 0, this)" data-i18n="btn_onetime">One-time</button>
+                  <button type="button" class="toggle-btn"
+                    onclick="setBinaryField('is_recurring', '', this)" data-i18n="btn_not_sure">Not sure</button>
+                </div>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <!-- STEP 2: Location -->
+        <div class="wizard-panel" data-wizard-panel="2">
+          <div style="margin-bottom:0.9rem;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;flex-wrap:wrap;margin-bottom:0.25rem;">
+              <div style="display:flex;align-items:center;gap:0.55rem;">
+                <div class="card-section-icon"><i class="fa-solid fa-map-location-dot"></i></div>
+                <h2 class="card-section-title" data-i18n="where_is_it">Where is it?</h2>
+              </div>
+              <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+                <button type="button" id="btn-quick-locate" class="wizard-btn-outline" style="min-height:32px;padding:0.25rem 0.7rem;font-size:0.78rem;border-radius:999px;">
+                  <i class="fa-solid fa-crosshairs" style="color:var(--wiz-blue);"></i>
+                  <span data-i18n="btn_quick_locate">Use GPS</span>
+                </button>
+                <span id="location-status-pill" class="location-status-pill">
+                  <i class="fa-solid fa-location-dot"></i>
+                  <span id="location-status-text" data-i18n="loc_status_pending">No location yet</span>
+                </span>
+              </div>
+            </div>
+            <p style="margin:0;font-size:0.82rem;color:var(--wiz-muted);" data-i18n="loc_help">
+              Provide at least one: drop a map pin, choose a purok, or enter a landmark.
+            </p>
+          </div>
+
+          <div class="step2-split-grid">
+            <!-- Left Column: Map -->
             <div>
-              <strong style="color:var(--ink);display:block;font-size:0.92rem;" data-i18n="q_ongoing">Is this happening right now?</strong>
-              <small style="color:#64748b;">Indicate whether the incident is currently active</small>
+              <div class="map-container-box">
+                <div id="map" class="map-frame" style="height:300px;min-height:280px;" aria-label="Choose the report location on the map"></div>
+              </div>
+              <div id="nearby-line" style="display:none;margin-top:0.55rem;padding:0.45rem 0.75rem;background:#fffbeb;border:1px solid #fde68a;border-radius:999px;font-size:0.8rem;"></div>
+              <div id="nearby-list" style="display:none;margin-top:0.35rem;font-size:0.82rem;"></div>
             </div>
-            <div class="toggle-btns" id="ongoing-toggle-btns">
-              <button type="button" class="toggle-btn {{ old('is_ongoing') === '1' || old('is_ongoing') === 1 ? 'active' : '' }}"
-                onclick="setBinaryField('is_ongoing', 1, this)" data-i18n="btn_yes">Yes</button>
-              <button type="button" class="toggle-btn {{ old('is_ongoing') === '0' || (old('is_ongoing') === 0 && old('is_ongoing') !== null && old('is_ongoing') !== '') ? 'active' : '' }}"
-                onclick="setBinaryField('is_ongoing', 0, this)" data-i18n="btn_no">No</button>
-              <button type="button" class="toggle-btn"
-                onclick="setBinaryField('is_ongoing', '', this)" data-i18n="btn_not_sure">Not sure</button>
+
+            <!-- Right Column: Inputs + GPS CTA -->
+            <div id="step2-location-inputs" style="display:flex;flex-direction:column;gap:0.9rem;">
+              <div class="field" style="margin:0;">
+                <label for="purok_id" style="display:block;font-size:0.85rem;font-weight:700;color:var(--wiz-ink);margin-bottom:0.35rem;">
+                  <i class="fa-solid fa-building-user" style="color:var(--wiz-blue);margin-right:0.3rem;"></i>
+                  <span data-i18n="lbl_purok">Purok</span>
+                </label>
+                <select id="purok_id" name="purok_id" class="wizard-select">
+                  <option value="" data-i18n="opt_select_purok">Select purok</option>
+                  @foreach($puroks as $purok)
+                    <option value="{{ $purok->id }}" @selected(old('purok_id') == $purok->id)>{{ $purok->name }}</option>
+                  @endforeach
+                </select>
+              </div>
+
+              <div class="field" style="margin:0;">
+                <label for="landmark" style="display:block;font-size:0.85rem;font-weight:700;color:var(--wiz-ink);margin-bottom:0.35rem;">
+                  <i class="fa-solid fa-signs-post" style="color:var(--wiz-blue);margin-right:0.3rem;"></i>
+                  <span data-i18n="lbl_landmark">Landmark or Street</span>
+                </label>
+                <input type="text" id="landmark" name="landmark" class="wizard-input" value="{{ old('landmark') }}"
+                  placeholder="e.g. Near the chapel, beside school">
+              </div>
+
+              <div>
+                <button type="button" id="btn-locate" class="btn-gps-action">
+                  <i class="fa-solid fa-crosshairs"></i>
+                  <span data-i18n="btn_use_location">Use my current location</span>
+                </button>
+                @error('location')
+                  <p class="field-error" style="margin-top:0.4rem;">{{ $message }}</p>
+                @enderror
+                @error('purok_id')
+                  <p class="field-error" style="margin-top:0.4rem;">{{ $message }}</p>
+                @enderror
+                @error('landmark')
+                  <p class="field-error" style="margin-top:0.4rem;">{{ $message }}</p>
+                @enderror
+              </div>
             </div>
           </div>
 
-          <div class="toggle-row" style="padding-top:0.75rem;border-top:1px dashed #e2e8f0;">
-            <div>
-              <strong style="color:var(--ink);display:block;font-size:0.92rem;" data-i18n="q_recurring">Recurring or one-time?</strong>
-              <small style="color:#64748b;">Has this problem happened repeatedly in your area?</small>
-            </div>
-            <div class="toggle-btns" id="recurring-toggle-btns">
-              <button type="button" class="toggle-btn {{ old('is_recurring') === '1' || old('is_recurring') === 1 ? 'active' : '' }}"
-                onclick="setBinaryField('is_recurring', 1, this)" data-i18n="btn_recurring">Recurring</button>
-              <button type="button" class="toggle-btn {{ old('is_recurring') === '0' || (old('is_recurring') === 0 && old('is_recurring') !== null && old('is_recurring') !== '') ? 'active' : '' }}"
-                onclick="setBinaryField('is_recurring', 0, this)" data-i18n="btn_onetime">One-time</button>
-              <button type="button" class="toggle-btn"
-                onclick="setBinaryField('is_recurring', '', this)" data-i18n="btn_not_sure">Not sure</button>
-            </div>
+          <div id="step2-error" class="step-inline-error" role="alert">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            <span data-i18n="err_step2_loc">Please drop a map pin, choose a purok, or enter a landmark.</span>
           </div>
         </div>
-      </details>
 
-      <hr class="card-divider">
-
-      <!-- 3. Where is it? (Location) -->
-      <div class="card-section-heading" style="justify-content:space-between;flex-wrap:wrap;">
-        <div style="display:flex;align-items:center;gap:0.65rem;">
-          <div class="card-section-icon"><i class="fa-solid fa-map-location-dot"></i></div>
-          <h2 class="card-section-title" data-i18n="where_is_it">Where is it?</h2>
-        </div>
-        <!-- <button type="button" id="btn-quick-locate" class="btn btn-outline" style="min-height:38px;padding:0.35rem 0.85rem;font-size:0.82rem;font-weight:700;border-radius:999px;display:inline-flex;align-items:center;gap:0.4rem;">
-          <i class="fa-solid fa-crosshairs" style="color:var(--blue);"></i>
-          <span data-i18n="btn_quick_locate">Use GPS</span>
-        </button> -->
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4" style="margin-bottom:1.5rem;">
-        <div>
-          <div class="map-container-box">
-            <div id="map" class="map-frame" style="min-height:280px;" aria-label="Choose the report location on the map"></div>
-          </div>
-          <p class="field-hint" style="margin-top:0.45rem;display:flex;align-items:center;gap:0.35rem;" data-i18n="loc_help">
-            <i class="fa-solid fa-circle-info" style="color:var(--blue);"></i> Choose at least one: pin, purok, or landmark.
-          </p>
-          <div id="nearby-line" style="display:none;margin-top:0.6rem;font-size:0.85rem;"></div>
-          <div id="nearby-list" style="display:none;margin-top:0.35rem;font-size:0.85rem;"></div>
-        </div>
-
-        <div style="display:flex;flex-direction:column;justify-content:space-between;">
-          <div>
-            <div class="field" style="margin-bottom:1rem;">
-              <label for="purok_id" data-i18n="lbl_purok"><i class="fa-solid fa-building-user"></i> Purok</label>
-              <select id="purok_id" name="purok_id">
-                <option value="" data-i18n="opt_select_purok">Select purok</option>
-                @foreach($puroks as $purok)
-                  <option value="{{ $purok->id }}" @selected(old('purok_id') == $purok->id)>{{ $purok->name }}</option>
-                @endforeach
-              </select>
-            </div>
-
-            <div class="field" style="margin-bottom:1rem;">
-              <label for="landmark" data-i18n="lbl_landmark"><i class="fa-solid fa-signs-post"></i> Landmark or Street</label>
-              <input type="text" id="landmark" name="landmark" value="{{ old('landmark') }}"
-                placeholder="e.g. Near the chapel, beside school">
-            </div>
+        <!-- STEP 3: Photo, Updates & Submit -->
+        <div class="wizard-panel" data-wizard-panel="3">
+          <div class="card-section-heading">
+            <div class="card-section-icon"><i class="fa-solid fa-camera"></i></div>
+            <h2 class="card-section-title" data-i18n="photo_updates">Photo and updates</h2>
           </div>
 
-          <div>
-            <button type="button" id="btn-locate" class="btn btn-outline" style="width:100%;min-height:44px;font-weight:600;">
-              <i class="fa-solid fa-crosshairs" style="color:var(--blue);"></i>
-              <span data-i18n="btn_use_location">Use my current location</span>
-            </button>
-            @error('location')
-              <p class="field-error" style="margin-top:0.4rem;">{{ $message }}</p>
+          <!-- Interactive Photo Upload Dropzone -->
+          <div class="field" style="margin-bottom:1rem;">
+            <input type="file" id="photos" name="photos[]" accept="image/jpeg,image/png" multiple hidden>
+            <div id="photo-dropzone" class="photo-dropzone" role="button" tabindex="0" aria-label="Add photos">
+              <div class="photo-dropzone-icon">
+                <i class="fa-solid fa-cloud-arrow-up"></i>
+              </div>
+              <div id="add-photos" style="font-weight:700;font-size:0.92rem;color:var(--wiz-ink);margin-bottom:0.2rem;" data-i18n="photo_dropzone_title">
+                Click or drag to add photos (optional)
+              </div>
+              <div style="font-size:0.78rem;color:var(--wiz-muted);" data-i18n="photo_dropzone_tip">
+                Tip: show the problem near a landmark; avoid faces &amp; license plates · Max 5 MB
+              </div>
+            </div>
+
+            <div id="photo-previews" class="photo-preview-grid" aria-live="polite"></div>
+            <p id="photo-empty-state" class="field-hint" style="display:none;">No photos selected yet.</p>
+            <p id="photo-upload-error" class="field-hint" role="alert" style="color:var(--wiz-red);font-weight:700;margin-top:0.4rem;" hidden></p>
+            <p id="photo-total-size" class="field-hint" aria-live="polite" style="font-weight:600;margin-top:0.35rem;font-size:0.8rem;color:var(--wiz-muted);"></p>
+            @error('photos')
+              <p class="field-error">{{ $message }}</p>
+            @enderror
+            @error('photos.*')
+              <p class="field-error">{{ $message }}</p>
+            @enderror
+          </div>
+
+          <!-- Updates & Anonymity Collapsible -->
+          <details class="card-collapsible" id="contact-collapsible" @if(old('is_anonymous') || old('reporter_name') || old('reporter_contact') || old('reporter_email') || $errors->has('reporter_name') || $errors->has('reporter_contact') || $errors->has('reporter_email')) open @endif>
+            <summary>
+              <span style="display:flex;align-items:center;gap:0.5rem;">
+                <i class="fa-solid fa-envelope-open-text" style="color:var(--wiz-blue);"></i>
+                <span data-i18n="updates_optional">Get updates on this report (optional)</span>
+              </span>
+            </summary>
+            <div class="card-collapsible-content">
+              <label style="display:flex;align-items:center;gap:0.65rem;font-weight:700;color:var(--wiz-ink);margin-bottom:0.75rem;cursor:pointer;font-size:0.9rem;">
+                <input type="checkbox" name="is_anonymous" id="is_anonymous" value="1"
+                  {{ old('is_anonymous') ? 'checked' : '' }} onchange="toggleAnonymousFields(this.checked)"
+                  style="width:1.1rem;height:1.1rem;accent-color:var(--wiz-blue);cursor:pointer;">
+                <span data-i18n="chk_anonymous">Submit this report anonymously</span>
+              </label>
+
+              <div id="anon-notice-banner" style="display:none;background:#fef3c7;border:1px solid #fde68a;border-radius:10px;padding:0.65rem 0.85rem;color:#92400e;font-size:0.82rem;font-weight:600;margin-bottom:0.85rem;" role="status">
+                <i class="fa-solid fa-circle-info" style="margin-right:0.35rem;"></i>
+                <span data-i18n="anon_notice_text">Anonymous reports will not receive status updates via SMS or email. You will need to check the website using your tracking code.</span>
+              </div>
+
+              <div id="contact-fields-section" style="transition:opacity 0.2s ease;">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div class="field" style="margin:0;">
+                    <label for="reporter_name" style="display:block;font-size:0.82rem;font-weight:700;color:var(--wiz-ink);margin-bottom:0.3rem;" data-i18n="lbl_name">
+                      <i class="fa-solid fa-user"></i> Name (optional)
+                    </label>
+                    <input type="text" id="reporter_name" name="reporter_name" class="wizard-input" value="{{ old('reporter_name') }}"
+                      maxlength="100" placeholder="Juan Dela Cruz">
+                    @error('reporter_name')
+                      <p class="field-error">{{ $message }}</p>
+                    @enderror
+                  </div>
+
+                  <div class="field" style="margin:0;">
+                    <label for="reporter_contact" style="display:block;font-size:0.82rem;font-weight:700;color:var(--wiz-ink);margin-bottom:0.3rem;" data-i18n="lbl_phone">
+                      <i class="fa-solid fa-phone"></i> Mobile number (optional)
+                    </label>
+                    <input type="tel" id="reporter_contact" name="reporter_contact" class="wizard-input" value="{{ old('reporter_contact') }}"
+                      maxlength="20" placeholder="09171234567">
+                    <p class="field-hint" data-i18n="hint_phone" style="margin:0.25rem 0 0;font-size:0.75rem;color:var(--wiz-muted);">Barangay staff may call you. Philippine format.</p>
+                    @error('reporter_contact')
+                      <p class="field-error">{{ $message }}</p>
+                    @enderror
+                  </div>
+                </div>
+
+                <div class="field" style="margin-top:0.75rem;margin-bottom:0;">
+                  <label for="reporter_email" style="display:block;font-size:0.82rem;font-weight:700;color:var(--wiz-ink);margin-bottom:0.3rem;" data-i18n="lbl_email">
+                    <i class="fa-solid fa-at"></i> Email (optional)
+                  </label>
+                  <input type="email" id="reporter_email" name="reporter_email" class="wizard-input" value="{{ old('reporter_email') }}"
+                    placeholder="juan@example.com">
+                  @error('reporter_email')
+                    <p class="field-error">{{ $message }}</p>
+                  @enderror
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <!-- Data Privacy Consent -->
+          <div class="consent-slate-box">
+            <label style="display:flex;align-items:flex-start;gap:0.7rem;cursor:pointer;font-weight:600;color:var(--wiz-ink);">
+              <input type="checkbox" name="consent" id="consent_checkbox" value="1" required
+                {{ old('consent') ? 'checked' : '' }}
+                style="margin-top:0.15rem;width:1.1rem;height:1.1rem;accent-color:var(--wiz-blue);flex-shrink:0;">
+              <span id="consent_label_text">
+                <span data-i18n="consent_certify">I hereby certify that the information provided is true and correct to the best of my knowledge. In accordance with the</span>
+                <strong>Data Privacy Act of 2012 (RA 10173)</strong>,
+                <span data-i18n="consent_body">I consent to the collection and processing of these details by authorized Barangay Calarian officials solely for official community problem reporting, verification, and resolution.</span>
+                (<a href="#" onclick="openPrivacy(event)" data-i18n="privacy_link" style="text-decoration:underline;font-weight:700;color:var(--wiz-blue);">Data Privacy Notice</a>)
+              </span>
+            </label>
+            @error('consent')
+              <p class="field-error" style="margin-top:0.45rem;margin-bottom:0;">{{ $message }}</p>
             @enderror
           </div>
         </div>
       </div>
 
-      <hr class="card-divider">
-
-      <!-- 4. Photo and updates -->
-      <div class="card-section-heading">
-        <div class="card-section-icon"><i class="fa-solid fa-camera"></i></div>
-        <h2 class="card-section-title" data-i18n="photo_updates">Photo and updates</h2>
-      </div>
-
-      <div class="field" style="margin-bottom:1.5rem;">
-        <div class="photo-guidance-card">
-          <i class="fa-solid fa-lightbulb" style="color:var(--blue);font-size:1.1rem;margin-top:0.1rem;"></i>
-          <span data-i18n="photo_tip">Tip: show the problem near a landmark; avoid faces and license plates.</span>
-        </div>
-
-        <input type="file" id="photos" name="photos[]" accept="image/jpeg,image/png" multiple hidden>
-        <button type="button" id="add-photos" class="btn btn-outline" style="min-height:44px;font-weight:600;">
-          <i class="fa-solid fa-cloud-arrow-up" style="color:var(--blue);"></i>
-          <span data-i18n="btn_add_photos">Add photo</span>
+      <!-- Zone 4: Unified Wizard Footer Bar -->
+      <div class="wizard-footer-bar is-step-1" id="wizard-footer-bar">
+        <!-- Step 1 Footer -->
+        <a href="{{ route('home') }}" class="wizard-btn-outline" id="btn-cancel-1" data-step-footer="1" data-i18n="btn_cancel">Cancel</a>
+        <button type="button" class="wizard-btn-primary" id="btn-next-1" data-step-footer="1" onclick="nextFromStep1()">
+          <span data-i18n="btn_next_loc">Next: Location</span>
+          <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
         </button>
 
-        <div id="photo-previews" class="photo-preview-grid" style="margin-top:0.75rem;" aria-live="polite"></div>
-        <p id="photo-empty-state" class="field-hint" style="display:none;">No photos selected yet.</p>
-        <p id="photo-upload-error" class="field-hint" role="alert" style="color:var(--red);font-weight:700;" hidden></p>
-        <p id="photo-total-size" class="field-hint" aria-live="polite" style="font-weight:600;"></p>
-        @error('photos')
-          <p class="field-error">{{ $message }}</p>
-        @enderror
-      </div>
+        <!-- Step 2 Footer -->
+        <button type="button" class="wizard-btn-outline" id="btn-prev-2" data-step-footer="2" onclick="goToWizardStep(1)" style="display:none;">
+          <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+          <span data-i18n="btn_back">Back</span>
+        </button>
+        <button type="button" class="wizard-btn-primary" id="btn-next-2" data-step-footer="2" onclick="nextFromStep2()" style="display:none;">
+          <span data-i18n="btn_next_submit">Next: Photo &amp; Submit</span>
+          <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+        </button>
 
-      <!-- Updates & Anonymity Collapsible -->
-      <details class="card-collapsible">
-        <summary>
-          <span style="display:flex;align-items:center;gap:0.5rem;">
-            <i class="fa-solid fa-envelope-open-text" style="color:var(--blue);"></i>
-            <span data-i18n="updates_optional">Get updates on this report (optional)</span>
-          </span>
-        </summary>
-        <div class="card-collapsible-content">
-          <label style="display:flex;align-items:center;gap:0.65rem;font-weight:700;color:var(--ink);margin-bottom:0.75rem;cursor:pointer;">
-            <input type="checkbox" name="is_anonymous" id="is_anonymous" value="1"
-              {{ old('is_anonymous') ? 'checked' : '' }} onchange="toggleAnonymousFields(this.checked)"
-              style="width:1.15rem;height:1.15rem;accent-color:var(--blue);cursor:pointer;">
-            <span data-i18n="chk_anonymous">Submit this report anonymously</span>
-          </label>
-
-          <div id="anon-notice-banner" style="display:none;background:#fef3c7;border:1px solid #fde68a;border-radius:10px;padding:0.65rem 0.85rem;color:#92400e;font-size:0.84rem;font-weight:600;margin-bottom:1rem;" role="status">
-            <i class="fa-solid fa-circle-info" style="margin-right:0.35rem;"></i>
-            <span data-i18n="anon_notice_text">Anonymous reports will not receive status updates via SMS or email. You will need to check the website using your tracking code.</span>
-          </div>
-
-          <div id="contact-fields-section" style="transition:opacity 0.2s ease;">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div class="field" style="margin-bottom:0.75rem;">
-                <label for="reporter_name" data-i18n="lbl_name"><i class="fa-solid fa-user"></i> Name (optional)</label>
-                <input type="text" id="reporter_name" name="reporter_name" value="{{ old('reporter_name') }}"
-                  maxlength="100" placeholder="Juan Dela Cruz">
-              </div>
-
-              <div class="field" style="margin-bottom:0.75rem;">
-                <label for="reporter_contact" data-i18n="lbl_phone"><i class="fa-solid fa-phone"></i> Mobile number (optional)</label>
-                <input type="tel" id="reporter_contact" name="reporter_contact" value="{{ old('reporter_contact') }}"
-                  maxlength="20" placeholder="09171234567">
-                <p class="field-hint" data-i18n="hint_phone">Barangay staff may call you. Philippine format.</p>
-              </div>
-            </div>
-
-            <div class="field" style="margin-top:0.5rem;margin-bottom:0;">
-              <label for="reporter_email" data-i18n="lbl_email"><i class="fa-solid fa-at"></i> Email (optional)</label>
-              <input type="email" id="reporter_email" name="reporter_email" value="{{ old('reporter_email') }}"
-                placeholder="juan@example.com">
-            </div>
-          </div>
-        </div>
-      </details>
-
-      <hr class="card-divider">
-
-      <!-- 5. Data Privacy Consent -->
-      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:1.15rem;margin-top:1.5rem;margin-bottom:1.5rem;">
-        <label style="display:flex;align-items:flex-start;gap:0.75rem;cursor:pointer;font-weight:600;font-size:0.88rem;color:var(--ink);line-height:1.5;">
-          <input type="checkbox" name="consent" id="consent_checkbox" value="1" required
-            {{ old('consent') ? 'checked' : '' }}
-            style="margin-top:0.2rem;width:1.15rem;height:1.15rem;accent-color:var(--blue);flex-shrink:0;">
-          <span id="consent_label_text">
-            <span data-i18n="consent_certify">I hereby certify that the information provided is true and correct to the best of my knowledge. In accordance with the</span>
-            <strong>Data Privacy Act of 2012 (RA 10173)</strong>,
-            <span data-i18n="consent_body">I consent to the collection and processing of these details by authorized Barangay Calarian officials solely for official community problem reporting, verification, and resolution.</span>
-            (<a href="#" onclick="openPrivacy(event)" data-i18n="privacy_link" style="text-decoration:underline;font-weight:700;color:var(--blue);">Data Privacy Notice</a>)
-          </span>
-        </label>
-        @error('consent')
-          <p class="field-error" style="margin-top:0.5rem;margin-bottom:0;">{{ $message }}</p>
-        @enderror
-      </div>
-
-      <!-- Card Footer: Actions -->
-      <div class="card-submit-bar" style="display:flex;justify-content:flex-end;gap:1rem;align-items:center;padding-top:1rem;border-top:1px solid #f1f5f9;">
-        <a href="{{ route('home') }}" class="btn btn-outline" data-i18n="btn_cancel">Cancel</a>
-        <button type="submit" id="btn-final-submit" class="btn btn-gold" style="min-width:200px;font-weight:800;font-size:1rem;padding:0.75rem 1.75rem;box-shadow:0 4px 12px rgba(255, 194, 26, 0.35);">
-          <i class="fa-solid fa-paper-plane mr-1.5"></i> <span data-i18n="btn_submit_final">Submit report</span>
+        <!-- Step 3 Footer -->
+        <button type="button" class="wizard-btn-outline" id="btn-prev-3" data-step-footer="3" onclick="goToWizardStep(2)" style="display:none;">
+          <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+          <span data-i18n="btn_back">Back</span>
+        </button>
+        <button type="submit" id="btn-final-submit" class="btn btn-gold" data-step-footer="3" style="display:none;">
+          <i class="fa-solid fa-paper-plane mr-1.5" aria-hidden="true"></i>
+          <span data-i18n="btn_submit_final">Submit report</span>
         </button>
       </div>
+
+      @if($residentVoiceEnabled)
+        <!-- Voice Recording Modal (kept inside form so audio_token submits with report) -->
+        <dialog id="voice-recorder-modal" class="legend-modal" role="dialog" aria-modal="true" aria-labelledby="voice-modal-title">
+          <div class="legend-frame" style="border-radius:18px;max-width:600px;width:100%;">
+            <div class="legend-header" style="display:flex;align-items:center;justify-content:space-between;padding-bottom:0.75rem;border-bottom:1px solid #f1f5f9;">
+              <div style="display:flex;align-items:center;gap:0.6rem;">
+                <div class="voice-strip-icon" style="width:32px;height:32px;border-radius:9px;" aria-hidden="true">
+                  <i class="fa-solid fa-microphone-lines"></i>
+                </div>
+                <div>
+                  <h3 id="voice-modal-title" style="margin:0;font-size:1.05rem;font-weight:800;color:var(--wiz-ink);" data-i18n="voice_modal_title">
+                    Quick report by voice
+                  </h3>
+                  <p style="margin:0;font-size:0.76rem;color:var(--wiz-muted);" data-i18n="voice_modal_sub">
+                    Record your concern or upload an audio file to prefill the form.
+                  </p>
+                </div>
+              </div>
+              <button type="button" class="review-modal-close" onclick="closeVoiceModal()" aria-label="Close">&times;</button>
+            </div>
+
+            <div style="margin-top:1rem;">
+              <x-voice.recorder target-input="description" origin="resident" analyze-url="{{ route('reports.voice.analyze') }}" />
+            </div>
+
+            <div style="margin-top:1rem;padding-top:0.85rem;border-top:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+              <button type="button" class="wizard-btn-outline" style="min-height:38px;padding:0.4rem 0.9rem;font-size:0.84rem;" onclick="closeVoiceModal()" data-i18n="btn_close">
+                Close
+              </button>
+              <button type="button" id="btn-save-voice-modal" class="wizard-btn-primary" style="min-height:38px;padding:0.45rem 1.1rem;font-size:0.85rem;display:none;" onclick="saveVoiceModal()">
+                <i class="fa-solid fa-check" aria-hidden="true"></i>
+                <span data-i18n="voice_save_btn">Save &amp; Use Recording</span>
+              </button>
+            </div>
+          </div>
+        </dialog>
+      @endif
     </form>
   </section>
 
@@ -998,32 +1686,77 @@
         hero_title: "Report a problem in Barangay Calarian",
         hero_desc: "Send a report with category details, photo, and location. Barangay staff will review it, route it to the proper office, and keep you updated with a tracking code.",
         hero_btn_report: "Report a problem",
-        hero_btn_track: "Track a report",
-        emg_strip: "Emergency? Call 911", emg_btn: "Emergency / Crime",
-        emg_title: "Emergency Detected", emg_subtitle: "For immediate life-threatening danger, call official hotlines directly.",
+        hero_btn_track: "Return",
+        emg_strip: "Emergency? Call 911",
+        emg_btn: "Emergency / Crime",
+        emg_title: "Emergency Detected",
+        emg_subtitle: "For immediate life-threatening danger, call official hotlines directly.",
         emg_not_monitored: "THIS ONLINE SYSTEM IS NOT MONITORED IN REAL-TIME.",
         emg_call_prompt: "Please contact emergency services immediately using the numbers below:",
-        emg_back_btn: "Return to report", emg_inline: "Emergency contacts",
-        where_is_it: "Where is it?", photo_updates: "Photo and updates",
-        choose_category: "Choose a category (optional)", lbl_optional: "(optional)",
-        lbl_description: "What is the problem?", lbl_explain_more: "Explain more",
+        emg_back_btn: "Return to report",
+        emg_inline: "Emergency contacts",
+        dispute_prompt: "Is this a dispute with a specific person?",
+        dispute_link: "File a Dispute Complaint →",
+        wiz_step_1: "Issue Details",
+        wiz_step_2: "Location",
+        wiz_step_3: "Photo & Submit",
+        btn_quick_locate: "Use GPS",
+        voice_btn_trigger: "Record / Try Demo",
+        voice_btn_edit: "Review / Re-record",
+        voice_saved_badge: "Recording saved",
+        voice_modal_sub: "Record your concern or upload an audio file to prefill the form.",
+        voice_save_btn: "Save & Use Recording",
+        btn_close: "Close",
+        where_is_it: "Where is it?",
+        photo_updates: "Photo and updates",
+        choose_category: "Choose a category",
+        lbl_optional: "(optional)",
+        lbl_optional_pill: "Optional",
+        lbl_description: "What is the problem?",
+        lbl_explain_more: "Explain more",
         placeholder_explain_more: "Add any other details that can help the staff.",
-        hint_description: "You may write in English, Filipino, Bisaya, or Chavacano (minimum 10 characters).",
+        hint_description: "English, Filipino, Bisaya, or Chavacano",
         danger_checkbox: "Someone is in danger right now",
-        more_details: "More details (optional)", q_ongoing: "Is this happening right now?", q_recurring: "Recurring or one-time?", btn_yes: "Yes", btn_no: "No", btn_not_sure: "Not sure", btn_recurring: "Recurring", btn_onetime: "One-time",
-        loc_help: "Choose at least one: pin, purok, or landmark.", btn_use_location: "Use my current location",
-        lbl_purok: "Purok", opt_select_purok: "Select purok", lbl_landmark: "Landmark or Street",
-        btn_add_photos: "Add photo", photo_tip: "Tip: show the problem near a landmark; avoid faces and license plates.",
-        chk_anonymous: "Submit this report anonymously", lbl_name: "Name (optional)", lbl_phone: "Mobile number (optional)", hint_phone: "Barangay staff may call you. Philippine format.", lbl_email: "Email (optional)",
+        danger_sub: "Check this if there is immediate risk to health, safety, or life.",
+        more_details: "More details (optional)",
+        q_ongoing: "Is this happening right now?",
+        q_ongoing_sub: "Indicate whether the incident is currently active",
+        q_recurring: "Recurring or one-time?",
+        q_recurring_sub: "Has this problem happened repeatedly in your area?",
+        btn_yes: "Yes",
+        btn_no: "No",
+        btn_not_sure: "Not sure",
+        btn_recurring: "Recurring",
+        btn_onetime: "One-time",
+        loc_help: "Provide at least one: drop a map pin, choose a purok, or enter a landmark.",
+        loc_status_pending: "No location yet",
+        loc_status_pin: "Pin dropped",
+        loc_status_added: "Location added",
+        btn_use_location: "Use my current location",
+        lbl_purok: "Purok",
+        opt_select_purok: "Select purok",
+        lbl_landmark: "Landmark or Street",
+        photo_dropzone_title: "Click or drag to add photos (optional)",
+        photo_dropzone_tip: "Tip: show the problem near a landmark; avoid faces & license plates · Max 5 MB",
+        chk_anonymous: "Submit this report anonymously",
+        lbl_name: "Name (optional)",
+        lbl_phone: "Mobile number (optional)",
+        hint_phone: "Barangay staff may call you. Philippine format.",
+        lbl_email: "Email (optional)",
         updates_optional: "Get updates on this report (optional)",
-        privacy_title: "Data Privacy Notice (RA 10173)", privacy_text: "By submitting this report, you acknowledge that Barangay Calarian collects issue details, approximate location, and optional contact info strictly to investigate, route, and resolve community problems. Your information will never be shared with unauthorized parties.",
+        privacy_title: "Data Privacy Notice (RA 10173)",
+        privacy_text: "By submitting this report, you acknowledge that Barangay Calarian collects issue details, approximate location, and optional contact info strictly to investigate, route, and resolve community problems. Your information will never be shared with unauthorized parties.",
         btn_submit_final: "Submit report",
         btn_cancel: "Cancel",
+        btn_back: "Back",
+        btn_next_loc: "Next: Location",
+        btn_next_submit: "Next: Photo & Submit",
+        err_step1_desc: "Please enter at least 10 characters describing the problem.",
+        err_step2_loc: "Please drop a map pin, choose a purok, or enter a landmark.",
         consent_agree: "I agree to the",
         consent_certify: "I hereby certify that the information provided is true and correct to the best of my knowledge. In accordance with the",
         consent_body: "I consent to the collection and processing of these details by authorized Barangay Calarian officials solely for official community problem reporting, verification, and resolution.",
         privacy_link: "Data Privacy Notice",
-        btn_quick_locate: "Use GPS",
         anon_notice_text: "Anonymous reports will not receive status updates via SMS or email. You will need to check the website using your tracking code.",
         desc_char_min: "min",
         desc_char_reached: "reached"
@@ -1032,32 +1765,77 @@
         hero_title: "Mag-ulat ng problema sa Barangay Calarian",
         hero_desc: "Magsumite ng ulat na may kategorya, larawan, at lokasyon. Susuriin ito ng mga kawani ng barangay, ipapadala sa tamang tanggapan, at bibigyan ka ng tracking code.",
         hero_btn_report: "Mag-ulat ng problema",
-        hero_btn_track: "Subaybayan ang ulat",
-        emg_strip: "Emergency? Tumawag sa 911", emg_btn: "Emergency / Krimen",
-        emg_title: "Pang-emergency na Alerto", emg_subtitle: "Para sa banta sa buhay, tumawag agad sa hotlines.",
+        hero_btn_track: "Bumalik",
+        emg_strip: "Emergency? Tumawag sa 911",
+        emg_btn: "Emergency / Krimen",
+        emg_title: "Pang-emergency na Alerto",
+        emg_subtitle: "Para sa banta sa buhay, tumawag agad sa hotlines.",
         emg_not_monitored: "ANG ONLINE SYSTEM NA ITO AY HINDI MINUMONITOR NANG REAL-TIME.",
         emg_call_prompt: "Makipag-ugnayan kaagad sa mga numero sa ibaba:",
-        emg_back_btn: "Bumalik sa ulat", emg_inline: "Mga emergency contact",
-        where_is_it: "Saan ito?", photo_updates: "Larawan at updates",
-        choose_category: "Pumili ng kategorya (opsyonal)", lbl_optional: "(opsyonal)",
-        lbl_description: "Ano ang problema?", lbl_explain_more: "Ipaliwanag pa",
+        emg_back_btn: "Bumalik sa ulat",
+        emg_inline: "Mga emergency contact",
+        dispute_prompt: "Alitan sa isang partikular na tao?",
+        dispute_link: "Mag-file ng Dispute Complaint →",
+        wiz_step_1: "Detalye",
+        wiz_step_2: "Lokasyon",
+        wiz_step_3: "Larawan at Isumite",
+        btn_quick_locate: "Gamitin ang GPS",
+        voice_btn_trigger: "Mag-record / Subukan",
+        voice_btn_edit: "Suriin / Mag-record Muli",
+        voice_saved_badge: "Nai-save ang recording",
+        voice_modal_sub: "I-record ang iyong ulat o mag-upload ng audio upang awtomatikong mapunan ang form.",
+        voice_save_btn: "I-save at Gamitin",
+        btn_close: "Isara",
+        where_is_it: "Saan ito?",
+        photo_updates: "Larawan at updates",
+        choose_category: "Pumili ng kategorya",
+        lbl_optional: "(opsyonal)",
+        lbl_optional_pill: "Opsyonal",
+        lbl_description: "Ano ang problema?",
+        lbl_explain_more: "Ipaliwanag pa",
         placeholder_explain_more: "Magdagdag ng iba pang detalye na makakatulong sa kawani.",
-        hint_description: "Maaari kang sumulat sa Tagalog/Filipino, English, Bisaya, o Chavacano (hindi bababa sa 10 titik).",
+        hint_description: "English, Filipino, Bisaya, o Chavacano",
         danger_checkbox: "May nasa panganib ba ngayon?",
-        more_details: "Karagdagang detalye (opsyonal)", q_ongoing: "Kasalukuyan ba itong nangyayari?", q_recurring: "Paulit-ulit o minsan lang?", btn_yes: "Oo", btn_no: "Hindi", btn_not_sure: "Hindi sigurado", btn_recurring: "Paulit-ulit", btn_onetime: "Minsan lang",
-        loc_help: "Pumili ng kahit isa: pin, purok, o landmark.", btn_use_location: "Gamitin ang aking kasalukuyang lokasyon",
-        lbl_purok: "Purok", opt_select_purok: "Pumili ng purok", lbl_landmark: "Landmark o Kalye",
-        btn_add_photos: "Magdagdag ng larawan", photo_tip: "Tip: ipakita ang problema at landmark; iwasan ang mukha at plaka.",
-        chk_anonymous: "Isumite nang hindi nagpapakilala", lbl_name: "Pangalan (opsyonal)", lbl_phone: "Numero ng telepono (opsyonal)", hint_phone: "Maaaring tumawag ang barangay. Format sa Pilipinas.", lbl_email: "Email (opsyonal)",
+        danger_sub: "Lagyan ng tsek kung may agarang banta sa kalusugan, kaligtasan, o buhay.",
+        more_details: "Karagdagang detalye (opsyonal)",
+        q_ongoing: "Kasalukuyan ba itong nangyayari?",
+        q_ongoing_sub: "Ipahiwatig kung aktibo pa ang insidente ngayon",
+        q_recurring: "Paulit-ulit o minsan lang?",
+        q_recurring_sub: "Madalas bang nangyayari ang problemang ito sa inyong lugar?",
+        btn_yes: "Oo",
+        btn_no: "Hindi",
+        btn_not_sure: "Hindi sigurado",
+        btn_recurring: "Paulit-ulit",
+        btn_onetime: "Minsan lang",
+        loc_help: "Magbigay ng kahit isa: mag-pin sa mapa, pumili ng purok, o maglagay ng landmark.",
+        loc_status_pending: "Wala pang lokasyon",
+        loc_status_pin: "May pin na",
+        loc_status_added: "May lokasyon na",
+        btn_use_location: "Gamitin ang aking kasalukuyang lokasyon",
+        lbl_purok: "Purok",
+        opt_select_purok: "Pumili ng purok",
+        lbl_landmark: "Landmark o Kalye",
+        photo_dropzone_title: "I-click o i-drag upang magdagdag ng larawan (opsyonal)",
+        photo_dropzone_tip: "Tip: ipakita ang problema malapit sa landmark; iwasan ang mukha at plaka · Max 5 MB",
+        chk_anonymous: "Isumite nang hindi nagpapakilala",
+        lbl_name: "Pangalan (opsyonal)",
+        lbl_phone: "Numero ng telepono (opsyonal)",
+        hint_phone: "Maaaring tumawag ang barangay. Format sa Pilipinas.",
+        lbl_email: "Email (opsyonal)",
         updates_optional: "Gusto ng updates? (opsyonal)",
-        privacy_title: "Paunawa sa Data Privacy (RA 10173)", privacy_text: "Sa pagsusumite ng ulat na ito, kinikilala mo na ang Barangay Calarian ay nangongolekta ng detalye ng suliranin, lokasyon, at opsyonal na impormasyon.",
+        privacy_title: "Paunawa sa Data Privacy (RA 10173)",
+        privacy_text: "Sa pagsusumite ng ulat na ito, kinikilala mo na ang Barangay Calarian ay nangongolekta ng detalye ng suliranin, lokasyon, at opsyonal na impormasyon.",
         btn_submit_final: "Isumite ang ulat",
         btn_cancel: "Kanselahin",
+        btn_back: "Bumalik",
+        btn_next_loc: "Susunod: Lokasyon",
+        btn_next_submit: "Susunod: Larawan at Isumite",
+        err_step1_desc: "Mangyaring maglagay ng hindi bababa sa 10 titik na naglalarawan sa problema.",
+        err_step2_loc: "Mangyaring mag-pin sa mapa, pumili ng purok, o maglagay ng landmark.",
         consent_agree: "Sumasang-ayon ako sa",
         consent_certify: "Pinatutunayan ko na ang impormasyong ibinigay ay totoo at tama sa abot ng aking kaalaman. Alinsunod sa",
         consent_body: "pumapayag ako sa pagkolekta at pagproseso ng mga detalyeng ito ng mga awtorisadong opisyal ng Barangay Calarian para lamang sa opisyal na pag-uulat at pagresolba ng suliraning ito.",
         privacy_link: "Paunawa sa Data Privacy",
-        btn_quick_locate: "Gamitin ang GPS",
         anon_notice_text: "Ang mga di-nagpapakilalang ulat ay hindi makakatanggap ng updates sa SMS o email. Kakailanganin mong suriin ang website gamit ang tracking code.",
         desc_char_min: "pinakamababa",
         desc_char_reached: "naabot na"
@@ -1065,6 +1843,170 @@
     };
 
     let currentLang = 'en';
+    let currentWizardStep = 1;
+    let maxCompletedStep = 0;
+
+    function triggerShake(el) {
+      if (!el) return;
+      el.classList.remove('gentle-shake');
+      void el.offsetWidth;
+      el.classList.add('gentle-shake');
+    }
+
+    function updateLocationStatusPill() {
+      const pill = document.getElementById('location-status-pill');
+      const txt = document.getElementById('location-status-text');
+      if (!pill || !txt) return;
+      const lat = (document.getElementById('lat')?.value || '').trim();
+      const lng = (document.getElementById('lng')?.value || '').trim();
+      const purok = (document.getElementById('purok_id')?.value || '').trim();
+      const landmark = (document.getElementById('landmark')?.value || '').trim();
+      const dict = i18n[currentLang] || i18n.en;
+
+      if (lat && lng) {
+        pill.classList.add('is-ready');
+        txt.textContent = dict.loc_status_pin;
+      } else if (purok || landmark) {
+        pill.classList.add('is-ready');
+        txt.textContent = dict.loc_status_added;
+      } else {
+        pill.classList.remove('is-ready');
+        txt.textContent = dict.loc_status_pending;
+      }
+    }
+
+    function goToWizardStep(targetStep, options = {}) {
+      const prevStep = currentWizardStep;
+      if (targetStep === prevStep && !options.force) return;
+      if (targetStep > maxCompletedStep + 1 && !options.force) return;
+
+      const direction = targetStep >= prevStep ? 'right' : 'left';
+      currentWizardStep = targetStep;
+      if (targetStep - 1 > maxCompletedStep) {
+        maxCompletedStep = targetStep - 1;
+      }
+
+      // Toggle panels with directional animation
+      document.querySelectorAll('.wizard-panel').forEach(panel => {
+        const s = parseInt(panel.dataset.wizardPanel, 10);
+        panel.classList.remove('is-active', 'anim-slide-right', 'anim-slide-left');
+        if (s === targetStep) {
+          panel.classList.add('is-active');
+          if (!options.skipAnim) {
+            panel.classList.add(direction === 'right' ? 'anim-slide-right' : 'anim-slide-left');
+          }
+        }
+      });
+
+      // Update stepper tabs & progress fill
+      const fillPct = targetStep === 1 ? '0%' : (targetStep === 2 ? '50%' : '100%');
+      const fillEl = document.getElementById('wizard-progress-fill');
+      if (fillEl) fillEl.style.width = fillPct;
+
+      document.querySelectorAll('.wizard-step-tab').forEach(tab => {
+        const s = parseInt(tab.dataset.step, 10);
+        const circle = tab.querySelector('.wizard-step-circle');
+        tab.classList.remove('is-active', 'is-completed');
+        tab.removeAttribute('aria-current');
+
+        if (s < targetStep) {
+          tab.classList.add('is-completed');
+          if (circle) circle.innerHTML = '<i class="fa-solid fa-check" aria-hidden="true"></i>';
+        } else if (s === targetStep) {
+          tab.classList.add('is-active');
+          tab.setAttribute('aria-current', 'step');
+          if (circle) circle.textContent = String(s);
+        } else {
+          if (s <= maxCompletedStep) {
+            tab.classList.add('is-completed');
+            if (circle) circle.innerHTML = '<i class="fa-solid fa-check" aria-hidden="true"></i>';
+          } else if (circle) {
+            circle.textContent = String(s);
+          }
+        }
+      });
+
+      // Update unified footer bar
+      const footerBar = document.getElementById('wizard-footer-bar');
+      if (footerBar) {
+        footerBar.classList.remove('is-step-1', 'is-step-2', 'is-step-3');
+        footerBar.classList.add(`is-step-${targetStep}`);
+        footerBar.querySelectorAll('[data-step-footer]').forEach(el => {
+          el.style.display = parseInt(el.dataset.stepFooter, 10) === targetStep ? '' : 'none';
+        });
+      }
+
+      // Leaflet hidden-tab resize fix
+      if (targetStep === 2) {
+        setTimeout(() => {
+          if (mapInstance) mapInstance.invalidateSize();
+        }, 60);
+      }
+
+      // Smooth scroll top of .report-card into view if above viewport
+      if (!options.skipScroll) {
+        const card = document.querySelector('.report-card');
+        if (card) {
+          const rect = card.getBoundingClientRect();
+          if (rect.top < 0) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }
+      }
+    }
+
+    function handleStepTabClick(step) {
+      if (step === currentWizardStep) return;
+      if (step < currentWizardStep || step <= maxCompletedStep) {
+        goToWizardStep(step);
+      }
+    }
+
+    function validateStep1() {
+      const desc = document.getElementById('description');
+      const err = document.getElementById('step1-error');
+      const val = desc ? desc.value.trim() : '';
+      if (val.length < 10) {
+        if (err) err.classList.add('is-visible');
+        if (desc) {
+          desc.focus();
+          triggerShake(desc);
+        }
+        return false;
+      }
+      if (err) err.classList.remove('is-visible');
+      return true;
+    }
+
+    function nextFromStep1() {
+      if (validateStep1()) {
+        maxCompletedStep = Math.max(maxCompletedStep, 1);
+        goToWizardStep(2);
+      }
+    }
+
+    function validateStep2() {
+      const lat = (document.getElementById('lat')?.value || '').trim();
+      const lng = (document.getElementById('lng')?.value || '').trim();
+      const purok = (document.getElementById('purok_id')?.value || '').trim();
+      const landmark = (document.getElementById('landmark')?.value || '').trim();
+      const err = document.getElementById('step2-error');
+
+      if (!(lat && lng) && !purok && !landmark) {
+        if (err) err.classList.add('is-visible');
+        triggerShake(document.getElementById('step2-location-inputs'));
+        return false;
+      }
+      if (err) err.classList.remove('is-visible');
+      return true;
+    }
+
+    function nextFromStep2() {
+      if (validateStep2()) {
+        maxCompletedStep = Math.max(maxCompletedStep, 2);
+        goToWizardStep(3);
+      }
+    }
 
     function setLanguage(lang) {
       currentLang = lang;
@@ -1098,6 +2040,7 @@
       if (selectedCat) renderQuestions(parseInt(selectedCat, 10));
       updateDescriptionLabel();
       updateCharCounter();
+      updateLocationStatusPill();
     }
 
     function toggleDanger(checked) {
@@ -1163,7 +2106,9 @@
       const dict = i18n[currentLang] || i18n.en;
       if (len >= 10) {
         counterContainer.style.color = '#16a34a';
-        if (statusSpan) statusSpan.textContent = dict.desc_char_reached || 'reached';
+        if (statusSpan) statusSpan.innerHTML = `<i class="fa-solid fa-check" aria-hidden="true"></i> ${dict.desc_char_reached || 'reached'}`;
+        const step1Err = document.getElementById('step1-error');
+        if (step1Err) step1Err.classList.remove('is-visible');
       } else {
         counterContainer.style.color = len > 0 ? '#b45309' : '#64748b';
         if (statusSpan) statusSpan.textContent = dict.desc_char_min || 'min';
@@ -1194,7 +2139,6 @@
       damage_type: { label: { en: 'Type of road damage', fil: 'Uri ng sira sa daan' }, placeholder: { en: '', fil: '' } },
       blocks_traffic: { label: { en: 'Does it block vehicles?', fil: 'Humaharang ba ito sa mga sasakyan?' }, placeholder: { en: '', fil: '' } },
       light_condition: { label: { en: 'What is the issue with the light?', fil: 'Ano ang problema sa ilaw?' }, placeholder: { en: '', fil: '' } },
-      // Fallback for legacy keys if present in DB
       water_level: { label: { en: 'How high is the water?', fil: 'Gaano kalalim ang tubig?' }, placeholder: { en: '', fil: '' } },
       blocked_drain: { label: { en: 'Is the drain blocked?', fil: 'Nakabara ba ang kanal?' }, placeholder: { en: '', fil: '' } },
       volume: { label: { en: 'Approximate volume', fil: 'Tantyang dami' }, placeholder: { en: '', fil: '' } },
@@ -1350,7 +2294,6 @@
       const container = document.getElementById('dynamic-questions-container');
       const fields = document.getElementById('dynamic-questions-fields');
 
-      // Preserve any values currently selected in DOM before clearing
       const currentDomValues = {};
       fields.querySelectorAll('input[name^="answers["]').forEach(inp => {
         const match = inp.name.match(/^answers\[([^\]]+)\]/);
@@ -1363,21 +2306,20 @@
 
       fields.innerHTML = '';
       if (category && category.question_schema && category.question_schema.length > 0) {
-        // Enforce maximum of 2 observable questions per category (Task 4)
-        category.question_schema.slice(0, 2).forEach(q => {
+        category.question_schema.slice(0, 2).forEach((q, idx, arr) => {
           const qDiv = document.createElement('div');
           qDiv.className = 'field';
-          qDiv.style.marginBottom = '1rem';
+          qDiv.style.marginBottom = idx === arr.length - 1 ? '0' : '0.85rem';
 
           const label = document.createElement('div');
           label.style.display = 'flex';
           label.style.alignItems = 'center';
-          label.style.gap = '0.5rem';
+          label.style.gap = '0.45rem';
           label.style.marginBottom = '0.35rem';
           const labelText = (typeof qLabel === 'function') ? qLabel(q) : q.label;
           label.innerHTML = `
-            <span style="font-weight:700;font-size:0.88rem;color:var(--ink);">${labelText}</span>
-            <span style="font-size:0.75rem;font-weight:600;color:#64748b;background:#f1f5f9;padding:0.15rem 0.45rem;border-radius:4px;">${currentLang === 'fil' ? 'opsyonal' : 'optional'}</span>
+            <span style="font-weight:700;font-size:0.86rem;color:var(--ink);">${labelText}</span>
+            <span style="font-size:0.72rem;font-weight:600;color:#64748b;background:#e2e8f0;padding:0.1rem 0.45rem;border-radius:999px;">${currentLang === 'fil' ? 'opsyonal' : 'optional'}</span>
           `;
           qDiv.appendChild(label);
 
@@ -1399,7 +2341,7 @@
             chipsWrap.setAttribute('aria-label', labelText);
             chipsWrap.style.display = 'flex';
             chipsWrap.style.flexWrap = 'wrap';
-            chipsWrap.style.gap = '0.5rem';
+            chipsWrap.style.gap = '0.45rem';
 
             q.options.forEach(opt => {
               const optBtn = document.createElement('button');
@@ -1426,7 +2368,7 @@
             chipsWrap.setAttribute('aria-label', labelText);
             chipsWrap.style.display = 'flex';
             chipsWrap.style.flexWrap = 'wrap';
-            chipsWrap.style.gap = '0.5rem';
+            chipsWrap.style.gap = '0.45rem';
 
             const yesLabel = currentLang === 'fil' ? 'Oo' : 'Yes';
             const noLabel = currentLang === 'fil' ? 'Hindi' : 'No';
@@ -1453,6 +2395,7 @@
           } else if (q.type === 'textarea') {
             const ta = document.createElement('textarea');
             ta.name = `answers[${q.key}]`;
+            ta.className = 'wizard-textarea';
             ta.rows = 2;
             ta.placeholder = (typeof qPlaceholder === 'function') ? qPlaceholder(q) : '';
             if (currentVal) ta.value = currentVal;
@@ -1461,6 +2404,7 @@
             const inp = document.createElement('input');
             inp.type = 'number';
             inp.name = `answers[${q.key}]`;
+            inp.className = 'wizard-input';
             inp.placeholder = (typeof qPlaceholder === 'function') ? qPlaceholder(q) : '';
             if (currentVal) inp.value = currentVal;
             qDiv.appendChild(inp);
@@ -1468,6 +2412,7 @@
             const inp = document.createElement('input');
             inp.type = 'text';
             inp.name = `answers[${q.key}]`;
+            inp.className = 'wizard-input';
             inp.placeholder = (typeof qPlaceholder === 'function') ? qPlaceholder(q) : '';
             if (currentVal) inp.value = currentVal;
             qDiv.appendChild(inp);
@@ -1502,19 +2447,35 @@
             window.setupCooperativeMapGestures(mapInstance, mapEl);
           }
         }
+
         let marker = null;
         function placePin(lat, lng) {
-          if (marker) marker.setLatLng([lat, lng]); else marker = L.marker([lat, lng], { draggable: true }).addTo(mapInstance);
+          if (marker) marker.setLatLng([lat, lng]);
+          else marker = L.marker([lat, lng], { draggable: true }).addTo(mapInstance);
           marker.on('dragend', e => {
             const p = e.target.getLatLng();
             document.getElementById('lat').value = p.lat;
             document.getElementById('lng').value = p.lng;
+            updateLocationStatusPill();
+            const step2Err = document.getElementById('step2-error');
+            if (step2Err) step2Err.classList.remove('is-visible');
             triggerNearbyReportsCheck();
           });
           document.getElementById('lat').value = lat;
           document.getElementById('lng').value = lng;
+          updateLocationStatusPill();
+          const step2Err = document.getElementById('step2-error');
+          if (step2Err) step2Err.classList.remove('is-visible');
           triggerNearbyReportsCheck();
         }
+
+        const oldLat = parseFloat(document.getElementById('lat').value);
+        const oldLng = parseFloat(document.getElementById('lng').value);
+        if (!Number.isNaN(oldLat) && !Number.isNaN(oldLng)) {
+          placePin(oldLat, oldLng);
+          mapInstance.setView([oldLat, oldLng], 16);
+        }
+
         mapInstance.on('click', e => placePin(e.latlng.lat, e.latlng.lng));
 
         function requestGeolocation(btnEl) {
@@ -1557,6 +2518,25 @@
         }
       }
 
+      // Location input listeners for status pill & error clearing
+      const purokSel = document.getElementById('purok_id');
+      const landmarkInp = document.getElementById('landmark');
+      if (purokSel) {
+        purokSel.addEventListener('change', () => {
+          updateLocationStatusPill();
+          const step2Err = document.getElementById('step2-error');
+          if (step2Err && purokSel.value) step2Err.classList.remove('is-visible');
+        });
+      }
+      if (landmarkInp) {
+        landmarkInp.addEventListener('input', () => {
+          updateLocationStatusPill();
+          const step2Err = document.getElementById('step2-error');
+          if (step2Err && landmarkInp.value.trim()) step2Err.classList.remove('is-visible');
+        });
+      }
+      updateLocationStatusPill();
+
       // Initialize live character counter for description
       const descEl = document.getElementById('description');
       if (descEl) {
@@ -1579,9 +2559,6 @@
       if (restoredCat) renderQuestions(parseInt(restoredCat, 10));
       else updateDescriptionLabel();
 
-      const firstError = document.querySelector('.field-error');
-      if (firstError) firstError.scrollIntoView({ block: 'center' });
-
       if (document.getElementById('people_at_risk_cb').checked) toggleDanger(true);
 
       // Restore toggle buttons active status based on values
@@ -1602,19 +2579,42 @@
         }
       }
 
-      // Submit button loading state & double-click protection
-      const reportForm = document.getElementById('report-form');
-      if (reportForm) {
+      // Server-Side Error Auto-Recovery: Jump to the step owning the first validation error
+      @if($errors->any())
+        const serverErrorKeys = @json($errors->keys());
+        let errorStep = 1;
+        const step2Keys = ['location', 'lat', 'lng', 'purok_id', 'landmark'];
+        const step3Keys = ['photos', 'reporter_name', 'reporter_contact', 'reporter_email', 'consent'];
+
+        for (const key of serverErrorKeys) {
+          if (step2Keys.includes(key)) {
+            errorStep = 2;
+            break;
+          }
+          if (step3Keys.includes(key) || key.startsWith('photos.')) {
+            errorStep = 3;
+            break;
+          }
+          if (key === 'category_id' || key === 'description' || key === 'people_at_risk' || key.startsWith('answers.')) {
+            errorStep = 1;
+            break;
+          }
+        }
+        maxCompletedStep = Math.max(maxCompletedStep, errorStep - 1);
+        goToWizardStep(errorStep, { force: true, skipAnim: true, skipScroll: true });
+        const firstError = document.querySelector('.field-error');
+        if (firstError) {
+          setTimeout(() => firstError.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80);
+        }
+      @endif
+
+      // Submit button loading state & double-click protection (attached to #report-form-el)
+      const reportFormEl = document.getElementById('report-form-el');
+      if (reportFormEl) {
         let isSubmitting = false;
-        reportForm.addEventListener('submit', (e) => {
+        reportFormEl.addEventListener('submit', (e) => {
           if (isSubmitting) {
             e.preventDefault();
-            return;
-          }
-          const catVal = document.getElementById('category_id_input').value;
-          if (!catVal) {
-            const catWrap = document.querySelector('.cat-chips-wrap');
-            if (catWrap) catWrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
             return;
           }
           isSubmitting = true;
@@ -1640,8 +2640,8 @@
         if (!res.ok) { line.style.display = 'none'; list.style.display = 'none'; return; }
         const reports = await res.json();
         if (Array.isArray(reports) && reports.length > 0) {
-          line.innerHTML = `<span style="color:#b45309;font-weight:700;"><i class="fa-solid fa-triangle-exclamation"></i> ${reports.length} similar report(s) found nearby.</span> <button type="button" class="btn btn-outline btn-small" style="padding:0.2rem 0.6rem;font-size:0.78rem;margin-left:0.5rem;font-weight:700;" onclick="openNearbyModal()">View details</button>`;
-          line.style.display = 'block';
+          line.innerHTML = `<span style="color:#92400e;font-weight:700;"><i class="fa-solid fa-triangle-exclamation" style="color:#d97706;"></i> ${reports.length} similar report(s) found nearby.</span> <button type="button" style="background:none;border:none;padding:0;color:#92400e;text-decoration:underline;font-size:0.8rem;margin-left:0.35rem;font-weight:800;cursor:pointer;" onclick="openNearbyModal()">View details</button>`;
+          line.style.display = 'inline-block';
           const modalBody = document.getElementById('nearby-reports-modal-body');
           if (modalBody) {
             modalBody.innerHTML = reports.map(r => `
@@ -1661,24 +2661,48 @@
       } catch (e) { line.style.display = 'none'; list.style.display = 'none'; }
     }
 
-    // Photo Compression and Previews
+    // Photo Compression, Drag & Drop, and Previews
     let selectedPhotosList = [];
     const photosInput = document.getElementById('photos');
-    const addPhotosBtn = document.getElementById('add-photos');
+    const photoDropzone = document.getElementById('photo-dropzone');
     const photoPreviews = document.getElementById('photo-previews');
     const photoTotalSize = document.getElementById('photo-total-size');
     const photoUploadError = document.getElementById('photo-upload-error');
 
-    if (addPhotosBtn && photosInput) {
-      addPhotosBtn.addEventListener('click', () => photosInput.click());
-      photosInput.addEventListener('change', async () => {
-        const files = Array.from(photosInput.files || []);
-        if (!files.length) return;
-        for (const file of files) {
-          const optimized = await compressImageFile(file);
-          selectedPhotosList.push(optimized);
+    async function processIncomingPhotos(files) {
+      const incoming = Array.from(files || []).filter(f => f.type === 'image/jpeg' || f.type === 'image/png' || f.type.startsWith('image/'));
+      if (!incoming.length) return;
+      for (const file of incoming) {
+        const optimized = await compressImageFile(file);
+        selectedPhotosList.push(optimized);
+      }
+      renderPhotoPreviews();
+    }
+
+    if (photoDropzone && photosInput) {
+      photoDropzone.addEventListener('click', () => photosInput.click());
+      photoDropzone.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          photosInput.click();
         }
-        renderPhotoPreviews();
+      });
+      photoDropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        photoDropzone.classList.add('is-dragover');
+      });
+      photoDropzone.addEventListener('dragleave', () => {
+        photoDropzone.classList.remove('is-dragover');
+      });
+      photoDropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        photoDropzone.classList.remove('is-dragover');
+        if (e.dataTransfer && e.dataTransfer.files) {
+          processIncomingPhotos(e.dataTransfer.files);
+        }
+      });
+      photosInput.addEventListener('change', () => {
+        processIncomingPhotos(photosInput.files);
       });
     }
 
@@ -1723,7 +2747,8 @@
         item.style.position = 'relative';
         item.style.borderRadius = '12px';
         item.style.overflow = 'hidden';
-        item.style.boxShadow = '0 2px 5px rgba(0,0,0,0.08)';
+        item.style.border = '1px solid #e2e8f0';
+        item.style.boxShadow = '0 2px 5px rgba(0,0,0,0.06)';
         item.innerHTML = `
           <img src="${url}" alt="Preview" style="width:100%;height:84px;object-fit:cover;display:block;">
           <button type="button" class="photo-preview-remove" onclick="removePhoto(${idx})" aria-label="Remove photo">
@@ -1771,6 +2796,47 @@
     if (nearbyModalEl) {
       nearbyModalEl.addEventListener('click', (e) => {
         if (e.target === nearbyModalEl) nearbyModalEl.close();
+      });
+    }
+
+    function openVoiceModal() {
+      const modal = document.getElementById('voice-recorder-modal');
+      if (modal) {
+        if (typeof modal.showModal === 'function') modal.showModal();
+        else modal.setAttribute('open', '');
+      }
+    }
+
+    function closeVoiceModal() {
+      const modal = document.getElementById('voice-recorder-modal');
+      if (!modal) return;
+      // Release microphone if recording is currently active
+      const recState = modal.querySelector('.voice-recording-state');
+      const cancelBtn = modal.querySelector('.voice-btn-cancel');
+      if (recState && recState.style.display !== 'none' && cancelBtn) {
+        cancelBtn.click();
+      }
+      if (typeof modal.close === 'function') modal.close();
+      else modal.removeAttribute('open');
+    }
+
+    function saveVoiceModal() {
+      const savedPill = document.getElementById('voice-saved-pill');
+      const triggerLabel = document.getElementById('btn-open-voice-label');
+      const dict = i18n[currentLang] || i18n.en;
+      if (savedPill) savedPill.style.display = 'inline-flex';
+      if (triggerLabel) triggerLabel.textContent = dict.voice_btn_edit || 'Review / Re-record';
+      closeVoiceModal();
+    }
+
+    const voiceModalEl = document.getElementById('voice-recorder-modal');
+    if (voiceModalEl) {
+      voiceModalEl.addEventListener('click', (e) => {
+        if (e.target === voiceModalEl) closeVoiceModal();
+      });
+      voiceModalEl.addEventListener('cancel', (e) => {
+        e.preventDefault();
+        closeVoiceModal();
       });
     }
 
@@ -1829,7 +2895,6 @@
       const isUnclear = data.status === 'needs_verification' || data.status === 'failed' || data.is_unclear || data.clarity === 'unclear';
       const isPartial = data.is_partial || data.clarity === 'partial';
 
-      // 1. Show clarity banner
       if (clarityBanner) {
         clarityBanner.style.display = 'block';
         if (isUnclear) {
@@ -1845,14 +2910,12 @@
         }
       }
 
-      if (isUnclear) {
-        // Unclear: do not prefill any fields
-        return;
-      }
+      if (isUnclear) return;
 
       let filledCount = 0;
+      let filledOtherSteps = false;
 
-      // 2. Problem description
+      // Problem description
       const descEl = document.getElementById('description');
       if (descEl && data.description) {
         if (!descEl.value || descEl.value.trim() === '' || descEl.dataset.aiFilled === 'true') {
@@ -1866,7 +2929,7 @@
         }
       }
 
-      // 3. Category
+      // Category
       if (data.category || data.category_id) {
         const catInput = document.getElementById('category_id_input');
         if (!catInput.value || catInput.dataset.aiFilled === 'true') {
@@ -1883,7 +2946,7 @@
         }
       }
 
-      // 4. Emergency / People at risk
+      // Emergency / People at risk
       if (data.emergency) {
         const emgCb = document.getElementById('people_at_risk_cb');
         if (emgCb) {
@@ -1897,7 +2960,7 @@
         }
       }
 
-      // 5. Purok
+      // Purok (Step 2)
       if (data.purok_id) {
         const purokSel = document.getElementById('purok_id');
         if (purokSel && (!purokSel.value || purokSel.dataset.aiFilled === 'true')) {
@@ -1907,10 +2970,11 @@
           addVoiceBadge('purok', purokSel.parentElement ? purokSel.parentElement.querySelector('label') : purokSel);
           filledByVoice.add('purok');
           filledCount++;
+          filledOtherSteps = true;
         }
       }
 
-      // 6. Landmark
+      // Landmark (Step 2)
       if (data.landmark) {
         const landmarkInp = document.getElementById('landmark');
         if (landmarkInp && (!landmarkInp.value || landmarkInp.value.trim() === '' || landmarkInp.dataset.aiFilled === 'true')) {
@@ -1919,10 +2983,12 @@
           addVoiceBadge('landmark', landmarkInp.parentElement ? landmarkInp.parentElement.querySelector('label') : landmarkInp);
           filledByVoice.add('landmark');
           filledCount++;
+          filledOtherSteps = true;
+          updateLocationStatusPill();
         }
       }
 
-      // 7. Contact Fields (Name, Phone, Email)
+      // Contact Fields (Step 3)
       let contactExpanded = false;
       const anonCb = document.getElementById('is_anonymous');
       const isAnon = anonCb && anonCb.checked;
@@ -1936,6 +3002,7 @@
           filledByVoice.add('reporter_name');
           filledCount++;
           contactExpanded = true;
+          filledOtherSteps = true;
         }
 
         const phoneInp = document.getElementById('reporter_contact');
@@ -1946,6 +3013,7 @@
           filledByVoice.add('reporter_contact');
           filledCount++;
           contactExpanded = true;
+          filledOtherSteps = true;
         }
 
         const emailInp = document.getElementById('reporter_email');
@@ -1956,27 +3024,32 @@
           filledByVoice.add('reporter_email');
           filledCount++;
           contactExpanded = true;
+          filledOtherSteps = true;
         }
       }
 
-      // Auto-expand collapsed section if any contact was filled
       if (contactExpanded) {
-        document.querySelectorAll('details.card-collapsible').forEach(d => {
-          if (d.querySelector('#reporter_name') || d.querySelector('#reporter_email')) {
-            d.open = true;
-          }
-        });
+        const contactDetails = document.getElementById('contact-collapsible');
+        if (contactDetails) contactDetails.open = true;
       }
 
-      // 8. Success Banner if clear
       if (!isUnclear && !isPartial && clarityBanner) {
         clarityBanner.style.background = '#ecfdf5';
         clarityBanner.style.border = '1px solid #a7f3d0';
         clarityBanner.style.color = '#065f46';
-        clarityBanner.innerHTML = `<i class="fa-solid fa-circle-check"></i> Filled ${filledCount} field${filledCount === 1 ? '' : 's'} from your recording. Please check them.`;
+        const extraNote = filledOtherSteps ? ' Review Location & Contact details as you click Next.' : ' Please check them.';
+        clarityBanner.innerHTML = `<i class="fa-solid fa-circle-check"></i> Filled ${filledCount} field${filledCount === 1 ? '' : 's'} from your recording.${extraNote}`;
       }
 
       updateVoiceProvenanceInputs();
+
+      const saveVoiceBtn = document.getElementById('btn-save-voice-modal');
+      if (saveVoiceBtn) saveVoiceBtn.style.display = 'inline-flex';
+      const savedPill = document.getElementById('voice-saved-pill');
+      if (savedPill) savedPill.style.display = 'inline-flex';
+      const triggerLabel = document.getElementById('btn-open-voice-label');
+      const dict = i18n[currentLang] || i18n.en;
+      if (triggerLabel) triggerLabel.textContent = dict.voice_btn_edit || 'Review / Re-record';
     });
 
     // Reset event
@@ -1985,6 +3058,14 @@
         clarityBanner.style.display = 'none';
         clarityBanner.innerHTML = '';
       }
+      const saveVoiceBtn = document.getElementById('btn-save-voice-modal');
+      if (saveVoiceBtn) saveVoiceBtn.style.display = 'none';
+      const savedPill = document.getElementById('voice-saved-pill');
+      if (savedPill) savedPill.style.display = 'none';
+      const triggerLabel = document.getElementById('btn-open-voice-label');
+      const dict = i18n[currentLang] || i18n.en;
+      if (triggerLabel) triggerLabel.textContent = dict.voice_btn_trigger || 'Record / Try Demo';
+
       filledByVoice.forEach(field => removeVoiceBadge(field));
       filledByVoice.clear();
       contactFieldsEdited.clear();

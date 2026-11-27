@@ -1328,17 +1328,7 @@ Used for: Official Summons, Case Endorsements, Referral Letters, Amicable Settle
 
 #### 4.43 Resident Complaint Intake Form (Planned, [DECIDED, D4])
 - **ID & Route**: `RES-C01` | `GET /complaint` / `POST /complaint` | **Pattern B Variant (Single Card)** | **Owner: WS3 / Resident UI**
-- **Upfront Confidentiality Screening Gate ([DECIDED, D4a; PROPOSED, P9])**:
-  - Prompt: *"Is this about violence against a woman or her child, abuse of a child, or an emergency?"*
-  - Choices: `[ Yes, I need help ]` (Red outline) | `[ No, continue ]` (Blue primary)
-  - **Screening Result "Yes" (Guidance Screen)**:
-    - Displays emergency and domestic hotline guidance:
-      - English: *"If you are in danger, call 911 now. It is free and open 24/7. You can also go to the Barangay VAW Desk at the barangay hall, or to the PNP Women and Children Protection Desk. Please do not use this online form for this concern. For a child who is being harmed or needs protection, go to the barangay hall and ask for the BCPC, or call 911 or Bantay Bata 163."*
-      - Filipino: *"Kung nasa panganib ka o kailangan mo ng agarang tulong, tumawag sa 911 (libre at 24/7). Maaari ka ring pumunta sa VAW Desk ng barangay o sa Women and Children Protection Desk ng PNP. Huwag gamitin ang online form na ito para sa ganitong kaso."*
-    - Hotlines rendered dynamically from `setting()` (`hotline.vawc.national`, `hotline.vawc.pnp`, `hotline.bcpc.national`).
-    - Prominent **"Leave this page"** quick-exit button (redirects immediately to blank Google search).
-    - **Zero Data Stored**: No database row, session cookie, or screening answer is recorded.
-- **Form Structure on "No" (Single Compact Card, 375px Safe)**:
+- **Form Structure (Direct Single Compact Card, 375px Safe — no upfront 911/VAWC screening gate)**:
   1. **Complainant Block**: Full legal name *, Alias, Age / Date of Birth, Contact number *, Complete residential address *, Residency declaration. *(Anonymity is strictly not offered on dispute complaints)*.
   2. **Respondent Block**: Full name *, Alias if known, Complete address (for summons service) *, Contact number if known. *(Stored as unlinked free text; not added to party directory)*.
   3. **Incident Facts (5Ws)**: What happened *, Who was involved *, When did it occur *, Where did it occur *, Why / How it happened *.

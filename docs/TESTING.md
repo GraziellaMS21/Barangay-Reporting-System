@@ -203,7 +203,7 @@ Before submitting pull requests or concluding workstream tasks, every developer 
 ### 5.2 Resident Complaint Intake
 - Assert `POST /complaint` creates a record in `complaint_intakes` in status `pending`.
 - Assert submission does NOT create a case record, summons, or party in the canonical `parties` table.
-- Assert upfront confidentiality screening: answering "Yes" to VAWC/child-abuse screening redirects to guidance, stores zero records, and renders "Leave this page" quick exit.
+- Assert `GET /complaint` renders the direct single-card complaint intake form without an upfront 911/VAWC screening gate.
 - Assert anonymity is rejected / unavailable on the complaint form (complainant name and contact are required).
 - Assert data privacy consent checkbox is required and cannot be submitted unchecked.
 - Assert `GET /complaint/received` displays receipt text only, strictly withholding case status, respondent data, and dispute tracking.

@@ -42,9 +42,20 @@ Routing is modularized under `routes/` and registered via `routes/web.php`:
 ## 2. Public / Resident Routes (`routes/resident.php`)
 
 ### `GET /`
-- **Controller**: `ReportController@create`
-- **Status**: Built (Entry screen update Planned, [DECIDED, D2])
-- **Description**: Renders the resident entry interface featuring three prominent action choices: Emergency, Report a Community Problem, and File a Complaint. Clicking "Report a Community Problem" reveals the single-card community report form with wrong-door guidance notice ([DECIDED, D6]).
+- **Controller**: `ReportController@index` / `ReportController@create` (`/report`)
+- **Status**: Built
+- **Description**: Renders the resident entry interface featuring three prominent action choices: **Emergency**, **Report a Concern** (general resident reporting entry point accepting both community problems and incidents without requiring residents to classify beforehand), and **File a Complaint** (separate formal dispute intake). Clicking "Report a Concern" navigates to `/report` featuring the single-card reporting wizard with wrong-door guidance notice ([DECIDED, D6]).
+
+### `POST /report/analyze-concern` (`reports.analyze-concern`)
+- **Controller**: `ReportController@analyzeConcern`
+- **Status**: Built (TR2.2 Backend & TR2.3 Step 1 UI Integration)
+- **Middleware**: `throttle:10,1` (guest-accessible, CSRF-protected)
+- **Payload**:
+  - `description` (string, required, min: 10, max: 2000)
+  - `category_id` (integer, optional, must exist in active `categories`)
+- **Behavior**: Stateless pre-submission AI analysis via `GeminiService::classifyConcernText()`. Transmits only the concern description and non-personal category context (RA 10173 compliant) and never creates or mutates Report, Complaint, or Case records.
+- **Success Response (`200 OK`)**: Returns `{ success: true, data: { classification ('community_problem'|'incident'|'possible_formal_complaint'|'uncertain'), suggested_category ({ id, slug, name }|null), summary, clarification_questions, is_emergency, confidence } }`.
+- **AI Failure / Unavailable Response (`503 Service Unavailable`)**: Returns `{ success: false, available: false, message }` without exposing credentials or stack traces, allowing manual submission to proceed.
 
 ### `POST /report`
 - **Controller**: `ReportController@store`

@@ -10,6 +10,8 @@ use App\Models\Report;
 use App\Models\ReportAudio;
 use App\Models\StatusLog;
 use App\Services\FiscalYearService;
+use App\Services\GeminiService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -35,6 +37,49 @@ class ReportController extends Controller
                 ->where('is_active', true)
                 ->orderByRaw("CASE WHEN LOWER(slug) IN ('other', 'others') OR LOWER(name) IN ('other', 'others') THEN 1 ELSE 0 END, name ASC")
                 ->get(),
+        ]);
+    }
+
+    /**
+     * Stateless pre-submission AI classification of a resident's concern description.
+     */
+    public function analyzeConcern(Request $request, GeminiService $gemini): JsonResponse
+    {
+        $data = $request->validate([
+            'description' => ['required', 'string', 'min:10', 'max:2000'],
+            'category_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('categories', 'id')->where('is_active', true),
+            ],
+        ], [
+            'description.required' => 'Please enter a concern description before analyzing.',
+            'description.min' => 'Please enter at least 10 characters describing your concern.',
+            'description.max' => 'Your concern description cannot exceed 2000 characters.',
+            'category_id.exists' => 'The selected category is not active.',
+        ]);
+
+        $categoryId = isset($data['category_id']) ? (int) $data['category_id'] : null;
+        $result = $gemini->classifyConcernText($data['description'], $categoryId);
+
+        if (! $result['ok']) {
+            return response()->json([
+                'success' => false,
+                'available' => false,
+                'message' => $result['error'] ?? 'AI classification is temporarily unavailable. You can still submit your concern manually.',
+            ], 503);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'classification' => $result['classification'],
+                'suggested_category' => $result['suggested_category'],
+                'summary' => $result['summary'],
+                'clarification_questions' => $result['clarification_questions'],
+                'is_emergency' => $result['is_emergency'],
+                'confidence' => $result['confidence'],
+            ],
         ]);
     }
 

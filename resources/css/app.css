@@ -6753,3 +6753,43 @@ body.chat-modal-open {
         justify-content: flex-end !important;
     }
 }
+
+/* Full-screen Loading Overlay (replaces Turbo top header progress bar) */
+.turbo-progress-bar {
+    display: none !important;
+    visibility: hidden !important;
+}
+
+.app-loading-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 23, 42, 0.35);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    pointer-events: auto;
+    cursor: wait;
+}
+
+.app-loading-overlay.is-active {
+    display: flex;
+}
+
+.app-loading-spinner {
+    width: 48px;
+    height: 48px;
+    border-radius: 9999px;
+    border: 4px solid rgba(37, 99, 235, 0.2);
+    border-top-color: #2563eb;
+    animation: appSpinnerRotate 0.75s linear infinite;
+    box-shadow: 0 2px 10px rgba(37, 99, 235, 0.15);
+}
+
+@keyframes appSpinnerRotate {
+    to {
+        transform: rotate(360deg);
+    }
+}

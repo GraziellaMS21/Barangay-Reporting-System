@@ -192,7 +192,7 @@
       </span>
 
       <a href="{{ route('reports.create') }}" class="btn btn-gold btn-small" style="font-weight:800;min-height:38px;">
-        <i class="fa-solid fa-plus"></i> <span data-i18n="btn_report_problem">Report a Problem</span>
+        <i class="fa-solid fa-plus"></i> <span data-i18n="btn_report_problem">Report a Concern</span>
       </a>
     </div>
   </div>
@@ -262,7 +262,7 @@
       card_title: "Active Barangay Reports",
       card_desc: "Click pins on the map to view status and category details",
       transparency_pill: "Public Transparency Mode",
-      btn_report_problem: "Report a Problem",
+      btn_report_problem: "Report a Concern",
       lbl_filter_category: "Category:",
       cat_all: "All",
       lbl_purok_zoom: "Purok:",
@@ -281,7 +281,7 @@
       card_title: "Mga Aktibong Ulat sa Barangay",
       card_desc: "Pindutin ang mga pin sa mapa upang makita ang estado at mga detalye",
       transparency_pill: "Mode ng Pampublikong Transparansya",
-      btn_report_problem: "Mag-ulat ng Problema",
+      btn_report_problem: "Mag-ulat ng Concern",
       lbl_filter_category: "Kategorya:",
       cat_all: "Lahat",
       lbl_purok_zoom: "Purok:",

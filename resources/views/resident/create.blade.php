@@ -1,11 +1,11 @@
 @extends('layouts.app')
-@section('title', 'Report a Problem - Barangay Calarian')
+@section('title', 'Report a Concern - Barangay Calarian')
 
 @section('hero')
   <section class="hero">
     <div class="hero-inner">
       <div>
-        <h1 data-i18n="hero_title">Report a problem in Barangay Calarian</h1>
+        <h1 data-i18n="hero_title">Report a concern in Barangay Calarian</h1>
         <p data-i18n="hero_desc">Send a report with category details, photo, and location. Barangay staff will review it,
           route it to the proper office, and keep you updated with a tracking code.</p>
         <em class="hero-motto">Pusong May Malasakit, Serbisyong Tapat sa Mamamayan</em>
@@ -55,59 +55,68 @@
       position: relative;
     }
 
-    /* Zone 1: Top Utility Bar & Slim Dispute Strip */
+    /* Zone 1: Top Utility Bar (3 elements: Emergency Pill, Dispute Pill, Language Switcher) */
     .card-topbar {
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 0.75rem;
       flex-wrap: wrap;
-      padding: 0.8rem 1.5rem;
-      background: var(--wiz-surface);
-      border-bottom: 1px solid var(--wiz-border);
+      padding: 0.85rem 1.5rem;
+      background: #ffffff;
+      border-bottom: 1px solid #f1f5f9;
     }
 
-    .emergency-pill-strip {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.55rem;
-      background: #fef2f2;
-      border: 1px solid #fecaca;
-      border-radius: 999px;
-      padding: 0.28rem 0.4rem 0.28rem 0.8rem;
-      font-size: 0.82rem;
-    }
-
-    .emergency-pill-strip .emg-label {
-      color: var(--wiz-red);
-      font-weight: 700;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.35rem;
-    }
-
-    .emergency-pill-strip .emg-action-btn {
-      background: var(--wiz-red);
+    .emg-action-pill {
+      background: var(--wiz-red, #e0352b);
       color: #ffffff;
       border: none;
-      padding: 0.26rem 0.75rem;
-      border-radius: 999px;
-      font-size: 0.76rem;
+      padding: 0.38rem 0.95rem;
+      border-radius: 9999px;
+      font-size: 0.84rem;
       font-weight: 700;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
-      gap: 0.35rem;
+      gap: 0.45rem;
       transition: all 160ms cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 1px 2px rgba(224, 53, 43, 0.2);
     }
 
-    .emergency-pill-strip .emg-action-btn:hover {
+    .emg-action-pill:hover {
       background: #b91c1c;
       transform: translateY(-1px);
     }
 
-    .emergency-pill-strip .emg-action-btn:active {
+    .emg-action-pill:active {
       transform: scale(0.98);
+    }
+
+    .dispute-pill-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.38rem 1.1rem;
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: 9999px;
+      font-size: 0.84rem;
+      font-weight: 600;
+      color: #92400e;
+      text-decoration: none;
+      transition: all 160ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .dispute-pill-link i {
+      color: #d97706;
+      font-size: 0.92rem;
+    }
+
+    .dispute-pill-link:hover {
+      background: #fef3c7;
+      border-color: #fcd34d;
+      color: #78350f;
+      transform: translateY(-1px);
     }
 
     .lang-segmented-control {
@@ -126,99 +135,46 @@
       border-radius: 999px;
       font-size: 0.78rem;
       font-weight: 700;
-      color: var(--wiz-muted);
+      color: var(--wiz-muted, #64748b);
       cursor: pointer;
       transition: all 160ms cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     .lang-segmented-btn:hover:not(.active) {
-      color: var(--wiz-ink);
+      color: var(--wiz-ink, #0b1f4b);
     }
 
     .lang-segmented-btn.active {
-      background: var(--wiz-ink);
+      background: var(--wiz-ink, #0b1f4b);
       color: #ffffff;
       box-shadow: 0 2px 4px rgba(11, 31, 75, 0.2);
     }
 
-    .dispute-slim-bar {
-      padding: 0.55rem 1.5rem;
-      background: #fffbeb;
-      border-bottom: 1px solid #fde68a;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.75rem;
-      flex-wrap: wrap;
-      font-size: 0.82rem;
-      color: #92400e;
-    }
-
-    .dispute-slim-left {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.45rem;
-      font-weight: 600;
-    }
-
-    .dispute-slim-link {
-      font-weight: 700;
-      color: #92400e;
-      text-decoration: underline;
-      white-space: nowrap;
-      transition: color 160ms ease;
-    }
-
-    .dispute-slim-link:hover {
-      color: #78350f;
-    }
-
-    /* Zone 2: 3-Step Interactive Progress Stepper */
+    /* Zone 2: 3-Step Interactive Stepper */
     .wizard-stepper-wrap {
-      padding: 1.1rem 1.75rem 1rem;
+      padding: 1.15rem 1.75rem;
       background: #ffffff;
       border-bottom: 1px solid #f1f5f9;
     }
 
-    .wizard-stepper-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      position: relative;
-      align-items: start;
-    }
-
-    .wizard-track-rail {
-      position: absolute;
-      top: 14px;
-      left: calc(100% / 6);
-      right: calc(100% / 6);
-      height: 3px;
-      background: #e2e8f0;
-      border-radius: 999px;
-      z-index: 1;
-      overflow: hidden;
-    }
-
-    #wizard-progress-fill {
-      height: 100%;
-      width: 0%;
-      background: var(--wiz-blue);
-      border-radius: 999px;
-      transition: width 350ms cubic-bezier(0.22, 1, 0.36, 1);
+    .wizard-stepper-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.85rem;
+      flex-wrap: wrap;
     }
 
     .wizard-step-tab {
-      position: relative;
-      z-index: 2;
-      display: flex;
-      flex-direction: column;
+      display: inline-flex;
       align-items: center;
-      gap: 0.4rem;
+      gap: 0.55rem;
       background: transparent;
       border: none;
-      padding: 0 0.25rem;
+      padding: 0.3rem 0.5rem;
       cursor: default;
-      text-align: center;
+      border-radius: 999px;
+      transition: all 160ms ease;
       font-family: inherit;
     }
 
@@ -227,38 +183,40 @@
     }
 
     .wizard-step-circle {
-      width: 30px;
-      height: 30px;
+      width: 28px;
+      height: 28px;
       border-radius: 999px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       font-size: 0.82rem;
       font-weight: 800;
-      background: #ffffff;
-      border: 2px solid #cbd5e1;
-      color: var(--wiz-muted);
+      background: #f1f5f9;
+      border: 1.5px solid #cbd5e1;
+      color: var(--wiz-muted, #64748b);
       transition: all 200ms ease;
+      flex-shrink: 0;
     }
 
     .wizard-step-label {
-      font-size: 0.78rem;
+      font-size: 0.9rem;
       font-weight: 600;
-      color: var(--wiz-muted);
+      color: var(--wiz-muted, #64748b);
       line-height: 1.2;
       transition: color 200ms ease;
+      white-space: nowrap;
     }
 
     .wizard-step-tab.is-active .wizard-step-circle {
-      background: var(--wiz-blue);
-      border-color: var(--wiz-blue);
+      background: var(--wiz-blue, #2563eb);
+      border-color: var(--wiz-blue, #2563eb);
       color: #ffffff;
       box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.14);
-      transform: scale(1.06);
+      transform: scale(1.05);
     }
 
     .wizard-step-tab.is-active .wizard-step-label {
-      color: var(--wiz-ink);
+      color: var(--wiz-ink, #0b1f4b);
       font-weight: 700;
     }
 
@@ -274,8 +232,16 @@
     }
 
     .wizard-step-tab.is-completed:hover .wizard-step-circle {
-      transform: scale(1.05);
+      transform: scale(1.08);
       box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.14);
+    }
+
+    .wizard-step-line {
+      width: 32px;
+      height: 2px;
+      background: #cbd5e1;
+      border-radius: 999px;
+      flex-shrink: 0;
     }
 
     /* Zone 3: Active Step Content Body */
@@ -331,44 +297,45 @@
 
     /* Voice Strip (Compact Inline Trigger) */
     .voice-strip-card {
-      background: #f8fafc;
+      background: #ffffff;
       border: 1px solid #e2e8f0;
-      border-radius: 14px;
-      padding: 0.75rem 1rem;
+      border-radius: 16px;
+      padding: 0.95rem 1.25rem;
       margin-bottom: 1.25rem;
+      box-shadow: 0 1px 3px rgba(11, 31, 75, 0.04);
     }
 
     .voice-strip-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 0.75rem;
+      gap: 0.85rem;
       flex-wrap: wrap;
     }
 
     .voice-strip-icon {
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
-      background: #dbeafe;
-      color: var(--wiz-blue);
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      background: #eff6ff;
+      color: var(--wiz-blue, #2563eb);
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      font-size: 0.95rem;
+      font-size: 1.1rem;
       flex-shrink: 0;
     }
 
     .voice-trigger-btn {
       display: inline-flex;
       align-items: center;
-      gap: 0.45rem;
+      gap: 0.5rem;
       background: #ffffff;
-      color: #1d4ed8;
+      color: #2563eb;
       border: 1.5px solid #bfdbfe;
       border-radius: 10px;
-      padding: 0.48rem 0.9rem;
-      font-size: 0.82rem;
+      padding: 0.5rem 1.05rem;
+      font-size: 0.84rem;
       font-weight: 700;
       cursor: pointer;
       box-shadow: 0 1px 2px rgba(11, 31, 75, 0.04);
@@ -384,6 +351,83 @@
 
     .voice-trigger-btn:active {
       transform: scale(0.98);
+    }
+
+    /* Step 1: AI Assistance Card */
+    .ai-assist-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 0.95rem 1.15rem;
+      margin-bottom: 1rem;
+    }
+
+    .ai-assist-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.85rem;
+      flex-wrap: wrap;
+    }
+
+    .ai-assist-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      background: #ffffff;
+      color: var(--wiz-blue, #2563eb);
+      border: 1.5px solid #bfdbfe;
+      border-radius: 10px;
+      padding: 0.48rem 0.95rem;
+      font-size: 0.83rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 160ms cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 1px 2px rgba(11, 31, 75, 0.04);
+    }
+
+    .ai-assist-btn:hover:not(:disabled) {
+      background: #eff6ff;
+      border-color: #93c5fd;
+      transform: translateY(-1px);
+    }
+
+    .ai-assist-btn:disabled {
+      opacity: 0.65;
+      cursor: wait;
+    }
+
+    .ai-assist-results {
+      margin-top: 0.85rem;
+      padding-top: 0.85rem;
+      border-top: 1px solid #e2e8f0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.7rem;
+      animation: panelFadeDown 200ms ease-out;
+    }
+
+    .ai-class-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.22rem 0.7rem;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+
+    .ai-class-badge.is-community { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+    .ai-class-badge.is-incident { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+    .ai-class-badge.is-complaint { background: #f3e8ff; color: #6b21a8; border: 1px solid #d8b4fe; }
+    .ai-class-badge.is-uncertain { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+
+    .ai-assist-alert {
+      border-radius: 10px;
+      padding: 0.65rem 0.85rem;
+      font-size: 0.82rem;
+      line-height: 1.45;
     }
 
     .voice-saved-pill {
@@ -957,13 +1001,28 @@
       .report-card {
         border-radius: 16px;
       }
-      .card-topbar,
-      .dispute-slim-bar {
-        padding-left: 1.15rem;
-        padding-right: 1.15rem;
+      .card-topbar {
+        padding: 0.75rem 1rem;
+        gap: 0.5rem;
+      }
+      .card-topbar .dispute-pill-link {
+        order: 3;
+        width: 100%;
+        justify-content: center;
+        font-size: 0.78rem;
+        padding: 0.35rem 0.75rem;
       }
       .wizard-stepper-wrap {
-        padding: 0.95rem 1rem 0.85rem;
+        padding: 0.85rem 0.75rem;
+      }
+      .wizard-stepper-row {
+        gap: 0.4rem;
+      }
+      .wizard-step-label {
+        font-size: 0.8rem;
+      }
+      .wizard-step-line {
+        width: 16px;
       }
       .wizard-body {
         padding: 1.15rem;
@@ -1118,54 +1177,45 @@
   <section id="report-form" class="card report-card">
     <!-- Zone 1: Consolidated Utility Header -->
     <div class="card-topbar">
-      <div class="emergency-pill-strip">
-        <span class="emg-label">
-          <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
-          <span data-i18n="emg_strip">Emergency? Call 911</span>
-        </span>
-        <button type="button" class="emg-action-btn" onclick="showEmergency()">
-          <i class="fa-solid fa-phone-flip" aria-hidden="true"></i>
-          <span data-i18n="emg_btn">Emergency / Crime</span>
-        </button>
-      </div>
+      <!-- Left: Red Emergency Pill -->
+      <button type="button" class="emg-action-pill" onclick="showEmergency()">
+        <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+        <span data-i18n="emg_strip">Emergency? Call 911</span>
+      </button>
 
+      <!-- Center: Slim Dispute Redirect Pill -->
+      <a href="{{ route('complaint.create') }}" class="dispute-pill-link">
+        <i class="fa-solid fa-scale-balanced" aria-hidden="true"></i>
+        <span data-i18n="dispute_prompt_pill">Neighbor dispute? File a Dispute Complaint instead &rarr;</span>
+      </a>
+
+      <!-- Right: Language Segmented Switcher -->
       <div class="lang-segmented-control" role="group" aria-label="Select Language">
         <button type="button" class="lang-segmented-btn js-lang-btn-en active" onclick="setLanguage('en')">EN</button>
         <button type="button" class="lang-segmented-btn js-lang-btn-fil" onclick="setLanguage('fil')">FIL</button>
       </div>
     </div>
 
-    <!-- Slim Dispute Redirect Bar -->
-    <div class="dispute-slim-bar">
-      <span class="dispute-slim-left">
-        <i class="fa-solid fa-circle-info" style="color:#d97706;" aria-hidden="true"></i>
-        <span data-i18n="dispute_prompt">Is this a dispute with a specific person?</span>
-      </span>
-      <a href="{{ route('complaint.create') }}" class="dispute-slim-link" data-i18n="dispute_link">
-        File a Dispute Complaint &rarr;
-      </a>
-    </div>
-
     <!-- Zone 2: 3-Step Interactive Progress Stepper -->
     <div class="wizard-stepper-wrap" aria-label="Report progress">
-      <div class="wizard-stepper-grid">
-        <div class="wizard-track-rail" aria-hidden="true">
-          <div id="wizard-progress-fill"></div>
-        </div>
-
+      <div class="wizard-stepper-row">
         <button type="button" class="wizard-step-tab is-active" data-step="1" onclick="handleStepTabClick(1)" aria-current="step">
           <span class="wizard-step-circle" data-step-num="1">1</span>
           <span class="wizard-step-label" data-i18n="wiz_step_1">Issue Details</span>
         </button>
 
+        <div class="wizard-step-line" aria-hidden="true"></div>
+
         <button type="button" class="wizard-step-tab" data-step="2" onclick="handleStepTabClick(2)">
           <span class="wizard-step-circle" data-step-num="2">2</span>
-          <span class="wizard-step-label" data-i18n="wiz_step_2">Location</span>
+          <span class="wizard-step-label" data-i18n="wiz_step_2">Location &amp; Photo</span>
         </button>
+
+        <div class="wizard-step-line" aria-hidden="true"></div>
 
         <button type="button" class="wizard-step-tab" data-step="3" onclick="handleStepTabClick(3)">
           <span class="wizard-step-circle" data-step-num="3">3</span>
-          <span class="wizard-step-label" data-i18n="wiz_step_3">Photo &amp; Submit</span>
+          <span class="wizard-step-label" data-i18n="wiz_step_3">Contact &amp; Submit</span>
         </button>
       </div>
     </div>
@@ -1202,29 +1252,30 @@
             <!-- Quick Report by Voice Strip (Compact Inline Trigger) -->
             <div id="voice-intake-strip" class="voice-strip-card">
               <div class="voice-strip-row">
-                <div style="display:flex;align-items:center;gap:0.75rem;min-width:0;">
+                <div style="display:flex;align-items:center;gap:0.85rem;min-width:0;">
                   <div class="voice-strip-icon" aria-hidden="true">
-                    <i class="fa-solid fa-microphone-lines"></i>
+                    <i class="fa-solid fa-microphone"></i>
                   </div>
                   <div style="min-width:0;">
                     <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
-                      <strong style="font-size:0.9rem;color:var(--wiz-ink);">Prefer to speak? Quick report by voice</strong>
+                      <strong style="font-size:0.95rem;color:var(--wiz-ink);" data-i18n="voice_title">Prefer to speak? Quick Report by Voice</strong>
                       <span id="voice-saved-pill" class="voice-saved-pill">
                         <i class="fa-solid fa-circle-check"></i>
                         <span data-i18n="voice_saved_badge">Recording saved</span>
                       </span>
                     </div>
-                    <div style="font-size:0.77rem;color:var(--wiz-muted);margin-top:0.1rem;">
-                      AI transcribes English, Filipino, Bisaya, or Chavacano to prefill fields &middot;
-                      <a href="#category-heading" style="color:var(--wiz-muted);text-decoration:none;">or fill in the form yourself below &darr;</a>
-                    </div>
+                    <p style="margin:0.15rem 0 0;font-size:0.82rem;color:var(--wiz-muted);line-height:1.35;" data-i18n="voice_desc">
+                      AI transcribes English, Filipino, Bisaya, or Chavacano to prefill fields.
+                    </p>
                   </div>
                 </div>
 
-                <button type="button" id="btn-open-voice-modal" class="voice-trigger-btn" onclick="openVoiceModal()">
-                  <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
-                  <span id="btn-open-voice-label" data-i18n="voice_btn_trigger">Record / Try Demo</span>
-                </button>
+                <div style="flex-shrink:0;">
+                  <button type="button" id="btn-open-voice-modal" class="voice-trigger-btn" onclick="openVoiceModal()">
+                    <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+                    <span id="btn-open-voice-label" data-i18n="voice_btn_trigger">Record / Try Demo</span>
+                  </button>
+                </div>
               </div>
 
               {{-- Clarity / Feedback Banner inside strip --}}
@@ -1271,7 +1322,7 @@
             <div class="desc-label-row">
               <label for="description" style="font-size:0.93rem;font-weight:700;margin:0;display:inline-flex;align-items:center;gap:0.4rem;">
                 <i class="fa-solid fa-align-left" style="color:var(--wiz-blue);"></i>
-                <span id="description-label" data-i18n="lbl_description">What is the problem?</span>
+                <span id="description-label" data-i18n="lbl_description">What is your concern?</span>
                 <span style="color:var(--wiz-red);">*</span>
               </label>
               <div id="description-char-counter" style="font-size:0.78rem;font-weight:700;color:#64748b;" aria-live="polite">
@@ -1285,11 +1336,124 @@
             </p>
             <div id="step1-error" class="step-inline-error" role="alert">
               <i class="fa-solid fa-circle-exclamation"></i>
-              <span data-i18n="err_step1_desc">Please enter at least 10 characters describing the problem.</span>
+              <span data-i18n="err_step1_desc">Please enter at least 10 characters describing your concern.</span>
             </div>
             @error('description')
               <p class="field-error" style="margin-top:0.35rem;">{{ $message }}</p>
             @enderror
+          </div>
+
+          <!-- AI Assistance (Manual Trigger, Advisory Only) -->
+          <div id="ai-assist-section" class="ai-assist-card">
+            <div class="ai-assist-header">
+              <div style="display:flex;align-items:flex-start;gap:0.7rem;min-width:0;flex:1;">
+                <div class="card-section-icon" style="margin-top:0.1rem;" aria-hidden="true">
+                  <i class="fa-solid fa-wand-magic-sparkles"></i>
+                </div>
+                <div style="min-width:0;">
+                  <div style="display:flex;align-items:center;gap:0.45rem;flex-wrap:wrap;">
+                    <strong style="font-size:0.92rem;color:var(--wiz-ink);" data-i18n="ai_assist_title">AI Assistance</strong>
+                    <span class="optional-pill-badge" data-i18n="lbl_optional_pill">Optional</span>
+                  </div>
+                  <p style="margin:0.18rem 0 0;font-size:0.79rem;color:var(--wiz-muted);line-height:1.4;" data-i18n="ai_assist_desc">
+                    Need help understanding or describing your concern? Let AI review your description and suggest a possible classification. You can review or ignore its suggestions.
+                  </p>
+                </div>
+              </div>
+
+              <button type="button" id="btn-analyze-concern" class="ai-assist-btn" onclick="analyzeConcernText()">
+                <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+                <span id="btn-analyze-concern-label" data-i18n="ai_assist_btn">Analyze Concern</span>
+              </button>
+            </div>
+
+            <!-- Inline Validation Error -->
+            <div id="ai-assist-validation-error" class="step-inline-error" role="alert" style="margin-top:0.65rem;">
+              <i class="fa-solid fa-circle-exclamation"></i>
+              <span id="ai-assist-validation-text"></span>
+            </div>
+
+            <!-- Loading State -->
+            <div id="ai-assist-loading" style="display:none;margin-top:0.75rem;padding:0.65rem 0.85rem;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;font-size:0.83rem;color:#1d4ed8;font-weight:600;" aria-live="polite">
+              <i class="fa-solid fa-spinner fa-spin" style="margin-right:0.45rem;" aria-hidden="true"></i>
+              <span data-i18n="ai_assist_loading">Analyzing your concern description...</span>
+            </div>
+
+            <!-- Error / Unavailable State -->
+            <div id="ai-assist-error" class="ai-assist-alert" style="display:none;margin-top:0.75rem;background:#fffbeb;border:1px solid #fde68a;color:#92400e;" role="status" aria-live="polite">
+              <i class="fa-solid fa-circle-info" style="margin-right:0.35rem;" aria-hidden="true"></i>
+              <span id="ai-assist-error-text" data-i18n="ai_assist_unavailable">AI assistance is temporarily unavailable. You can still continue and submit your concern manually.</span>
+            </div>
+
+            <!-- Stale Analysis Warning -->
+            <div id="ai-assist-stale-banner" class="ai-assist-alert" style="display:none;margin-top:0.75rem;background:#fef3c7;border:1px solid #fcd34d;color:#92400e;" role="status">
+              <i class="fa-solid fa-rotate" style="margin-right:0.35rem;" aria-hidden="true"></i>
+              <span data-i18n="ai_assist_stale">Your description or selected category has changed since the last analysis. These earlier suggestions may no longer apply — click Analyze Concern to refresh.</span>
+            </div>
+
+            <!-- AI Results Panel -->
+            <div id="ai-assist-results" class="ai-assist-results" style="display:none;" aria-live="polite">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;flex-wrap:wrap;">
+                <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+                  <span style="font-size:0.78rem;font-weight:700;color:var(--wiz-muted);" data-i18n="ai_lbl_classification">Suggested type:</span>
+                  <span id="ai-assist-class-badge" class="ai-class-badge is-community"></span>
+                </div>
+                <span id="ai-assist-confidence" style="font-size:0.75rem;color:var(--wiz-muted);font-weight:600;"></span>
+              </div>
+
+              <!-- Emergency Indication (Advisory Only) -->
+              <div id="ai-assist-emergency-note" class="ai-assist-alert" style="display:none;background:#fef2f2;border:1px solid #fecaca;border-left:3.5px solid var(--wiz-red);color:#991b1b;">
+                <strong style="display:block;margin-bottom:0.2rem;">
+                  <i class="fa-solid fa-triangle-exclamation" style="margin-right:0.3rem;" aria-hidden="true"></i>
+                  <span data-i18n="ai_emg_title">Possible urgent safety concern</span>
+                </strong>
+                <span data-i18n="ai_emg_body">If anyone is in immediate danger, please call 911 or the barangay emergency hotlines directly. AI cannot dispatch emergency services.</span>
+              </div>
+
+              <!-- Possible Formal Complaint Guidance -->
+              <div id="ai-assist-complaint-note" class="ai-assist-alert" style="display:none;background:#faf5ff;border:1px solid #e9d5ff;color:#581c87;">
+                <p style="margin:0 0 0.4rem;" data-i18n="ai_complaint_body">
+                  This concern may be more appropriate for the formal complaint process. You may review the separate File a Complaint option if you are seeking formal barangay intervention.
+                </p>
+                <a href="{{ route('complaint.create') }}" style="font-weight:700;color:#6b21a8;text-decoration:underline;font-size:0.82rem;" data-i18n="ai_complaint_link">
+                  Review File a Complaint &rarr;
+                </a>
+              </div>
+
+              <!-- Summary (Separate from Resident Description) -->
+              <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;padding:0.65rem 0.85rem;">
+                <div style="font-size:0.75rem;font-weight:700;color:var(--wiz-muted);text-transform:uppercase;letter-spacing:0.03em;margin-bottom:0.2rem;" data-i18n="ai_lbl_summary">
+                  AI Summary (for your review)
+                </div>
+                <p id="ai-assist-summary" style="margin:0;font-size:0.85rem;color:var(--wiz-ink);line-height:1.45;"></p>
+              </div>
+
+              <!-- Suggested Category Review Row -->
+              <div id="ai-assist-category-row" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;flex-wrap:wrap;background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;padding:0.6rem 0.85rem;">
+                <div style="font-size:0.83rem;color:var(--wiz-ink);">
+                  <span style="font-weight:700;color:var(--wiz-muted);font-size:0.78rem;" data-i18n="ai_lbl_category">AI Suggested Category:</span>
+                  <strong id="ai-assist-category-name" style="margin-left:0.25rem;"></strong>
+                  <span id="ai-assist-category-status" style="margin-left:0.35rem;font-size:0.75rem;font-weight:600;color:#059669;"></span>
+                </div>
+                <div id="ai-assist-category-actions" style="display:flex;align-items:center;gap:0.45rem;">
+                  <button type="button" id="btn-accept-ai-category" onclick="acceptAiCategorySuggestion()" style="background:var(--wiz-blue);color:#fff;border:none;border-radius:8px;padding:0.3rem 0.7rem;font-size:0.77rem;font-weight:700;cursor:pointer;" data-i18n="ai_btn_accept_cat">
+                    Accept Suggestion
+                  </button>
+                  <button type="button" id="btn-dismiss-ai-category" onclick="dismissAiCategorySuggestion()" style="background:#f1f5f9;color:var(--wiz-muted);border:1px solid #cbd5e1;border-radius:8px;padding:0.3rem 0.65rem;font-size:0.77rem;font-weight:600;cursor:pointer;" data-i18n="ai_btn_dismiss_cat">
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+
+              <!-- Clarification Questions (Guidance Only) -->
+              <div id="ai-assist-questions-wrap" style="display:none;background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;padding:0.65rem 0.85rem;">
+                <div style="font-size:0.76rem;font-weight:700;color:var(--wiz-ink);margin-bottom:0.3rem;">
+                  <i class="fa-solid fa-circle-question" style="color:var(--wiz-blue);margin-right:0.3rem;" aria-hidden="true"></i>
+                  <span data-i18n="ai_lbl_questions">Helpful details you may want to add (optional):</span>
+                </div>
+                <ul id="ai-assist-questions-list" style="margin:0;padding-left:1.15rem;font-size:0.81rem;color:var(--wiz-muted);line-height:1.5;"></ul>
+              </div>
+            </div>
           </div>
 
           <!-- Danger Right Now Checkbox -->
@@ -1446,44 +1610,53 @@
             </div>
           </div>
 
+          <!-- Photo Upload Section in Step 2 -->
+          <div style="margin-top:1.25rem;">
+            <div class="card-section-heading">
+              <div class="card-section-icon"><i class="fa-solid fa-camera"></i></div>
+              <h2 class="card-section-title" data-i18n="photo_title">Photos</h2>
+              <span class="optional-pill-badge" data-i18n="lbl_optional_pill">Optional</span>
+            </div>
+
+            <!-- Interactive Photo Upload Dropzone -->
+            <div class="field" style="margin-bottom:0.5rem;">
+              <input type="file" id="photos" name="photos[]" accept="image/jpeg,image/png" multiple hidden>
+              <div id="photo-dropzone" class="photo-dropzone" role="button" tabindex="0" aria-label="Add photos">
+                <div class="photo-dropzone-icon">
+                  <i class="fa-solid fa-cloud-arrow-up"></i>
+                </div>
+                <div id="add-photos" style="font-weight:700;font-size:0.92rem;color:var(--wiz-ink);margin-bottom:0.2rem;" data-i18n="photo_dropzone_title">
+                  Click or drag to add photos (optional)
+                </div>
+                <div style="font-size:0.78rem;color:var(--wiz-muted);" data-i18n="photo_dropzone_tip">
+                  Tip: show the problem near a landmark; avoid faces &amp; license plates · Max 5 MB
+                </div>
+              </div>
+
+              <div id="photo-previews" class="photo-preview-grid" aria-live="polite"></div>
+              <p id="photo-empty-state" class="field-hint" style="display:none;">No photos selected yet.</p>
+              <p id="photo-upload-error" class="field-hint" role="alert" style="color:var(--wiz-red);font-weight:700;margin-top:0.4rem;" hidden></p>
+              <p id="photo-total-size" class="field-hint" aria-live="polite" style="font-weight:600;margin-top:0.35rem;font-size:0.8rem;color:var(--wiz-muted);"></p>
+              @error('photos')
+                <p class="field-error">{{ $message }}</p>
+              @enderror
+              @error('photos.*')
+                <p class="field-error">{{ $message }}</p>
+              @enderror
+            </div>
+          </div>
+
           <div id="step2-error" class="step-inline-error" role="alert">
             <i class="fa-solid fa-circle-exclamation"></i>
             <span data-i18n="err_step2_loc">Please drop a map pin, choose a purok, or enter a landmark.</span>
           </div>
         </div>
 
-        <!-- STEP 3: Photo, Updates & Submit -->
+        <!-- STEP 3: Contact & Submit -->
         <div class="wizard-panel" data-wizard-panel="3">
           <div class="card-section-heading">
-            <div class="card-section-icon"><i class="fa-solid fa-camera"></i></div>
-            <h2 class="card-section-title" data-i18n="photo_updates">Photo and updates</h2>
-          </div>
-
-          <!-- Interactive Photo Upload Dropzone -->
-          <div class="field" style="margin-bottom:1rem;">
-            <input type="file" id="photos" name="photos[]" accept="image/jpeg,image/png" multiple hidden>
-            <div id="photo-dropzone" class="photo-dropzone" role="button" tabindex="0" aria-label="Add photos">
-              <div class="photo-dropzone-icon">
-                <i class="fa-solid fa-cloud-arrow-up"></i>
-              </div>
-              <div id="add-photos" style="font-weight:700;font-size:0.92rem;color:var(--wiz-ink);margin-bottom:0.2rem;" data-i18n="photo_dropzone_title">
-                Click or drag to add photos (optional)
-              </div>
-              <div style="font-size:0.78rem;color:var(--wiz-muted);" data-i18n="photo_dropzone_tip">
-                Tip: show the problem near a landmark; avoid faces &amp; license plates · Max 5 MB
-              </div>
-            </div>
-
-            <div id="photo-previews" class="photo-preview-grid" aria-live="polite"></div>
-            <p id="photo-empty-state" class="field-hint" style="display:none;">No photos selected yet.</p>
-            <p id="photo-upload-error" class="field-hint" role="alert" style="color:var(--wiz-red);font-weight:700;margin-top:0.4rem;" hidden></p>
-            <p id="photo-total-size" class="field-hint" aria-live="polite" style="font-weight:600;margin-top:0.35rem;font-size:0.8rem;color:var(--wiz-muted);"></p>
-            @error('photos')
-              <p class="field-error">{{ $message }}</p>
-            @enderror
-            @error('photos.*')
-              <p class="field-error">{{ $message }}</p>
-            @enderror
+            <div class="card-section-icon"><i class="fa-solid fa-user-shield"></i></div>
+            <h2 class="card-section-title" data-i18n="contact_heading">Contact &amp; Submit</h2>
           </div>
 
           <!-- Updates & Anonymity Collapsible -->
@@ -1572,7 +1745,7 @@
         <!-- Step 1 Footer -->
         <a href="{{ route('home') }}" class="wizard-btn-outline" id="btn-cancel-1" data-step-footer="1" data-i18n="btn_cancel">Cancel</a>
         <button type="button" class="wizard-btn-primary" id="btn-next-1" data-step-footer="1" onclick="nextFromStep1()">
-          <span data-i18n="btn_next_loc">Next: Location</span>
+          <span data-i18n="btn_next_loc">Next: Location &amp; Photo</span>
           <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
         </button>
 
@@ -1582,7 +1755,7 @@
           <span data-i18n="btn_back">Back</span>
         </button>
         <button type="button" class="wizard-btn-primary" id="btn-next-2" data-step-footer="2" onclick="nextFromStep2()" style="display:none;">
-          <span data-i18n="btn_next_submit">Next: Photo &amp; Submit</span>
+          <span data-i18n="btn_next_submit">Next: Contact &amp; Submit</span>
           <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
         </button>
 
@@ -1683,9 +1856,9 @@
   <script>
     const i18n = {
       en: {
-        hero_title: "Report a problem in Barangay Calarian",
+        hero_title: "Report a concern in Barangay Calarian",
         hero_desc: "Send a report with category details, photo, and location. Barangay staff will review it, route it to the proper office, and keep you updated with a tracking code.",
-        hero_btn_report: "Report a problem",
+        hero_btn_report: "Report a concern",
         hero_btn_track: "Return",
         emg_strip: "Emergency? Call 911",
         emg_btn: "Emergency / Crime",
@@ -1696,11 +1869,14 @@
         emg_back_btn: "Return to report",
         emg_inline: "Emergency contacts",
         dispute_prompt: "Is this a dispute with a specific person?",
+        dispute_prompt_pill: "Neighbor dispute? File a Dispute Complaint instead →",
         dispute_link: "File a Dispute Complaint →",
         wiz_step_1: "Issue Details",
-        wiz_step_2: "Location",
-        wiz_step_3: "Photo & Submit",
+        wiz_step_2: "Location & Photo",
+        wiz_step_3: "Contact & Submit",
         btn_quick_locate: "Use GPS",
+        voice_title: "Prefer to speak? Quick Report by Voice",
+        voice_desc: "AI transcribes English, Filipino, Bisaya, or Chavacano to prefill fields.",
         voice_btn_trigger: "Record / Try Demo",
         voice_btn_edit: "Review / Re-record",
         voice_saved_badge: "Recording saved",
@@ -1708,11 +1884,13 @@
         voice_save_btn: "Save & Use Recording",
         btn_close: "Close",
         where_is_it: "Where is it?",
+        photo_title: "Photos",
         photo_updates: "Photo and updates",
+        contact_heading: "Contact & Submit",
         choose_category: "Choose a category",
         lbl_optional: "(optional)",
         lbl_optional_pill: "Optional",
-        lbl_description: "What is the problem?",
+        lbl_description: "What is your concern?",
         lbl_explain_more: "Explain more",
         placeholder_explain_more: "Add any other details that can help the staff.",
         hint_description: "English, Filipino, Bisaya, or Chavacano",
@@ -1749,9 +1927,9 @@
         btn_submit_final: "Submit report",
         btn_cancel: "Cancel",
         btn_back: "Back",
-        btn_next_loc: "Next: Location",
-        btn_next_submit: "Next: Photo & Submit",
-        err_step1_desc: "Please enter at least 10 characters describing the problem.",
+        btn_next_loc: "Next: Location & Photo",
+        btn_next_submit: "Next: Contact & Submit",
+        err_step1_desc: "Please enter at least 10 characters describing your concern.",
         err_step2_loc: "Please drop a map pin, choose a purok, or enter a landmark.",
         consent_agree: "I agree to the",
         consent_certify: "I hereby certify that the information provided is true and correct to the best of my knowledge. In accordance with the",
@@ -1759,12 +1937,39 @@
         privacy_link: "Data Privacy Notice",
         anon_notice_text: "Anonymous reports will not receive status updates via SMS or email. You will need to check the website using your tracking code.",
         desc_char_min: "min",
-        desc_char_reached: "reached"
+        desc_char_reached: "reached",
+        ai_assist_title: "AI Assistance",
+        ai_assist_desc: "Need help understanding or describing your concern? Let AI review your description and suggest a possible classification. You can review or ignore its suggestions.",
+        ai_assist_btn: "Analyze Concern",
+        ai_assist_loading: "Analyzing your concern description...",
+        ai_assist_unavailable: "AI assistance is temporarily unavailable. You can still continue and submit your concern manually.",
+        ai_assist_rate_limit: "Too many analysis requests. Please wait a moment or continue submitting your concern manually.",
+        ai_assist_stale: "Your description has changed since the last analysis. These earlier suggestions may no longer apply — click Analyze Concern to refresh.",
+        ai_assist_max_len: "Your concern description cannot exceed 2000 characters.",
+        ai_lbl_classification: "Suggested type:",
+        ai_lbl_summary: "AI Summary (for your review)",
+        ai_lbl_category: "AI Suggested Category:",
+        ai_lbl_questions: "Helpful details you may want to add (optional):",
+        ai_btn_accept_cat: "Accept Suggestion",
+        ai_btn_dismiss_cat: "Dismiss",
+        ai_cat_none: "No specific category suggested — you may choose one above or leave it unselected.",
+        ai_cat_accepted: "Accepted",
+        ai_cat_dismissed: "Dismissed",
+        ai_emg_title: "Possible urgent safety concern",
+        ai_emg_body: "If anyone is in immediate danger, please call 911 or the barangay emergency hotlines directly. AI cannot dispatch emergency services.",
+        ai_complaint_body: "This concern may be more appropriate for the formal complaint process. You may review the separate File a Complaint option if you are seeking formal barangay intervention.",
+        ai_complaint_link: "Review File a Complaint →",
+        ai_class_community_problem: "Community Concern",
+        ai_class_incident: "Incident",
+        ai_class_possible_formal_complaint: "May Require a Formal Complaint",
+        ai_class_uncertain: "Needs More Information",
+        ai_confidence_prefix: "AI Confidence:",
+        ai_confidence_suffix: "(advisory only)"
       },
       fil: {
-        hero_title: "Mag-ulat ng problema sa Barangay Calarian",
+        hero_title: "Mag-ulat ng concern sa Barangay Calarian",
         hero_desc: "Magsumite ng ulat na may kategorya, larawan, at lokasyon. Susuriin ito ng mga kawani ng barangay, ipapadala sa tamang tanggapan, at bibigyan ka ng tracking code.",
-        hero_btn_report: "Mag-ulat ng problema",
+        hero_btn_report: "Mag-ulat ng concern",
         hero_btn_track: "Bumalik",
         emg_strip: "Emergency? Tumawag sa 911",
         emg_btn: "Emergency / Krimen",
@@ -1775,11 +1980,14 @@
         emg_back_btn: "Bumalik sa ulat",
         emg_inline: "Mga emergency contact",
         dispute_prompt: "Alitan sa isang partikular na tao?",
+        dispute_prompt_pill: "Alitan sa kapitbahay? Mag-file ng Dispute Complaint →",
         dispute_link: "Mag-file ng Dispute Complaint →",
         wiz_step_1: "Detalye",
-        wiz_step_2: "Lokasyon",
-        wiz_step_3: "Larawan at Isumite",
+        wiz_step_2: "Lokasyon at Larawan",
+        wiz_step_3: "Impormasyon at Isumite",
         btn_quick_locate: "Gamitin ang GPS",
+        voice_title: "Mas gustong magsalita? Mabilis na Ulat Gamit ang Boses",
+        voice_desc: "Isinasalin ng AI ang English, Filipino, Bisaya, o Chavacano upang punan ang mga patlang.",
         voice_btn_trigger: "Mag-record / Subukan",
         voice_btn_edit: "Suriin / Mag-record Muli",
         voice_saved_badge: "Nai-save ang recording",
@@ -1787,11 +1995,13 @@
         voice_save_btn: "I-save at Gamitin",
         btn_close: "Isara",
         where_is_it: "Saan ito?",
+        photo_title: "Mga Larawan",
         photo_updates: "Larawan at updates",
+        contact_heading: "Impormasyon at Isumite",
         choose_category: "Pumili ng kategorya",
         lbl_optional: "(opsyonal)",
         lbl_optional_pill: "Opsyonal",
-        lbl_description: "Ano ang problema?",
+        lbl_description: "Ano ang iyong concern?",
         lbl_explain_more: "Ipaliwanag pa",
         placeholder_explain_more: "Magdagdag ng iba pang detalye na makakatulong sa kawani.",
         hint_description: "English, Filipino, Bisaya, o Chavacano",
@@ -1828,9 +2038,9 @@
         btn_submit_final: "Isumite ang ulat",
         btn_cancel: "Kanselahin",
         btn_back: "Bumalik",
-        btn_next_loc: "Susunod: Lokasyon",
-        btn_next_submit: "Susunod: Larawan at Isumite",
-        err_step1_desc: "Mangyaring maglagay ng hindi bababa sa 10 titik na naglalarawan sa problema.",
+        btn_next_loc: "Susunod: Lokasyon at Larawan",
+        btn_next_submit: "Susunod: Impormasyon at Isumite",
+        err_step1_desc: "Mangyaring maglagay ng hindi bababa sa 10 titik na naglalarawan sa iyong concern.",
         err_step2_loc: "Mangyaring mag-pin sa mapa, pumili ng purok, o maglagay ng landmark.",
         consent_agree: "Sumasang-ayon ako sa",
         consent_certify: "Pinatutunayan ko na ang impormasyong ibinigay ay totoo at tama sa abot ng aking kaalaman. Alinsunod sa",
@@ -1838,7 +2048,34 @@
         privacy_link: "Paunawa sa Data Privacy",
         anon_notice_text: "Ang mga di-nagpapakilalang ulat ay hindi makakatanggap ng updates sa SMS o email. Kakailanganin mong suriin ang website gamit ang tracking code.",
         desc_char_min: "pinakamababa",
-        desc_char_reached: "naabot na"
+        desc_char_reached: "naabot na",
+        ai_assist_title: "Tulong ng AI",
+        ai_assist_desc: "Kailangan ng tulong sa pag-unawa o paglalarawan ng iyong concern? Hayaang suriin ng AI ang iyong paglalarawan upang magmungkahi ng posibleng klasipikasyon. Maaari mong suriin o balewalain ang mga mungkahi.",
+        ai_assist_btn: "Suriin ang Concern",
+        ai_assist_loading: "Sinusuri ang iyong paglalarawan...",
+        ai_assist_unavailable: "Pansamantalang hindi magagamit ang tulong ng AI. Maaari ka pa ring magpatuloy at magsumite nang manu-mano.",
+        ai_assist_rate_limit: "Masyadong maraming kahilingan. Maghintay sandali o magpatuloy sa manu-manong pagsusumite.",
+        ai_assist_stale: "Nagbago ang iyong paglalarawan mula nang huling suriin. Maaaring hindi na tugma ang mga naunang mungkahi — pindutin ang Suriin ang Concern upang i-refresh.",
+        ai_assist_max_len: "Hindi maaaring lumagpas sa 2000 titik ang paglalarawan.",
+        ai_lbl_classification: "Iminungkahing uri:",
+        ai_lbl_summary: "Buod ng AI (para sa iyong pagsusuri)",
+        ai_lbl_category: "Iminungkahing Kategorya ng AI:",
+        ai_lbl_questions: "Mga detalyeng maaaring makatulong (opsyonal):",
+        ai_btn_accept_cat: "Tanggapin",
+        ai_btn_dismiss_cat: "Balewalain",
+        ai_cat_none: "Walang tiyak na kategoryang iminungkahi — maaari kang pumili sa itaas o iwanang walang nakapili.",
+        ai_cat_accepted: "Tinanggap",
+        ai_cat_dismissed: "Binalewala",
+        ai_emg_title: "Posibleng agarang panganib sa kaligtasan",
+        ai_emg_body: "Kung may nasa agarang panganib, tumawag agad sa 911 o sa mga emergency hotline ng barangay. Hindi makapagpapadala ng serbisyong pang-emergency ang AI.",
+        ai_complaint_body: "Ang concern na ito ay maaaring mas angkop sa pormal na proseso ng reklamo. Maaari mong tingnan ang hiwalay na opsyon na File a Complaint kung nais ng pormal na aksyon ng barangay.",
+        ai_complaint_link: "Tingnan ang File a Complaint →",
+        ai_class_community_problem: "Suliranin sa Komunidad",
+        ai_class_incident: "Insidente",
+        ai_class_possible_formal_complaint: "Maaaring Nangangailangan ng Pormal na Reklamo",
+        ai_class_uncertain: "Kailangan ng Karagdagang Impormasyon",
+        ai_confidence_prefix: "Kumpiyansa ng AI:",
+        ai_confidence_suffix: "(gabay lamang)"
       }
     };
 
@@ -2041,6 +2278,7 @@
       updateDescriptionLabel();
       updateCharCounter();
       updateLocationStatusPill();
+      if (typeof renderAiAnalysisResult === 'function' && aiLastResultData) renderAiAnalysisResult();
     }
 
     function toggleDanger(checked) {
@@ -3119,5 +3357,280 @@
         }
       });
     }
-  </script>
-@endsection
+
+    // --- Step 1 Pre-Submission AI Assistance (Manual Trigger Only) ---
+    let aiAnalysisInFlight = false;
+    let aiAnalysisRequestSeq = 0;
+    let aiLastAnalyzedDescription = '';
+    let aiLastResultData = null;
+    let aiIsStale = false;
+    let aiCategoryDecision = null; // null | 'accepted' | 'dismissed'
+
+    function getAiDict() {
+      return i18n[currentLang] || i18n.en;
+    }
+
+    function setAiButtonLoading(isLoading) {
+      const btn = document.getElementById('btn-analyze-concern');
+      const loadingEl = document.getElementById('ai-assist-loading');
+      if (btn) btn.disabled = isLoading;
+      if (loadingEl) loadingEl.style.display = isLoading ? 'block' : 'none';
+    }
+
+    function hideAiStatusBanners() {
+      const valErr = document.getElementById('ai-assist-validation-error');
+      const errEl = document.getElementById('ai-assist-error');
+      const staleEl = document.getElementById('ai-assist-stale-banner');
+      if (valErr) valErr.classList.remove('is-visible');
+      if (errEl) errEl.style.display = 'none';
+      if (staleEl) staleEl.style.display = 'none';
+    }
+
+    function renderAiAnalysisResult() {
+      const resultsEl = document.getElementById('ai-assist-results');
+      if (!resultsEl || !aiLastResultData) return;
+
+      const dict = getAiDict();
+      const data = aiLastResultData;
+
+      // 1. Classification badge (never expose raw enum values)
+      const badgeEl = document.getElementById('ai-assist-class-badge');
+      const classMap = {
+        community_problem: { label: dict.ai_class_community_problem || 'Community Concern', cls: 'is-community' },
+        incident: { label: dict.ai_class_incident || 'Incident', cls: 'is-incident' },
+        possible_formal_complaint: { label: dict.ai_class_possible_formal_complaint || 'May Require a Formal Complaint', cls: 'is-complaint' },
+        uncertain: { label: dict.ai_class_uncertain || 'Needs More Information', cls: 'is-uncertain' }
+      };
+      const mapped = classMap[data.classification] || classMap.uncertain;
+      if (badgeEl) {
+        badgeEl.className = 'ai-class-badge ' + mapped.cls;
+        badgeEl.textContent = mapped.label;
+      }
+
+      // 2. Confidence indicator (advisory only)
+      const confEl = document.getElementById('ai-assist-confidence');
+      if (confEl) {
+        if (typeof data.confidence === 'number' && !Number.isNaN(data.confidence) && data.confidence >= 0 && data.confidence <= 1) {
+          const pct = Math.round(data.confidence * 100);
+          confEl.textContent = `${dict.ai_confidence_prefix || 'AI Confidence:'} ${pct}% ${dict.ai_confidence_suffix || '(advisory only)'}`;
+          confEl.style.display = 'inline';
+        } else {
+          confEl.textContent = '';
+          confEl.style.display = 'none';
+        }
+      }
+
+      // 3. Emergency indication
+      const emgEl = document.getElementById('ai-assist-emergency-note');
+      if (emgEl) emgEl.style.display = data.is_emergency === true ? 'block' : 'none';
+
+      // 4. Possible formal complaint guidance (non-blocking, no auto-redirect)
+      const complaintEl = document.getElementById('ai-assist-complaint-note');
+      if (complaintEl) complaintEl.style.display = data.classification === 'possible_formal_complaint' ? 'block' : 'none';
+
+      // 5. Summary (separate from resident description)
+      const summaryEl = document.getElementById('ai-assist-summary');
+      if (summaryEl) summaryEl.textContent = typeof data.summary === 'string' ? data.summary : '';
+
+      // 6. Suggested category review
+      const catNameEl = document.getElementById('ai-assist-category-name');
+      const catStatusEl = document.getElementById('ai-assist-category-status');
+      const catActionsEl = document.getElementById('ai-assist-category-actions');
+      const acceptBtn = document.getElementById('btn-accept-ai-category');
+
+      if (data.suggested_category && data.suggested_category.id && data.suggested_category.name) {
+        if (catNameEl) {
+          catNameEl.textContent = data.suggested_category.name;
+          catNameEl.style.color = 'var(--wiz-ink)';
+        }
+        if (aiCategoryDecision === 'accepted') {
+          if (catStatusEl) {
+            catStatusEl.textContent = `(${dict.ai_cat_accepted || 'Accepted'})`;
+            catStatusEl.style.color = '#059669';
+          }
+          if (catActionsEl) catActionsEl.style.display = 'none';
+        } else if (aiCategoryDecision === 'dismissed') {
+          if (catStatusEl) {
+            catStatusEl.textContent = `(${dict.ai_cat_dismissed || 'Dismissed'})`;
+            catStatusEl.style.color = 'var(--wiz-muted)';
+          }
+          if (catActionsEl) catActionsEl.style.display = 'none';
+        } else {
+          if (catStatusEl) catStatusEl.textContent = '';
+          if (catActionsEl) catActionsEl.style.display = aiIsStale ? 'none' : 'flex';
+          if (acceptBtn) acceptBtn.disabled = aiIsStale;
+        }
+      } else {
+        if (catNameEl) {
+          catNameEl.textContent = dict.ai_cat_none || 'No specific category suggested — you may choose one above or leave it unselected.';
+          catNameEl.style.color = 'var(--wiz-muted)';
+          catNameEl.style.fontWeight = '500';
+        }
+        if (catStatusEl) catStatusEl.textContent = '';
+        if (catActionsEl) catActionsEl.style.display = 'none';
+      }
+
+      // 7. Clarification questions (optional guidance)
+      const qWrap = document.getElementById('ai-assist-questions-wrap');
+      const qList = document.getElementById('ai-assist-questions-list');
+      if (qWrap && qList) {
+        qList.innerHTML = '';
+        const questions = Array.isArray(data.clarification_questions)
+          ? data.clarification_questions.filter(q => typeof q === 'string' && q.trim() !== '')
+          : [];
+        if (questions.length > 0) {
+          questions.forEach(q => {
+            const li = document.createElement('li');
+            li.textContent = q;
+            qList.appendChild(li);
+          });
+          qWrap.style.display = 'block';
+        } else {
+          qWrap.style.display = 'none';
+        }
+      }
+
+      // Stale banner state
+      const staleEl = document.getElementById('ai-assist-stale-banner');
+      if (staleEl) staleEl.style.display = aiIsStale ? 'block' : 'none';
+
+      resultsEl.style.display = 'flex';
+    }
+
+    async function analyzeConcernText() {
+      if (aiAnalysisInFlight) return;
+
+      const descEl = document.getElementById('description');
+      const valErr = document.getElementById('ai-assist-validation-error');
+      const valText = document.getElementById('ai-assist-validation-text');
+      const dict = getAiDict();
+      const descVal = descEl ? descEl.value.trim() : '';
+
+      hideAiStatusBanners();
+
+      if (descVal.length < 10) {
+        if (valText) valText.textContent = dict.err_step1_desc || 'Please enter at least 10 characters describing your concern.';
+        if (valErr) valErr.classList.add('is-visible');
+        if (descEl) {
+          descEl.focus();
+          triggerShake(descEl);
+        }
+        return;
+      }
+
+      if (descVal.length > 2000) {
+        if (valText) valText.textContent = dict.ai_assist_max_len || 'Your concern description cannot exceed 2000 characters.';
+        if (valErr) valErr.classList.add('is-visible');
+        if (descEl) descEl.focus();
+        return;
+      }
+
+      const catValRaw = document.getElementById('category_id_input')?.value || '';
+      const catId = /^\d+$/.test(catValRaw) ? parseInt(catValRaw, 10) : null;
+      const payload = { description: descVal };
+      if (catId !== null) payload.category_id = catId;
+
+      const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+      const requestSeq = ++aiAnalysisRequestSeq;
+
+      aiAnalysisInFlight = true;
+      setAiButtonLoading(true);
+
+      try {
+        const res = await fetch('{{ route('reports.analyze-concern') }}', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': csrfToken
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (requestSeq !== aiAnalysisRequestSeq) return;
+
+        let json = null;
+        try {
+          json = await res.json();
+        } catch (parseErr) {
+          json = null;
+        }
+
+        if (res.status === 422 && json && json.errors && json.errors.description && json.errors.description[0]) {
+          if (valText) valText.textContent = json.errors.description[0];
+          if (valErr) valErr.classList.add('is-visible');
+          return;
+        }
+
+        const errEl = document.getElementById('ai-assist-error');
+        const errText = document.getElementById('ai-assist-error-text');
+
+        if (res.status === 429) {
+          if (errText) errText.textContent = dict.ai_assist_rate_limit || 'Too many analysis requests. Please wait a moment or continue submitting your concern manually.';
+          if (errEl) errEl.style.display = 'block';
+          return;
+        }
+
+        if (!res.ok || !json || json.success !== true || !json.data || typeof json.data !== 'object') {
+          if (errText) errText.textContent = dict.ai_assist_unavailable || 'AI assistance is temporarily unavailable. You can still continue and submit your concern manually.';
+          if (errEl) errEl.style.display = 'block';
+          return;
+        }
+
+        aiLastAnalyzedDescription = descVal;
+        aiLastResultData = json.data;
+        aiCategoryDecision = null;
+
+        const currentDesc = (document.getElementById('description')?.value || '').trim();
+        aiIsStale = currentDesc !== aiLastAnalyzedDescription;
+
+        renderAiAnalysisResult();
+      } catch (networkErr) {
+        if (requestSeq !== aiAnalysisRequestSeq) return;
+        const errEl = document.getElementById('ai-assist-error');
+        const errText = document.getElementById('ai-assist-error-text');
+        if (errText) errText.textContent = dict.ai_assist_unavailable || 'AI assistance is temporarily unavailable. You can still continue and submit your concern manually.';
+        if (errEl) errEl.style.display = 'block';
+      } finally {
+        if (requestSeq === aiAnalysisRequestSeq) {
+          aiAnalysisInFlight = false;
+          setAiButtonLoading(false);
+        }
+      }
+    }
+
+    function acceptAiCategorySuggestion() {
+      if (aiIsStale || !aiLastResultData || !aiLastResultData.suggested_category || !aiLastResultData.suggested_category.id) {
+        return;
+      }
+      const targetId = parseInt(aiLastResultData.suggested_category.id, 10);
+      if (Number.isNaN(targetId)) return;
+
+      const currentId = document.getElementById('category_id_input')?.value || '';
+      if (String(currentId) !== String(targetId)) {
+        selectCategory(targetId);
+      }
+      aiCategoryDecision = 'accepted';
+      renderAiAnalysisResult();
+    }
+
+    function dismissAiCategorySuggestion() {
+      if (!aiLastResultData) return;
+      aiCategoryDecision = 'dismissed';
+      renderAiAnalysisResult();
+    }
+
+    // Mark AI results as stale if resident edits description after analysis
+    const aiDescInput = document.getElementById('description');
+    if (aiDescInput) {
+      aiDescInput.addEventListener('input', () => {
+        if (!aiLastResultData) return;
+        const current = aiDescInput.value.trim();
+        const nextStale = current !== aiLastAnalyzedDescription;
+        if (nextStale !== aiIsStale) {
+          aiIsStale = nextStale;
+          renderAiAnalysisResult();
+        }
+      });
+    }
+  <

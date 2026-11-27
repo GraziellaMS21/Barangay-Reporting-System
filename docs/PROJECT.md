@@ -58,7 +58,7 @@ The application is structured into **two distinct operational modules joined by 
 ```
 +---------------------------------------------------------------------------------------------------+
 |                                  Resident / Public Interface                                      |
-|  [Emergency / 911]  |  [Community Problem Form]  |  [Dispute Complaint Intake]  |  [Track / Map]  |
+|  [Emergency / 911]  |  [Report a Concern Form]   |  [File a Complaint Intake]   |  [Track / Map]  |
 +---------------------------------------------------------------------------------------------------+
                                             │
                                             ▼
@@ -79,11 +79,14 @@ The application is structured into **two distinct operational modules joined by 
 +---------------------------------------------------------------------------------------------------+
 ```
 
-### 2.1 Module 1: Community Problem Reporting (Report Queue)
-- **Covers**: Physical civic concerns, public infrastructure, streetlights, clogged drainage, uncollected garbage, road potholes, stray animals, and flooding.
+### 2.1 Module 1: Community Concern Reporting (Report Queue)
+- **Covers**: Both community problems (public infrastructure, streetlights, clogged drainage, uncollected garbage, road potholes, stray animals, flooding) and localized incidents. Residents submit through a single **Report a Concern** entry point and do not need to determine the official classification beforehand.
 - **Lifecycle**: Governed by the canonical **12-status incident lifecycle** `[IMPLEMENTED]`.
 - **User Access**: Open to public residents (guest, anonymous, or registered) without login `[IMPLEMENTED]`.
-- **AI Integration**: Multi-modal Gemini AI extracts suggested category, urgency, executive summary, photo description, photo mismatch alert, and emergency keywords `[IMPLEMENTED]`.
+- **AI Integration**:
+  - *Post-Submission Triage (`ProcessNewReport`)*: Multi-modal Gemini AI extracts suggested category, urgency, executive summary, photo description, photo mismatch alert, and emergency keywords asynchronously after report submission `[IMPLEMENTED]`.
+  - *Pre-Submission Concern Analysis (`POST /report/analyze-concern`)*: Manual, advisory Step 1 AI assistance providing classification (`community_problem`, `incident`, `possible_formal_complaint`, `uncertain`), summary, optional clarification questions, and explicit category suggestion acceptance `[IMPLEMENTED — TR2.2 & TR2.3]`.
+  - *Voice Intake (`POST /report/voice/analyze`)*: Synchronous audio transcription and field prefill `[IMPLEMENTED]`.
 
 ### 2.2 Module 2: Katarungang Pambarangay Case Management (Cases Docket)
 - **Covers**: Interpersonal civil disputes, neighborhood altercations, minor offenses, and landlord-tenant disagreements governed by statutory Katarungang Pambarangay rules (RA 7160).

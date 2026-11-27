@@ -1012,6 +1012,15 @@ class ReportController extends Controller
             : 'AI remains unavailable. You can continue manual review.');
     }
 
+    public function cancelAiAnalysis(Report $report): RedirectResponse
+    {
+        if (in_array($report->ai_status, ['pending', 'processing'], true)) {
+            $report->forceFill(['ai_status' => 'failed'])->save();
+        }
+
+        return back()->with('success', 'AI analysis stopped. You can continue manual review.');
+    }
+
     public function updateStatus(
         Request $request,
         Report $report,

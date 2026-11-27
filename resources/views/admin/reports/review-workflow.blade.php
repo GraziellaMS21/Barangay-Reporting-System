@@ -28,15 +28,9 @@
   $residentDescription = $report->description;
   $answers = is_array($report->answers) ? $report->answers : [];
   $questionSchema = $residentCategory?->question_schema ?? [];
-  $finalCategoryId = old('category_id', $alreadyReviewed
-      ? $report->category_id
-      : ($aiReady && $aiCategoryId ? $aiCategoryId : $report->category_id));
-  $finalUrgency = old('urgency', $alreadyReviewed
-      ? $report->urgency
-      : ($aiReady && $aiUrgencyPresent ? $aiUrgency : $report->urgency));
-  $finalDescription = old('staff_description', $alreadyReviewed
-      ? ($report->staff_description ?? $report->description)
-      : ($aiReady && $aiDescriptionPresent ? $aiDescription : ($report->staff_description ?? $report->description)));
+  $finalCategoryId = old('category_id', $report->category_id);
+  $finalUrgency = old('urgency', $report->urgency);
+  $finalDescription = old('staff_description', $report->staff_description ?? $report->description);
   $finalPurokId = old('purok_id', $report->purok_id);
   $finalLandmark = old('landmark', $report->landmark);
   $categoryFinalState = $alreadyReviewed
@@ -48,6 +42,8 @@
   $descriptionFinalState = $alreadyReviewed
       ? ($aiDescriptionPresent && $report->staff_description === $aiDescription ? 'Accepted' : ($aiReady ? 'Edited' : 'Resident'))
       : ($aiDescriptionPresent ? 'AI suggested' : 'Resident');
+  $aiConfigured = filled(config('services.gemini.key'));
+  $aiFailed = $report->ai_status === 'failed';
   $categoryReviewRequired = true;
   $urgencyReviewRequired = true;
   $descriptionReviewRequired = true;
@@ -62,9 +58,6 @@
   $selectedInternalOffice = $offices->firstWhere('id', (int) $candidateOfficeDefault);
   $officeDefault = old('office_id', $selectedInternalOffice ? $selectedInternalOffice->id : '');
   $assignedDefault = old('assigned_to', $report->assigned_to ?? $selectedInternalOffice?->default_assignee_id ?? '');
-  // The Message to the resident starts empty; guidance lives in the placeholder
-  // so response templates never push stub text like "Template: needs more info"
-  // into an outgoing message.
   $defaultMessage = old('review_note', '');
   $isOverdue = $report->due_at !== null
       && $report->due_at->isPast()
@@ -99,119 +92,225 @@
   ], true);
   $isRouteable = in_array($report->status, ['submitted', 'under_review', 'reopened'], true)
       && ! $emergencyActionOnly;
-  $statusStep = match ($report->status) {
-      'submitted', 'under_review', 'reopened' => 0,
-      'routed' => 1,
-      'in_progress' => 2,
-      'needs_info' => (($report->statusLogs->where('to_status', 'needs_info')->last()?->from_status) === 'in_progress' ? 2 : 1),
-      'awaiting_confirmation', 'resolved', 'referred', 'merged', 'no_action' => 3,
-      default => 0,
-  };
+  $defaultWorkspaceStep = in_array($report->status, ['routed', 'in_progress', 'referred', 'awaiting_confirmation', 'resolved', 'reopened', 'merged', 'no_action'], true)
+      && ! $errors->has('category_id')
+      && ! $errors->has('urgency')
+      && ! $errors->has('staff_description')
+      ? 3
+      : 1;
   $isCompleted = in_array($report->status, ['resolved', 'no_action'], true);
-  $oneLineSummary = \Illuminate\Support\Str::limit($report->description, 110);
   $priorityLabel = $report->urgency ?: 'not set';
   $googleMapsUrl = $report->lat !== null && $report->lng !== null
       ? 'https://www.google.com/maps/search/?api=1&query='.$report->lat.','.$report->lng
       : null;
+  $isVoiceOrPhone = $report->source === \App\Models\Report::SOURCE_VOICE || $report->source === \App\Models\Report::SOURCE_PHONE_LOG || $report->audio;
+  $hasInfoRequests = $report->infoRequests->isNotEmpty();
+  $hasResidentReply = $report->infoRequests->whereNotNull('responded_at')->isNotEmpty();
+  $unreadReplies = $infoThreadSummary['unread'] ?? 0;
+  $canOpenInfoChat = $hasInfoRequests || in_array($report->status, ['submitted', 'under_review', 'reopened', 'routed', 'in_progress', 'needs_info'], true);
+  $canTakeNoAction = app(\App\Services\ReportStatusService::class)->canTransition($report->status, \App\Support\ReportStatus::NO_ACTION);
 @endphp
 
-<div class="review-workflow" data-review-workflow
+<style>
+  .rw-fade-in {
+    animation: rwFadeSlideIn 0.22s ease-out;
+  }
+  @keyframes rwFadeSlideIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes rwShakeX {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+  }
+  .rw-shake {
+    animation: rwShakeX 0.25s ease-in-out 2;
+  }
+  .rw-clamp {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .rw-clamp.is-expanded {
+    display: block;
+    -webkit-line-clamp: unset;
+  }
+  .review-activity-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    max-height: 420px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .rw-fade-in, .rw-shake { animation: none !important; }
+  }
+</style>
+
+<div class="review-workflow space-y-4" data-review-workflow
      data-is-after-route="{{ $isAfterRoute ? 'true' : 'false' }}"
      data-has-unverified-audio="{{ $report->hasUnverifiedAudio() ? 'true' : 'false' }}"
      data-ai-state="{{ $aiReady ? 'ready' : ($aiPending ? 'pending' : 'unavailable') }}"
      data-ai-poll-url="{{ route('admin.reports.review-ai', $report) }}"
      data-confidence-high="{{ $highConfidenceThreshold }}"
-     data-confidence-low="{{ $lowConfidenceThreshold }}">
-  <a href="{{ route('admin.reports.index') }}" class="review-back-link">
-    <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
-    Back to report queue
-  </a>
+     data-confidence-low="{{ $lowConfidenceThreshold }}"
+     data-default-step="{{ $defaultWorkspaceStep }}">
 
   @if(session('success'))
-    <div role="status" class="review-flash review-flash-success">{{ session('success') }}</div>
+    <div role="status" class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs font-semibold text-emerald-900">{{ session('success') }}</div>
   @endif
   @if(session('error'))
-    <div role="alert" class="review-flash review-flash-error">{{ session('error') }}</div>
+    <div role="alert" class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-xs font-semibold text-rose-900">{{ session('error') }}</div>
   @endif
   @if($errors->any())
-    <div role="alert" class="review-flash review-flash-error">{{ $errors->first() }}</div>
+    <div role="alert" class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-xs font-semibold text-rose-900">{{ $errors->first() }}</div>
   @endif
 
-  <header class="review-page-header">
-    <div class="review-page-title">
-      <h1>{{ $report->tracking_code }}</h1>
-      <x-status-badge :status="$report->status" />
-      @if($report->source === \App\Models\Report::SOURCE_VOICE)
-        <span class="review-badge review-badge-blue" title="Voice report">
-          <i class="fa-solid fa-microphone" aria-hidden="true"></i> Voice report
-        </span>
-      @elseif($report->source === \App\Models\Report::SOURCE_PHONE_LOG)
-        <span class="review-badge" style="background:#ccfbf1;color:#0f766e;border-color:#99f6e4;" title="Phone hotline report">
-          <i class="fa-solid fa-phone" aria-hidden="true"></i> Phone intake
-        </span>
-      @endif
-      @if($isOverdue)
-        <span class="review-badge review-badge-red" title="SLA due {{ $report->due_at->format('M d, Y h:i A') }}">
-          <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Overdue
-        </span>
-      @endif
-      @if($report->escalated_at)
-        <span class="review-badge review-badge-red">
-          <i class="fa-solid fa-fire" aria-hidden="true"></i> Escalated
-        </span>
-      @endif
+  {{-- 1A. Sticky Report Sub-Header --}}
+  <header class="bg-white/95 backdrop-blur border border-slate-200 rounded-2xl px-4 sm:px-5 py-3 shadow-xs">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div class="min-w-0">
+        <div class="flex flex-wrap items-center gap-2">
+          <a href="{{ route('admin.reports.index') }}" class="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 transition">
+            <i class="fa-solid fa-arrow-left text-[11px]" aria-hidden="true"></i>
+            <span>Back to report queue</span>
+          </a>
+          <span class="text-slate-300">|</span>
+          <h1 class="font-mono text-base sm:text-lg font-extrabold text-slate-900 tracking-tight m-0">{{ $report->tracking_code }}</h1>
+          <x-status-badge :status="$report->status" />
+          @if($report->is_emergency)
+            <span class="inline-flex items-center gap-1 rounded-full bg-rose-100 text-rose-800 border border-rose-200 px-2.5 py-0.5 text-[11px] font-bold">
+              <i class="fa-solid fa-triangle-exclamation text-[10px]" aria-hidden="true"></i> Emergency
+            </span>
+          @endif
+          @if($report->source === \App\Models\Report::SOURCE_VOICE)
+            <span class="inline-flex items-center gap-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-0.5 text-[11px] font-bold" title="Voice report">
+              <i class="fa-solid fa-microphone text-[10px]" aria-hidden="true"></i> Voice report
+            </span>
+          @elseif($report->source === \App\Models\Report::SOURCE_PHONE_LOG)
+            <span class="inline-flex items-center gap-1 rounded-full bg-teal-50 text-teal-800 border border-teal-200 px-2.5 py-0.5 text-[11px] font-bold" title="Phone hotline report">
+              <i class="fa-solid fa-phone text-[10px]" aria-hidden="true"></i> Phone intake
+            </span>
+          @endif
+          @if($isOverdue)
+            <span class="inline-flex items-center gap-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 px-2.5 py-0.5 text-[11px] font-bold" title="SLA due {{ $report->due_at->format('M d, Y h:i A') }}">
+              <i class="fa-solid fa-clock-rotate-left text-[10px]" aria-hidden="true"></i> Overdue
+            </span>
+          @endif
+          @if($report->escalated_at)
+            <span class="inline-flex items-center gap-1 rounded-full bg-rose-600 text-white px-2.5 py-0.5 text-[11px] font-bold">
+              <i class="fa-solid fa-fire text-[10px]" aria-hidden="true"></i> Escalated
+            </span>
+          @endif
+        </div>
+        <p class="text-xs text-slate-500 mt-1 mb-0">
+          Submitted {{ $report->created_at->format('M j, Y \a\t g:i A') }} ({{ $report->created_at->diffForHumans() }})
+          @if($report->due_at)
+            <span aria-hidden="true">·</span>
+            SLA due {{ $report->due_at->format('M j, Y g:i A') }}
+          @endif
+        </p>
+      </div>
+
+      {{-- + Other actions dropdown --}}
+      <div class="flex items-center gap-2">
+        @if($isOverdue && ! $report->escalated_at)
+          <button type="submit" form="review-escalate-form" class="inline-flex items-center gap-1.5 rounded-lg border border-rose-300 bg-rose-50 hover:bg-rose-100 text-rose-800 text-xs font-bold px-3 py-1.5 transition">
+            <i class="fa-solid fa-fire text-[10px]" aria-hidden="true"></i> Escalate overdue
+          </button>
+        @endif
+
+        <div class="kebab relative">
+          <button type="button" class="inline-flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-bold px-3 py-1.5 rounded-lg shadow-xs transition"
+                  data-kebab-toggle aria-haspopup="true" aria-expanded="false" aria-label="More actions">
+            <i class="fa-solid fa-plus text-[10px]" aria-hidden="true"></i>
+            <span>Other actions</span>
+            @if($unreadReplies > 0 || ($hasResidentReply && !session('info_thread_seen.'.$report->id)))
+              <span class="chat-notif-circle" data-chat-notif-circle title="New reply from resident">{{ $unreadReplies > 0 ? $unreadReplies : '!' }}</span>
+            @endif
+            <i class="fa-solid fa-chevron-down text-[10px] text-slate-400" aria-hidden="true"></i>
+          </button>
+          <div class="kebab-menu absolute right-0 mt-1.5 w-60 bg-white rounded-xl border border-slate-200 shadow-xl py-1.5 z-40 text-xs" hidden>
+            @if($canOpenInfoChat)
+              <button type="button" class="w-full px-3.5 py-2 text-left text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 font-medium"
+                      aria-label="Ask Reporter for Info"
+                      data-chat-open data-report-id="{{ $report->id }}"
+                      data-chat-tracking="{{ $report->tracking_code }}"
+                      data-chat-category="{{ $report->category?->name ?? 'Category not assigned' }}"
+                      data-chat-status="{{ \App\Models\Report::STATUSES[$report->status] ?? $report->status }}"
+                      data-chat-summary="{{ $report->description }}{{ $report->purok ? ' — '.$report->purok->name : '' }}">
+                <i class="fa-solid fa-comment-dots text-blue-600 w-4 text-center" aria-hidden="true"></i>
+                <span>Ask Reporter for More Info</span>
+              </button>
+            @endif
+            @if(filter_var(\App\Models\Setting::value('cases.enabled') ?? config('cases.enabled', true), FILTER_VALIDATE_BOOLEAN) && auth()->user()?->hasPermission('cases.create'))
+              @includeIf('admin.cases.partials.convert-button', ['report' => $report, 'formId' => 'kebab-convert-case-form'])
+            @endif
+            @if($canMergeDuplicate)
+              <button type="button" class="w-full px-3.5 py-2 text-left text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 font-medium"
+                      data-open-dialog="duplicate-modal" title="Mark as duplicate">
+                <i class="fa-solid fa-code-merge text-amber-600 w-4 text-center" aria-hidden="true"></i>
+                <span>Manual Duplicate Merge</span>
+              </button>
+            @endif
+            @if($report->status === 'merged')
+              <button type="button" class="w-full px-3.5 py-2 text-left text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 font-medium" data-open-dialog="unmerge-modal">
+                <i class="fa-solid fa-code-branch text-blue-600 w-4 text-center" aria-hidden="true"></i>
+                <span>Unmerge Report</span>
+              </button>
+            @endif
+            @if(!$emergencyActionOnly && $isRouteable)
+              <button type="submit" form="review-form" name="intent" value="save" class="w-full px-3.5 py-2 text-left text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 font-medium">
+                <i class="fa-regular fa-floppy-disk text-slate-500 w-4 text-center" aria-hidden="true"></i>
+                <span>Save review without routing</span>
+              </button>
+            @endif
+            @if(!$report->is_emergency && !in_array($report->status, \App\Models\Report::CLOSED_STATUSES, true))
+              <button type="submit" form="kebab-emergency-form" class="w-full px-3.5 py-2 text-left text-rose-700 hover:bg-rose-50 flex items-center gap-2.5 font-medium">
+                <i class="fa-solid fa-triangle-exclamation text-rose-600 w-4 text-center" aria-hidden="true"></i>
+                <span>Flag as emergency</span>
+              </button>
+            @endif
+            @if($canTakeNoAction)
+              <div class="my-1 border-t border-slate-100"></div>
+              <button type="button" class="w-full px-3.5 py-2 text-left text-rose-600 hover:bg-rose-50 flex items-center gap-2.5 font-semibold" data-open-dialog="no-action-modal">
+                <i class="fa-solid fa-ban w-4 text-center" aria-hidden="true"></i>
+                <span>Take No Action</span>
+              </button>
+            @endif
+          </div>
+        </div>
+      </div>
     </div>
-    <p class="review-submitted">
-      Submitted {{ $report->created_at->format('M d, Y \a\t h:i A') }}
-      @if($report->due_at)
-        <span aria-hidden="true">·</span>
-        SLA due {{ $report->due_at->format('M d, Y h:i A') }}
-      @endif
-    </p>
   </header>
 
-  <ol class="review-stepper" aria-label="Report progress">
-    @foreach(['Review', 'Route', 'Work', 'Resolve'] as $stepIndex => $stepLabel)
-      @php
-        $stepDone = $stepIndex < $statusStep || ($isCompleted && $stepIndex === 3);
-        $stepCurrent = ! $isCompleted && $stepIndex === $statusStep;
-        $stepWaiting = $stepCurrent && in_array($report->status, ['needs_info', 'awaiting_confirmation'], true);
-      @endphp
-      <li class="review-step {{ $stepDone ? 'is-complete' : '' }} {{ $stepCurrent ? 'is-current' : '' }} {{ $stepWaiting ? 'is-waiting' : '' }}"
-          @if($stepCurrent) aria-current="step" @endif>
-        <span class="review-step-circle" aria-hidden="true">
-          @if($stepDone)
-            <i class="fa-solid fa-check"></i>
-          @else
-            {{ $stepIndex + 1 }}
-          @endif
-        </span>
-        <span class="review-step-label">{{ $stepLabel }}</span>
-        @if($stepWaiting)
-          <span class="review-badge review-badge-amber">Waiting</span>
-        @endif
-      </li>
-    @endforeach
-  </ol>
-
+  {{-- 1B. Full-Width Conditional Alert Banners --}}
   @if($hasEmergencyFlag)
-    <section class="review-flag review-flag-emergency" aria-label="Emergency review required">
-      <div>
-        <strong><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Possible emergency</strong>
-        <p>{{ $report->is_emergency ? 'This report is currently flagged as an emergency.' : 'The AI or report details indicate a possible emergency. Confirm before continuing.' }}</p>
+    <section class="rounded-xl border border-rose-300 bg-rose-50 p-4 flex flex-wrap items-center justify-between gap-3" aria-label="Emergency review required">
+      <div class="min-w-0">
+        <strong class="text-sm font-extrabold text-rose-900 flex items-center gap-2">
+          <i class="fa-solid fa-triangle-exclamation text-rose-600" aria-hidden="true"></i>
+          <span>Possible emergency</span>
+        </strong>
+        <p class="text-xs text-rose-800 mt-1 mb-0">{{ $report->is_emergency ? 'This report is currently flagged as an emergency.' : 'The AI or report details indicate a possible emergency. Confirm before continuing.' }}</p>
       </div>
-      <div class="review-flag-actions">
+      <div class="flex flex-wrap items-center gap-2">
         @if(! $report->is_emergency && $canResolveEmergency)
           <form method="POST" action="{{ route('admin.reports.emergency', $report) }}">
             @csrf
             @method('PATCH')
             <input type="hidden" name="confirm" value="1">
-            <button type="submit" class="review-button review-button-outline">Confirm emergency</button>
+            <button type="submit" class="rounded-lg border border-rose-300 bg-white hover:bg-rose-100 text-rose-800 text-xs font-bold px-3 py-1.5 transition">Confirm emergency</button>
           </form>
         @endif
         @if($report->is_emergency && $report->status === 'emergency_flagged')
-          <button type="button" class="review-button review-button-primary" data-open-dialog="emergency-handled-modal">
-            <i class="fa-solid fa-person-digging" aria-hidden="true"></i> Handle internally
+          <button type="button" class="rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-1.5 transition" data-open-dialog="emergency-handled-modal">
+            <i class="fa-solid fa-person-digging mr-1" aria-hidden="true"></i> Handle Locally (Tanod Response)
           </button>
         @endif
         @if($canResolveEmergency)
@@ -219,136 +318,178 @@
             @csrf
             @method('PATCH')
             <input type="hidden" name="confirm" value="0">
-            <button type="submit" class="review-button review-button-outline">Not an emergency</button>
+            <button type="submit" class="rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold px-3 py-1.5 transition">Not an emergency</button>
           </form>
         @else
-          <span class="review-field-hint">This report is in a final or non-actionable status; its emergency state cannot be changed here.</span>
+          <span class="text-xs text-slate-600">This report is in a final status; its emergency state cannot be changed here.</span>
         @endif
       </div>
-    </section>
-  @endif
-
-  @if($actionableDuplicates->isNotEmpty() && $report->status !== 'merged')
-    <section class="review-flag review-flag-amber">
-      <div>
-        <strong><i class="fa-solid fa-copy" aria-hidden="true"></i> {{ $actionableDuplicates->count() }} possible {{ \Illuminate\Support\Str::plural('duplicate', $actionableDuplicates->count()) }}</strong>
-        <p>
-          Top match: {{ $pendingDuplicate->candidate->tracking_code }} ({{ (int) round((float) $pendingDuplicate->score * 100) }}% similarity).
-        </p>
-      </div>
-      <a href="#duplicate-suggestions-section" class="review-text-link">Review suggestions</a>
     </section>
   @endif
 
   @if($report->hasUnverifiedAudio())
-    <section class="review-flag review-flag-amber" style="background-color:#fffbeb;border:1px solid #fcd34d;color:#92400e;padding:1rem;border-radius:0.5rem;margin-bottom:1rem;display:flex;align-items:flex-start;gap:1rem;">
-      <div style="font-size:1.5rem;line-height:1;color:#d97706;">
-        <i class="fa-solid fa-microphone-slash"></i>
-      </div>
-      <div style="flex:1;">
-        <strong style="display:block;font-size:0.95rem;font-weight:700;color:#92400e;">Voice Audio Needs Verification</strong>
-        <p style="margin:0.25rem 0 0.5rem;font-size:0.875rem;color:#78350f;">
-          This report was recorded by voice or phone hotline, but AI transcription is unclear or unverified.
-          Routing is blocked until staff listens to the recording and confirms or updates the report description.
-        </p>
-        <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
-          <a href="#voice-audio-section" class="review-button review-button-primary" style="padding:0.4rem 0.8rem;font-size:0.85rem;background:#d97706;border-color:#b45309;color:#fff;text-decoration:none;">
-            <i class="fa-solid fa-headphones"></i> Listen & Verify Audio
-          </a>
+    <section id="voice-audio-verification-banner" class="bg-amber-50 border border-amber-300 rounded-xl p-4 space-y-3" aria-label="Voice audio verification required">
+      <div class="flex flex-wrap items-start justify-between gap-2">
+        <div class="flex items-start gap-3">
+          <div class="w-9 h-9 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0">
+            <i class="fa-solid fa-microphone-slash" aria-hidden="true"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <strong class="text-sm font-extrabold text-amber-900">Voice Audio Needs Verification</strong>
+              <span class="inline-flex items-center rounded-full bg-amber-200/80 text-amber-900 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">Unverified draft</span>
+            </div>
+            <p class="text-xs text-amber-800 mt-0.5 mb-0">
+              AI transcription is unclear or unverified. Listen to the recording and confirm or update the report description to unblock routing.
+            </p>
+          </div>
         </div>
+      </div>
+      <audio controls src="{{ route('admin.reports.audio', $report) }}" preload="metadata" class="w-full max-w-lg h-10"></audio>
+      <form method="POST" action="{{ route('admin.reports.audio.verify', $report) }}" class="space-y-2 pt-1">
+        @csrf
+        <label for="verified_description" class="block text-xs font-bold text-amber-900">
+          Staff Verified Description <span class="text-rose-600">*</span>
+        </label>
+        <textarea id="verified_description" name="description" rows="2" required minlength="5"
+                  class="w-full rounded-lg border border-amber-400 bg-white px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500/30">{{ old('description', $report->description) }}</textarea>
+        <div class="flex justify-end">
+          <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-3.5 py-2 transition">
+            <i class="fa-solid fa-check-double" aria-hidden="true"></i> Verify and Update Description
+          </button>
+        </div>
+      </form>
+    </section>
+  @endif
+
+  @if($hasPhotoMismatch)
+    <section class="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 flex flex-wrap items-center justify-between gap-3" aria-label="Possible photo mismatch">
+      <div class="flex items-center gap-2.5 text-xs text-amber-900">
+        <i class="fa-solid fa-image text-amber-600 text-sm" aria-hidden="true"></i>
+        <span><strong>Possible photo mismatch:</strong> Check whether the attached photo matches the resident's description.</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <form method="POST" action="{{ route('admin.reports.photo-mismatch', $report) }}">
+          @csrf
+          @method('PATCH')
+          <input type="hidden" name="confirm" value="1">
+          <button type="submit" class="rounded-lg border border-amber-300 bg-white hover:bg-amber-100 text-amber-900 text-xs font-bold px-3 py-1.5 transition">Confirm mismatch</button>
+        </form>
+        <form method="POST" action="{{ route('admin.reports.photo-mismatch', $report) }}">
+          @csrf
+          @method('PATCH')
+          <input type="hidden" name="confirm" value="0">
+          <button type="submit" class="rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold px-3 py-1.5 transition">Not a mismatch</button>
+        </form>
       </div>
     </section>
   @endif
 
-  {{-- Top Row: Resident report on the left, Case timeline & notes on the right --}}
-  <div class="review-top-grid">
-    {{-- Left: Card 1 — Resident report --}}
-    <div class="review-col-resident">
-      <section class="review-workflow-card">
-        <details id="resident-report-card" class="review-collapsible" @if(! $isAfterRoute) open @endif>
-      <summary class="review-card-heading">
-        <span class="review-card-number" aria-hidden="true">1</span>
-        <span class="review-card-heading-copy">
-          <span class="review-card-title">Resident report</span>
-          @unless($isAfterRoute)
-            <span class="review-card-instruction">Read what the resident sent.</span>
-          @endunless
-        </span>
-        @if($isAfterRoute)
-          <span class="review-collapsed-summary">{{ $oneLineSummary }}</span>
-          <a class="review-edit-link" href="#resident-report-card" data-expand-review>Edit</a>
-        @endif
-      </summary>
-      <div class="review-card-content">
-        <div class="review-reported-by">
-          <span class="review-reported-label">Reported by</span>
-          @php
-            $isVoiceOrPhone = $report->source === \App\Models\Report::SOURCE_VOICE || $report->source === \App\Models\Report::SOURCE_PHONE_LOG || $report->audio;
-          @endphp
-          @if($report->is_anonymous)
-            <span class="review-not-provided"><i class="fa-solid fa-user" aria-hidden="true"></i> Not stated (anonymous report)</span>
-          @elseif(! $isVoiceOrPhone && ! filled($report->reporter_name))
-            <span class="review-not-provided"><i class="fa-solid fa-user" aria-hidden="true"></i> Not stated (anonymous report)</span>
-          @else
-            <span class="review-reported-identity">
-              <span>
-                <i class="fa-solid fa-user" aria-hidden="true"></i>
+  {{-- 2. Main 2-Column Split Workspace --}}
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+
+    {{-- =============================================================== --}}
+    {{-- LEFT COLUMN: STICKY REFERENCE DOSSIER                           --}}
+    {{-- =============================================================== --}}
+    <aside class="lg:col-span-5 xl:col-span-4 lg:sticky lg:top-20 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      {{-- Dossier Tab Bar (3 Tabs) --}}
+      <div class="grid grid-cols-3 border-b border-slate-200 bg-slate-50/70 text-xs font-bold" role="tablist" aria-label="Dossier tabs">
+        <button type="button" role="tab" aria-selected="true" data-dossier-tab="evidence"
+                class="py-3 px-2 border-b-2 border-blue-600 text-blue-700 bg-white flex items-center justify-center gap-1.5 transition">
+          <i class="fa-regular fa-file-lines" aria-hidden="true"></i>
+          <span>Evidence</span>
+        </button>
+        <button type="button" role="tab" aria-selected="false" data-dossier-tab="timeline"
+                class="py-3 px-2 border-b-2 border-transparent text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5 transition">
+          <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i>
+          <span>Timeline &amp; Notes</span>
+          <span class="rounded-full bg-blue-100 text-blue-700 px-1.5 py-0.2 text-[10px] font-bold">{{ count($activityEntries) }}</span>
+        </button>
+        <button type="button" role="tab" aria-selected="false" data-dossier-tab="duplicates"
+                class="py-3 px-2 border-b-2 border-transparent text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5 transition">
+          <i class="fa-solid fa-copy" aria-hidden="true"></i>
+          <span>Duplicates</span>
+          <span class="rounded-full px-1.5 py-0.2 text-[10px] font-bold {{ $actionableDuplicates->isNotEmpty() ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-600' }}">{{ $actionableDuplicates->count() }}</span>
+        </button>
+      </div>
+
+      {{-- TAB 1: EVIDENCE --}}
+      <div class="dossier-panel rw-fade-in p-4 space-y-4" data-dossier-panel="evidence">
+        {{-- Reporter Strip --}}
+        <div class="rounded-xl bg-slate-50 border border-slate-200/80 p-3 flex items-start gap-3">
+          <div class="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
+            <i class="fa-solid fa-user" aria-hidden="true"></i>
+          </div>
+          <div class="min-w-0 flex-1 text-xs">
+            <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Reported by</div>
+            @if($report->is_anonymous || (! $isVoiceOrPhone && ! filled($report->reporter_name)))
+              <div class="font-semibold text-slate-600 italic mt-0.5">Not stated (anonymous report)</div>
+            @else
+              <div class="font-bold text-slate-900 truncate mt-0.5">
                 @if(filled($report->reporter_name))
                   {{ $report->reporter_name }}
                 @else
-                  <span class="review-not-provided">Not provided</span>
+                  <span class="italic font-normal text-slate-500">Not provided</span>
                 @endif
+                @if(!empty($voiceProvenance['reporter_name']['edited']))
+                  <span class="ml-1 inline-flex items-center rounded-full bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.2 text-[10px] font-bold">Edited after recording</span>
+                @elseif(!empty($voiceProvenance['reporter_name']['filled']))
+                  <span class="ml-1 inline-flex items-center rounded-full bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.2 text-[10px] font-bold">From recording</span>
+                @endif
+              </div>
+              <div class="text-slate-600 mt-1 space-y-0.5">
+                <div class="flex items-center gap-1.5">
+                  <i class="fa-solid fa-phone text-[10px] text-slate-400 w-3" aria-hidden="true"></i>
+                  @if(filled($report->reporter_contact))
+                    <span>{{ $report->reporter_contact }}</span>
+                  @else
+                    <span class="italic text-slate-400">Not provided</span>
+                  @endif
+                </div>
+                <div class="flex items-center gap-1.5 truncate">
+                  <i class="fa-regular fa-envelope text-[10px] text-slate-400 w-3" aria-hidden="true"></i>
+                  @if(filled($report->reporter_email))
+                    <span class="truncate">{{ $report->reporter_email }}</span>
+                  @else
+                    <span class="italic text-slate-400">Not provided</span>
+                  @endif
+                </div>
+              </div>
+            @endif
+          </div>
+        </div>
+
+        {{-- Original Resident Description --}}
+        <div>
+          <div class="flex items-center justify-between gap-2 mb-1.5">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Original description</span>
+            @if($voiceAudio && $voiceAudio->ai_description && trim($voiceAudio->ai_description) !== trim($residentDescription))
+              <span class="inline-flex items-center gap-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 text-[10px] font-bold">
+                <i class="fa-solid fa-user-pen" aria-hidden="true"></i> Edited by resident
               </span>
-              @if($isVoiceOrPhone)
-                <span class="review-reported-contact">
-                  <span>
-                    <i class="fa-solid fa-phone" aria-hidden="true"></i>
-                    @if(filled($report->reporter_contact))
-                      {{ $report->reporter_contact }}
-                    @else
-                      <span class="review-not-provided">Not provided</span>
-                    @endif
-                  </span>
-                  <span>
-                    <i class="fa-solid fa-envelope" aria-hidden="true"></i>
-                    @if(filled($report->reporter_email))
-                      {{ $report->reporter_email }}
-                    @else
-                      <span class="review-not-provided">Not provided</span>
-                    @endif
-                  </span>
-                </span>
-              @elseif($report->reporter_contact || $report->reporter_email)
-                <span class="review-reported-contact">
-                  @if($report->reporter_contact)
-                    <span><i class="fa-solid fa-phone" aria-hidden="true"></i> {{ $report->reporter_contact }}</span>
-                  @endif
-                  @if($report->reporter_email)
-                    <span><i class="fa-solid fa-envelope" aria-hidden="true"></i> {{ $report->reporter_email }}</span>
-                  @endif
-                </span>
-              @endif
-            </span>
-          @endif
-        </div>
+            @endif
+          </div>
+          <div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
+            <p id="dossier-orig-desc" class="rw-clamp text-xs sm:text-sm text-slate-800 leading-relaxed m-0">{{ $report->description }}</p>
+            <button type="button" id="dossier-desc-toggle" class="hidden mt-1.5 text-xs font-bold text-blue-600 hover:underline">View more</button>
+          </div>
 
-        <div class="review-section">
-          <h3 class="review-field-label">Original description</h3>
-          <p class="review-source-description">{{ $report->description }}</p>
-        </div>
-
-        @if($report->people_at_risk || $report->is_ongoing || $report->is_recurring || count($answers) > 0)
-          <div class="review-section">
-            <h3 class="review-field-label">Resident's answers</h3>
-            <div class="review-answer-chips">
+          @if($report->people_at_risk || $report->is_ongoing || $report->is_recurring || count($answers) > 0)
+            <div class="flex flex-wrap gap-1.5 mt-2.5">
               @if($report->people_at_risk)
-                <span class="review-answer-chip"><i class="fa-solid fa-person-circle-exclamation" aria-hidden="true"></i> Someone in danger</span>
+                <span class="inline-flex items-center gap-1 rounded-lg bg-rose-50 text-rose-800 border border-rose-200 px-2 py-1 text-[11px] font-semibold">
+                  <i class="fa-solid fa-person-circle-exclamation" aria-hidden="true"></i> Someone in danger
+                </span>
               @endif
               @if($report->is_ongoing)
-                <span class="review-answer-chip"><i class="fa-solid fa-clock" aria-hidden="true"></i> Happening now</span>
+                <span class="inline-flex items-center gap-1 rounded-lg bg-blue-50 text-blue-800 border border-blue-200 px-2 py-1 text-[11px] font-semibold">
+                  <i class="fa-solid fa-clock" aria-hidden="true"></i> Happening now
+                </span>
               @endif
               @if($report->is_recurring)
-                <span class="review-answer-chip"><i class="fa-solid fa-repeat" aria-hidden="true"></i> Recurring</span>
+                <span class="inline-flex items-center gap-1 rounded-lg bg-blue-50 text-blue-800 border border-blue-200 px-2 py-1 text-[11px] font-semibold">
+                  <i class="fa-solid fa-repeat" aria-hidden="true"></i> Recurring
+                </span>
               @endif
               @foreach($questionSchema as $question)
                 @php
@@ -362,16 +503,14 @@
                           : $answerValue);
                 @endphp
                 @if($answerExists)
-                  <span class="review-answer-chip">
+                  <span class="inline-flex items-center rounded-lg bg-blue-50 text-blue-800 border border-blue-200 px-2 py-1 text-[11px] font-semibold">
                     {{ $question['label'] ?? $questionKey }}: {{ $answerLabel }}
                   </span>
                 @endif
               @endforeach
               @foreach($answers as $answerKey => $answerValue)
                 @php
-                  $hasQuestionLabel = collect($questionSchema)->contains(
-                      fn ($question) => ($question['key'] ?? null) === $answerKey
-                  );
+                  $hasQuestionLabel = collect($questionSchema)->contains(fn ($q) => ($q['key'] ?? null) === $answerKey);
                   $fallbackAnswerExists = ! $hasQuestionLabel && $answerValue !== null && $answerValue !== '';
                   $fallbackAnswerLabel = is_array($answerValue)
                       ? implode(', ', array_filter($answerValue, fn ($value) => $value !== null && $value !== ''))
@@ -380,1126 +519,183 @@
                           : $answerValue);
                 @endphp
                 @if($fallbackAnswerExists)
-                  <span class="review-answer-chip">{{ str($answerKey)->replace('_', ' ')->title() }}: {{ $fallbackAnswerLabel }}</span>
+                  <span class="inline-flex items-center rounded-lg bg-blue-50 text-blue-800 border border-blue-200 px-2 py-1 text-[11px] font-semibold">
+                    {{ str($answerKey)->replace('_', ' ')->title() }}: {{ $fallbackAnswerLabel }}
+                  </span>
                 @endif
               @endforeach
             </div>
+          @endif
+        </div>
+
+        {{-- Attached Audio Player (if voice/phone report) --}}
+        @if($report->audio)
+          <div id="voice-audio-section" class="pt-3 border-t border-slate-100 space-y-2">
+            <div class="flex items-center justify-between gap-2 flex-wrap">
+              <span class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <i class="fa-solid fa-microphone-lines text-blue-600" aria-hidden="true"></i>
+                <span>{{ $report->audio->origin === 'staff' ? 'Hotline Phone Recording' : 'Resident Voice Recording' }}</span>
+              </span>
+              @if($report->audio->isVerified())
+                <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold">
+                  <i class="fa-solid fa-check" aria-hidden="true"></i> Verified
+                </span>
+              @endif
+            </div>
+            <audio controls src="{{ route('admin.reports.audio', $report) }}" preload="metadata" class="w-full h-9"></audio>
+            @if($report->audio->transcript)
+              <details class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+                <summary class="font-bold text-slate-700 cursor-pointer">What was said (AI transcript)</summary>
+                <p class="mt-1.5 text-slate-700 leading-relaxed mb-0">{{ $report->audio->transcript }}</p>
+              </details>
+            @endif
           </div>
         @endif
 
-        <div class="review-section">
-          <h3 class="review-field-label">Photo and location</h3>
-          <div class="review-media-grid">
-            <div class="review-photo-panel">
+        {{-- Photo & Location Section --}}
+        <div class="pt-3 border-t border-slate-100">
+          <span class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">Photo &amp; Location</span>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
               @if($report->photos->isNotEmpty())
-                @foreach($report->photos as $photo)
-                  <a href="{{ route('admin.reports.photos.show', [$report, $photo]) }}" target="_blank" rel="noopener">
-                    <img src="{{ route('admin.reports.photos.show', [$report, $photo]) }}" alt="Resident's report photo">
-                  </a>
-                @endforeach
+                @php $firstPhoto = $report->photos->first(); @endphp
+                <div class="relative group">
+                  <img src="{{ route('admin.reports.photos.show', [$report, $firstPhoto]) }}"
+                       alt="Resident report photo"
+                       data-lightbox-src="{{ route('admin.reports.photos.show', [$report, $firstPhoto]) }}"
+                       class="rounded-xl object-cover h-36 w-full cursor-zoom-in border border-slate-200">
+                  @if($report->photos->count() > 1)
+                    <span class="absolute bottom-1.5 left-1.5 rounded-md bg-slate-900/75 text-white text-[10px] font-bold px-2 py-0.5">
+                      +{{ $report->photos->count() - 1 }} more
+                    </span>
+                  @endif
+                </div>
+                @if($report->photos->count() > 1)
+                  <div class="flex gap-1.5 mt-1.5 overflow-x-auto">
+                    @foreach($report->photos->skip(1) as $extraPhoto)
+                      <img src="{{ route('admin.reports.photos.show', [$report, $extraPhoto]) }}"
+                           alt="Additional resident report photo"
+                           data-lightbox-src="{{ route('admin.reports.photos.show', [$report, $extraPhoto]) }}"
+                           class="h-10 w-10 rounded-lg object-cover cursor-zoom-in border border-slate-200 flex-shrink-0">
+                    @endforeach
+                  </div>
+                @endif
               @elseif($report->photo_path)
-                <a href="{{ route('admin.reports.photo', $report) }}" target="_blank" rel="noopener">
-                  <img src="{{ route('admin.reports.photo', $report) }}" alt="Resident's report photo">
-                </a>
+                <img src="{{ route('admin.reports.photo', $report) }}"
+                     alt="Resident report photo"
+                     data-lightbox-src="{{ route('admin.reports.photo', $report) }}"
+                     class="rounded-xl object-cover h-36 w-full cursor-zoom-in border border-slate-200">
               @else
-                <p class="review-empty-media">No photo attached.</p>
+                <div class="h-36 rounded-xl border border-dashed border-slate-200 bg-slate-50 flex items-center justify-center text-xs text-slate-400 italic text-center px-2">
+                  No photo attached
+                </div>
               @endif
             </div>
+
             <div>
               @if($report->lat !== null && $report->lng !== null)
-                <div id="report-location-map" class="review-location-map map-frame z-0 isolate"
-                     style="position:relative;z-index:0;isolation:isolate;"
+                <div id="report-location-map" class="relative z-0 isolate h-36 rounded-xl overflow-hidden border border-slate-200"
                      data-lat="{{ $report->lat }}" data-lng="{{ $report->lng }}"
                      role="img" aria-label="Map showing the reported location"></div>
               @else
-                <div class="review-location-map review-map-empty">No map pin shared.</div>
+                <div class="h-36 rounded-xl border border-dashed border-slate-200 bg-slate-50 flex items-center justify-center text-xs text-slate-400 italic text-center px-2">
+                  No map pin shared
+                </div>
               @endif
             </div>
           </div>
-          <div class="review-location-details">
-            @if($residentPurok)
-              <span><strong>Purok:</strong> {{ $residentPurok->name }}</span>
-            @elseif($report->source === \App\Models\Report::SOURCE_VOICE || $report->source === \App\Models\Report::SOURCE_PHONE_LOG || $report->audio)
-              <span><strong>Purok:</strong> <span class="review-not-provided">Not provided</span></span>
-            @endif
-            @if($residentLandmark)
-              <span><strong>Landmark:</strong> {{ $residentLandmark }}</span>
-            @elseif($report->source === \App\Models\Report::SOURCE_VOICE || $report->source === \App\Models\Report::SOURCE_PHONE_LOG || $report->audio)
-              <span><strong>Landmark:</strong> <span class="review-not-provided">Not provided</span></span>
-            @endif
-            @if($googleMapsUrl)
-              <a href="{{ $googleMapsUrl }}" target="_blank" rel="noopener">Open in Google Maps</a>
-            @endif
-          </div>
-        </div>
 
-        @if($report->audio)
-          <div id="voice-audio-section" class="review-section" style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--line);">
-            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.5rem;">
-              <h3 class="review-field-label" style="margin:0;display:flex;align-items:center;gap:0.5rem;">
-                <i class="fa-solid fa-microphone-lines" style="color:var(--blue);"></i>
-                <span>{{ $report->audio->origin === 'staff' ? 'Hotline Phone Recording' : 'Resident Voice Recording' }}</span>
-              </h3>
-              @if($report->audio->isVerified())
-                <span class="review-badge review-badge-green" style="display:inline-flex;align-items:center;gap:0.3rem;">
-                  <i class="fa-solid fa-check"></i> Verified by {{ $report->audio->verifiedBy?->name ?? 'Staff' }} on {{ $report->audio->verified_at->format('M d, Y h:i A') }}
-                </span>
-              @elseif($report->hasUnverifiedAudio())
-                <span class="review-badge review-badge-amber" style="display:inline-flex;align-items:center;gap:0.3rem;">
-                  <i class="fa-solid fa-triangle-exclamation"></i> Needs verification
-                </span>
-              @endif
-            </div>
-
-            <audio controls src="{{ route('admin.reports.audio', $report) }}" preload="metadata" style="width:100%;max-width:500px;height:40px;outline:none;margin-bottom:0.5rem;"></audio>
-
-            @if($report->audio->transcript)
-              <div style="margin-top:0.5rem;padding:0.75rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:0.375rem;font-size:0.875rem;">
-                <div style="font-size:0.75rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">
-                  AI Machine Transcript (Verbatim)
-                  @if($report->audio->transcript_language)
-                    <span style="font-weight:400;text-transform:none;">({{ strtoupper($report->audio->transcript_language) }})</span>
-                  @endif
-                </div>
-                <div style="color:#1e293b;line-height:1.4;">{{ $report->audio->transcript }}</div>
-              </div>
-            @endif
-
-            @if($report->hasUnverifiedAudio())
-              <form method="POST" action="{{ route('admin.reports.audio.verify', $report) }}" style="margin-top:0.75rem;padding:1rem;background:#fefce8;border:1px solid #fef08a;border-radius:0.5rem;">
-                @csrf
-                <label for="verified_description" style="display:block;font-size:0.875rem;font-weight:700;color:#854d0e;margin-bottom:0.35rem;">
-                  Staff Verified Description <span style="color:var(--red);">*</span>
-                </label>
-                <p style="margin:0 0 0.5rem;font-size:0.8rem;color:#713f12;">
-                  Listen to the audio recording above and confirm or transcribe what was reported. This will update the report description and unblock routing.
-                </p>
-                <textarea id="verified_description" name="description" rows="3" required minlength="5"
-                          style="width:100%;padding:0.6rem;border:1px solid #ca8a04;border-radius:0.375rem;font-size:0.875rem;background:#fff;">{{ old('description', $report->description) }}</textarea>
-                <div style="margin-top:0.5rem;display:flex;justify-content:flex-end;">
-                  <button type="submit" class="review-button review-button-primary" style="background:#ca8a04;border-color:#a16207;color:#fff;">
-                    <i class="fa-solid fa-check-double"></i> Verify and Update Description
-                  </button>
-                </div>
-              </form>
-            @endif
-          </div>
-        @endif
-      </div>
-    </details>
-  </section>
-
-  @if($hasPhotoMismatch)
-    <section class="review-flag review-flag-amber" aria-label="Possible photo mismatch" style="margin-top: 0.75rem;">
-      <div>
-        <strong><i class="fa-solid fa-image" aria-hidden="true"></i> Possible photo mismatch</strong>
-        <p>Check whether the attached photo matches the resident's description.</p>
-      </div>
-      <div class="review-flag-actions">
-        <form method="POST" action="{{ route('admin.reports.photo-mismatch', $report) }}">
-          @csrf
-          @method('PATCH')
-          <input type="hidden" name="confirm" value="1">
-          <button type="submit" class="review-button review-button-outline">Confirm mismatch</button>
-        </form>
-        <form method="POST" action="{{ route('admin.reports.photo-mismatch', $report) }}">
-          @csrf
-          @method('PATCH')
-          <input type="hidden" name="confirm" value="0">
-          <button type="submit" class="review-button review-button-outline">Not a mismatch</button>
-        </form>
-      </div>
-    </section>
-  @endif
-  </div> {{-- End review-col-resident --}}
-
-  {{-- Right: Case timeline & notes --}}
-  <div class="review-col-timeline">
-    @php
-      $latestActivity = $activityEntries->first();
-      $timelineSummary = $latestActivity
-          ? \Illuminate\Support\Str::limit($latestActivity['title'].($latestActivity['body'] ? ' — '.$latestActivity['body'] : ''), 90)
-          : 'No activity recorded yet.';
-    @endphp
-    <section class="review-workflow-card review-timeline-card">
-      <details id="case-timeline-card" class="review-collapsible" @if(! $isAfterRoute) open @endif>
-        <summary class="review-card-heading">
-          <span class="review-card-number" aria-hidden="true">
-            <i class="fa-solid fa-clock-rotate-left" style="font-size:0.85rem;"></i>
-          </span>
-          <span class="review-card-heading-copy" style="flex:1;min-width:0;">
-            <span class="review-card-title">Case timeline &amp; notes</span>
-            <span class="review-card-instruction review-timeline-instruction">Audit trail, citizen interactions, and internal notes</span>
-            <span class="review-collapsed-summary review-timeline-collapsed-preview">{{ $timelineSummary }}</span>
-          </span>
-          <span class="review-badge review-badge-blue" style="flex-shrink:0;">{{ count($activityEntries) }} event{{ count($activityEntries) === 1 ? '' : 's' }}</span>
-          <i class="fa-solid fa-chevron-down review-collapsible-chevron" aria-hidden="true"></i>
-        </summary>
-
-        <div class="review-card-content" style="gap:0;margin-top:1rem;border-top:1px solid var(--line);">
-          {{-- Internal Note Box --}}
-          @unless($isCompleted || $emergencyActionOnly)
-            <div class="review-composer-box" style="padding: 0.85rem 1rem; background: #f8fafc; border-bottom: 1px solid var(--line);">
-              <form method="POST" action="{{ route('admin.reports.internal-notes.store', $report) }}" data-prevent-double-submit>
-                @csrf
-                <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.35rem;">
-                  <label for="timeline-internal-note" style="font-size:0.8rem;font-weight:700;color:#475569;">
-                    <i class="fa-solid fa-lock text-slate-500 mr-1" aria-hidden="true"></i> Add internal note <span style="font-weight:normal;color:#64748b;font-size:0.75rem;">(visible to staff only)</span>
-                  </label>
-                </div>
-                <div style="display:flex;gap:0.5rem;align-items:flex-end;">
-                  <textarea id="timeline-internal-note" name="body" rows="2" maxlength="3000" required placeholder="Record staff observations, internal coordination, or phone call notes..." style="flex:1;font-size:0.84rem;padding:0.5rem 0.65rem;border:1px solid var(--line);border-radius:8px;background:#fff;"></textarea>
-                  <button type="submit" class="btn btn-navy btn-small" style="padding:0.5rem 0.85rem;font-size:0.8rem;white-space:nowrap;font-weight:700;">
-                    Save note
-                  </button>
-                </div>
-              </form>
-            </div>
-          @endunless
-
-          {{-- Unified Descending Event Feed --}}
-          <div class="review-timeline-feed" style="padding:1.25rem 0.25rem 0.25rem;">
-            <ol class="review-activity-list">
-              @forelse($activityEntries as $activity)
-                @php
-                  $isInternal = isset($activity['visible_to_resident']) ? !$activity['visible_to_resident'] : str_contains($activity['title'], '(Internal)');
-                @endphp
-                <li style="border-left: 3px solid {{ $isInternal ? '#94a3b8' : '#2563eb' }}; padding-left: 0.85rem; margin-bottom: 1.15rem; position: relative;">
-                  <div class="review-activity-heading" style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;flex-wrap:wrap;">
-                    <div style="display:inline-flex;align-items:center;gap:0.4rem;flex-wrap:wrap;">
-                      <strong>{{ $activity['title'] }}</strong>
-                      @if($isInternal)
-                        <span class="review-badge review-badge-gray" style="font-size:0.68rem;padding:0.1rem 0.35rem;"><i class="fa-solid fa-lock" aria-hidden="true"></i> Internal</span>
-                      @else
-                        <span class="review-badge review-badge-blue" style="font-size:0.68rem;padding:0.1rem 0.35rem;"><i class="fa-solid fa-eye" aria-hidden="true"></i> Public</span>
-                      @endif
-                    </div>
-                    <time datetime="{{ $activity['at']?->toIso8601String() }}" style="font-size:0.75rem;color:#64748b;">{{ $activity['at']?->format('M d, Y h:i A') }}</time>
-                  </div>
-                  @if($activity['user'])
-                    <p class="review-activity-user" style="font-size:0.76rem;color:#475569;margin-top:0.15rem;"><i class="fa-solid fa-user-check" style="font-size:0.7rem;color:#94a3b8;margin-right:0.25rem;" aria-hidden="true"></i>{{ $activity['user'] }}</p>
-                  @endif
-                  @if($activity['body'])
-                    <p class="review-activity-body" style="font-size:0.84rem;color:#334155;margin-top:0.35rem;line-height:1.45;background:#fff;padding:0.5rem 0.75rem;border-radius:6px;border:1px solid #f1f5f9;">{{ $activity['body'] }}</p>
-                  @endif
-                </li>
-              @empty
-                <li class="review-activity-empty">No activity recorded yet.</li>
-              @endforelse
-            </ol>
-          </div>
-        </div>
-      </details>
-    </section>
-  </div> {{-- End review-col-timeline --}}
-  </div> {{-- End review-top-grid --}}
-
-  {{-- Bottom Stack: Review AI Suggestions below, and Route & Assign below that --}}
-  <div class="review-bottom-stack space-y-6" style="display:flex;flex-direction:column;gap:1.5rem;">
-
-  @if(! $emergencyActionOnly)
-    <form id="review-form" method="POST" action="{{ route('admin.reports.review', $report) }}" class="space-y-6" style="display:flex;flex-direction:column;gap:1.25rem;">
-      @csrf
-      @method('PATCH')
-  @endif
-
-  <section class="review-workflow-card" id="review-comparison">
-    <details id="ai-review-card" class="review-collapsible" @if(! $isAfterRoute) open @endif>
-      <summary class="review-card-heading">
-        <span class="review-card-number" aria-hidden="true">2</span>
-        <span class="review-card-heading-copy">
-          <span class="review-card-title">Review AI suggestions</span>
-          @unless($isAfterRoute)
-            <span class="review-card-instruction">Compare each field, then accept, keep the resident's value, or edit.</span>
-          @endunless
-        </span>
-        @if(! $isAfterRoute && ! $emergencyActionOnly)
-          <span class="review-progress-pill" data-reviewed-count>{{ $reviewedInitialCount }} of {{ $requiredFieldsCount }} reviewed</span>
-        @endif
-        @if($isAfterRoute)
-          <span class="review-collapsed-summary">{{ $report->category?->name ?? 'Category not assigned' }} · {{ $report->urgency ?? 'Urgency not assigned' }}</span>
-          <a class="review-edit-link" href="#ai-review-card" data-expand-review>Edit</a>
-        @endif
-      </summary>
-      <div class="review-card-content">
-        <div class="review-ai-header">
-          <div class="review-ai-status">
-            @if($aiReady)
-              <span class="review-badge review-badge-blue" data-ai-state-badge>
-                <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> AI ready
-              </span>
-            @elseif($aiPending)
-              <span class="review-badge review-badge-gray" data-ai-state-badge>
-                <span class="review-spinner" aria-hidden="true"></span> AI analyzing
-              </span>
-            @else
-              <span class="review-badge review-badge-gray" data-ai-state-badge>
-                <i class="fa-solid fa-circle-minus" aria-hidden="true"></i> AI unavailable
-              </span>
-            @endif
-            <span class="review-ai-confidence" data-ai-confidence-wrap @if(! $aiReady) hidden @endif>
-              <span class="review-badge {{ $confidence !== null && $confidence >= $highConfidenceThreshold ? 'review-badge-green' : ($confidence !== null && $confidence >= $lowConfidenceThreshold ? 'review-badge-amber' : 'review-badge-red') }}"
-                    data-ai-confidence>
-                Confidence {{ $confidence !== null ? number_format($confidence * 100) : '—' }}%
-              </span>
-            </span>
-            @if($lowConfidence)
-              <span class="review-badge review-badge-red" data-low-confidence>Check carefully</span>
-            @else
-              <span class="review-badge review-badge-red" data-low-confidence hidden>Check carefully</span>
-            @endif
-          </div>
-          <div class="review-header-actions">
-            @php
-              $hasInfoRequests = $report->infoRequests->isNotEmpty();
-              $hasResidentReply = $report->infoRequests->whereNotNull('responded_at')->isNotEmpty();
-              $unreadReplies = $infoThreadSummary['unread'] ?? 0;
-            @endphp
-            <div class="kebab" style="position:relative;">
-              <button type="button" class="btn btn-outline btn-small" data-kebab-toggle aria-haspopup="true" aria-expanded="false" style="display:inline-flex;align-items:center;gap:0.4rem;font-size:0.8rem;font-weight:600;">
-                <i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i>
-                <span>More actions</span>
-                @if($unreadReplies > 0 || ($hasResidentReply && !session('info_thread_seen.'.$report->id)))
-                  <span class="chat-notif-circle" data-chat-notif-circle title="New reply from resident">{{ $unreadReplies > 0 ? $unreadReplies : '!' }}</span>
-                @endif
-              </button>
-              <div class="kebab-menu" hidden style="position:absolute;right:0;top:calc(100% + 4px);z-index:30;min-width:210px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 15px -3px rgba(0,0,0,0.1);padding:0.4rem 0;">
-                @if($hasInfoRequests || in_array($report->status, ['submitted', 'under_review', 'reopened', 'routed', 'in_progress', 'needs_info'], true))
-                  <button type="button" class="kebab-item"
-                          data-chat-open data-report-id="{{ $report->id }}"
-                          data-chat-tracking="{{ $report->tracking_code }}"
-                          data-chat-category="{{ $report->category?->name ?? 'Category not assigned' }}"
-                          data-chat-status="{{ \App\Models\Report::STATUSES[$report->status] ?? $report->status }}"
-                          data-chat-summary="{{ $report->description }}{{ $report->purok ? ' — '.$report->purok->name : '' }}"
-                          style="display:flex;align-items:center;gap:0.5rem;width:100%;padding:0.5rem 0.85rem;font-size:0.82rem;text-align:left;border:none;background:transparent;cursor:pointer;">
-                    <i class="fa-solid fa-comment-dots text-blue-600" aria-hidden="true"></i>
-                    <span>Ask Reporter for Info</span>
-                  </button>
-                @endif
-                @if($canMergeDuplicate)
-                  <button type="button" class="kebab-item" data-open-dialog="duplicate-modal"
-                          style="display:flex;align-items:center;gap:0.5rem;width:100%;padding:0.5rem 0.85rem;font-size:0.82rem;text-align:left;border:none;background:transparent;cursor:pointer;">
-                    <i class="fa-solid fa-copy text-amber-600" aria-hidden="true"></i>
-                    <span>Mark as duplicate</span>
-                  </button>
-                @endif
-                @if(app(\App\Services\ReportStatusService::class)->canTransition($report->status, \App\Support\ReportStatus::NO_ACTION))
-                  <button type="button" class="kebab-item" data-open-dialog="no-action-modal"
-                          style="display:flex;align-items:center;gap:0.5rem;width:100%;padding:0.5rem 0.85rem;font-size:0.82rem;text-align:left;border:none;background:transparent;cursor:pointer;">
-                    <i class="fa-solid fa-circle-xmark text-slate-500" aria-hidden="true"></i>
-                    <span>Take no action</span>
-                  </button>
-                @endif
-                @if(!$report->is_emergency && !in_array($report->status, \App\Models\Report::CLOSED_STATUSES, true))
-                  <button type="submit" form="kebab-emergency-form" class="kebab-item"
-                          style="display:flex;align-items:center;gap:0.5rem;width:100%;padding:0.5rem 0.85rem;font-size:0.82rem;text-align:left;border:none;background:transparent;cursor:pointer;color:#dc2626;">
-                    <i class="fa-solid fa-triangle-exclamation text-red-600" aria-hidden="true"></i>
-                    <span>Flag as emergency</span>
-                  </button>
-                @endif
-                @includeIf('admin.cases.partials.convert-button', ['report' => $report, 'formId' => 'kebab-convert-case-form'])
-              </div>
-            </div>
-          </div>
-        </div>
-
-        @if($report->infoRequests->isNotEmpty() && isset($infoThreadSummary))
-          <div class="review-info-summary" data-chat-summary-strip data-report-id="{{ $report->id }}">
-            <p class="review-info-summary-text">
-              <i class="fa-solid fa-comments" aria-hidden="true"></i>
-              <span data-chat-message-count>{{ $infoThreadSummary['count'] }} message{{ $infoThreadSummary['count'] === 1 ? '' : 's' }} sent</span>
-              <span class="review-info-summary-dot" aria-hidden="true">·</span>
-              <span data-chat-awaiting @if(! $infoThreadSummary['awaiting_reply']) hidden @endif>Awaiting resident reply</span>
-            </p>
-          </div>
-        @endif
-        <p class="review-ai-description" data-ai-state-message aria-live="polite">
-          @if($aiReady)
-            AI suggestions are ready. Verify each field before confirming.
-            @if($lowConfidence) Check carefully because confidence is low. @endif
-          @elseif($aiPending)
-            AI is analyzing this report. Your final values will not be changed when suggestions arrive.
-          @else
-            AI suggestions are not available. Enter or confirm Category and Urgency manually.
-          @endif
-        </p>
-        @if($aiUnavailable && $report->ai_status === 'failed' && ! $emergencyActionOnly)
-          <div class="review-retry-form">
-            <button type="submit" form="review-retry-ai-form" class="review-text-link">Retry AI analysis</button>
-          </div>
-        @endif
-
-        <div class="review-triage-grid">
-          {{-- Row 1: Category, Urgency, Purok, Landmark (4-column on desktop) --}}
-          <div class="review-triage-sidebar">
-
-            {{-- Field 1: Category --}}
-            <div class="review-field-card" data-review-row data-field="category"
-                 data-resident-value="{{ $residentCategoryId ?? '' }}"
-                 data-resident-label="{{ $residentCategory?->name ?? '' }}"
-                 data-ai-value="{{ $aiCategoryId ?? '' }}"
-                 data-ai-label="{{ $aiCategoryLabel ?? '' }}"
-                 data-ai-present="{{ $aiCategoryPresent ? 'true' : 'false' }}"
-                 data-review-required="{{ $categoryReviewRequired ? 'true' : 'false' }}"
-                 data-reviewed="{{ $alreadyReviewed || ! $categoryReviewRequired ? 'true' : 'false' }}">
-              <div class="review-field-card-header">
-                <label for="final-category" class="review-field-card-title">Category</label>
-                <div style="display:flex;align-items:center;gap:0.35rem;flex-wrap:wrap;">
-                  @if(!empty($voiceProvenance['category']['filled']))
-                    @if(!empty($voiceProvenance['category']['edited']))
-                      <span class="review-badge review-badge-amber" style="font-size:0.72rem;"><i class="fa-solid fa-pen" style="font-size:0.65rem;"></i> Edited after recording</span>
-                    @else
-                      <span class="review-badge review-badge-blue" style="font-size:0.72rem;"><i class="fa-solid fa-microphone" style="font-size:0.65rem;"></i> From recording</span>
-                    @endif
-                  @endif
-                  <span class="review-badge review-badge-outline-green" data-comparison-badge hidden></span>
-                  <span class="review-badge {{ $categoryFinalState === 'Accepted' ? 'review-badge-green' : ($categoryFinalState === 'Edited' ? 'review-badge-amber' : ($categoryFinalState === 'AI suggested' ? 'review-badge-blue' : 'review-badge-gray')) }}"
-                        data-final-state>{{ $categoryFinalState }}</span>
-                </div>
-              </div>
-
-              <div class="review-field-card-values">
-                <div>
-                  <span>Resident:</span>
-                  @if($residentCategory)
-                    <strong data-resident-display>{{ $residentCategory->name }}</strong>
-                  @else
-                    <span class="review-not-provided">Not chosen by resident</span>
-                  @endif
-                </div>
-                <div>
-                  <span>AI:</span>
-                  <strong data-ai-value-display @if($aiReady && ! $aiCategoryLabel) class="review-not-provided" @endif>
-                    @if($aiReady){{ $aiCategoryLabel ?? 'Not provided' }}
-                    @elseif($aiPending)Waiting for suggestion
-                    @else Not available
-                    @endif
-                  </strong>
-                </div>
-              </div>
-
-              <div>
-                <select id="final-category" name="category_id" data-final-control data-required-field required @disabled($emergencyActionOnly)>
-                  <option value="">Select category</option>
-                  @foreach($categories as $category)
-                    <option value="{{ $category->id }}" @selected((string) $finalCategoryId === (string) $category->id)>{{ $category->name }}</option>
-                  @endforeach
-                </select>
-              </div>
-
-              <div class="review-field-card-footer" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.35rem;">
-                <span class="review-gate-field-hint {{ $finalCategoryId ? 'is-ready' : 'is-missing' }}" data-gate-hint="category">
-                  <i class="fa-solid {{ $finalCategoryId ? 'fa-check' : 'fa-lock' }}" aria-hidden="true"></i>
-                  <span>{{ $finalCategoryId ? 'Ready to route' : 'Required to route' }}</span>
-                </span>
-                <div class="review-row-actions">
-                  <button type="button" class="review-text-link" data-use-ai @disabled($emergencyActionOnly) @if(! $aiCategoryId || ! $aiCategoryPresent || $aiCategoryId === $residentCategoryId) hidden @endif>Use AI</button>
-                  <button type="button" class="review-text-link" data-use-resident @disabled($emergencyActionOnly) @if($residentCategoryId === null || $residentCategoryId === $aiCategoryId) hidden @endif>Use resident's</button>
-                  <button type="button" class="review-text-link" data-accept-row @disabled($emergencyActionOnly) @if(! $aiCategoryId || ! $aiCategoryPresent) hidden @endif>Accept</button>
-                  <button type="button" class="review-text-link" data-undo-row hidden>Undo</button>
-                </div>
-              </div>
-              @if($residentCategory && $aiCategoryPresent && (string) $residentCategoryId !== (string) $aiCategoryId)
-                <small class="review-resident-choice" style="font-size:0.75rem;color:#b45309;">Resident chose: {{ $residentCategory->name }}</small>
-              @endif
-            </div>
-
-            {{-- Field 2: Urgency --}}
-            <div class="review-field-card" data-review-row data-field="urgency"
-                 data-resident-value=""
-                 data-resident-label=""
-                 data-ai-value="{{ $aiUrgency ?? '' }}"
-                 data-ai-label="{{ $aiUrgency ?? '' }}"
-                 data-ai-present="{{ $aiUrgencyPresent ? 'true' : 'false' }}"
-                 data-review-required="{{ $urgencyReviewRequired ? 'true' : 'false' }}"
-                 data-reviewed="{{ $alreadyReviewed || ! $urgencyReviewRequired ? 'true' : 'false' }}">
-              <div class="review-field-card-header">
-                <label for="final-urgency" class="review-field-card-title">Urgency</label>
-                <div style="display:flex;align-items:center;gap:0.35rem;">
-                  <span class="review-badge review-badge-outline-blue" data-comparison-badge hidden></span>
-                  <span class="review-badge {{ $urgencyFinalState === 'Accepted' ? 'review-badge-green' : ($urgencyFinalState === 'Edited' ? 'review-badge-amber' : ($urgencyFinalState === 'AI suggested' ? 'review-badge-blue' : 'review-badge-gray')) }}"
-                        data-final-state>{{ $urgencyFinalState }}</span>
-                </div>
-              </div>
-
-              <div class="review-field-card-values">
-                <div>
-                  <span>Resident:</span>
-                  <span class="review-not-provided" data-resident-display>Not provided</span>
-                </div>
-                <div>
-                  <span>AI:</span>
-                  <strong data-ai-value-display @if($aiReady && ! $aiUrgencyPresent) class="review-not-provided" @endif>
-                    @if($aiReady){{ $aiUrgency ?? 'Not provided' }}
-                    @elseif($aiPending)Waiting for suggestion
-                    @else Not available
-                    @endif
-                  </strong>
-                </div>
-              </div>
-
-              <div>
-                <select id="final-urgency" name="urgency" data-final-control data-required-field required @disabled($emergencyActionOnly)>
-                  <option value="">Select urgency</option>
-                  @foreach(['Low', 'Medium', 'High', 'Critical'] as $urgency)
-                    <option value="{{ $urgency }}" @selected($finalUrgency === $urgency)>{{ $urgency }}</option>
-                  @endforeach
-                </select>
-              </div>
-
-              <div class="review-field-card-footer" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.35rem;">
-                <span class="review-gate-field-hint {{ $finalUrgency ? 'is-ready' : 'is-missing' }}" data-gate-hint="urgency">
-                  <i class="fa-solid {{ $finalUrgency ? 'fa-check' : 'fa-lock' }}" aria-hidden="true"></i>
-                  <span>{{ $finalUrgency ? 'Ready to route' : 'Required to route' }}</span>
-                </span>
-                <div class="review-row-actions">
-                  <button type="button" class="review-text-link" data-use-ai @disabled($emergencyActionOnly) @if(! $aiUrgencyPresent) hidden @endif>Use AI</button>
-                  <button type="button" class="review-text-link" data-use-resident @disabled($emergencyActionOnly) hidden>Use resident's</button>
-                  <button type="button" class="review-text-link" data-accept-row @disabled($emergencyActionOnly) @if(! $aiUrgencyPresent) hidden @endif>Accept</button>
-                  <button type="button" class="review-text-link" data-undo-row hidden>Undo</button>
-                </div>
-              </div>
-            </div>
-
-            {{-- Field 3: Purok --}}
-            <div class="review-field-card" data-review-row data-field="purok"
-                 data-resident-value="{{ $residentPurok?->id ?? '' }}"
-                 data-resident-label="{{ $residentPurok?->name ?? '' }}"
-                 data-ai-value="" data-ai-label="" data-ai-present="false"
-                 data-review-required="false" data-reviewed="true">
-              <div class="review-field-card-header">
-                <label for="final-purok" class="review-field-card-title">Purok</label>
-                <div style="display:flex;align-items:center;gap:0.35rem;flex-wrap:wrap;">
-                  @if(!empty($voiceProvenance['purok']['filled']))
-                    @if(!empty($voiceProvenance['purok']['edited']))
-                      <span class="review-badge review-badge-amber" style="font-size:0.72rem;"><i class="fa-solid fa-pen" style="font-size:0.65rem;"></i> Edited after recording</span>
-                    @else
-                      <span class="review-badge review-badge-blue" style="font-size:0.72rem;"><i class="fa-solid fa-microphone" style="font-size:0.65rem;"></i> From recording</span>
-                    @endif
-                  @endif
-                  <span class="review-badge review-badge-gray" data-final-state>Resident</span>
-                </div>
-              </div>
-              <div class="review-field-card-values">
-                <div>
-                  <span>Resident:</span>
-                  @if($residentPurok)
-                    <strong data-resident-display>{{ $residentPurok->name }}</strong>
-                  @else
-                    <span class="review-not-provided">Not provided</span>
-                  @endif
-                </div>
-                <span data-ai-value-display class="sr-only"></span>
-                <span data-comparison-badge hidden class="sr-only"></span>
-              </div>
-              <div>
-                <select id="final-purok" name="purok_id" data-final-control @disabled($emergencyActionOnly)>
-                  <option value="">Select purok</option>
-                  @foreach($puroks as $purok)
-                    <option value="{{ $purok->id }}" @selected((string) $finalPurokId === (string) $purok->id)>{{ $purok->name }}</option>
-                  @endforeach
-                </select>
-              </div>
-            </div>
-
-            {{-- Field 4: Landmark --}}
-            <div class="review-field-card" data-review-row data-field="landmark"
-                 data-resident-value="{{ $residentLandmark ?? '' }}"
-                 data-resident-label="{{ $residentLandmark ?? '' }}"
-                 data-ai-value="" data-ai-label="" data-ai-present="false"
-                 data-review-required="false" data-reviewed="true">
-              <div class="review-field-card-header">
-                <label for="final-landmark" class="review-field-card-title">Landmark</label>
-                <div style="display:flex;align-items:center;gap:0.35rem;flex-wrap:wrap;">
-                  @if(!empty($voiceProvenance['landmark']['filled']))
-                    @if(!empty($voiceProvenance['landmark']['edited']))
-                      <span class="review-badge review-badge-amber" style="font-size:0.72rem;"><i class="fa-solid fa-pen" style="font-size:0.65rem;"></i> Edited after recording</span>
-                    @else
-                      <span class="review-badge review-badge-blue" style="font-size:0.72rem;"><i class="fa-solid fa-microphone" style="font-size:0.65rem;"></i> From recording</span>
-                    @endif
-                  @endif
-                  <span class="review-badge review-badge-gray" data-final-state>Resident</span>
-                </div>
-              </div>
-              <div class="review-field-card-values">
-                <div>
-                  <span>Resident:</span>
-                  @if(trim((string) $residentLandmark) !== '')
-                    <strong data-resident-display>{{ $residentLandmark }}</strong>
-                  @else
-                    <span class="review-not-provided">Not provided</span>
-                  @endif
-                </div>
-                <span data-ai-value-display class="sr-only"></span>
-                <span data-comparison-badge hidden class="sr-only"></span>
-              </div>
-              <div>
-                <input id="final-landmark" type="text" name="landmark" maxlength="255"
-                       value="{{ $finalLandmark }}" placeholder="Enter landmark or nearby reference" data-final-control @disabled($emergencyActionOnly)>
-              </div>
-            </div>
-
-          </div> {{-- End review-triage-sidebar (display:contents) --}}
-
-          {{-- Row 2: Incident Description (full width spanning all columns) --}}
-          <div class="review-triage-main review-triage-description-row" data-review-row data-field="description"
-               data-resident-value="{{ $residentDescription }}"
-               data-resident-label="{{ $residentDescription }}"
-               data-ai-value="{{ $aiDescription ?? '' }}"
-               data-ai-label="{{ $aiDescription ?? '' }}"
-               data-ai-present="{{ $aiDescriptionPresent ? 'true' : 'false' }}"
-               data-review-required="true"
-               data-reviewed="{{ $descriptionReviewed ? 'true' : 'false' }}">
-            <div class="review-field-card" style="display: flex; flex-direction: column;">
-              <div class="review-field-card-header" style="border-bottom: 1px solid var(--line); padding-bottom: 0.5rem;">
-                <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
-                  <span class="review-field-card-title" style="font-size:0.92rem;">Incident Description</span>
-                  @if(!empty($voiceProvenance['description']['filled']))
-                    @if(!empty($voiceProvenance['description']['edited']))
-                      <span class="review-badge review-badge-amber" style="font-size:0.72rem;"><i class="fa-solid fa-pen" style="font-size:0.65rem;"></i> Edited after recording</span>
-                    @else
-                      <span class="review-badge review-badge-blue" style="font-size:0.72rem;"><i class="fa-solid fa-microphone" style="font-size:0.65rem;"></i> From recording</span>
-                    @endif
-                  @endif
-                  @if($voiceAudio && $voiceAudio->ai_description && trim($voiceAudio->ai_description) !== trim($residentDescription))
-                    <span class="review-badge review-badge-amber" style="font-size:0.72rem;" title="Resident modified description after voice recording"><i class="fa-solid fa-user-pen"></i> Edited by resident</span>
-                  @endif
-                  <span class="review-badge review-badge-outline-green" data-comparison-badge hidden></span>
-                  <span class="review-badge {{ $descriptionFinalState === 'Accepted' ? 'review-badge-green' : ($descriptionFinalState === 'Edited' ? 'review-badge-amber' : ($descriptionFinalState === 'AI suggested' ? 'review-badge-blue' : 'review-badge-gray')) }}"
-                        data-final-state>{{ $descriptionFinalState }}</span>
-                </div>
-              </div>
-
-              {{-- Comparison Boxes (Side by side for resident text vs AI diff) --}}
-              <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:0.75rem;margin-top:0.4rem;">
-                <div>
-                  <span style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:0.04em;display:block;margin-bottom:0.25rem;">
-                    Original Resident Text
-                  </span>
-                  <div style="padding:0.5rem 0.75rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-size:0.84rem;line-height:1.45;color:#334155;min-height:80px;max-height:120px;overflow-y:auto;">
-                    @if(trim((string) $residentDescription) !== '')
-                      <span data-resident-display>{{ $residentDescription }}</span>
-                    @else
-                      <span class="review-not-provided">Not provided</span>
-                    @endif
-                  </div>
-                </div>
-
-                <div>
-                  <span style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:#2563eb;letter-spacing:0.04em;display:block;margin-bottom:0.25rem;">
-                    AI Suggestion &amp; Diff
-                  </span>
-                  <div style="padding:0.5rem 0.75rem;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;font-size:0.84rem;line-height:1.45;color:#1e3a8a;min-height:80px;max-height:120px;overflow-y:auto;">
-                    @if($aiReady && $aiDescriptionPresent)
-                      <div class="review-description-diff" data-description-diff data-original="{{ $residentDescription }}" data-ai="{{ $aiDescription }}"></div>
-                      <span data-ai-value-display class="sr-only">{{ $aiDescription }}</span>
-                    @else
-                      <span data-ai-value-display>
-                        @if($aiPending)Waiting for suggestion
-                        @elseif($aiUnavailable)Not available
-                        @else
-                          <span class="review-not-provided">Not provided</span>
-                        @endif
-                      </span>
-                      <div class="review-description-diff" data-description-diff data-original="{{ $residentDescription }}" data-ai=""></div>
-                    @endif
-                  </div>
-                </div>
-              </div>
-
-              {{-- Action Buttons directly below comparison boxes --}}
-              <div class="review-row-actions" style="margin-top:0.5rem;margin-bottom:0.35rem;padding:0.4rem 0.65rem;background:#f8fafc;border-radius:8px;border:1px solid #f1f5f9;display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
-                <span style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.04em;">Actions:</span>
-                <button type="button" class="review-text-link" data-accept-row @disabled($emergencyActionOnly) @if(! $aiDescriptionPresent) hidden @endif style="font-weight:700;color:#16a34a;">
-                  <i class="fa-solid fa-check" aria-hidden="true"></i> Accept AI
-                </button>
-                <button type="button" class="review-text-link" data-use-ai @disabled($emergencyActionOnly) @if(! $aiDescriptionPresent) hidden @endif>
-                  Use AI
-                </button>
-                <button type="button" class="review-text-link" data-append-ai @disabled($emergencyActionOnly) @if(! $aiDescriptionPresent) hidden @endif>
-                  <i class="fa-solid fa-plus" aria-hidden="true"></i> Append AI summary
-                </button>
-                <button type="button" class="review-text-link" data-use-original @disabled($emergencyActionOnly)>
-                  Use original
-                </button>
-                <button type="button" class="review-text-link" data-use-resident @disabled($emergencyActionOnly) @if(! $residentDescription || $residentDescription === $aiDescription) hidden @endif>
-                  Use resident's
-                </button>
-                <button type="button" class="review-text-link" data-undo-row hidden style="color:#64748b;">
-                  <i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Undo
-                </button>
-              </div>
-
-              {{-- Final Editable Description --}}
-              <div style="margin-top:0.25rem;display:flex;flex-direction:column;flex:1;">
-                <label for="final-description" style="font-size:0.74rem;font-weight:700;text-transform:uppercase;color:#1e293b;letter-spacing:0.04em;display:block;margin-bottom:0.25rem;">
-                  Final Description (Official Record)
-                </label>
-                <textarea id="final-description" name="staff_description" rows="3" maxlength="2000"
-                          style="width:100%;font-size:0.86rem;line-height:1.45;padding:0.45rem 0.65rem;border:1px solid var(--line);border-radius:8px;resize:vertical;min-height:75px;max-height:160px;"
-                          data-final-control @disabled($emergencyActionOnly)>{{ $finalDescription }}</textarea>
-              </div>
-            </div>
-          </div> {{-- End review-triage-description-row --}}
-        </div> {{-- End review-triage-grid --}}
-
-        @if($aiReady && ($aiResult->photo_description || $aiResult->key_facts))
-          <details class="review-ai-details">
-            <summary>AI details</summary>
-            @if($aiResult->photo_description)
-              <p><strong>Photo description:</strong> {{ $aiResult->photo_description }}</p>
-            @endif
-            @if($aiResult->key_facts)
-              <ul>
-                @foreach($aiResult->key_facts as $fact)
-                  <li>{{ $fact }}</li>
-                @endforeach
-              </ul>
-            @endif
-          </details>
-        @endif
-
-        @if(! $isAfterRoute && ! $emergencyActionOnly)
-          <div class="review-actions-row">
-            <span class="review-gate-hint review-card2-gate-summary" data-gate-reason-card2 aria-live="polite"></span>
-            @if($aiReady)
-              <button type="button" class="review-button review-button-blue" data-accept-all>
-                <i class="fa-solid fa-check-double" aria-hidden="true"></i> Accept all AI suggestions
-              </button>
-            @else
-              <button type="button" class="review-button review-button-blue" data-accept-all hidden disabled>
-                Accept all AI suggestions
-              </button>
-            @endif
-          </div>
-        @endif
-      </div>
-    </details>
-  </section>
-
-  @if(! $isAfterRoute && ! $emergencyActionOnly)
-    <section class="review-workflow-card overflow-hidden">
-      <div class="review-card-heading review-card-heading-static">
-        <span class="review-card-number" aria-hidden="true">3</span>
-        <span class="review-card-heading-copy">
-          <span class="review-card-title">Route and assign</span>
-          <span class="review-card-instruction">Confirm who should handle it.</span>
-        </span>
-      </div>
-      <div class="review-card-content space-y-4">
-        @php
-          $ruleWithin = (bool) ($routingDecision['within_authority'] ?? ($jurisdiction['within_authority'] ?? true));
-          $initialMode = in_array(old('authority_mode'), ['within', 'beyond'], true)
-              ? old('authority_mode')
-              : ($ruleWithin ? 'within' : 'beyond');
-          $isInitiallyWithin = $initialMode === 'within';
-          $preferredExternalId = (old('office_id') && $externalOffices->contains('id', (int) old('office_id')))
-              ? (int) old('office_id')
-              : (int) ($routingDecision['office_id'] ?? $jurisdiction['office']?->id ?? 0);
-          $defaultAgency = $externalOffices->firstWhere('id', $preferredExternalId) ?? $externalOffices->first();
-          $defaultLetter = old('referral_letter', $letterTemplates[$defaultAgency?->id]['letter'] ?? '');
-          $defaultResidentMessage = old('resident_message', $letterTemplates[$defaultAgency?->id]['resident_message'] ?? '');
-          $defaultAgencyId = $defaultAgency?->id;
-          $matchedRuleName = $routingDecision['reason'] ?? ($jurisdiction['jurisdiction_note'] ?? 'Category default');
-          $isSuggestedMatch = $routingDecision && (string) $officeDefault === (string) ($routingDecision['office_id'] ?? '');
-
-          // Quick fill chips config array
-          $residentMessageChips = [
-            'within' => [
-              'The assigned office will inspect within 3 working days.',
-              'Your report has been routed to the department in charge.',
-              'Staff will assess the site and schedule necessary action.',
-              'Work is being scheduled for this report.',
-            ],
-            'beyond' => [
-              'We have referred this report to the appropriate agency.',
-              'We will monitor this external referral and follow up.',
-              'Your report is under review with the agency.',
-              'We will update you as soon as the agency responds.',
-            ],
-          ];
-
-          $urgencyBadgeConfig = match($priorityLabel) {
-            'Critical' => ['dot' => 'bg-red-600', 'pill' => 'bg-red-50 text-red-800 border-red-200'],
-            'High' => ['dot' => 'bg-amber-500', 'pill' => 'bg-amber-50 text-amber-800 border-amber-200'],
-            'Medium' => ['dot' => 'bg-blue-500', 'pill' => 'bg-blue-50 text-blue-800 border-blue-200'],
-            default => ['dot' => 'bg-slate-400', 'pill' => 'bg-slate-50 text-slate-700 border-slate-200'],
-          };
-        @endphp
-
-        {{-- Hidden JSON & inputs needed by JS --}}
-        <input type="hidden" name="authority_mode" value="{{ $initialMode }}" data-authority-mode-input>
-        <input type="hidden" name="agency_office_id" value="{{ $defaultAgencyId }}" data-agency-hidden-input>
-        <script type="application/json" data-routing-map>@json($routingDecisions)</script>
-        <script type="application/json" data-letter-templates>@json($letterTemplates)</script>
-
-        {{-- ── 1. Status Strip (Replaces old banner and priority line) ── --}}
-        <div class="review-mode-banner rounded-xl border border-slate-200 border-l-[3px] p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all {{ $isInitiallyWithin ? 'border-l-emerald-600 bg-emerald-50/50 border-emerald-200 review-mode-banner-within' : 'border-l-blue-600 bg-blue-50/50 border-blue-200 review-mode-banner-beyond' }}"
-             data-mode-banner data-rule-mode="{{ $initialMode }}">
-          <div class="flex items-start gap-3 min-w-0">
-            {{-- Soft Circle Icon --}}
-            <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-colors {{ $isInitiallyWithin ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700' }}" data-mode-icon>
-              @if($isInitiallyWithin)
-                <i class="fa-solid fa-shield-halved text-base" aria-hidden="true"></i>
-              @else
-                <i class="fa-solid fa-arrow-up-right-from-square text-base" aria-hidden="true"></i>
-              @endif
-            </div>
-
+          <div class="mt-2.5 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600">
             <div>
-              <div class="flex items-center gap-2.5 flex-wrap">
-                <strong class="text-sm font-bold text-slate-900" data-mode-badge>
-                  {{ $isInitiallyWithin ? 'Within barangay authority' : 'Beyond barangay authority' }}
-                </strong>
-
-                {{-- Prominent Urgency Pill with Colored Dot --}}
-                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border {{ $urgencyBadgeConfig['pill'] }}" data-urgency-pill>
-                  <span class="w-2 h-2 rounded-full {{ $urgencyBadgeConfig['dot'] }}" data-urgency-dot></span>
-                  <span>Urgency: <span data-urgency-label>{{ $priorityLabel }}</span></span>
-                </span>
-                @if($report->due_at)
-                  <span class="text-xs text-slate-400 font-medium">Due {{ $report->due_at->format('M d, Y') }}</span>
-                @endif
-              </div>
-
-              {{-- Dynamic Description --}}
-              <p class="text-xs text-slate-600 mt-1 leading-relaxed" data-mode-note>
-                @if($isInitiallyWithin)
-                  Matched rule: <span data-matched-rule-text>{{ $matchedRuleName }}</span>. Assign it to an office and staff member.
-                @else
-                  This will be referred to an external agency. A referral letter is sent and follow-up is tracked.
-                @endif
-              </p>
+              <strong>Purok:</strong>
+              @if($residentPurok)
+                <span>{{ $residentPurok->name }}</span>
+              @else
+                <span class="italic text-slate-400">Not provided</span>
+              @endif
+              <span class="mx-1 text-slate-300">·</span>
+              <strong>Landmark:</strong>
+              @if(trim((string) $residentLandmark) !== '')
+                <span>{{ $residentLandmark }}</span>
+              @else
+                <span class="italic text-slate-400">Not provided</span>
+              @endif
             </div>
-          </div>
-
-          {{-- Segmented Mode Toggle --}}
-          <div class="inline-flex p-1 bg-slate-200/70 rounded-lg text-xs self-start md:self-center flex-shrink-0" role="tablist" aria-label="Authority mode toggle">
-            <button type="button" class="mode-seg-btn px-3 py-1.5 rounded-md font-semibold transition-all {{ $isInitiallyWithin ? 'bg-white text-slate-900 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900' }}"
-                    data-mode-btn="within">
-              Within barangay
-            </button>
-            <button type="button" class="mode-seg-btn px-3 py-1.5 rounded-md font-semibold transition-all {{ !$isInitiallyWithin ? 'bg-white text-slate-900 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900' }}"
-                    data-mode-btn="beyond">
-              Refer to agency
-            </button>
-          </div>
-          {{-- Hidden original toggle button to keep any external hooks compatible --}}
-          <button type="button" class="sr-only" data-mode-toggle data-other-mode="{{ $isInitiallyWithin ? 'beyond' : 'within' }}">
-            {{ $isInitiallyWithin ? "This isn't barangay authority" : 'Handle within the barangay instead' }}
-          </button>
-        </div>
-
-        {{-- ── 2. MODE A: Within Barangay Authority ── --}}
-        <div class="review-mode-block space-y-4" data-mode-block="within" @if(!$isInitiallyWithin) hidden @endif>
-          {{-- Assignment Card --}}
-          <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4 sm:p-5 space-y-4">
-            <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Assignment</div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {{-- Office Select --}}
-              <div>
-                <div class="flex items-center justify-between mb-1">
-                  <label for="office_id" class="text-xs font-bold text-slate-700 flex items-center gap-2">
-                    <span>Office</span>
-                    <span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200" data-suggested-badge @if(!$isSuggestedMatch) style="display:none;" @endif>
-                      <i class="fa-solid fa-check text-[9px]" aria-hidden="true"></i> Suggested
-                    </span>
-                  </label>
-                </div>
-                <div class="relative">
-                  <select id="office_id" name="office_id" class="w-full h-11 text-xs rounded-lg border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-8" data-office-select @disabled(!$isInitiallyWithin)>
-                    <option value="">Select an office</option>
-                    @foreach($offices as $office)
-                      <option value="{{ $office->id }}"
-                              data-default-assignee="{{ $office->default_assignee_id ?? '' }}"
-                              @selected((string) $officeDefault === (string) $office->id)>{{ $office->name }}</option>
-                    @endforeach
-                  </select>
-                </div>
-                <div class="flex items-center gap-1.5 text-xs text-blue-700 font-medium mt-1.5" data-routing-reason>
-                  <i class="fa-solid fa-route text-blue-600" aria-hidden="true"></i>
-                  <span>
-                    @if($routingDecision)
-                      Rule: {{ $categories->firstWhere('id', $selectedCategoryId)?->name }} → {{ $routingDecision['office_name'] ?? 'No office' }}
-                    @else
-                      Select a category to see the routing recommendation.
-                    @endif
-                  </span>
-                </div>
-                <p class="review-field-hint text-xs text-slate-400 mt-0.5">The department that handles this report</p>
-              </div>
-
-              {{-- Assigned to Select --}}
-              <div>
-                <label for="assigned_to" class="block text-xs font-bold text-slate-700 mb-1">Assigned to</label>
-                <div class="relative">
-                  <select id="assigned_to" name="assigned_to" class="w-full h-11 text-xs rounded-lg border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-8" data-assigned-select>
-                    <option value="">Unassigned</option>
-                    @foreach($staffUsers as $staffUser)
-                      <option value="{{ $staffUser->id }}" @selected((string) $assignedDefault === (string) $staffUser->id)>{{ $staffUser->name }}</option>
-                    @endforeach
-                  </select>
-                </div>
-                <div class="flex items-center gap-1.5 text-xs text-amber-700 font-medium mt-1.5" data-unassigned-note @if($assignedDefault) style="display:none;" @endif>
-                  <i class="fa-solid fa-circle-exclamation text-amber-600 text-[11px]" aria-hidden="true"></i>
-                  <span>No one is responsible yet.</span>
-                </div>
-                <p class="review-field-hint text-xs text-slate-400 mt-0.5">The staff member responsible for follow-through</p>
-              </div>
-            </div>
-          </div>
-
-          {{-- Message to resident Card (Mode A) --}}
-          <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4 sm:p-5 space-y-3">
-            <div class="flex items-center justify-between">
-              <label for="review_note" class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                <span>Message to resident</span>
-                <span class="text-[10px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">Optional</span>
-              </label>
-            </div>
-            <p class="text-xs text-slate-500">Sent to the reporter when you confirm.</p>
-
-            {{-- Quick-fill chips --}}
-            <div class="flex items-center gap-1.5 flex-wrap">
-              <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mr-1">Quick fill:</span>
-              @foreach($residentMessageChips['within'] as $chip)
-                <button type="button" class="btn-quick-fill text-xs px-2.5 py-1 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors" data-chip-target="review_note" data-chip-text="{{ $chip }}">
-                  {{ $chip }}
-                </button>
-              @endforeach
-            </div>
-
-            <textarea id="review_note" name="review_note" rows="3" maxlength="1000" class="w-full text-xs rounded-lg border-slate-300 p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. The assigned office will inspect within 3 working days.">{{ $defaultMessage }}</textarea>
-          </div>
-        </div>
-
-        {{-- ── 3. MODE B: Beyond Barangay Authority (Agency Referral) ── --}}
-        <div class="review-mode-block space-y-4" data-mode-block="beyond" @if($isInitiallyWithin) hidden @endif>
-          {{-- Agency & Follow-up Card --}}
-          <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4 sm:p-5 space-y-4">
-            <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">External Agency &amp; Follow-up</div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {{-- Agency Select --}}
-              <div>
-                <label for="agency_id" class="block text-xs font-bold text-slate-700 mb-1">External agency</label>
-                <div class="relative">
-                  <select id="agency_id" name="office_id" class="w-full h-11 text-xs rounded-lg border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-8" data-agency-select @disabled($isInitiallyWithin)>
-                    <option value="">Select an agency</option>
-                    @foreach($externalOffices as $externalOffice)
-                      <option value="{{ $externalOffice->id }}" @selected((string) $defaultAgencyId === (string) $externalOffice->id)>{{ $externalOffice->name }}</option>
-                    @endforeach
-                  </select>
-                </div>
-              </div>
-
-              {{-- Follow-up Owner Select --}}
-              <div>
-                <label for="follow_up_owner_id" class="block text-xs font-bold text-slate-700 mb-1">Follow-up owner</label>
-                <div class="relative">
-                  <select id="follow_up_owner_id" name="follow_up_owner_id" class="w-full h-11 text-xs rounded-lg border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-8" @disabled($isInitiallyWithin)>
-                    <option value="">Unassigned</option>
-                    @foreach($staffUsers as $staffUser)
-                      <option value="{{ $staffUser->id }}" @selected((string) old('follow_up_owner_id', $currentUserId) === (string) $staffUser->id)>{{ $staffUser->name }}</option>
-                    @endforeach
-                  </select>
-                </div>
-                <p class="text-xs text-slate-400 mt-1">Staff member responsible for following up with the agency.</p>
-              </div>
-            </div>
-
-            {{-- Agency Contact Details Box --}}
-            <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs space-y-1.5" id="agency-contact-box">
-              <div class="flex items-center gap-2 text-slate-700">
-                <i class="fa-solid fa-user w-4 text-slate-400 text-center" aria-hidden="true"></i>
-                <span data-agency-person>{{ $defaultAgency->contact_person ?? 'Not provided' }}</span>
-              </div>
-              <div class="flex items-center gap-2 text-slate-700">
-                <i class="fa-solid fa-envelope w-4 text-slate-400 text-center" aria-hidden="true"></i>
-                <span data-agency-email>{{ $defaultAgency->contact_email ?? 'Not provided' }}</span>
-              </div>
-              <div class="flex items-center gap-2 text-slate-700">
-                <i class="fa-solid fa-phone w-4 text-slate-400 text-center" aria-hidden="true"></i>
-                <span data-agency-phone>{{ $defaultAgency->contact_phone ?? 'Not provided' }}</span>
-              </div>
-              <div class="flex items-center gap-2 text-slate-700">
-                <i class="fa-solid fa-location-dot w-4 text-slate-400 text-center" aria-hidden="true"></i>
-                <span data-agency-address>{{ $defaultAgency->address ?? 'Not provided' }}</span>
-              </div>
-              {{-- Hidden original element so legacy JS callers don't fail --}}
-              <span class="sr-only" data-agency-info></span>
-            </div>
-          </div>
-
-          {{-- Referral Letter Card --}}
-          <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4 sm:p-5 space-y-3">
-            <div class="flex items-center justify-between">
-              <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Referral Letter</div>
-              <div class="flex items-center gap-2">
-                <button type="button" class="btn btn-ghost btn-small text-xs py-1 px-2.5 text-blue-700 font-semibold" id="btn-edit-letter">
-                  <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i> <span id="btn-edit-letter-text">Edit letter</span>
-                </button>
-                <button type="button" class="btn btn-ghost btn-small text-xs py-1 px-2.5 text-slate-500 hover:text-slate-800" id="btn-reset-letter" style="display:none;">
-                  <i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Reset to template
-                </button>
-                <button type="button" class="btn btn-navy btn-small text-xs py-1 px-3" id="btn-done-letter" style="display:none;">
-                  <i class="fa-solid fa-check" aria-hidden="true"></i> Done
-                </button>
-              </div>
-            </div>
-
-            {{-- Paper-style Letter Preview (Default) --}}
-            <div id="letter-preview-card" class="bg-slate-50/70 border border-slate-200 rounded-xl p-5 font-sans text-xs sm:text-sm leading-relaxed text-slate-800 max-w-prose shadow-inner max-h-[340px] overflow-y-auto whitespace-pre-wrap select-text">
-              <div data-letter-preview-text>{{ $defaultLetter }}</div>
-            </div>
-
-            {{-- Letter Textarea (Edit Mode) --}}
-            <div id="letter-edit-box" style="display:none;">
-              <textarea id="referral_letter" name="referral_letter" rows="12" maxlength="20000"
-                        class="w-full text-xs font-mono p-3 rounded-lg border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 leading-relaxed"
-                        data-referral-letter @disabled($isInitiallyWithin)>{{ $defaultLetter }}</textarea>
-            </div>
-          </div>
-
-          {{-- Message to resident Card (Mode B) --}}
-          <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4 sm:p-5 space-y-3">
-            <div class="flex items-center justify-between">
-              <label for="resident_message" class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                <span>Message to resident</span>
-                <span class="text-[10px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">Optional</span>
-              </label>
-            </div>
-            <p class="text-xs text-slate-500">Sent to the reporter when you confirm.</p>
-
-            {{-- Quick-fill chips --}}
-            <div class="flex items-center gap-1.5 flex-wrap">
-              <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mr-1">Quick fill:</span>
-              @foreach($residentMessageChips['beyond'] as $chip)
-                <button type="button" class="btn-quick-fill text-xs px-2.5 py-1 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors" data-chip-target="resident_message" data-chip-text="{{ $chip }}">
-                  {{ $chip }}
-                </button>
-              @endforeach
-            </div>
-
-            <textarea id="resident_message" name="resident_message" rows="3" maxlength="1000"
-                      class="w-full text-xs rounded-lg border-slate-300 p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      data-resident-message @disabled($isInitiallyWithin) placeholder="e.g. We referred this report to the appropriate agency.">{{ $defaultResidentMessage }}</textarea>
-          </div>
-        </div>
-
-        {{-- ── 4. Sticky Bottom Action Bar ── --}}
-        <div class="sticky bottom-0 z-20 bg-white/95 backdrop-blur border-t border-slate-200 -mx-4 -mb-4 sm:-mx-6 sm:-mb-6 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] rounded-b-2xl">
-          <div class="flex items-center gap-2 min-w-0">
-            <div class="flex items-center gap-1.5 text-xs font-bold text-slate-800 truncate" data-action-summary>
-              <i class="fa-solid fa-arrow-right-to-bracket text-blue-600" aria-hidden="true"></i>
-              <span data-action-summary-text>
-                @if($isInitiallyWithin)
-                  Route to {{ $officeDefault ? ($offices->firstWhere('id', $officeDefault)?->name ?? 'selected office') : 'selected office' }} · {{ $priorityLabel }}
-                @else
-                  Refer to {{ $defaultAgency?->name ?? 'external agency' }} · {{ $priorityLabel }}
-                @endif
-              </span>
-            </div>
-            <span class="review-gate-hint text-xs ml-2" data-gate-reason aria-live="polite"></span>
-          </div>
-
-          <div class="flex items-center gap-2 flex-shrink-0 self-end sm:self-auto">
-            <a href="{{ route('admin.reports.index') }}" class="btn btn-ghost btn-small text-xs py-2 px-3">Cancel</a>
-            
-            @if($isRouteable)
-              <button type="submit" form="review-form" name="intent" value="route" class="btn btn-gold btn-small text-xs font-bold py-2 px-4 flex items-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed" data-route-submit @if(!$isInitiallyWithin) style="display:none;" @endif>
-                <i class="fa-solid fa-check" aria-hidden="true"></i>
-                <span>Confirm and route</span>
-              </button>
+            @if($googleMapsUrl)
+              <a href="{{ $googleMapsUrl }}" target="_blank" rel="noopener" class="text-blue-600 hover:underline font-semibold inline-flex items-center gap-1">
+                Open in Google Maps <i class="fa-solid fa-arrow-up-right-from-square text-[10px]" aria-hidden="true"></i>
+              </a>
             @endif
-
-            <button type="submit" form="review-form" name="intent" value="referral" class="btn btn-gold btn-small text-xs font-bold py-2 px-4 flex items-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed" data-referral-submit @if($isInitiallyWithin) style="display:none;" @endif>
-              <i class="fa-solid fa-paper-plane" aria-hidden="true"></i>
-              <span>Prepare referral</span>
-            </button>
           </div>
         </div>
-
-        @if($isOverdue && ! $report->escalated_at)
-          <div class="review-escalate-form">
-            <button type="submit" form="review-escalate-form" class="review-button review-button-outline">Escalate overdue report</button>
-          </div>
-        @endif
       </div>
-    </section>
-  @elseif($emergencyActionOnly)
-    <section class="review-workflow-card">
-      <div class="review-card-heading review-card-heading-static">
-        <span class="review-card-number" aria-hidden="true">3</span>
-        <span class="review-card-heading-copy">
-          <span class="review-card-title">Route and assign</span>
-          <span class="review-card-instruction">Confirm who should handle it.</span>
-        </span>
+
+      {{-- TAB 2: TIMELINE & NOTES --}}
+      <div class="dossier-panel rw-fade-in p-4 space-y-4 hidden" data-dossier-panel="timeline">
+        @unless($isCompleted || $emergencyActionOnly)
+          <form method="POST" action="{{ route('admin.reports.internal-notes.store', $report) }}" class="rounded-xl bg-slate-50 border border-slate-200 p-3 space-y-2" data-prevent-double-submit>
+            @csrf
+            <label for="timeline-internal-note" class="block text-[11px] font-bold text-slate-700">
+              <i class="fa-solid fa-lock text-slate-400 mr-1" aria-hidden="true"></i> Add internal note · Visible to staff only
+            </label>
+            <textarea id="timeline-internal-note" name="body" rows="2" maxlength="3000" required
+                      placeholder="Record staff observations, coordination, or call notes..."
+                      class="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30"></textarea>
+            <div class="flex justify-end">
+              <button type="submit" class="rounded-lg bg-[#0b1f4b] hover:bg-[#172e63] text-white text-xs font-bold px-3 py-1.5 transition" data-submit-once>
+                Save note
+              </button>
+            </div>
+          </form>
+        @endunless
+
+        <ol class="review-activity-list">
+          @forelse($activityEntries as $activity)
+            @php
+              $isInternal = isset($activity['visible_to_resident']) ? !$activity['visible_to_resident'] : str_contains($activity['title'], '(Internal)');
+              $isInfoReq = str_contains(strtolower($activity['title']), 'info');
+            @endphp
+            <li class="relative pl-4 border-l-2 {{ $isInternal ? 'border-slate-300' : ($isInfoReq ? 'border-amber-400' : 'border-blue-500') }}">
+              <span class="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full {{ $isInternal ? 'bg-slate-400' : ($isInfoReq ? 'bg-amber-500' : 'bg-blue-600') }}"></span>
+              <div class="flex flex-wrap items-center justify-between gap-1">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <strong class="text-xs text-slate-900">{{ $activity['title'] }}</strong>
+                  @if($isInternal)
+                    <span class="rounded px-1.5 py-0.2 text-[10px] font-bold bg-slate-100 text-slate-600">Staff only</span>
+                  @elseif($isInfoReq)
+                    <span class="rounded px-1.5 py-0.2 text-[10px] font-bold bg-amber-50 text-amber-800">Info request</span>
+                  @else
+                    <span class="rounded px-1.5 py-0.2 text-[10px] font-bold bg-blue-50 text-blue-700">Public</span>
+                  @endif
+                </div>
+                <time datetime="{{ $activity['at']?->toIso8601String() }}" class="text-[10px] text-slate-400">{{ $activity['at']?->format('M d, Y h:i A') }}</time>
+              </div>
+              @if($activity['user'])
+                <div class="text-[11px] text-slate-500 mt-0.5">{{ $activity['user'] }}</div>
+              @endif
+              @if($activity['body'])
+                <p class="text-xs text-slate-700 mt-1 bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 leading-relaxed mb-0">{{ $activity['body'] }}</p>
+              @endif
+            </li>
+          @empty
+            <li class="text-xs text-slate-500 italic">No activity recorded yet.</li>
+          @endforelse
+        </ol>
       </div>
-      <div class="review-card-content">
-        <p class="review-field-hint">Resolve the emergency concern above before reviewing or routing this report.</p>
-      </div>
-    </section>
-  @endif
 
-  @if(! $emergencyActionOnly)
-    </form>
-  @endif
-
-  {{-- Auxiliary action forms placed outside #review-form to avoid nested HTML form corruption --}}
-  @if(auth()->user()?->hasPermission('cases.create'))
-    <form id="kebab-convert-case-form" method="POST" action="{{ route('admin.reports.convert-to-case', $report) }}" class="hidden" style="display:none;">
-      @csrf
-    </form>
-  @endif
-
-  @if(!$report->is_emergency && !in_array($report->status, \App\Models\Report::CLOSED_STATUSES, true))
-    <form id="kebab-emergency-form" method="POST" action="{{ route('admin.reports.emergency', $report) }}" data-confirm="Flag this report as an emergency concern?" class="hidden" style="display:none;">
-      @csrf
-      @method('PATCH')
-      <input type="hidden" name="confirm" value="1">
-    </form>
-  @endif
-
-  @if($aiUnavailable && $report->ai_status === 'failed' && ! $emergencyActionOnly)
-    <form id="review-retry-ai-form" method="POST" action="{{ route('admin.reports.retry-ai', $report) }}" class="hidden" style="display:none;">
-      @csrf
-    </form>
-  @endif
-
-  @if($isOverdue && ! $report->escalated_at)
-    <form id="review-escalate-form" method="POST" action="{{ route('admin.reports.escalate', $report) }}" class="hidden" style="display:none;">
-      @csrf
-    </form>
-  @endif
-
-    @if($report->status !== 'merged')
-      <section class="review-workflow-card" id="duplicate-suggestions-section" aria-labelledby="duplicate-suggestions-heading">
-        <div class="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-200">
-          <div>
-            <h2 id="duplicate-suggestions-heading" class="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <i class="fa-solid fa-copy text-amber-600" aria-hidden="true"></i>
-              <span>Possible Duplicate Reports</span>
-              <span class="review-badge {{ $actionableDuplicates->isNotEmpty() ? 'review-badge-amber' : 'review-badge-gray' }}">
-                {{ $actionableDuplicates->count() }} pending
-              </span>
-            </h2>
-            <p class="text-xs text-slate-600 mt-1">
-              Comparing suggested candidates against current report <strong>{{ $report->tracking_code }}</strong>
-              ({{ $report->category?->name ?? $report->residentCategory?->name ?? 'Uncategorized' }}).
-              The system suggests possible duplicates; authorized staff decide.
-            </p>
-          </div>
+      {{-- TAB 3: DUPLICATES --}}
+      <div class="dossier-panel rw-fade-in p-4 space-y-3 hidden" id="duplicate-suggestions-section" data-dossier-panel="duplicates">
+        <div class="flex items-center justify-between gap-2">
+          <h2 class="text-xs font-bold text-slate-900 m-0">Possible Duplicate Reports</h2>
           @if($canMergeDuplicate)
-            <button type="button" class="review-button review-button-outline text-xs" data-open-dialog="duplicate-modal">
-              <i class="fa-solid fa-code-merge" aria-hidden="true"></i> Manual merge
+            <button type="button" class="rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold px-2.5 py-1 transition" data-open-dialog="duplicate-modal">
+              <i class="fa-solid fa-code-merge mr-1" aria-hidden="true"></i> Manual merge
             </button>
           @endif
         </div>
 
-        @if($actionableDuplicates->isEmpty())
-          <div class="rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-4 text-xs text-slate-600">
+        @if($actionableDuplicates->isEmpty() || $report->status === 'merged')
+          <div class="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-5 text-center text-xs text-slate-500">
             No pending duplicate suggestions for <strong>{{ $report->tracking_code }}</strong>.
           </div>
         @else
@@ -1512,154 +708,1038 @@
                 $candidatePurok = $candidate->purok?->name ?? $candidate->residentPurok?->name;
                 $candidateIsEmergency = $candidate->is_emergency || $candidate->status === 'emergency_flagged';
               @endphp
-              <article class="rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs space-y-2.5" data-duplicate-card="{{ $suggestion->id }}">
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                  <div class="flex flex-wrap items-center gap-2">
-                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700">
-                      #{{ $index + 1 }}
-                    </span>
-                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                      {{ $similarityPct }}% similarity
-                    </span>
-                    <a href="{{ route('admin.reports.show', $candidate) }}"
-                       target="_blank"
-                       rel="noopener noreferrer"
-                       class="font-mono text-xs font-bold text-blue-700 hover:underline">
+              <article class="rounded-xl border border-slate-200 bg-white p-3 space-y-2" data-duplicate-card="{{ $suggestion->id }}">
+                <div class="flex flex-wrap items-center justify-between gap-1.5">
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <span class="rounded-full bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 text-[10px] font-bold">{{ $similarityPct }}% match</span>
+                    <a href="{{ route('admin.reports.show', $candidate) }}" target="_blank" rel="noopener noreferrer" class="font-mono text-xs font-bold text-blue-700 hover:underline">
                       {{ $candidate->tracking_code }}
-                      <i class="fa-solid fa-arrow-up-right-from-square text-[10px] ml-0.5" aria-hidden="true"></i>
                     </a>
-                    <x-status-badge :status="$candidate->status" class="text-[11px]" />
+                    <x-status-badge :status="$candidate->status" class="text-[10px]" />
                   </div>
-                  <span class="text-[11px] text-slate-500">
-                    Submitted {{ $candidate->created_at?->format('M d, Y h:i A') }}
-                  </span>
                 </div>
-
-                <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
-                  <span><strong>Category:</strong> {{ $candidateCategory }}</span>
-                  <span>
-                    <strong>Location:</strong>
-                    {{ $candidatePurok ?? 'No purok' }}@if($candidate->landmark) · {{ \Illuminate\Support\Str::limit($candidate->landmark, 60) }}@endif
-                  </span>
+                <div class="text-[11px] text-slate-600">
+                  <strong>{{ $candidateCategory }}</strong> · {{ $candidatePurok ?? 'No purok' }}@if($candidate->landmark) · {{ \Illuminate\Support\Str::limit($candidate->landmark, 45) }}@endif
                 </div>
-
-                <p class="text-xs text-slate-700 leading-relaxed bg-slate-50 rounded-lg p-2.5 border border-slate-100">
-                  {{ \Illuminate\Support\Str::limit($candidate->description, 180) }}
-                </p>
-
+                <p class="text-xs text-slate-700 bg-slate-50 rounded-lg p-2 border border-slate-100 m-0">{{ \Illuminate\Support\Str::limit($candidate->description, 140) }}</p>
                 <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
-                  <form method="POST" action="{{ route('admin.reports.duplicate.dismiss', [$report, $suggestion]) }}" class="flex flex-wrap items-center gap-2 flex-1 min-w-[220px]">
+                  <form method="POST" action="{{ route('admin.reports.duplicate.dismiss', [$report, $suggestion]) }}" class="flex items-center gap-1.5 flex-1">
                     @csrf
                     @method('PATCH')
-                    <input type="text"
-                           name="note"
-                           maxlength="500"
-                           placeholder="Optional dismissal note..."
-                           aria-label="Optional dismissal note for {{ $candidate->tracking_code }}"
-                           class="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 flex-1 min-w-[160px] bg-white text-slate-800">
-                    <button type="submit" class="review-button review-button-outline text-xs">
-                      <i class="fa-solid fa-xmark" aria-hidden="true"></i> Dismiss
-                    </button>
+                    <input type="text" name="note" maxlength="500" placeholder="Dismissal note..." class="text-xs border border-slate-300 rounded-lg px-2 py-1 flex-1 min-w-[100px] bg-white">
+                    <button type="submit" class="rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold px-2.5 py-1">Dismiss</button>
                   </form>
-
                   @if($canMergeDuplicate && ! $candidateIsEmergency)
-                    <button type="button"
-                            class="review-button review-button-primary text-xs"
-                            data-open-dialog="duplicate-modal"
-                            data-duplicate-candidate-id="{{ $candidate->id }}">
-                      <i class="fa-solid fa-copy" aria-hidden="true"></i> Merge into {{ $candidate->tracking_code }}
+                    <button type="button" class="rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-2.5 py-1"
+                            data-open-dialog="duplicate-modal" data-duplicate-candidate-id="{{ $candidate->id }}">
+                      Merge
                     </button>
-                  @elseif($candidateIsEmergency)
-                    <span class="text-[11px] text-rose-700 font-medium">Emergency candidate cannot be selected for merge</span>
                   @endif
                 </div>
               </article>
             @endforeach
           </div>
         @endif
-      </section>
-    @endif
+      </div>
+    </aside>
 
-    @if($canMergeDuplicate)
-      <dialog id="duplicate-modal" class="review-modal">
-        <form method="POST" action="{{ route('admin.reports.duplicate', $report) }}">
+    {{-- =============================================================== --}}
+    {{-- RIGHT COLUMN: GUIDED 3-STEP PROGRESSIVE ACTION WORKSPACE        --}}
+    {{-- =============================================================== --}}
+    <section class="lg:col-span-7 xl:col-span-8 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+
+      {{-- Interactive 3-Step Progress Header --}}
+      <div class="px-5 py-3.5 border-b border-slate-200 bg-slate-50/70">
+        <div class="flex items-center justify-between max-w-2xl mx-auto">
+          <button type="button" class="rw-stepper-btn flex items-center gap-2 focus:outline-none group" data-workspace-step="1">
+            <span class="rw-step-dot w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-200">1</span>
+            <span class="text-left leading-tight">
+              <span class="block text-xs sm:text-sm font-bold text-slate-900">Review &amp; Triage</span>
+              <span class="hidden sm:block text-[10px] text-slate-500">Verify category, urgency &amp; details</span>
+            </span>
+          </button>
+
+          <div class="flex-1 h-0.5 bg-slate-200 mx-2 sm:mx-4 rounded-full overflow-hidden">
+            <div id="rw-connector-1" class="h-full bg-blue-600 transition-all duration-300" style="width:0%"></div>
+          </div>
+
+          <button type="button" class="rw-stepper-btn flex items-center gap-2 focus:outline-none group" data-workspace-step="2">
+            <span class="rw-step-dot w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-200">2</span>
+            <span class="text-left leading-tight">
+              <span class="block text-xs sm:text-sm font-bold text-slate-600">Route &amp; Assign</span>
+              <span class="hidden sm:block text-[10px] text-slate-500">Choose office or external agency</span>
+            </span>
+          </button>
+
+          <div class="flex-1 h-0.5 bg-slate-200 mx-2 sm:mx-4 rounded-full overflow-hidden">
+            <div id="rw-connector-2" class="h-full bg-blue-600 transition-all duration-300" style="width:0%"></div>
+          </div>
+
+          <button type="button" class="rw-stepper-btn flex items-center gap-2 focus:outline-none group" data-workspace-step="3">
+            <span class="rw-step-dot w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-200">3</span>
+            <span class="text-left leading-tight">
+              <span class="block text-xs sm:text-sm font-bold text-slate-600">Work &amp; Resolve</span>
+              <span class="hidden sm:block text-[10px] text-slate-500">Log progress &amp; resolution proof</span>
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {{-- Main Review & Route Form (wraps Steps 1 & 2) --}}
+      @if(! $emergencyActionOnly)
+        <form id="review-form" method="POST" action="{{ route('admin.reports.review', $report) }}">
           @csrf
           @method('PATCH')
-          <header class="review-modal-header">
-            <strong><i class="fa-solid fa-copy" aria-hidden="true"></i> Mark duplicate</strong>
-            <button type="button" class="review-modal-close" data-close-modal aria-label="Close">&times;</button>
-          </header>
-          <div class="review-modal-body">
-            <p class="review-field-hint">
-              Merge this report into the one it duplicates. The report is hidden from the queue and its reporter
-              is pointed to the kept report.
-            </p>
-            @php
-              $mergeSelectableCandidates = $actionableDuplicates
-                  ->pluck('candidate')
-                  ->filter(fn ($candidate) => $candidate !== null && ! $candidate->is_emergency && $candidate->status !== 'emergency_flagged')
-                  ->concat($duplicateCandidates)
-                  ->unique('id')
-                  ->values();
-            @endphp
-            <label for="duplicate-candidate">Duplicate of</label>
-            <select id="duplicate-candidate" name="candidate_id" required>
-              <option value="">Select a report</option>
-              @foreach($mergeSelectableCandidates as $candidate)
-                <option value="{{ $candidate->id }}"
-                        @selected($pendingDuplicate && ! $pendingDuplicate->candidate->is_emergency && $pendingDuplicate->candidate->status !== 'emergency_flagged' && (string) $pendingDuplicate->candidate_id === (string) $candidate->id)>
-                  {{ $candidate->tracking_code }} — {{ \Illuminate\Support\Str::limit($candidate->description, 70) }}
-                </option>
+      @endif
+
+      {{-- ============================================================= --}}
+      {{-- STEP 1 PANEL: REVIEW & TRIAGE                                 --}}
+      {{-- ============================================================= --}}
+      <div class="rw-step-panel rw-fade-in p-5 space-y-4" data-workspace-panel="1" aria-label="Review AI suggestions" @if($defaultWorkspaceStep !== 1) hidden @endif>
+        {{-- Panel Header Strip --}}
+        <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100">
+          <div class="flex flex-wrap items-center gap-2">
+            @if($aiReady)
+              <span class="inline-flex items-center gap-1.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-0.5 text-xs font-bold" data-ai-state-badge>
+                <i class="fa-solid fa-wand-magic-sparkles text-[10px]" aria-hidden="true"></i> AI ready
+              </span>
+            @elseif($aiPending)
+              <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 px-2.5 py-0.5 text-xs font-bold" data-ai-state-badge>
+                <span class="review-spinner" aria-hidden="true"></span> AI analyzing...
+              </span>
+            @elseif($aiFailed && $aiConfigured)
+              <span class="inline-flex items-center gap-1.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 px-2.5 py-0.5 text-xs font-bold" data-ai-state-badge>
+                <i class="fa-solid fa-triangle-exclamation text-[10px]" aria-hidden="true"></i> AI failed
+              </span>
+            @else
+              <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 px-2.5 py-0.5 text-xs font-bold" data-ai-state-badge>
+                <i class="fa-solid fa-circle-minus text-[10px]" aria-hidden="true"></i> AI unavailable
+              </span>
+            @endif
+
+            <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold {{ $confidence !== null && $confidence >= $highConfidenceThreshold ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : ($confidence !== null && $confidence >= $lowConfidenceThreshold ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-rose-50 text-rose-700 border border-rose-200') }}"
+                  data-ai-confidence-wrap @if(! $aiReady) hidden @endif>
+              <span data-ai-confidence>Confidence {{ $confidence !== null ? number_format($confidence * 100) : '—' }}%</span>
+            </span>
+
+            <span class="inline-flex items-center rounded-full bg-rose-50 text-rose-700 border border-rose-200 px-2.5 py-0.5 text-xs font-bold" data-low-confidence @if(! $lowConfidence) hidden @endif>
+              Low confidence
+            </span>
+
+            @if(! $emergencyActionOnly)
+              <span class="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full" data-reviewed-count>
+                {{ $reviewedInitialCount }} of {{ $requiredFieldsCount }} reviewed
+              </span>
+            @endif
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="review-gate-hint review-card2-gate-summary text-xs font-bold" data-gate-reason-card2 aria-live="polite"></span>
+            @if(! $emergencyActionOnly)
+              @if($aiPending)
+                <button type="submit" form="review-stop-ai-form" data-stop-ai
+                        class="inline-flex items-center gap-1.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-3 py-1.5 shadow-xs transition">
+                  <i class="fa-solid fa-stop" aria-hidden="true"></i> Stop
+                </button>
+              @endif
+              @if($aiFailed && $aiConfigured)
+                <button type="submit" form="review-retry-ai-form" aria-label="Retry AI analysis" title="Retry AI analysis"
+                        class="inline-flex items-center gap-1.5 rounded-full bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-3 py-1.5 shadow-xs transition">
+                  <i class="fa-solid fa-rotate-right" aria-hidden="true"></i> Try again
+                </button>
+              @endif
+              <button type="button" class="inline-flex items-center gap-1.5 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-1.5 shadow-xs transition"
+                      data-accept-all @if(! $aiReady) hidden disabled @endif>
+                <i class="fa-solid fa-check-double" aria-hidden="true"></i> Accept all AI suggestions
+              </button>
+            @endif
+          </div>
+        </div>
+
+        <p class="text-xs text-slate-600 m-0" data-ai-state-message aria-live="polite">
+          @if($aiReady)
+            AI suggestions are ready. Click <strong>Accept all AI suggestions</strong> or apply individual fields below.
+            @if($lowConfidence) Check carefully because confidence is low. @endif
+          @elseif($aiPending)
+            AI is analyzing this report. Your final values will not be changed when suggestions arrive.
+          @elseif($aiFailed && $aiConfigured)
+            AI suggestions are not available. Enter or confirm Category and Urgency manually. Click <strong>Try again</strong> if needed.
+          @else
+            AI suggestions are not available. Enter or confirm Category and Urgency manually.
+          @endif
+        </p>
+
+        @if($report->infoRequests->isNotEmpty() && isset($infoThreadSummary))
+          <div class="rounded-xl border border-blue-200 bg-blue-50/70 px-3.5 py-2 text-xs text-blue-900 flex items-center gap-2 flex-wrap" data-chat-summary-strip data-report-id="{{ $report->id }}">
+            <i class="fa-solid fa-comments text-blue-600" aria-hidden="true"></i>
+            <span class="font-bold" data-chat-message-count>{{ $infoThreadSummary['count'] }} message{{ $infoThreadSummary['count'] === 1 ? '' : 's' }} sent</span>
+            <span aria-hidden="true">·</span>
+            <span data-chat-awaiting @if(! $infoThreadSummary['awaiting_reply']) hidden @endif>Awaiting resident reply</span>
+          </div>
+        @endif
+
+        {{-- Compact 2x2 Triage Field Grid --}}
+        <div id="review-triage-grid" class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          {{-- Card 1: Category --}}
+          <div class="rounded-xl border border-slate-200 p-3.5 bg-white space-y-2.5" data-review-row data-field="category"
+               data-resident-value="{{ $residentCategoryId ?? '' }}"
+               data-resident-label="{{ $residentCategory?->name ?? '' }}"
+               data-ai-value="{{ $aiCategoryId ?? '' }}"
+               data-ai-label="{{ $aiCategoryLabel ?? '' }}"
+               data-ai-present="{{ $aiCategoryPresent ? 'true' : 'false' }}"
+               data-review-required="{{ $categoryReviewRequired ? 'true' : 'false' }}"
+               data-reviewed="{{ $alreadyReviewed || ! $categoryReviewRequired ? 'true' : 'false' }}">
+            <div class="flex items-center justify-between gap-2 flex-wrap">
+              <label for="final-category" class="text-xs font-extrabold text-slate-900">Category <span class="text-rose-600">*</span></label>
+              <div class="flex items-center gap-1.5 flex-wrap">
+                @if(!empty($voiceProvenance['category']['filled']))
+                  <span class="rounded-full px-2 py-0.5 text-[10px] font-bold {{ !empty($voiceProvenance['category']['edited']) ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-blue-50 text-blue-700 border border-blue-200' }}">
+                    {{ !empty($voiceProvenance['category']['edited']) ? 'Edited after recording' : 'From recording' }}
+                  </span>
+                @endif
+                <span class="review-badge review-badge-outline-green" data-comparison-badge hidden></span>
+                <span class="review-badge {{ $categoryFinalState === 'Accepted' ? 'review-badge-green' : ($categoryFinalState === 'Edited' ? 'review-badge-amber' : ($categoryFinalState === 'AI suggested' ? 'review-badge-blue' : 'review-badge-gray')) }}"
+                      data-final-state>{{ $categoryFinalState }}</span>
+              </div>
+            </div>
+
+            <div class="text-[11px] text-slate-600 space-y-0.5">
+              <div>Resident: @if($residentCategory)<strong class="text-slate-800" data-resident-display>{{ $residentCategory->name }}</strong>@else<span class="italic text-slate-400">Not chosen by resident</span>@endif</div>
+              <div>AI: <strong class="text-slate-800" data-ai-value-display>@if($aiReady){{ $aiCategoryLabel ?? 'Not provided' }}@elseif($aiPending)Waiting...@else Not available @endif</strong></div>
+            </div>
+
+            <select id="final-category" name="category_id" data-final-control data-required-field required @disabled($emergencyActionOnly)
+                    class="w-full h-10 rounded-lg border border-slate-300 bg-white px-2.5 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+              <option value="">Select category</option>
+              @foreach($categories as $category)
+                <option value="{{ $category->id }}" @selected((string) $finalCategoryId === (string) $category->id)>{{ $category->name }}</option>
               @endforeach
             </select>
-            @if($pendingDuplicate && $pendingDuplicate->candidate)
-              <p class="review-field-hint">Top suggested match: {{ $pendingDuplicate->candidate->tracking_code }} ({{ (int) round((float) $pendingDuplicate->score * 100) }}% similarity).</p>
-            @endif
-            <label for="duplicate-note">Merge note</label>
-            <textarea id="duplicate-note" name="note" rows="2" required maxlength="500" placeholder="Why these are the same report."></textarea>
-          </div>
-          <footer class="review-modal-footer">
-            <button type="button" class="review-button review-button-outline" data-close-modal>Cancel</button>
-            <button type="submit" class="review-button review-button-primary" @disabled($mergeSelectableCandidates->isEmpty())>Mark duplicate</button>
-          </footer>
-        </form>
-      </dialog>
-    @endif
 
-    @if(app(\App\Services\ReportStatusService::class)->canTransition($report->status, \App\Support\ReportStatus::NO_ACTION))
-      <dialog id="no-action-modal" class="review-modal">
-        <form method="POST" action="{{ route('admin.reports.status', $report) }}">
-          @csrf
-          @method('PATCH')
-          <input type="hidden" name="status" value="no_action">
-          <header class="review-modal-header">
-            <strong><i class="fa-solid fa-circle-xmark" aria-hidden="true"></i> Take no action</strong>
-            <button type="button" class="review-modal-close" data-close-modal aria-label="Close">&times;</button>
-          </header>
-          <div class="review-modal-body">
-            <p class="review-field-hint">
-              Use when the barangay will take no further action (outside authority, spam, cannot resolve, or resident unreachable).
-              If another government office should handle it, use <strong>Prepare referral</strong> in Route and assign.
-            </p>
-            <div style="margin-bottom: 0.75rem;">
-              <label for="no-action-reason" style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 0.35rem;">Reason code</label>
-              <select id="no-action-reason" name="no_action_reason" required style="width: 100%; padding: 0.5rem; border: 1px solid var(--line); border-radius: 6px;">
-                <option value="">Select a reason code...</option>
-                @foreach(\App\Models\Report::NO_ACTION_REASONS as $code => $label)
-                  <option value="{{ $code }}">{{ $label }}</option>
-                @endforeach
-              </select>
+            <div class="flex items-center justify-between gap-2 pt-0.5 flex-wrap">
+              <span class="review-gate-field-hint {{ $finalCategoryId ? 'is-ready' : 'is-missing' }}" data-gate-hint="category">
+                <i class="fa-solid {{ $finalCategoryId ? 'fa-check' : 'fa-lock' }}" aria-hidden="true"></i>
+                <span>{{ $finalCategoryId ? 'Ready to route' : 'Required to route' }}</span>
+              </span>
+              <div class="flex items-center gap-2 text-[11px] font-bold">
+                <button type="button" class="text-blue-600 hover:underline" data-use-ai @disabled($emergencyActionOnly) @if(! $aiCategoryId || ! $aiCategoryPresent || $aiCategoryId === $residentCategoryId) hidden @endif>Use AI</button>
+                <button type="button" class="text-blue-600 hover:underline" data-use-resident @disabled($emergencyActionOnly) @if($residentCategoryId === null || $residentCategoryId === $aiCategoryId) hidden @endif>Use resident's</button>
+                <button type="button" class="text-emerald-600 hover:underline" data-accept-row @disabled($emergencyActionOnly) @if(! $aiCategoryId || ! $aiCategoryPresent) hidden @endif>Accept</button>
+                <button type="button" class="text-slate-500 hover:underline" data-undo-row hidden>Undo</button>
+              </div>
             </div>
-            <label for="no-action-note" style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 0.35rem;">Explanation shown to resident</label>
-            <textarea id="no-action-note" name="note" rows="3" required maxlength="500" placeholder="Provide a clear, respectful explanation for why no further action will be taken."></textarea>
           </div>
-          <footer class="review-modal-footer">
-            <button type="button" class="review-button review-button-outline" data-close-modal>Cancel</button>
-            <button type="submit" class="review-button review-button-primary">Confirm No Action</button>
-          </footer>
+
+          {{-- Card 2: Urgency (1-Tap Pill Selector) --}}
+          <div class="rounded-xl border border-slate-200 p-3.5 bg-white space-y-2.5" data-review-row data-field="urgency"
+               data-resident-value=""
+               data-resident-label=""
+               data-ai-value="{{ $aiUrgency ?? '' }}"
+               data-ai-label="{{ $aiUrgency ?? '' }}"
+               data-ai-present="{{ $aiUrgencyPresent ? 'true' : 'false' }}"
+               data-review-required="{{ $urgencyReviewRequired ? 'true' : 'false' }}"
+               data-reviewed="{{ $alreadyReviewed || ! $urgencyReviewRequired ? 'true' : 'false' }}">
+            <div class="flex items-center justify-between gap-2 flex-wrap">
+              <label for="final-urgency" class="text-xs font-extrabold text-slate-900">Urgency <span class="text-rose-600">*</span></label>
+              <div class="flex items-center gap-1.5">
+                <span class="review-badge review-badge-outline-blue" data-comparison-badge hidden></span>
+                <span class="review-badge {{ $urgencyFinalState === 'Accepted' ? 'review-badge-green' : ($urgencyFinalState === 'Edited' ? 'review-badge-amber' : ($urgencyFinalState === 'AI suggested' ? 'review-badge-blue' : 'review-badge-gray')) }}"
+                      data-final-state>{{ $urgencyFinalState }}</span>
+              </div>
+            </div>
+
+            <div class="text-[11px] text-slate-600 space-y-0.5">
+              <div>Resident: <span class="italic text-slate-400" data-resident-display>Not provided</span></div>
+              <div>AI: <strong class="text-slate-800" data-ai-value-display>@if($aiReady){{ $aiUrgency ?? 'Not provided' }}@elseif($aiPending)Waiting...@else Not available @endif</strong></div>
+            </div>
+
+            {{-- Underlying form control synced with 1-tap pills --}}
+            <select id="final-urgency" name="urgency" class="sr-only" tabindex="-1" aria-hidden="true" data-final-control data-required-field required @disabled($emergencyActionOnly)>
+              <option value="">Select urgency</option>
+              @foreach(['Low', 'Medium', 'High', 'Critical'] as $urgency)
+                <option value="{{ $urgency }}" @selected($finalUrgency === $urgency)>{{ $urgency }}</option>
+              @endforeach
+            </select>
+
+            <div class="grid grid-cols-4 gap-1 rounded-lg border border-slate-200 bg-slate-100 p-1" role="group" aria-label="Urgency level">
+              @foreach(['Low', 'Medium', 'High', 'Critical'] as $urgency)
+                <button type="button" data-urgency-pill-btn="{{ $urgency }}" @disabled($emergencyActionOnly)
+                        class="py-1.5 px-1 rounded-md text-xs font-bold transition text-center {{ $finalUrgency === $urgency ? 'is-selected' : 'text-slate-600 hover:text-slate-900' }}">
+                  {{ $urgency }}
+                </button>
+              @endforeach
+            </div>
+
+            <div class="flex items-center justify-between gap-2 pt-0.5 flex-wrap">
+              <span class="review-gate-field-hint {{ $finalUrgency ? 'is-ready' : 'is-missing' }}" data-gate-hint="urgency">
+                <i class="fa-solid {{ $finalUrgency ? 'fa-check' : 'fa-lock' }}" aria-hidden="true"></i>
+                <span>{{ $finalUrgency ? 'Ready to route' : 'Required to route' }}</span>
+              </span>
+              <div class="flex items-center gap-2 text-[11px] font-bold">
+                <button type="button" class="text-blue-600 hover:underline" data-use-ai @disabled($emergencyActionOnly) @if(! $aiUrgencyPresent) hidden @endif>Use AI</button>
+                <button type="button" class="text-emerald-600 hover:underline" data-accept-row @disabled($emergencyActionOnly) @if(! $aiUrgencyPresent) hidden @endif>Accept</button>
+                <button type="button" class="text-slate-500 hover:underline" data-undo-row hidden>Undo</button>
+              </div>
+            </div>
+          </div>
+
+          {{-- Card 3: Purok --}}
+          <div class="rounded-xl border border-slate-200 p-3.5 bg-white space-y-2" data-review-row data-field="purok"
+               data-resident-value="{{ $residentPurok?->id ?? '' }}"
+               data-resident-label="{{ $residentPurok?->name ?? '' }}"
+               data-ai-value="" data-ai-label="" data-ai-present="false"
+               data-review-required="false" data-reviewed="true">
+            <div class="flex items-center justify-between gap-2">
+              <label for="final-purok" class="text-xs font-extrabold text-slate-900">Purok</label>
+              <div class="flex items-center gap-1.5">
+                @if(!empty($voiceProvenance['purok']['filled']))
+                  <span class="rounded-full px-2 py-0.5 text-[10px] font-bold {{ !empty($voiceProvenance['purok']['edited']) ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-blue-50 text-blue-700 border border-blue-200' }}">
+                    {{ !empty($voiceProvenance['purok']['edited']) ? 'Edited after recording' : 'From recording' }}
+                  </span>
+                @endif
+                <span class="review-badge review-badge-gray" data-final-state>Resident</span>
+              </div>
+            </div>
+            <div class="text-[11px] text-slate-600">
+              Resident: @if($residentPurok)<strong class="text-slate-800" data-resident-display>{{ $residentPurok->name }}</strong>@else<span class="italic text-slate-400">Not provided</span>@endif
+              <span data-ai-value-display class="sr-only"></span>
+              <span data-comparison-badge hidden class="sr-only"></span>
+            </div>
+            <select id="final-purok" name="purok_id" data-final-control @disabled($emergencyActionOnly)
+                    class="w-full h-10 rounded-lg border border-slate-300 bg-white px-2.5 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+              <option value="">Select purok</option>
+              @foreach($puroks as $purok)
+                <option value="{{ $purok->id }}" @selected((string) $finalPurokId === (string) $purok->id)>{{ $purok->name }}</option>
+              @endforeach
+            </select>
+            <div class="flex justify-end">
+              <button type="button" class="text-[11px] font-bold text-slate-500 hover:underline" data-undo-row hidden>Undo</button>
+            </div>
+          </div>
+
+          {{-- Card 4: Landmark --}}
+          <div class="rounded-xl border border-slate-200 p-3.5 bg-white space-y-2" data-review-row data-field="landmark"
+               data-resident-value="{{ $residentLandmark ?? '' }}"
+               data-resident-label="{{ $residentLandmark ?? '' }}"
+               data-ai-value="" data-ai-label="" data-ai-present="false"
+               data-review-required="false" data-reviewed="true">
+            <div class="flex items-center justify-between gap-2">
+              <label for="final-landmark" class="text-xs font-extrabold text-slate-900">Landmark</label>
+              <div class="flex items-center gap-1.5">
+                @if(!empty($voiceProvenance['landmark']['filled']))
+                  <span class="rounded-full px-2 py-0.5 text-[10px] font-bold {{ !empty($voiceProvenance['landmark']['edited']) ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-blue-50 text-blue-700 border border-blue-200' }}">
+                    {{ !empty($voiceProvenance['landmark']['edited']) ? 'Edited after recording' : 'From recording' }}
+                  </span>
+                @endif
+                <span class="review-badge review-badge-gray" data-final-state>Resident</span>
+              </div>
+            </div>
+            <div class="text-[11px] text-slate-600 truncate">
+              Resident: @if(trim((string) $residentLandmark) !== '')<strong class="text-slate-800" data-resident-display>{{ $residentLandmark }}</strong>@else<span class="italic text-slate-400">Not provided</span>@endif
+              <span data-ai-value-display class="sr-only"></span>
+              <span data-comparison-badge hidden class="sr-only"></span>
+            </div>
+            <input id="final-landmark" type="text" name="landmark" maxlength="255"
+                   value="{{ $finalLandmark }}" placeholder="Enter landmark or nearby reference" data-final-control @disabled($emergencyActionOnly)
+                   class="w-full h-10 rounded-lg border border-slate-300 bg-white px-2.5 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+            <div class="flex justify-end">
+              <button type="button" class="text-[11px] font-bold text-slate-500 hover:underline" data-undo-row hidden>Undo</button>
+            </div>
+          </div>
+        </div>
+
+        {{-- Incident Description Comparison Block --}}
+        <div class="rounded-xl border border-slate-200 p-3.5 bg-white space-y-3" data-review-row data-field="description"
+             data-resident-value="{{ $residentDescription }}"
+             data-resident-label="{{ $residentDescription }}"
+             data-ai-value="{{ $aiDescription ?? '' }}"
+             data-ai-label="{{ $aiDescription ?? '' }}"
+             data-ai-present="{{ $aiDescriptionPresent ? 'true' : 'false' }}"
+             data-review-required="true"
+             data-reviewed="{{ $descriptionReviewed ? 'true' : 'false' }}">
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <span class="text-xs font-extrabold text-slate-900">Incident Description</span>
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <span class="review-badge review-badge-outline-green" data-comparison-badge hidden></span>
+              <span class="review-badge {{ $descriptionFinalState === 'Accepted' ? 'review-badge-green' : ($descriptionFinalState === 'Edited' ? 'review-badge-amber' : ($descriptionFinalState === 'AI suggested' ? 'review-badge-blue' : 'review-badge-gray')) }}"
+                    data-final-state>{{ $descriptionFinalState }}</span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="rounded-lg bg-slate-50 border border-slate-200 p-2.5">
+              <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Original Resident Text</div>
+              <div class="text-xs text-slate-700 leading-relaxed max-h-24 overflow-y-auto">
+                @if(trim((string) $residentDescription) !== '')
+                  <span data-resident-display>{{ $residentDescription }}</span>
+                @else
+                  <span class="italic text-slate-400">Not provided</span>
+                @endif
+              </div>
+            </div>
+
+            <div class="rounded-lg bg-blue-50/70 border border-blue-200 p-2.5">
+              <div class="text-[10px] font-bold uppercase tracking-wider text-blue-700 mb-1">AI Summary / Suggestion</div>
+              <div class="text-xs text-blue-950 leading-relaxed max-h-24 overflow-y-auto">
+                @if($aiReady && $aiDescriptionPresent)
+                  <div class="review-description-diff" data-description-diff data-original="{{ $residentDescription }}" data-ai="{{ $aiDescription }}"></div>
+                  <span data-ai-value-display class="sr-only">{{ $aiDescription }}</span>
+                @else
+                  <span data-ai-value-display>
+                    @if($aiPending)Waiting for suggestion
+                    @elseif($aiUnavailable)Not available
+                    @else <span class="italic text-slate-400">Not provided</span>
+                    @endif
+                  </span>
+                  <div class="review-description-diff" data-description-diff data-original="{{ $residentDescription }}" data-ai=""></div>
+                @endif
+              </div>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-3 text-xs font-bold">
+            <button type="button" class="text-slate-600 hover:text-blue-700" data-use-original @disabled($emergencyActionOnly)>Use original</button>
+            <button type="button" class="text-blue-600 hover:underline" data-use-ai @disabled($emergencyActionOnly) @if(! $aiDescriptionPresent) hidden @endif>Use AI suggestion</button>
+            <button type="button" class="text-emerald-600 hover:underline" data-accept-row @disabled($emergencyActionOnly) @if(! $aiDescriptionPresent) hidden @endif>Accept</button>
+            <button type="button" class="text-slate-500 hover:underline" data-undo-row hidden>Undo</button>
+          </div>
+
+          <div>
+            <label for="final-description" class="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+              Final Description (Official Record)
+            </label>
+            <textarea id="final-description" name="staff_description" rows="3" maxlength="2000"
+                      class="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/30 resize-none"
+                      data-final-control @disabled($emergencyActionOnly)>{{ $finalDescription }}</textarea>
+          </div>
+        </div>
+
+        @if($aiReady && ($aiResult->photo_description || $aiResult->key_facts))
+          <details class="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs">
+            <summary class="font-bold text-slate-700 cursor-pointer">AI details</summary>
+            @if($aiResult->photo_description)
+              <p class="mt-2 mb-1 text-slate-700"><strong>Photo description:</strong> {{ $aiResult->photo_description }}</p>
+            @endif
+            @if($aiResult->key_facts)
+              <ul class="list-disc pl-4 mt-1 mb-0 text-slate-700 space-y-0.5">
+                @foreach($aiResult->key_facts as $fact)
+                  <li>{{ $fact }}</li>
+                @endforeach
+              </ul>
+            @endif
+          </details>
+        @endif
+
+        {{-- Step 1 Footer Action Bar --}}
+        <div class="border-t border-slate-100 pt-4 mt-2 flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-2">
+            <span class="review-gate-hint text-xs" data-gate-reason aria-live="polite"></span>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            @if($canOpenInfoChat)
+              <button type="button" class="rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold px-3.5 py-2 transition"
+                      data-chat-open data-report-id="{{ $report->id }}"
+                      data-chat-tracking="{{ $report->tracking_code }}"
+                      data-chat-category="{{ $report->category?->name ?? 'Category not assigned' }}"
+                      data-chat-status="{{ \App\Models\Report::STATUSES[$report->status] ?? $report->status }}"
+                      data-chat-summary="{{ $report->description }}{{ $report->purok ? ' — '.$report->purok->name : '' }}">
+                Ask Reporter for More Info
+              </button>
+            @endif
+            <button type="button" id="rw-btn-to-step2"
+                    class="inline-flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold px-4 py-2.5 shadow-xs transition">
+              <span>Continue to Route &amp; Assign</span>
+              <i class="fa-solid fa-arrow-right text-xs" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {{-- ============================================================= --}}
+      {{-- STEP 2 PANEL: ROUTE & ASSIGN                                  --}}
+      {{-- ============================================================= --}}
+      <div class="rw-step-panel rw-fade-in p-5 space-y-4" data-workspace-panel="2" aria-label="Route and assign" @if($defaultWorkspaceStep !== 2) hidden @endif>
+        @if(! $isAfterRoute && ! $emergencyActionOnly)
+          @php
+            $ruleWithin = (bool) ($routingDecision['within_authority'] ?? ($jurisdiction['within_authority'] ?? true));
+            $initialMode = in_array(old('authority_mode'), ['within', 'beyond'], true)
+                ? old('authority_mode')
+                : ($ruleWithin ? 'within' : 'beyond');
+            $isInitiallyWithin = $initialMode === 'within';
+            $preferredExternalId = (old('office_id') && $externalOffices->contains('id', (int) old('office_id')))
+                ? (int) old('office_id')
+                : (int) ($routingDecision['office_id'] ?? $jurisdiction['office']?->id ?? 0);
+            $defaultAgency = $externalOffices->firstWhere('id', $preferredExternalId) ?? $externalOffices->first();
+            $defaultLetter = old('referral_letter', $letterTemplates[$defaultAgency?->id]['letter'] ?? '');
+            $defaultResidentMessage = old('resident_message', $letterTemplates[$defaultAgency?->id]['resident_message'] ?? '');
+            $defaultAgencyId = $defaultAgency?->id;
+            $matchedRuleName = $routingDecision['reason'] ?? ($jurisdiction['jurisdiction_note'] ?? 'Category default');
+            $isSuggestedMatch = $routingDecision && (string) $officeDefault === (string) ($routingDecision['office_id'] ?? '');
+            $residentMessageChips = [
+              'within' => [
+                'The assigned office will inspect within 3 working days.',
+                'Your report has been routed to the department in charge.',
+                'Staff will assess the site and schedule necessary action.',
+                'Work is being scheduled for this report.',
+              ],
+              'beyond' => [
+                'We have referred this report to the appropriate agency.',
+                'We will monitor this external referral and follow up.',
+                'Your report is under review with the agency.',
+                'We will update you as soon as the agency responds.',
+              ],
+            ];
+          @endphp
+
+          <input type="hidden" name="authority_mode" value="{{ $initialMode }}" data-authority-mode-input>
+          <input type="hidden" name="jurisdiction_mode_override" value="0" data-jurisdiction-override-input>
+          <input type="hidden" name="agency_office_id" value="{{ $defaultAgencyId }}" data-agency-hidden-input>
+          <script type="application/json" data-routing-map>@json($routingDecisions)</script>
+          <script type="application/json" data-letter-templates>@json($letterTemplates)</script>
+
+          {{-- Jurisdiction Banner & Mode Switcher --}}
+          <div class="review-mode-banner rounded-xl border border-l-[3px] p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 transition-all {{ $isInitiallyWithin ? 'border-l-emerald-600 bg-emerald-50/60 border-emerald-200' : 'border-l-indigo-600 bg-indigo-50/60 border-indigo-200' }}"
+               data-mode-banner data-rule-mode="{{ $ruleWithin ? 'within' : 'beyond' }}">
+            <div class="min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <strong class="text-sm font-bold text-slate-900" data-mode-badge>{{ $isInitiallyWithin ? 'Within barangay authority' : 'Beyond barangay authority' }}</strong>
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border bg-white text-slate-700 border-slate-200" data-urgency-pill>
+                  <span class="w-2 h-2 rounded-full bg-slate-400" data-urgency-dot></span>
+                  <span>Urgency: <span data-urgency-label>{{ $priorityLabel }}</span></span>
+                </span>
+              </div>
+              <p class="text-xs text-slate-600 mt-1 mb-0" data-mode-note>
+                @if($isInitiallyWithin)
+                  Matched rule: <span data-matched-rule-text>{{ $matchedRuleName }}</span>. Assign it to an office and staff member.
+                @else
+                  External referral required. A referral letter is prepared and 3-day follow-up is tracked.
+                @endif
+              </p>
+            </div>
+
+            <div class="inline-flex p-1 bg-slate-200/70 rounded-lg text-xs self-start md:self-center flex-shrink-0" role="tablist" aria-label="Authority mode toggle">
+              <button type="button" class="mode-seg-btn px-3 py-1.5 rounded-md font-bold transition {{ $isInitiallyWithin ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600' }}" data-mode-btn="within">
+                Within barangay
+              </button>
+              <button type="button" class="mode-seg-btn px-3 py-1.5 rounded-md font-bold transition {{ !$isInitiallyWithin ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600' }}" data-mode-btn="beyond">
+                Refer to agency
+              </button>
+            </div>
+            <button type="button" class="sr-only" data-mode-toggle data-other-mode="{{ $isInitiallyWithin ? 'beyond' : 'within' }}">Toggle mode</button>
+          </div>
+
+          {{-- Mode A: Internal Dispatch --}}
+          <div class="review-mode-block space-y-4" data-mode-block="within" @if(!$isInitiallyWithin) hidden @endif>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label for="office_id" class="text-xs font-bold text-slate-700 flex items-center gap-2 mb-1">
+                  <span>Office</span>
+                  <span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200" data-suggested-badge @if(!$isSuggestedMatch) style="display:none;" @endif>
+                    <i class="fa-solid fa-check text-[9px]" aria-hidden="true"></i> Suggested
+                  </span>
+                </label>
+                <select id="office_id" name="office_id" class="w-full h-11 text-xs rounded-lg border border-slate-300 bg-white px-2.5" data-office-select @disabled(!$isInitiallyWithin)>
+                  <option value="">Select an office</option>
+                  @foreach($offices as $office)
+                    <option value="{{ $office->id }}" data-default-assignee="{{ $office->default_assignee_id ?? '' }}" @selected((string) $officeDefault === (string) $office->id)>{{ $office->name }}</option>
+                  @endforeach
+                </select>
+                <div class="text-[11px] text-blue-700 font-medium mt-1.5" data-routing-reason>
+                  @if($routingDecision)
+                    Rule: {{ $categories->firstWhere('id', $selectedCategoryId)?->name }} → {{ $routingDecision['office_name'] ?? 'No office' }}
+                  @else
+                    Select a category to see the routing recommendation.
+                  @endif
+                </div>
+              </div>
+
+              <div>
+                <label for="assigned_to" class="block text-xs font-bold text-slate-700 mb-1">Assigned to</label>
+                <select id="assigned_to" name="assigned_to" class="w-full h-11 text-xs rounded-lg border border-slate-300 bg-white px-2.5" data-assigned-select>
+                  <option value="">Unassigned</option>
+                  @foreach($staffUsers as $staffUser)
+                    <option value="{{ $staffUser->id }}" @selected((string) $assignedDefault === (string) $staffUser->id)>{{ $staffUser->name }}</option>
+                  @endforeach
+                </select>
+                <div class="flex items-center gap-1.5 text-[11px] text-amber-700 font-medium mt-1.5" data-unassigned-note @if($assignedDefault) style="display:none;" @endif>
+                  <i class="fa-solid fa-circle-exclamation text-amber-600" aria-hidden="true"></i>
+                  <span>Optional — leaving Unassigned will not block routing.</span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label for="review_note" class="block text-xs font-bold text-slate-700 mb-1">Message to resident <span class="text-slate-400 font-normal">(optional)</span></label>
+              <div class="flex items-center gap-1.5 flex-wrap mb-2">
+                @foreach($residentMessageChips['within'] as $chip)
+                  <button type="button" class="btn-quick-fill text-[11px] font-semibold px-2.5 py-1 rounded-full bg-slate-100 hover:bg-blue-50 text-slate-700 border border-slate-200 transition" data-chip-target="review_note" data-chip-text="{{ $chip }}">
+                    {{ $chip }}
+                  </button>
+                @endforeach
+              </div>
+              <textarea id="review_note" name="review_note" rows="2" maxlength="1000" class="w-full text-xs rounded-lg border border-slate-300 p-2.5" placeholder="e.g. The assigned office will inspect within 3 working days.">{{ $defaultMessage }}</textarea>
+            </div>
+          </div>
+
+          {{-- Mode B: External Agency Referral --}}
+          <div class="review-mode-block space-y-4" data-mode-block="beyond" @if($isInitiallyWithin) hidden @endif>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <label for="agency_id" class="text-xs font-bold text-slate-700">External Agency</label>
+                  <span class="rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 text-[10px] font-bold">3-day follow-up</span>
+                </div>
+                <select id="agency_id" name="office_id" class="w-full h-11 text-xs rounded-lg border border-slate-300 bg-white px-2.5" data-agency-select @disabled($isInitiallyWithin)>
+                  <option value="">Select an agency</option>
+                  @foreach($externalOffices as $externalOffice)
+                    <option value="{{ $externalOffice->id }}" @selected((string) $defaultAgencyId === (string) $externalOffice->id)>{{ $externalOffice->name }}</option>
+                  @endforeach
+                </select>
+              </div>
+              <div>
+                <label for="follow_up_owner_id" class="block text-xs font-bold text-slate-700 mb-1">Follow-up owner</label>
+                <select id="follow_up_owner_id" name="follow_up_owner_id" class="w-full h-11 text-xs rounded-lg border border-slate-300 bg-white px-2.5" @disabled($isInitiallyWithin)>
+                  <option value="">Unassigned</option>
+                  @foreach($staffUsers as $staffUser)
+                    <option value="{{ $staffUser->id }}" @selected((string) old('follow_up_owner_id', $currentUserId) === (string) $staffUser->id)>{{ $staffUser->name }}</option>
+                  @endforeach
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label for="referral_letter" class="block text-xs font-bold text-slate-700 mb-1">Editable Referral Endorsement Letter</label>
+              <textarea id="referral_letter" name="referral_letter" rows="7" maxlength="20000"
+                        class="w-full text-xs font-mono p-3 rounded-lg border border-slate-300"
+                        data-referral-letter @disabled($isInitiallyWithin)>{{ $defaultLetter }}</textarea>
+            </div>
+
+            <div>
+              <label for="resident_message" class="block text-xs font-bold text-slate-700 mb-1">Message to resident <span class="text-slate-400 font-normal">(optional)</span></label>
+              <div class="flex items-center gap-1.5 flex-wrap mb-2">
+                @foreach($residentMessageChips['beyond'] as $chip)
+                  <button type="button" class="btn-quick-fill text-[11px] font-semibold px-2.5 py-1 rounded-full bg-slate-100 hover:bg-blue-50 text-slate-700 border border-slate-200 transition" data-chip-target="resident_message" data-chip-text="{{ $chip }}">
+                    {{ $chip }}
+                  </button>
+                @endforeach
+              </div>
+              <textarea id="resident_message" name="resident_message" rows="2" maxlength="1000" class="w-full text-xs rounded-lg border border-slate-300 p-2.5" data-resident-message @disabled($isInitiallyWithin)>{{ $defaultResidentMessage }}</textarea>
+            </div>
+          </div>
+
+          {{-- Step 2 Footer Action Bar --}}
+          <div class="border-t border-slate-100 pt-4 mt-2 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-2 flex-wrap">
+              <button type="button" id="rw-btn-back-step1" class="rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold px-3.5 py-2 transition">
+                &larr; Back to Review
+              </button>
+              <span class="rounded-full bg-slate-100 text-slate-700 px-3 py-1 text-xs font-bold" data-action-summary-text>
+                @if($isInitiallyWithin)
+                  Route to: {{ $officeDefault ? ($offices->firstWhere('id', $officeDefault)?->name ?? 'selected office') : 'selected office' }} · {{ $priorityLabel }}
+                @else
+                  Refer to: {{ $defaultAgency?->name ?? 'external agency' }} · {{ $priorityLabel }}
+                @endif
+              </span>
+            </div>
+
+            <div class="flex items-center gap-2">
+              @if($isRouteable)
+                <button type="submit" form="review-form" name="intent" value="route"
+                        class="btn btn-gold text-xs font-extrabold py-2.5 px-4 rounded-xl inline-flex items-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                        data-route-submit @if(!$isInitiallyWithin) style="display:none;" @endif>
+                  <i class="fa-solid fa-check" aria-hidden="true"></i>
+                  <span>Confirm and route</span>
+                </button>
+              @endif
+              <button type="submit" form="review-form" name="intent" value="referral"
+                      class="btn btn-gold text-xs font-extrabold py-2.5 px-4 rounded-xl inline-flex items-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      data-referral-submit @if($isInitiallyWithin) style="display:none;" @endif>
+                <i class="fa-solid fa-paper-plane" aria-hidden="true"></i>
+                <span>Prepare referral</span>
+              </button>
+            </div>
+          </div>
+        @else
+          <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-700 space-y-2">
+            <div><strong>Current Routing:</strong> {{ $report->office?->name ?? 'Not assigned' }} · <strong>Assigned to:</strong> {{ $report->assignee?->name ?? 'Unassigned' }}</div>
+            @if(! $emergencyActionOnly)
+              <button type="button" class="rounded-lg bg-blue-600 text-white text-xs font-bold px-3 py-1.5" onclick="document.querySelector('[data-workspace-step=\'3\']').click()">
+                Go to Work &amp; Resolve &rarr;
+              </button>
+            @endif
+          </div>
+        @endif
+      </div>
+
+      @if(! $emergencyActionOnly)
         </form>
-      </dialog>
-    @endif
+      @endif
+
+      {{-- ============================================================= --}}
+      {{-- STEP 3 PANEL: WORK & RESOLVE                                  --}}
+      {{-- ============================================================= --}}
+      <div class="rw-step-panel rw-fade-in p-5 space-y-4" data-workspace-panel="3" @if($defaultWorkspaceStep !== 3) hidden @endif>
+        @if(! $isAfterRoute && ! $emergencyActionOnly)
+          <div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center space-y-2.5">
+            <div class="text-sm font-bold text-slate-800">Report Not Yet Routed</div>
+            <p class="text-xs text-slate-600 max-w-md mx-auto m-0">
+              Complete Step 1 (Review &amp; Triage) and Step 2 (Route &amp; Assign) first before logging field progress or resolution proof.
+            </p>
+            <button type="button" class="rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 transition"
+                    onclick="document.querySelector('[data-workspace-step=\'2\']').click()">
+              Go to Route &amp; Assign
+            </button>
+          </div>
+        @elseif($emergencyActionOnly)
+          <div class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-900 space-y-2">
+            <strong>Emergency Handling Required</strong>
+            <p class="m-0">Use the emergency banner above to either mark as <em>Not an emergency</em>, <em>Handle Locally (Tanod Response)</em>, or redirect to 911 via <em>Take No Action</em>.</p>
+          </div>
+        @else
+          {{-- Active Work Header Strip --}}
+          <div class="rounded-xl border border-blue-200 bg-blue-50/70 p-3.5 flex flex-wrap items-center justify-between gap-2">
+            <div class="text-xs text-slate-800">
+              <div class="font-bold text-sm text-slate-900">{{ $report->office?->name ?? 'Office not assigned' }}</div>
+              <div>Assigned to: <strong>{{ $report->assignee?->name ?? 'Unassigned' }}</strong> · {{ $report->category?->name ?? 'Uncategorized' }} · {{ $report->urgency ?? 'Normal' }}</div>
+            </div>
+            <div class="flex items-center gap-2">
+              <x-status-badge :status="$report->status" />
+              @if($report->due_at)
+                <span class="rounded-full px-2.5 py-0.5 text-[11px] font-bold {{ $isOverdue ? 'bg-rose-100 text-rose-800' : 'bg-white text-blue-700 border border-blue-200' }}">
+                  {{ $isOverdue ? 'Overdue' : 'Due '.$report->due_at->format('M d') }}
+                </span>
+              @endif
+            </div>
+          </div>
+
+          @if(in_array($report->status, ['routed', 'in_progress', 'needs_info'], true))
+            @php
+              $updateTypes = \App\Models\Report::UPDATE_TYPES;
+              $defaultUpdateType = array_key_first($updateTypes);
+              $selectedUpdateType = old('update_type', $defaultUpdateType);
+              if (! isset($updateTypes[$selectedUpdateType])) {
+                  $selectedUpdateType = $defaultUpdateType;
+              }
+              $selectedUpdateMeta = $updateTypes[$selectedUpdateType];
+              $defaultUpdateMessage = old('message', $selectedUpdateMeta['template'] ?? '');
+              $openResolutionForm = $errors->has('note') || $errors->has('proof_photos') || $errors->has('proof_photos.*');
+            @endphp
+
+            {{-- Log Progress Update --}}
+            <form method="POST" action="{{ route('admin.reports.updates.store', $report) }}" enctype="multipart/form-data" class="rounded-xl border border-slate-200 p-4 space-y-3" data-prevent-double-submit>
+              @csrf
+              <div class="flex items-center justify-between gap-2 flex-wrap">
+                <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-700 m-0">Log Progress Update</h3>
+                <div class="flex flex-wrap gap-1.5">
+                  @foreach(['Work started' => 'Field crew on-site; work has started.', 'Inspection scheduled' => 'Site inspection has been scheduled.', 'Waiting on materials' => 'Waiting on required materials for repair.'] as $chipLabel => $chipMsg)
+                    <button type="button" class="btn-quick-fill text-[11px] font-semibold px-2.5 py-1 rounded-full bg-slate-100 hover:bg-blue-50 text-slate-700 border border-slate-200 transition"
+                            data-chip-target="update-message" data-chip-text="{{ $chipMsg }}">
+                      {{ $chipLabel }}
+                    </button>
+                  @endforeach
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label for="update-type" class="block text-xs font-bold text-slate-700 mb-1">Update type</label>
+                  <select id="update-type" name="update_type" required data-update-type-select class="w-full h-10 rounded-lg border border-slate-300 bg-white px-2.5 text-xs">
+                    @foreach($updateTypes as $typeKey => $typeMeta)
+                      <option value="{{ $typeKey }}" data-template="{{ $typeMeta['template'] }}" data-message-required="{{ $typeMeta['message_required'] ? '1' : '0' }}" @selected($selectedUpdateType === $typeKey)>
+                        {{ $typeMeta['label'] }} ({{ \App\Models\Report::STATUSES[$typeMeta['status']] ?? $typeMeta['status'] }})
+                      </option>
+                    @endforeach
+                  </select>
+                </div>
+                <div>
+                  <label for="expected-completion-date" class="block text-xs font-bold text-slate-700 mb-1">Expected completion date <span class="text-slate-400 font-normal">(optional)</span></label>
+                  <input id="expected-completion-date" type="date" name="expected_completion_date" min="{{ now()->toDateString() }}" value="{{ old('expected_completion_date') }}" class="w-full h-10 rounded-lg border border-slate-300 bg-white px-2.5 text-xs">
+                </div>
+              </div>
+
+              <div>
+                <label for="update-message" class="block text-xs font-bold text-slate-700 mb-1">
+                  Message to resident <span class="text-slate-400 font-normal" data-update-message-optional>{{ $selectedUpdateMeta['message_required'] ? '(required)' : '(optional)' }}</span>
+                </label>
+                <textarea id="update-message" name="message" rows="2" maxlength="2000" data-update-message @if($selectedUpdateMeta['message_required']) required @endif
+                          class="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs">{{ $defaultUpdateMessage }}</textarea>
+              </div>
+
+              <div class="review-form-field">
+                <label for="update-photos" class="block text-xs font-bold text-slate-700 mb-1">Progress photos <span class="text-slate-400 font-normal">(optional · max {{ $proofConfig['max_files'] }}, {{ round($proofConfig['max_size_kb'] / 1024) }} MB each)</span></label>
+                <input id="update-photos" type="file" name="photos[]" multiple accept="{{ $proofConfig['accept'] }}"
+                       data-proof-input data-max-files="{{ $proofConfig['max_files'] }}" data-max-size-kb="{{ $proofConfig['max_size_kb'] }}" class="text-xs">
+                <ul class="review-proof-errors" data-proof-errors hidden></ul>
+                <div class="review-proof-preview" data-proof-preview></div>
+              </div>
+
+              <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+                <div>
+                  <input type="hidden" name="visible_to_resident" value="0">
+                  <label class="inline-flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                    <input type="checkbox" name="visible_to_resident" value="1" @checked(old('visible_to_resident', '1') == '1')>
+                    <span>Visible to resident</span>
+                  </label>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button type="submit" class="rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-3.5 py-2 transition" data-submit-once>Post update</button>
+                  <button type="button" class="rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold px-3.5 py-2 transition"
+                          data-toggle-resolution aria-expanded="{{ $openResolutionForm ? 'true' : 'false' }}" aria-controls="resolution-form-panel">
+                    Mark resolved
+                  </button>
+                </div>
+              </div>
+            </form>
+
+            {{-- Upload Proof Photos & Propose Resolution --}}
+            <div id="resolution-form-panel" class="rounded-xl border border-emerald-200 bg-emerald-50/30 p-4 space-y-3" data-resolution-panel @if(! $openResolutionForm) hidden @endif>
+              <form method="POST" action="{{ route('admin.reports.resolve', $report) }}" enctype="multipart/form-data" class="space-y-3" data-prevent-double-submit>
+                @csrf
+                <h3 class="text-xs font-extrabold uppercase tracking-wider text-emerald-900 m-0">Upload Proof Photos &amp; Propose Resolution</h3>
+                <div>
+                  <label for="resolution-note" class="block text-xs font-bold text-slate-700 mb-1">Resolution note <span class="text-rose-600">*</span></label>
+                  <textarea id="resolution-note" name="note" rows="3" required maxlength="2000" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs">{{ old('note') }}</textarea>
+                  @error('note')<span class="review-field-error">{{ $message }}</span>@enderror
+                </div>
+                <div class="review-form-field">
+                  <label for="proof-photos" class="block text-xs font-bold text-slate-700 mb-1">Proof photos <span class="text-slate-400 font-normal">(up to {{ $proofConfig['max_files'] }} images, {{ round($proofConfig['max_size_kb'] / 1024) }} MB each)</span></label>
+                  <input id="proof-photos" type="file" name="proof_photos[]" multiple accept="{{ $proofConfig['accept'] }}"
+                         data-proof-input data-max-files="{{ $proofConfig['max_files'] }}" data-max-size-kb="{{ $proofConfig['max_size_kb'] }}" class="text-xs">
+                  <ul class="review-proof-errors" data-proof-errors hidden></ul>
+                  <div class="review-proof-preview" data-proof-preview></div>
+                </div>
+                <div class="flex justify-end">
+                  <button type="submit" class="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 transition" data-submit-once>
+                    <i class="fa-solid fa-check-circle mr-1" aria-hidden="true"></i> Submit resolution proof
+                  </button>
+                </div>
+              </form>
+
+              @if($report->proofPhotos->isNotEmpty())
+                <div class="pt-3 border-t border-emerald-200">
+                  <h4 class="text-xs font-bold text-slate-700 mb-2">Saved proof photos</h4>
+                  <div class="review-proof-preview">
+                    @foreach($report->proofPhotos as $proofPhoto)
+                      <div class="review-proof-item">
+                        <a href="{{ route('admin.reports.proof-photos.show', [$report, $proofPhoto]) }}" target="_blank" rel="noopener">
+                          <img src="{{ route('admin.reports.proof-photos.show', [$report, $proofPhoto]) }}" alt="Saved proof photo">
+                        </a>
+                        <form method="POST" action="{{ route('admin.reports.proof-photos.destroy', [$report, $proofPhoto]) }}"
+                              data-confirm-delete="Delete this proof photo? This cannot be undone.">
+                          @csrf
+                          @method('DELETE')
+                          <button type="submit" class="review-proof-delete" aria-label="Delete proof photo">&times;</button>
+                        </form>
+                      </div>
+                    @endforeach
+                  </div>
+                </div>
+              @endif
+            </div>
+
+          @elseif($report->status === 'awaiting_confirmation')
+            <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900">
+              Waiting for the resident to confirm the resolution on the tracking page.
+            </div>
+            @if($report->due_at && $report->due_at->copy()->addDays($autoCloseDays)->isPast() && auth()->user()?->role === 'admin')
+              <form method="POST" action="{{ route('admin.reports.close', $report) }}" class="rounded-xl border border-slate-200 p-4 space-y-2" data-prevent-double-submit>
+                @csrf
+                <label for="close-justification" class="block text-xs font-bold text-slate-700">Manual Resolution Justification <span class="text-rose-600">*</span></label>
+                <textarea id="close-justification" name="justification" rows="2" required minlength="10" maxlength="1000" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs">{{ old('justification') }}</textarea>
+                <button type="submit" class="rounded-xl bg-slate-800 text-white text-xs font-bold px-3.5 py-2" data-submit-once>Finalize resolution</button>
+              </form>
+            @endif
+
+          @elseif($report->status === 'referred')
+            @php $referral = $report->activeReferral; $referralOffice = $referral?->office; @endphp
+            @if($referral)
+              <div class="rounded-xl border border-indigo-200 bg-indigo-50/40 p-4 space-y-3" data-referral-panel data-letter="{{ $referral->referral_text }}">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="font-mono text-xs font-bold text-indigo-800 bg-white border border-indigo-200 px-2 py-0.5 rounded">{{ $referral->reference_no }}</span>
+                    <strong class="text-xs text-slate-900">{{ $referralOffice?->name ?? 'Unknown agency' }}</strong>
+                  </div>
+                  <a class="rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold px-3 py-1.5" href="{{ route('admin.referrals.letter', $referral) }}" target="_blank" rel="noopener" data-turbo="false">
+                    <i class="fa-solid fa-print mr-1" aria-hidden="true"></i> Print / Save as PDF
+                  </a>
+                </div>
+                @if($referral->status === 'prepared')
+                  <form method="POST" action="{{ route('admin.referrals.mark-sent', $referral) }}" class="space-y-2" data-prevent-double-submit>
+                    @csrf
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <input type="date" name="sent_at" value="{{ now()->toDateString() }}" class="h-9 rounded-lg border border-slate-300 bg-white px-2.5 text-xs">
+                      <select name="sent_via" class="h-9 rounded-lg border border-slate-300 bg-white px-2.5 text-xs">
+                        <option value="">Sent via (optional)</option>
+                        @foreach(\App\Models\Referral::SENT_VIA as $sentViaKey => $sentViaLabel)
+                          <option value="{{ $sentViaKey }}">{{ $sentViaLabel }}</option>
+                        @endforeach
+                      </select>
+                    </div>
+                    <button type="submit" class="rounded-lg bg-blue-600 text-white text-xs font-bold px-3.5 py-1.5" data-submit-once>Mark as sent</button>
+                  </form>
+                @elseif($referral->isOpen())
+                  <form method="POST" action="{{ route('admin.referrals.updates.store', $referral) }}" enctype="multipart/form-data" class="space-y-2" data-prevent-double-submit>
+                    @csrf
+                    <textarea name="note" rows="2" required maxlength="2000" placeholder="What the agency reported..." class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs"></textarea>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <select name="channel" required class="h-9 rounded-lg border border-slate-300 bg-white px-2.5 text-xs">
+                        @foreach(\App\Models\Referral::CHANNELS as $channelKey => $channelLabel)
+                          <option value="{{ $channelKey }}">{{ $channelLabel }}</option>
+                        @endforeach
+                      </select>
+                      <select name="status" class="h-9 rounded-lg border border-slate-300 bg-white px-2.5 text-xs">
+                        <option value="">Keep current status</option>
+                        @foreach(\App\Models\Referral::UPDATE_TARGET_STATUSES as $updateStatus)
+                          <option value="{{ $updateStatus }}">{{ \App\Models\Referral::STATUSES[$updateStatus] ?? $updateStatus }}</option>
+                        @endforeach
+                      </select>
+                    </div>
+                    <div class="flex items-center justify-between gap-2">
+                      <button type="submit" class="rounded-lg bg-blue-600 text-white text-xs font-bold px-3 py-1.5" data-submit-once>Log update</button>
+                      <button type="button" class="rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-bold px-3 py-1.5" data-open-dialog="close-referral-modal">Close referral</button>
+                    </div>
+                  </form>
+
+                  <dialog id="close-referral-modal" class="review-modal" @if($errors->has('outcome')) data-open-on-load @endif>
+                    <form method="POST" action="{{ route('admin.referrals.close', $referral) }}" data-prevent-double-submit>
+                      @csrf
+                      <header class="review-modal-header">
+                        <strong><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Close referral</strong>
+                        <button type="button" class="review-modal-close" data-close-modal aria-label="Close">&times;</button>
+                      </header>
+                      <div class="review-modal-body space-y-2">
+                        <select name="outcome" required class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs">
+                          @foreach(\App\Models\Referral::OUTCOMES as $outcomeKey => $outcomeLabel)
+                            <option value="{{ $outcomeKey }}">{{ $outcomeLabel }}</option>
+                          @endforeach
+                        </select>
+                        <textarea name="note" rows="3" required maxlength="2000" placeholder="Summarize the final outcome..." class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs"></textarea>
+                      </div>
+                      <footer class="review-modal-footer">
+                        <button type="button" class="review-button review-button-outline" data-close-modal>Cancel</button>
+                        <button type="submit" class="review-button review-button-primary" data-submit-once>Close referral</button>
+                      </footer>
+                    </form>
+                  </dialog>
+                @endif
+              </div>
+            @endif
+
+          @elseif(in_array($report->status, ['resolved', 'no_action'], true))
+            @if($report->status === 'resolved')
+              <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs text-emerald-900 space-y-1">
+                <div class="font-bold">Resolved @if($report->resolved_at) on {{ $report->resolved_at->format('M j, Y g:i A') }} @endif</div>
+                @if($report->satisfaction_rating)
+                  <div>Resident rating: <strong>{{ $report->satisfaction_rating }} / 5</strong> @if($report->satisfaction_comment) — “{{ $report->satisfaction_comment }}” @endif</div>
+                @endif
+              </div>
+            @endif
+            <form method="POST" action="{{ route('admin.reports.reopen', $report) }}" class="rounded-xl border border-slate-200 p-4 space-y-2" data-prevent-double-submit>
+              @csrf
+              <label for="reopen-reason" class="block text-xs font-bold text-slate-700">Reason for reopening</label>
+              <textarea id="reopen-reason" name="reason" rows="2" required minlength="5" maxlength="1000" placeholder="Explain why this report is being reopened..." class="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs">{{ old('reason') }}</textarea>
+              <button type="submit" class="rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold px-3.5 py-2" data-submit-once>Reopen report</button>
+            </form>
+          @elseif($report->status === 'merged')
+            <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-700 space-y-2">
+              <p class="m-0">This report was merged as a duplicate.</p>
+              <button type="button" class="rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-bold px-3 py-1.5" data-open-dialog="unmerge-modal">Unmerge report</button>
+            </div>
+          @endif
+        @endif
+      </div>
+    </section>
+  </div>
+
+  {{-- Auxiliary action forms outside #review-form --}}
+  @if(auth()->user()?->hasPermission('cases.create'))
+    <form id="kebab-convert-case-form" method="POST" action="{{ route('admin.reports.convert-to-case', $report) }}" class="hidden">@csrf</form>
+  @endif
+  @if(!$report->is_emergency && !in_array($report->status, \App\Models\Report::CLOSED_STATUSES, true))
+    <form id="kebab-emergency-form" method="POST" action="{{ route('admin.reports.emergency', $report) }}" data-confirm="Flag this report as an emergency concern?" class="hidden">
+      @csrf
+      @method('PATCH')
+      <input type="hidden" name="confirm" value="1">
+    </form>
+  @endif
+  @if($aiUnavailable && $report->ai_status === 'failed' && ! $emergencyActionOnly)
+    <form id="review-retry-ai-form" method="POST" action="{{ route('admin.reports.retry-ai', $report) }}" class="hidden">@csrf</form>
+  @endif
+  @if($aiPending && ! $emergencyActionOnly)
+    <form id="review-stop-ai-form" method="POST" action="{{ route('admin.reports.cancel-ai', $report) }}" class="hidden">@csrf</form>
+  @endif
+  @if($isOverdue && ! $report->escalated_at)
+    <form id="review-escalate-form" method="POST" action="{{ route('admin.reports.escalate', $report) }}" class="hidden">@csrf</form>
+  @endif
+
+  {{-- Modals --}}
+  @if($canMergeDuplicate)
+    <dialog id="duplicate-modal" class="review-modal">
+      <form method="POST" action="{{ route('admin.reports.duplicate', $report) }}">
+        @csrf
+        @method('PATCH')
+        <header class="review-modal-header">
+          <strong><i class="fa-solid fa-copy" aria-hidden="true"></i> Mark duplicate</strong>
+          <button type="button" class="review-modal-close" data-close-modal aria-label="Close">&times;</button>
+        </header>
+        <div class="review-modal-body">
+          @php
+            $mergeSelectableCandidates = $actionableDuplicates->pluck('candidate')
+                ->filter(fn ($c) => $c !== null && ! $c->is_emergency && $c->status !== 'emergency_flagged')
+                ->concat($duplicateCandidates)->unique('id')->values();
+          @endphp
+          <label for="duplicate-candidate">Duplicate of</label>
+          <select id="duplicate-candidate" name="candidate_id" required>
+            <option value="">Select a report</option>
+            @foreach($mergeSelectableCandidates as $candidate)
+              <option value="{{ $candidate->id }}" @selected($pendingDuplicate && ! $pendingDuplicate->candidate->is_emergency && $pendingDuplicate->candidate->status !== 'emergency_flagged' && (string) $pendingDuplicate->candidate_id === (string) $candidate->id)>
+                {{ $candidate->tracking_code }} — {{ \Illuminate\Support\Str::limit($candidate->description, 70) }}
+              </option>
+            @endforeach
+          </select>
+          <label for="duplicate-note">Merge note</label>
+          <textarea id="duplicate-note" name="note" rows="2" required maxlength="500" placeholder="Why these are the same report."></textarea>
+        </div>
+        <footer class="review-modal-footer">
+          <button type="button" class="review-button review-button-outline" data-close-modal>Cancel</button>
+          <button type="submit" class="review-button review-button-primary" @disabled($mergeSelectableCandidates->isEmpty())>Mark duplicate</button>
+        </footer>
+      </form>
+    </dialog>
+  @endif
+
+  @if($canTakeNoAction)
+    <dialog id="no-action-modal" class="review-modal">
+      <form method="POST" action="{{ route('admin.reports.status', $report) }}">
+        @csrf
+        @method('PATCH')
+        <input type="hidden" name="status" value="no_action">
+        <header class="review-modal-header">
+          <strong><i class="fa-solid fa-circle-xmark" aria-hidden="true"></i> Take no action</strong>
+          <button type="button" class="review-modal-close" data-close-modal aria-label="Close">&times;</button>
+        </header>
+        <div class="review-modal-body space-y-3">
+          <div>
+            <label for="no-action-reason" class="block text-xs font-bold mb-1">Reason code</label>
+            <select id="no-action-reason" name="no_action_reason" required class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs">
+              <option value="">Select a reason code...</option>
+              @foreach(\App\Models\Report::NO_ACTION_REASONS as $code => $label)
+                <option value="{{ $code }}">{{ $label }}</option>
+              @endforeach
+            </select>
+          </div>
+          <div>
+            <label for="no-action-note" class="block text-xs font-bold mb-1">Explanation shown to resident</label>
+            <textarea id="no-action-note" name="note" rows="3" required maxlength="500" class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs"></textarea>
+          </div>
+        </div>
+        <footer class="review-modal-footer">
+          <button type="button" class="review-button review-button-outline" data-close-modal>Cancel</button>
+          <button type="submit" class="review-button review-button-primary">Confirm No Action</button>
+        </footer>
+      </form>
+    </dialog>
+  @endif
 
   @if($report->status === 'merged')
     <dialog id="unmerge-modal" class="review-modal">
@@ -1671,11 +1751,8 @@
           <button type="button" class="review-modal-close" data-close-modal aria-label="Close">&times;</button>
         </header>
         <div class="review-modal-body">
-          <p class="review-field-hint">
-            This will detach the report from its duplicate parent and return it to <strong>Under Review</strong> status so it can be handled independently.
-          </p>
-          <label for="unmerge-note" style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 0.35rem;">Reason for unmerging</label>
-          <textarea id="unmerge-note" name="note" rows="3" required minlength="5" maxlength="500" placeholder="Explain why this report is not a duplicate and should be returned to review..."></textarea>
+          <label for="unmerge-note" class="block text-xs font-bold mb-1">Reason for unmerging</label>
+          <textarea id="unmerge-note" name="note" rows="3" required minlength="5" maxlength="500" class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs"></textarea>
         </div>
         <footer class="review-modal-footer">
           <button type="button" class="review-button review-button-outline" data-close-modal>Cancel</button>
@@ -1696,11 +1773,8 @@
           <button type="button" class="review-modal-close" data-close-modal aria-label="Close">&times;</button>
         </header>
         <div class="review-modal-body">
-          <p class="review-field-hint">
-            Use when barangay tanods, emergency responders, or personnel directly attended to and addressed the emergency situation on-site. The report will transition to <strong>In Progress</strong> for ongoing tracking.
-          </p>
-          <label for="emergency-handled-note" style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 0.35rem;">Action taken note</label>
-          <textarea id="emergency-handled-note" name="note" rows="3" required minlength="5" maxlength="500" placeholder="Describe the immediate on-site response and current situation (e.g. Tanods responded and secured the area)..."></textarea>
+          <label for="emergency-handled-note" class="block text-xs font-bold mb-1">Action taken note</label>
+          <textarea id="emergency-handled-note" name="note" rows="3" required minlength="5" maxlength="500" class="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs"></textarea>
         </div>
         <footer class="review-modal-footer">
           <button type="button" class="review-button review-button-outline" data-close-modal>Cancel</button>
@@ -1710,384 +1784,19 @@
     </dialog>
   @endif
 
-  {{-- Shared chat modal for "Ask for info" from kebab menu --}}
+  <dialog id="photo-lightbox-modal" class="review-modal">
+    <div class="bg-white rounded-2xl max-w-2xl w-full overflow-hidden">
+      <header class="review-modal-header">
+        <strong>Incident Photo — {{ $report->tracking_code }}</strong>
+        <button type="button" class="review-modal-close" data-close-modal aria-label="Close">&times;</button>
+      </header>
+      <div class="p-3 bg-slate-100 flex justify-center">
+        <img id="photo-lightbox-img" src="" alt="Enlarged resident photo" class="max-h-[75vh] rounded-xl object-contain">
+      </div>
+    </div>
+  </dialog>
+
   @include('admin.reports.partials.info-thread-modal')
-
-  @if($isAfterRoute && ! $emergencyActionOnly)
-    <section class="review-workflow-card">
-      <div class="review-card-heading review-card-heading-static">
-        <span class="review-card-number" aria-hidden="true">3</span>
-        <span class="review-card-heading-copy">
-          <span class="review-card-title">Next step</span>
-          <span class="review-card-instruction">Continue the report through its current status.</span>
-        </span>
-      </div>
-      <div class="review-card-content">
-        @if(in_array($report->status, ['routed', 'in_progress', 'needs_info'], true))
-          @php
-            $updateTypes = \App\Models\Report::UPDATE_TYPES;
-            $defaultUpdateType = array_key_first($updateTypes);
-            $selectedUpdateType = old('update_type', $defaultUpdateType);
-            if (! isset($updateTypes[$selectedUpdateType])) {
-                $selectedUpdateType = $defaultUpdateType;
-            }
-            $selectedUpdateMeta = $updateTypes[$selectedUpdateType];
-            $defaultUpdateMessage = old('message', $selectedUpdateMeta['template'] ?? '');
-            $openResolutionForm = $errors->has('note') || $errors->has('proof_photos') || $errors->has('proof_photos.*');
-          @endphp
-          <p class="review-next-summary">{{ $report->category?->name ?? 'Category not assigned' }} · {{ $report->urgency ?? 'Urgency not assigned' }} · {{ $report->office?->name ?? 'Office not assigned' }} · {{ $report->assignee?->name ?? 'Unassigned' }}</p>
-          @if($report->status === 'needs_info')
-            <p class="review-next-summary">Waiting for the resident's reply. The conversation is in the <strong>chat modal</strong> you can open from Review AI suggestions above, or you can post a progress update below.</p>
-          @endif
-
-          <form method="POST" action="{{ route('admin.reports.updates.store', $report) }}" enctype="multipart/form-data" class="review-update-form" data-prevent-double-submit>
-            @csrf
-            <div class="review-form-grid">
-              <div class="review-form-field">
-                <label for="update-type">Update type</label>
-                <select id="update-type" name="update_type" required data-update-type-select>
-                  @foreach($updateTypes as $typeKey => $typeMeta)
-                    <option value="{{ $typeKey }}"
-                            data-template="{{ $typeMeta['template'] }}"
-                            data-message-required="{{ $typeMeta['message_required'] ? '1' : '0' }}"
-                            @selected($selectedUpdateType === $typeKey)>
-                      {{ $typeMeta['label'] }} ({{ \App\Models\Report::STATUSES[$typeMeta['status']] ?? $typeMeta['status'] }})
-                    </option>
-                  @endforeach
-                </select>
-                @error('update_type')<span class="review-field-error">{{ $message }}</span>@enderror
-              </div>
-
-              <div class="review-form-field">
-                <label for="expected-completion-date">Expected completion date <span class="review-optional">(optional)</span></label>
-                <input id="expected-completion-date" type="date" name="expected_completion_date" min="{{ now()->toDateString() }}" value="{{ old('expected_completion_date') }}">
-                @error('expected_completion_date')<span class="review-field-error">{{ $message }}</span>@enderror
-              </div>
-
-              <div class="review-form-field review-form-field-wide">
-                <label for="update-message">
-                  Message to resident
-                  <span class="review-optional" data-update-message-optional>{{ $selectedUpdateMeta['message_required'] ? '(required)' : '(optional)' }}</span>
-                </label>
-                <textarea id="update-message" name="message" rows="3" maxlength="2000" data-update-message @if($selectedUpdateMeta['message_required']) required @endif>{{ $defaultUpdateMessage }}</textarea>
-                @error('message')<span class="review-field-error">{{ $message }}</span>@enderror
-              </div>
-
-              <div class="review-form-field review-form-field-wide">
-                <label for="update-photos">Progress photos <span class="review-optional">(optional)</span></label>
-                <p class="review-field-hint">
-                  Up to {{ $proofConfig['max_files'] }} images, {{ round($proofConfig['max_size_kb'] / 1024) }} MB each. JPG, PNG or WebP.
-                </p>
-                <input id="update-photos" type="file" name="photos[]" multiple accept="{{ $proofConfig['accept'] }}"
-                       data-proof-input
-                       data-max-files="{{ $proofConfig['max_files'] }}"
-                       data-max-size-kb="{{ $proofConfig['max_size_kb'] }}">
-                <ul class="review-proof-errors" data-proof-errors hidden></ul>
-                <div class="review-proof-preview" data-proof-preview></div>
-                @error('photos')<span class="review-field-error">{{ $message }}</span>@enderror
-                @error('photos.*')<span class="review-field-error">{{ $message }}</span>@enderror
-              </div>
-
-              <div class="review-form-field review-form-field-wide">
-                <input type="hidden" name="visible_to_resident" value="0">
-                <label class="review-checkbox-label">
-                  <input type="checkbox" name="visible_to_resident" value="1" @checked(old('visible_to_resident', '1') == '1')>
-                  <span>Visible to resident</span>
-                </label>
-                <p class="review-field-hint">Uncheck to save as an internal staff note hidden from the resident page.</p>
-              </div>
-            </div>
-
-            <div class="review-actions-row">
-              <button type="submit" class="review-button review-button-primary" data-submit-once>Post update</button>
-              <button type="button" class="review-button review-button-outline" data-toggle-resolution aria-expanded="{{ $openResolutionForm ? 'true' : 'false' }}" aria-controls="resolution-form-panel">
-                Mark resolved
-              </button>
-            </div>
-          </form>
-
-          <div id="resolution-form-panel" class="review-resolution-panel" data-resolution-panel @if(! $openResolutionForm) hidden @endif>
-            <form method="POST" action="{{ route('admin.reports.resolve', $report) }}" enctype="multipart/form-data" class="review-resolution-form" data-prevent-double-submit>
-              @csrf
-              <div class="review-form-field">
-                <label for="resolution-note">Resolution note</label>
-                <textarea id="resolution-note" name="note" rows="4" required maxlength="2000">{{ old('note') }}</textarea>
-                @error('note')<span class="review-field-error">{{ $message }}</span>@enderror
-              </div>
-              <div class="review-form-field">
-                <label for="proof-photos">Proof photos <span class="review-optional">(optional)</span></label>
-                <p class="review-field-hint">
-                  Up to {{ $proofConfig['max_files'] }} images, {{ round($proofConfig['max_size_kb'] / 1024) }} MB each. JPG, PNG or WebP.
-                </p>
-                <input id="proof-photos" type="file" name="proof_photos[]" multiple accept="{{ $proofConfig['accept'] }}"
-                       data-proof-input
-                       data-max-files="{{ $proofConfig['max_files'] }}"
-                       data-max-size-kb="{{ $proofConfig['max_size_kb'] }}">
-                <ul class="review-proof-errors" data-proof-errors hidden></ul>
-                <div class="review-proof-preview" data-proof-preview></div>
-              </div>
-              <button type="submit" class="review-button review-button-primary" data-submit-once>Mark resolved</button>
-            </form>
-
-            @if($report->proofPhotos->isNotEmpty())
-              <div class="review-saved-proofs">
-                <h3 class="review-field-label">Saved proof photos</h3>
-                <div class="review-proof-preview">
-                  @foreach($report->proofPhotos as $proofPhoto)
-                    <div class="review-proof-item">
-                      <a href="{{ route('admin.reports.proof-photos.show', [$report, $proofPhoto]) }}" target="_blank" rel="noopener">
-                        <img src="{{ route('admin.reports.proof-photos.show', [$report, $proofPhoto]) }}" alt="Saved proof photo">
-                      </a>
-                      <form method="POST" action="{{ route('admin.reports.proof-photos.destroy', [$report, $proofPhoto]) }}"
-                            data-confirm-delete="Delete this proof photo? This cannot be undone.">
-                        @csrf
-                        @method('DELETE')
-                        <button type="submit" class="review-proof-delete" aria-label="Delete proof photo">&times;</button>
-                      </form>
-                    </div>
-                  @endforeach
-                </div>
-              </div>
-            @endif
-          </div>
-        @elseif($report->status === 'awaiting_confirmation')
-          <p class="review-next-summary">Waiting for the resident to confirm the resolution.</p>
-          @if($report->due_at && $report->due_at->copy()->addDays($autoCloseDays)->isPast())
-            @if(auth()->user()?->role === 'admin')
-              <form method="POST" action="{{ route('admin.reports.close', $report) }}" data-prevent-double-submit style="margin-top:0.75rem;">
-                @csrf
-                <div class="review-form-field">
-                  <label for="close-justification">Manual Closure Justification <span style="color:var(--red);">*</span></label>
-                  <textarea id="close-justification" name="justification" rows="2" required minlength="10" maxlength="1000" placeholder="Provide reason for manual administrative closure (min. 10 chars)...">{{ old('justification') }}</textarea>
-                  @error('justification')<span class="review-field-error">{{ $message }}</span>@enderror
-                </div>
-                <button type="submit" class="review-button review-button-outline" data-submit-once>Close case</button>
-              </form>
-            @endif
-          @endif
-        @elseif(in_array($report->status, ['resolved', 'no_action'], true))
-          <p class="review-next-summary">
-            This report has been {{ $report->status === 'no_action' ? 'marked as no action' : 'resolved' }}. If further work is needed, you can reopen it back to In Progress.
-          </p>
-          <form method="POST" action="{{ route('admin.reports.reopen', $report) }}" class="review-reopen-form" data-prevent-double-submit>
-            @csrf
-            <div class="review-form-field">
-              <label for="reopen-reason">Reason for reopening</label>
-              <textarea id="reopen-reason" name="reason" rows="2" required minlength="5" maxlength="1000" placeholder="Explain why this report is being reopened...">{{ old('reason') }}</textarea>
-              @error('reason')<span class="review-field-error">{{ $message }}</span>@enderror
-            </div>
-            <button type="submit" class="review-button review-button-outline" data-submit-once>Reopen report</button>
-          </form>
-        @elseif($report->status === 'referred')
-          @php
-            $referral = $report->activeReferral;
-            $referralOffice = $referral?->office;
-            $referralBadgeClass = match ($referral?->status) {
-              'prepared' => 'review-badge-amber',
-              'sent' => 'review-badge-blue',
-              'acknowledged' => 'review-badge-blue',
-              'action_taken' => 'review-badge-green',
-              'closed' => 'review-badge-gray',
-              default => 'review-badge-gray',
-            };
-          @endphp
-          @if($referral)
-            <div class="referral-panel" data-referral-panel data-letter="{{ $referral->referral_text }}">
-              <div class="referral-panel-header">
-                <span class="review-badge review-badge-blue">{{ $referral->reference_no }}</span>
-                <strong>{{ $referralOffice?->name ?? 'Unknown agency' }}</strong>
-                <span class="review-badge {{ $referralBadgeClass }}">{{ \App\Models\Referral::STATUSES[$referral->status] ?? $referral->status }}</span>
-                @if($referral->isOverdue())
-                  <span class="review-badge review-badge-red">Follow-up overdue</span>
-                @endif
-              </div>
-              <p class="review-next-summary">
-                @if($referral->sent_at)
-                  Sent {{ $referral->sent_at->format('M d, Y') }}@if($referral->sent_via) ({{ \App\Models\Referral::SENT_VIA[$referral->sent_via] ?? $referral->sent_via }})@endif.
-                @endif
-                Follow up @if($referral->follow_up_at){{ $referral->follow_up_at->format('M d, Y') }}@else not scheduled @endif.
-              </p>
-
-              <div class="referral-panel-actions">
-                <a class="review-button review-button-outline" href="{{ route('admin.referrals.letter', $referral) }}" target="_blank" rel="noopener">
-                  <i class="fa-solid fa-print" aria-hidden="true"></i> Print / Save as PDF
-                </a>
-                <button type="button" class="review-button review-button-outline" data-copy-letter>
-                  <i class="fa-solid fa-copy" aria-hidden="true"></i> Copy letter text
-                </button>
-                @if($referralOffice?->contact_email)
-                  <a class="review-button review-button-outline"
-                     href="mailto:{{ $referralOffice->contact_email }}?subject={{ rawurlencode('Referral '.$referral->reference_no.' — '.$report->tracking_code) }}&body={{ rawurlencode($referral->referral_text) }}">
-                    <i class="fa-solid fa-envelope" aria-hidden="true"></i> Open email
-                  </a>
-                @endif
-              </div>
-
-              @if($referral->status === 'prepared')
-                <form method="POST" action="{{ route('admin.referrals.mark-sent', $referral) }}" class="referral-panel-form" data-prevent-double-submit>
-                  @csrf
-                  <div class="referral-panel-form-grid">
-                    <div class="review-form-field">
-                      <label for="referral-sent-at">Sent date</label>
-                      <input id="referral-sent-at" type="date" name="sent_at" value="{{ now()->toDateString() }}">
-                    </div>
-                    <div class="review-form-field">
-                      <label for="referral-sent-via">Sent via</label>
-                      <select id="referral-sent-via" name="sent_via">
-                        <option value="">Not recorded</option>
-                        @foreach(\App\Models\Referral::SENT_VIA as $sentViaKey => $sentViaLabel)
-                          <option value="{{ $sentViaKey }}">{{ $sentViaLabel }}</option>
-                        @endforeach
-                      </select>
-                    </div>
-                  </div>
-                  <div class="review-actions-row">
-                    <button type="submit" class="review-button review-button-primary" data-submit-once>Mark as sent</button>
-                  </div>
-                  <p class="review-field-hint">Marks the referral as sent and schedules a follow-up in {{ \App\Models\Setting::value('referral_follow_up_days', $referralConfig['follow_up_days']) }} days.</p>
-                </form>
-              @elseif($referral->isOpen())
-                <form method="POST" action="{{ route('admin.referrals.updates.store', $referral) }}" enctype="multipart/form-data" class="referral-panel-form" data-prevent-double-submit>
-                  @csrf
-                  <h3 class="review-field-label">Log agency update</h3>
-                  <div class="referral-panel-form-grid">
-                    <div class="review-form-field review-form-field-wide">
-                      <label for="referral-update-note">What the agency reported</label>
-                      <textarea id="referral-update-note" name="note" rows="3" required maxlength="2000">{{ old('channel') ? old('note') : '' }}</textarea>
-                    </div>
-                    <div class="review-form-field">
-                      <label for="referral-update-channel">Received via</label>
-                      <select id="referral-update-channel" name="channel" required>
-                        @foreach(\App\Models\Referral::CHANNELS as $channelKey => $channelLabel)
-                          <option value="{{ $channelKey }}" @selected(old('channel') === $channelKey)>{{ $channelLabel }}</option>
-                        @endforeach
-                      </select>
-                    </div>
-                    <div class="review-form-field">
-                      <label for="referral-update-status">Agency status</label>
-                      <select id="referral-update-status" name="status">
-                        <option value="">Keep current</option>
-                        @foreach(\App\Models\Referral::UPDATE_TARGET_STATUSES as $updateStatus)
-                          <option value="{{ $updateStatus }}" @selected(old('status') === $updateStatus)>{{ \App\Models\Referral::STATUSES[$updateStatus] ?? $updateStatus }}</option>
-                        @endforeach
-                      </select>
-                    </div>
-                    <div class="review-form-field">
-                      <label for="referral-update-date">Update date</label>
-                      <input id="referral-update-date" type="date" name="occurred_at" value="{{ old('occurred_at', now()->toDateString()) }}">
-                    </div>
-                    <div class="review-form-field">
-                      <label for="referral-update-reference">Agency reference no. <span class="review-optional">(optional)</span></label>
-                      <input id="referral-update-reference" type="text" name="agency_reference_no" value="{{ old('agency_reference_no') }}" maxlength="100">
-                    </div>
-                    <div class="review-form-field">
-                      <label for="referral-update-photo">Photo <span class="review-optional">(optional)</span></label>
-                      <input id="referral-update-photo" type="file" name="photo" accept="image/jpeg,image/png,image/webp">
-                    </div>
-                    <div class="review-form-field review-form-field-wide">
-                      <label class="review-checkbox-label">
-                        <input type="checkbox" name="visible_to_resident" value="1" checked>
-                        <span>Show this update to the resident</span>
-                      </label>
-                    </div>
-                  </div>
-                  <div class="review-actions-row">
-                    <button type="submit" class="review-button review-button-primary" data-submit-once>Log update</button>
-                    <button type="button" class="review-button review-button-outline" data-open-dialog="close-referral-modal">
-                      Close referral
-                    </button>
-                  </div>
-                </form>
-
-                <dialog id="close-referral-modal" class="review-modal" @if($errors->has('outcome')) data-open-on-load @endif>
-                  <form method="POST" action="{{ route('admin.referrals.close', $referral) }}" data-prevent-double-submit>
-                    @csrf
-                    <header class="review-modal-header">
-                      <strong><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Close referral</strong>
-                      <button type="button" class="review-modal-close" data-close-modal aria-label="Close">&times;</button>
-                    </header>
-                    <div class="review-modal-body">
-                      <p class="review-field-hint">
-                        Resolved closes the report. Declined or no response keeps the report open for the next action.
-                      </p>
-                      <div class="review-form-field">
-                        <label for="referral-outcome">Outcome</label>
-                        <select id="referral-outcome" name="outcome" required>
-                          @foreach(\App\Models\Referral::OUTCOMES as $outcomeKey => $outcomeLabel)
-                            <option value="{{ $outcomeKey }}" @selected(old('outcome') === $outcomeKey)>{{ $outcomeLabel }}</option>
-                          @endforeach
-                        </select>
-                        @error('outcome')<span class="review-field-error">{{ $message }}</span>@enderror
-                      </div>
-                      <div class="review-form-field">
-                        <label for="referral-close-note">Closing note</label>
-                        <textarea id="referral-close-note" name="note" rows="3" required maxlength="2000" placeholder="Summarize the final outcome from the external agency...">{{ old('outcome') ? old('note') : '' }}</textarea>
-                        @error('note')<span class="review-field-error">{{ $message }}</span>@enderror
-                      </div>
-                    </div>
-                    <footer class="review-modal-footer">
-                      <button type="button" class="review-button review-button-outline" data-close-modal>Cancel</button>
-                      <button type="submit" class="review-button review-button-primary" data-submit-once>Close referral</button>
-                    </footer>
-                  </form>
-                </dialog>
-              @endif
-
-              @if($referral->updates->isNotEmpty())
-                <ol class="review-activity-list referral-update-list">
-                  @foreach($referral->updates as $referralUpdate)
-                    <li>
-                      <div class="review-activity-heading">
-                        <strong>{{ \App\Models\Referral::CHANNELS[$referralUpdate->channel] ?? $referralUpdate->channel }}</strong>
-                        <time datetime="{{ ($referralUpdate->occurred_at ?? $referralUpdate->created_at)?->toIso8601String() }}">{{ ($referralUpdate->occurred_at ?? $referralUpdate->created_at)?->format('M d, Y h:i A') }}</time>
-                      </div>
-                      <p class="review-activity-body">{{ $referralUpdate->note }}</p>
-                      @if($referralUpdate->agency_reference_no)
-                        <p class="review-activity-user">Agency reference: {{ $referralUpdate->agency_reference_no }}</p>
-                      @endif
-                      @if($referralUpdate->photo_path)
-                        <a href="{{ route('admin.referrals.updates.photo', [$referral, $referralUpdate]) }}" target="_blank" rel="noopener">View update photo</a>
-                      @endif
-                    </li>
-                  @endforeach
-                </ol>
-              @endif
-            </div>
-          @else
-            <p class="review-next-summary">This report was referred to {{ $report->office?->name ?? 'the appropriate office' }}, but no open referral is tracked. Choose the next action:</p>
-            <div class="review-actions-row">
-              <form method="POST" action="{{ route('admin.reports.status', $report) }}">
-                @csrf
-                @method('PATCH')
-                <input type="hidden" name="status" value="routed">
-                <input type="hidden" name="note" value="Handled within the barangay after the referral was closed.">
-                <button type="submit" class="review-button review-button-outline">Route internally</button>
-              </form>
-              <form method="POST" action="{{ route('admin.reports.status', $report) }}">
-                @csrf
-                @method('PATCH')
-                <input type="hidden" name="status" value="no_action">
-                <input type="hidden" name="no_action_reason" value="cannot_resolve">
-                <input type="hidden" name="note" value="No agency can act on this report.">
-                <button type="submit" class="review-button review-button-outline">Take no action</button>
-              </form>
-            </div>
-          @endif
-        @elseif($report->status === 'merged')
-          <p class="review-next-summary">This report was merged as a duplicate.</p>
-          <div class="review-actions-row" style="margin-top: 0.75rem;">
-            <button type="button" class="review-button review-button-outline" data-open-dialog="unmerge-modal">
-              <i class="fa-solid fa-code-merge" aria-hidden="true"></i> Unmerge report
-            </button>
-          </div>
-        @else
-          <p class="review-next-summary">No further action is being taken on this report.</p>
-        @endif
-      </div>
-    </section>
-  @endif
-
-  </div> {{-- End review-bottom-stack --}}
 </div>
 
 @push('scripts')
@@ -2104,15 +1813,117 @@
   const lowConfidenceBadge = root.querySelector('[data-low-confidence]');
   const acceptAllButton = root.querySelector('[data-accept-all]');
   const routeButton = root.querySelector('[data-route-submit]');
+  const referralSubmit = root.querySelector('[data-referral-submit]');
   const countLabel = root.querySelector('[data-reviewed-count]');
   const gateReason = root.querySelector('[data-gate-reason]');
   const pollUrl = root.dataset.aiPollUrl;
   let aiState = root.dataset.aiState;
   let pollAttempts = 0;
   let officeTouched = false;
+  let currentWorkspaceStep = Number(root.dataset.defaultStep || 1);
 
   const normalize = (value) => String(value ?? '').trim().toLocaleLowerCase();
   const rows = [...root.querySelectorAll('[data-review-row]')];
+
+  // Dossier Tabs
+  root.querySelectorAll('[data-dossier-tab]').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      const target = tab.dataset.dossierTab;
+      root.querySelectorAll('[data-dossier-tab]').forEach((t) => {
+        const active = t === tab;
+        t.setAttribute('aria-selected', active ? 'true' : 'false');
+        t.className = active
+          ? 'py-3 px-2 border-b-2 border-blue-600 text-blue-700 bg-white flex items-center justify-center gap-1.5 transition'
+          : 'py-3 px-2 border-b-2 border-transparent text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5 transition';
+      });
+      root.querySelectorAll('[data-dossier-panel]').forEach((panel) => {
+        panel.classList.toggle('hidden', panel.dataset.dossierPanel !== target);
+      });
+      if (target === 'evidence') {
+        window.setTimeout(() => window.dispatchEvent(new Event('resize')), 60);
+      }
+    });
+  });
+
+  // Dossier Original Description 2-line Clamp Toggle
+  const origDesc = document.getElementById('dossier-orig-desc');
+  const origToggle = document.getElementById('dossier-desc-toggle');
+  if (origDesc && origToggle) {
+    if (origDesc.scrollHeight > origDesc.clientHeight + 2) {
+      origToggle.classList.remove('hidden');
+      origToggle.addEventListener('click', () => {
+        const expanded = origDesc.classList.toggle('is-expanded');
+        origToggle.textContent = expanded ? 'View less' : 'View more';
+      });
+    }
+  }
+
+  // Photo Lightbox
+  const lightboxModal = document.getElementById('photo-lightbox-modal');
+  const lightboxImg = document.getElementById('photo-lightbox-img');
+  root.querySelectorAll('[data-lightbox-src]').forEach((img) => {
+    img.addEventListener('click', () => {
+      if (lightboxModal && lightboxImg) {
+        lightboxImg.src = img.dataset.lightboxSrc;
+        lightboxModal.showModal();
+      }
+    });
+  });
+
+  // 3-Step Workspace Stepper
+  const setWorkspaceStep = (step) => {
+    currentWorkspaceStep = step;
+    root.querySelectorAll('[data-workspace-panel]').forEach((panel) => {
+      panel.hidden = Number(panel.dataset.workspacePanel) !== step;
+    });
+    root.querySelectorAll('[data-workspace-step]').forEach((btn) => {
+      const s = Number(btn.dataset.workspaceStep);
+      const dot = btn.querySelector('.rw-step-dot');
+      const title = btn.querySelector('span > span:first-child');
+      if (s < step || (root.dataset.isAfterRoute === 'true' && s < 3 && s !== step)) {
+        dot.className = 'rw-step-dot w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-emerald-600 text-white transition-all duration-200';
+        dot.innerHTML = '<i class="fa-solid fa-check text-[10px]" aria-hidden="true"></i>';
+        if (title) title.className = 'block text-xs sm:text-sm font-bold text-slate-800';
+      } else if (s === step) {
+        dot.className = 'rw-step-dot w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-blue-600 text-white ring-4 ring-blue-100 transition-all duration-200';
+        dot.textContent = String(s);
+        if (title) title.className = 'block text-xs sm:text-sm font-bold text-slate-900';
+      } else {
+        dot.className = 'rw-step-dot w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-white text-slate-500 border border-slate-300 transition-all duration-200';
+        dot.textContent = String(s);
+        if (title) title.className = 'block text-xs sm:text-sm font-bold text-slate-500';
+      }
+    });
+    const c1 = document.getElementById('rw-connector-1');
+    const c2 = document.getElementById('rw-connector-2');
+    if (c1) c1.style.width = step >= 2 ? '100%' : '0%';
+    if (c2) c2.style.width = step >= 3 ? '100%' : '0%';
+  };
+
+  // Urgency 1-Tap Pill Sync
+  const urgencySelect = document.getElementById('final-urgency');
+  const syncUrgencyPills = () => {
+    const val = urgencySelect?.value || '';
+    root.querySelectorAll('[data-urgency-pill-btn]').forEach((btn) => {
+      const level = btn.dataset.urgencyPillBtn;
+      const active = val === level;
+      let activeCls = 'bg-slate-700 text-white shadow-xs';
+      if (level === 'Medium') activeCls = 'bg-blue-600 text-white shadow-xs';
+      if (level === 'High') activeCls = 'bg-amber-500 text-white shadow-xs';
+      if (level === 'Critical') activeCls = 'bg-rose-600 text-white shadow-xs';
+      btn.className = active
+        ? `py-1.5 px-1 rounded-md text-xs font-bold transition text-center ${activeCls}`
+        : 'py-1.5 px-1 rounded-md text-xs font-bold transition text-center text-slate-600 hover:text-slate-900';
+    });
+  };
+  root.querySelectorAll('[data-urgency-pill-btn]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if (!urgencySelect || urgencySelect.disabled) return;
+      urgencySelect.value = btn.dataset.urgencyPillBtn;
+      urgencySelect.dispatchEvent(new Event('change', { bubbles: true }));
+      syncUrgencyPills();
+    });
+  });
 
   const stateClass = (state) => ({
     'AI suggested': 'review-badge-blue',
@@ -2121,7 +1932,6 @@
     Resident: 'review-badge-gray',
   }[state] || 'review-badge-gray');
 
-  // A row is "resolved" once staff picked a value (AI, resident's, or their own).
   const RESOLVED_STATES = ['Accepted', 'Resident', 'Edited'];
   const rowState = (row) => row.querySelector('[data-final-state]')?.textContent.trim() || '';
   const isRowResolved = (row) => RESOLVED_STATES.includes(rowState(row));
@@ -2142,7 +1952,6 @@
     return true;
   };
 
-  // Remember the pre-resolution value so "Undo" can restore it.
   const snapshotUndo = (row) => {
     if (isRowResolved(row)) return;
     const control = row.querySelector('[data-final-control]');
@@ -2176,7 +1985,6 @@
       if (useResident) useResident.hidden = true;
       return;
     }
-
     if (aiState === 'unavailable') {
       if (aiDisplay) aiDisplay.textContent = 'Not available';
       if (comparisonBadge) comparisonBadge.hidden = true;
@@ -2186,7 +1994,6 @@
       row.dataset.reviewRequired = 'false';
       return;
     }
-
     if (!aiPresent) {
       if (comparisonBadge) comparisonBadge.hidden = true;
       if (useAi) useAi.hidden = true;
@@ -2208,112 +2015,27 @@
     if (useResident) useResident.hidden = residentValue === '' || !differs;
   };
 
-  const tokenize = (value) => value.match(/\s+|[\p{L}\p{M}\p{N}'’-]+|[^\s]/gu) || [];
   const renderDescriptionDiff = (row) => {
     const container = row.querySelector('[data-description-diff]');
     if (!container) return;
-    const original = row.dataset.residentValue || '';
     const suggestion = row.dataset.aiValue || '';
-    container.replaceChildren();
-    if (!suggestion) return;
-
-    const before = tokenize(original);
-    const after = tokenize(suggestion);
-    const lcs = Array.from({ length: before.length + 1 }, () => new Uint16Array(after.length + 1));
-    for (let i = before.length - 1; i >= 0; i -= 1) {
-      for (let j = after.length - 1; j >= 0; j -= 1) {
-        lcs[i][j] = before[i] === after[j]
-          ? lcs[i + 1][j + 1] + 1
-          : Math.max(lcs[i + 1][j], lcs[i][j + 1]);
-      }
-    }
-
-    const operations = [];
-    let i = 0;
-    let j = 0;
-    while (i < before.length || j < after.length) {
-      if (i < before.length && j < after.length && before[i] === after[j]) {
-        operations.push(['same', before[i]]);
-        i += 1;
-        j += 1;
-      } else if (i < before.length && (j === after.length || lcs[i + 1][j] >= lcs[i][j + 1])) {
-        operations.push(['removed', before[i]]);
-        i += 1;
-      } else {
-        operations.push(['added', after[j]]);
-        j += 1;
-      }
-    }
-
-    let currentType = null;
-    let currentText = '';
-    const flush = () => {
-      if (!currentText) return;
-      if (currentType === 'same') {
-        container.append(document.createTextNode(currentText));
-      } else {
-        const span = document.createElement(currentType === 'removed' ? 'del' : 'ins');
-        span.className = currentType === 'removed' ? 'review-diff-removed' : 'review-diff-added';
-        span.textContent = currentText;
-        container.append(span);
-      }
-      currentText = '';
-    };
-    operations.forEach(([type, text]) => {
-      if (type !== currentType) {
-        flush();
-        currentType = type;
-      }
-      currentText += text;
-    });
-    flush();
-  };
-
-  const syncClamp = (wrap) => {
-    const clampEl = wrap?.querySelector('.review-clamp');
-    if (!clampEl) return;
-    const expanded = clampEl.classList.contains('is-expanded');
-    const truncated = clampEl.scrollHeight > clampEl.clientHeight + 1;
-    let link = wrap.querySelector('.review-view-more');
-    if (!truncated && !expanded) {
-      link?.remove();
-      return;
-    }
-    if (!link) {
-      link = document.createElement('button');
-      link.type = 'button';
-      link.className = 'review-view-more';
-      link.addEventListener('click', () => {
-        const isExpanded = clampEl.classList.toggle('is-expanded');
-        link.textContent = isExpanded ? 'View Less' : 'View More';
-        syncClamp(wrap);
-      });
-      wrap.append(link);
-    }
-    link.hidden = false;
-    link.textContent = expanded ? 'View Less' : 'View More';
-  };
-
-  const syncAllClamps = () => {
-    root.querySelectorAll('.review-clamp-wrap').forEach(syncClamp);
+    container.textContent = suggestion;
   };
 
   const setAiDisplay = (display, label) => {
     if (!display) return;
     const empty = label === null || label === undefined || String(label).trim() === '';
     display.textContent = empty ? 'Not provided' : label;
-    display.classList.toggle('review-not-provided', empty);
   };
 
+  // Dialog helpers
   root.querySelectorAll('[data-open-dialog]').forEach((button) => {
     button.addEventListener('click', () => {
       const dialog = document.getElementById(button.dataset.openDialog);
       if (dialog) {
         if (button.dataset.duplicateCandidateId) {
           const candidateSelect = dialog.querySelector('#duplicate-candidate');
-          if (candidateSelect) {
-            candidateSelect.value = button.dataset.duplicateCandidateId;
-          }
+          if (candidateSelect) candidateSelect.value = button.dataset.duplicateCandidateId;
         }
         dialog.showModal();
         dialog.querySelector('textarea, select, input')?.focus();
@@ -2329,13 +2051,7 @@
     });
   });
 
-  root.querySelectorAll('form[data-confirm-delete]').forEach((form) => {
-    form.addEventListener('submit', (event) => {
-      if (!window.confirm(form.dataset.confirmDelete)) event.preventDefault();
-    });
-  });
-
-  // Kebab menu toggle for "More actions"
+  // Kebab dropdown
   const closeAllKebabs = (except) => {
     document.querySelectorAll('.kebab.open').forEach((kebab) => {
       if (kebab === except) return;
@@ -2346,7 +2062,6 @@
       if (toggle) toggle.setAttribute('aria-expanded', 'false');
     });
   };
-
   document.querySelectorAll('[data-kebab-toggle]').forEach((toggle) => {
     toggle.addEventListener('click', (event) => {
       event.preventDefault();
@@ -2361,56 +2076,26 @@
       toggle.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
     });
   });
-
   document.addEventListener('click', (event) => {
-    if (!event.target.closest('.kebab')) {
-      closeAllKebabs();
-    }
+    if (!event.target.closest('.kebab')) closeAllKebabs();
   });
 
-  const referralPanel = root.querySelector('[data-referral-panel]');
-  const copyLetterButton = root.querySelector('[data-copy-letter]');
-  copyLetterButton?.addEventListener('click', async () => {
-    const text = referralPanel?.dataset.letter || '';
-    let copied = false;
-    try {
-      await navigator.clipboard.writeText(text);
-      copied = true;
-    } catch {
-      const helper = document.createElement('textarea');
-      helper.value = text;
-      document.body.append(helper);
-      helper.select();
-      try {
-        copied = document.execCommand('copy');
-      } catch {
-        copied = false;
-      }
-      helper.remove();
-    }
-    if (!copied) return;
-    copyLetterButton.textContent = 'Copied';
-    window.setTimeout(() => {
-      copyLetterButton.innerHTML = '<i class="fa-solid fa-copy" aria-hidden="true"></i> Copy letter text';
-    }, 1500);
-  });
-
+  // Proof input previews
   root.querySelectorAll('[data-proof-input]').forEach((proofInput) => {
     const fieldScope = proofInput.closest('.review-form-field') || root;
     const preview = fieldScope.querySelector('[data-proof-preview]');
     const errorList = fieldScope.querySelector('[data-proof-errors]');
     const maxFiles = Number(proofInput.dataset.maxFiles || 5);
     const maxSizeKb = Number(proofInput.dataset.maxSizeKb || 5120);
-    const acceptTypes = (proofInput.accept || '').split(',').map((type) => type.trim()).filter(Boolean);
+    const acceptTypes = (proofInput.accept || '').split(',').map((t) => t.trim()).filter(Boolean);
     const acceptExtensions = ['jpg', 'jpeg', 'png', 'webp'];
     let pendingFiles = [];
 
     const syncInput = () => {
       const transfer = new DataTransfer();
-      pendingFiles.forEach((file) => transfer.items.add(file));
+      pendingFiles.forEach((f) => transfer.items.add(f));
       proofInput.files = transfer.files;
     };
-
     const renderPending = () => {
       if (!preview) return;
       preview.replaceChildren();
@@ -2441,33 +2126,17 @@
       const errors = [];
       const accepted = [];
       [...(proofInput.files || [])].forEach((file) => {
-        const extension = file.name.includes('.')
-          ? file.name.split('.').pop().toLowerCase()
-          : '';
-        const typeOk = (file.type && acceptTypes.includes(file.type)) || acceptExtensions.includes(extension);
-        if (!typeOk) {
-          errors.push(`${file.name} is not a JPG, PNG, or WebP image.`);
-          return;
-        }
-        if (file.size > maxSizeKb * 1024) {
-          errors.push(`${file.name} is larger than ${Math.round(maxSizeKb / 1024)} MB.`);
-          return;
-        }
+        const ext = file.name.includes('.') ? file.name.split('.').pop().toLowerCase() : '';
+        const typeOk = (file.type && acceptTypes.includes(file.type)) || acceptExtensions.includes(ext);
+        if (!typeOk) { errors.push(`${file.name} is not a JPG, PNG, or WebP image.`); return; }
+        if (file.size > maxSizeKb * 1024) { errors.push(`${file.name} is larger than ${Math.round(maxSizeKb / 1024)} MB.`); return; }
         accepted.push(file);
       });
-
       const room = Math.max(0, maxFiles - pendingFiles.length);
-      if (accepted.length > room) {
-        errors.push(`Up to ${maxFiles} photos can be uploaded at a time.`);
-      }
+      if (accepted.length > room) errors.push(`Up to ${maxFiles} photos can be uploaded at a time.`);
       pendingFiles = pendingFiles.concat(accepted.slice(0, room));
-
       if (errorList) {
-        errorList.replaceChildren(...errors.map((message) => {
-          const item = document.createElement('li');
-          item.textContent = message;
-          return item;
-        }));
+        errorList.replaceChildren(...errors.map((m) => { const li = document.createElement('li'); li.textContent = m; return li; }));
         errorList.hidden = errors.length === 0;
       }
       syncInput();
@@ -2475,6 +2144,7 @@
     });
   });
 
+  // Update type template sync
   const updateTypeSelect = root.querySelector('[data-update-type-select]');
   const updateMessageTextarea = root.querySelector('[data-update-message]');
   const updateMessageOptional = root.querySelector('[data-update-message-optional]');
@@ -2490,9 +2160,7 @@
       }
       lastPrefilledTemplate = newTemplate;
       updateMessageTextarea.required = isRequired;
-      if (updateMessageOptional) {
-        updateMessageOptional.textContent = isRequired ? '(required)' : '(optional)';
-      }
+      if (updateMessageOptional) updateMessageOptional.textContent = isRequired ? '(required)' : '(optional)';
     });
   }
 
@@ -2503,62 +2171,40 @@
       const willOpen = resolutionPanel.hidden;
       resolutionPanel.hidden = !willOpen;
       toggleResolutionBtn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
-      if (willOpen) {
-        resolutionPanel.querySelector('textarea')?.focus();
-      }
+      if (willOpen) resolutionPanel.querySelector('textarea')?.focus();
     });
   }
 
-  root.querySelectorAll('form[data-prevent-double-submit]').forEach((protectedForm) => {
-    protectedForm.addEventListener('submit', (event) => {
-      const submitBtn = event.submitter || protectedForm.querySelector('[data-submit-once], button[type="submit"]');
-      if (submitBtn) {
-        if (submitBtn.dataset.submitting === 'true') {
-          event.preventDefault();
-          return;
-        }
-        submitBtn.dataset.submitting = 'true';
-        submitBtn.disabled = true;
-      }
-    });
-  });
-
+  // Review Gate & Mode Logic
   const modeBanner = root.querySelector('[data-mode-banner]');
   const modeBadge = root.querySelector('[data-mode-badge]');
   const modeNote = root.querySelector('[data-mode-note]');
-  const modeToggle = root.querySelector('[data-mode-toggle]');
   const authorityModeInput = root.querySelector('[data-authority-mode-input]');
+  const jurisdictionOverrideInput = root.querySelector('[data-jurisdiction-override-input]');
   const agencyHiddenInput = root.querySelector('[data-agency-hidden-input]');
   const blockWithin = root.querySelector('[data-mode-block="within"]');
   const blockBeyond = root.querySelector('[data-mode-block="beyond"]');
+  const officeSelect = root.querySelector('[data-office-select]');
   const agencySelect = root.querySelector('[data-agency-select]');
-  const agencyInfo = root.querySelector('[data-agency-info]');
   const letterTextarea = root.querySelector('[data-referral-letter]');
   const residentMessageTextarea = root.querySelector('[data-resident-message]');
-  const referralSubmit = root.querySelector('[data-referral-submit]');
   const letterTemplatesElement = root.querySelector('[data-letter-templates]');
   let letterTemplates = {};
-  try {
-    if (letterTemplatesElement) letterTemplates = JSON.parse(letterTemplatesElement.textContent);
-  } catch {
-    letterTemplates = {};
-  }
-  let currentMode = modeBanner?.dataset.ruleMode === 'beyond' ? 'beyond' : 'within';
+  try { if (letterTemplatesElement) letterTemplates = JSON.parse(letterTemplatesElement.textContent); } catch {}
+  let currentMode = authorityModeInput?.value === 'beyond' ? 'beyond' : 'within';
   let modeOverridden = false;
 
-  // Hide "Accept all AI suggestions" once every AI-suggested field is resolved.
   const updateAcceptAllVisibility = () => {
     if (!acceptAllButton) return;
-    const aiRows = rows.filter((row) => row.dataset.aiPresent === 'true' && row.dataset.reviewRequired === 'true');
-    acceptAllButton.hidden = aiRows.length === 0 || aiRows.every((row) => isRowResolved(row));
+    const aiRows = rows.filter((r) => r.dataset.aiPresent === 'true' && r.dataset.reviewRequired === 'true');
+    acceptAllButton.hidden = aiRows.length === 0 || aiRows.every((r) => isRowResolved(r));
   };
 
   const updateGate = () => {
-    const requiredRows = rows.filter((row) => row.dataset.reviewRequired === 'true');
-    const reviewedCount = requiredRows.filter((row) => row.dataset.reviewed === 'true').length;
+    const requiredRows = rows.filter((r) => r.dataset.reviewRequired === 'true');
+    const reviewedCount = requiredRows.filter((r) => r.dataset.reviewed === 'true').length;
     const remaining = requiredRows.length - reviewedCount;
     if (countLabel) countLabel.textContent = `${reviewedCount} of ${requiredRows.length} reviewed`;
-
     updateAcceptAllVisibility();
 
     const category = root.querySelector('[name="category_id"]');
@@ -2571,7 +2217,6 @@
       categoryGateHint.className = `review-gate-field-hint ${missingCategory ? 'is-missing' : 'is-ready'}`;
       categoryGateHint.innerHTML = `<i class="fa-solid ${missingCategory ? 'fa-lock' : 'fa-check'}" aria-hidden="true"></i> <span>${missingCategory ? 'Required to route' : 'Ready to route'}</span>`;
     }
-
     const urgencyGateHint = root.querySelector('[data-gate-hint="urgency"]');
     if (urgencyGateHint) {
       urgencyGateHint.className = `review-gate-field-hint ${missingUrgency ? 'is-missing' : 'is-ready'}`;
@@ -2580,9 +2225,7 @@
 
     const hasUnverifiedAudio = root.dataset.hasUnverifiedAudio === 'true';
     const reasons = [];
-    if (hasUnverifiedAudio) {
-      reasons.push('Audio verification required before routing.');
-    }
+    if (hasUnverifiedAudio) reasons.push('Audio verification required before routing.');
     if (remaining > 0) reasons.push(`Review ${remaining} more field${remaining === 1 ? '' : 's'}.`);
     if (missingCategory || missingUrgency) {
       reasons.push(`Select ${missingCategory && missingUrgency ? 'Category and Urgency' : (missingCategory ? 'Category' : 'Urgency')}.`);
@@ -2591,32 +2234,24 @@
     if (currentMode === 'beyond') {
       if (routeButton) routeButton.disabled = true;
       const missingAgency = !agencySelect?.value;
-      if (referralSubmit) {
-        referralSubmit.disabled = hasUnverifiedAudio || missingCategory || missingUrgency || missingAgency;
-      }
+      if (referralSubmit) referralSubmit.disabled = hasUnverifiedAudio || missingCategory || missingUrgency || missingAgency;
       if (missingAgency) reasons.push('Choose an agency.');
     } else {
       if (referralSubmit) referralSubmit.disabled = true;
       const missingOffice = Boolean(routeButton && !officeSelect?.value);
       if (missingOffice) reasons.push('Choose an office.');
-      if (routeButton) {
-        routeButton.disabled = hasUnverifiedAudio || missingCategory || missingUrgency || missingOffice;
-      }
+      if (routeButton) routeButton.disabled = hasUnverifiedAudio || missingCategory || missingUrgency || missingOffice;
     }
 
     if (gateReason) {
       if (reasons.length > 0) {
         gateReason.innerHTML = `<i class="fa-solid fa-circle-exclamation text-amber-500 mr-1" aria-hidden="true"></i> <span>${reasons.join(' ')}</span>`;
-        gateReason.className = 'review-gate-hint text-xs ml-2 font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 inline-flex items-center';
+        gateReason.className = 'review-gate-hint text-xs font-medium text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200 inline-flex items-center';
       } else {
-        gateReason.innerHTML = '<i class="fa-solid fa-check text-green-600 mr-1" aria-hidden="true"></i> <span>Ready</span>';
-        gateReason.className = 'review-gate-hint text-xs ml-2 font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded border border-green-200 inline-flex items-center';
+        gateReason.innerHTML = '<i class="fa-solid fa-check text-emerald-600 mr-1" aria-hidden="true"></i> <span>Ready to route</span>';
+        gateReason.className = 'review-gate-hint text-xs font-medium text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 inline-flex items-center';
       }
     }
-
-    const reasonText = reasons.join(' ');
-    if (routeButton) routeButton.title = routeButton.disabled ? reasonText : 'Confirm review and route report';
-    if (referralSubmit) referralSubmit.title = referralSubmit.disabled ? reasonText : 'Prepare and send referral to agency';
 
     const card2GateReason = root.querySelector('[data-gate-reason-card2]');
     if (card2GateReason) {
@@ -2642,6 +2277,39 @@
     }
   };
 
+  // Step navigation listeners
+  const attemptStep2 = () => {
+    const category = root.querySelector('[name="category_id"]');
+    const urgency = root.querySelector('[name="urgency"]');
+    const hasUnverifiedAudio = root.dataset.hasUnverifiedAudio === 'true';
+    if (hasUnverifiedAudio || !category?.value || !urgency?.value) {
+      const card2 = root.querySelector('[data-gate-reason-card2]');
+      if (card2) {
+        card2.classList.remove('rw-shake');
+        void card2.offsetWidth;
+        card2.classList.add('rw-shake');
+      }
+      if (!category?.value) category?.focus();
+      else if (!urgency?.value) root.querySelector('[data-urgency-pill-btn]')?.focus();
+      return false;
+    }
+    setWorkspaceStep(2);
+    return true;
+  };
+
+  root.querySelector('#rw-btn-to-step2')?.addEventListener('click', attemptStep2);
+  root.querySelector('#rw-btn-back-step1')?.addEventListener('click', () => setWorkspaceStep(1));
+  root.querySelectorAll('[data-workspace-step]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const target = Number(btn.dataset.workspaceStep);
+      if (target === 2 && root.dataset.isAfterRoute !== 'true') {
+        attemptStep2();
+        return;
+      }
+      setWorkspaceStep(target);
+    });
+  });
+
   rows.forEach((row) => {
     updateRow(row);
     renderDescriptionDiff(row);
@@ -2651,6 +2319,7 @@
         row.dataset.finalTouched = 'true';
         snapshotUndo(row);
         setFinalState(row, 'Edited');
+        if (row.dataset.field === 'urgency') syncUrgencyPills();
         updateGate();
       };
       control.addEventListener('input', markEdited);
@@ -2658,28 +2327,27 @@
     }
 
     row.querySelector('[data-accept-row]')?.addEventListener('click', () => {
-      const control = row.querySelector('[data-final-control]');
       snapshotUndo(row);
       if (control) {
         control.value = row.dataset.aiValue || '';
         control.dispatchEvent(new Event('change', { bubbles: true }));
         setFinalState(row, 'Accepted');
         row.dataset.finalTouched = 'false';
+        if (row.dataset.field === 'urgency') syncUrgencyPills();
       }
       updateGate();
     });
     row.querySelector('[data-use-ai]')?.addEventListener('click', () => {
-      const control = row.querySelector('[data-final-control]');
       if (!control || !row.dataset.aiValue) return;
       snapshotUndo(row);
       control.value = row.dataset.aiValue;
       control.dispatchEvent(new Event('change', { bubbles: true }));
       setFinalState(row, 'Accepted');
       row.dataset.finalTouched = 'false';
+      if (row.dataset.field === 'urgency') syncUrgencyPills();
       updateGate();
     });
     row.querySelector('[data-use-resident]')?.addEventListener('click', () => {
-      const control = row.querySelector('[data-final-control]');
       if (!control) return;
       snapshotUndo(row);
       control.value = row.dataset.residentValue || '';
@@ -2689,7 +2357,6 @@
       updateGate();
     });
     row.querySelector('[data-use-original]')?.addEventListener('click', () => {
-      const control = row.querySelector('[data-final-control]');
       if (!control) return;
       snapshotUndo(row);
       control.value = row.dataset.residentValue || '';
@@ -2699,7 +2366,6 @@
       updateGate();
     });
     row.querySelector('[data-undo-row]')?.addEventListener('click', () => {
-      const control = row.querySelector('[data-final-control]');
       const state = row.dataset.undoState || 'AI suggested';
       if (control && row.dataset.undoValue !== undefined) {
         control.value = row.dataset.undoValue;
@@ -2711,21 +2377,11 @@
         badge.className = `review-badge ${stateClass(state)}`;
       }
       row.dataset.reviewed = state === 'AI suggested' ? 'false' : 'true';
+      if (row.dataset.field === 'urgency') syncUrgencyPills();
       setResolvedUi(row);
       updateGate();
     });
-    row.querySelector('[data-append-ai]')?.addEventListener('click', () => {
-      const control = row.querySelector('[data-final-control]');
-      const suggestion = row.dataset.aiValue || '';
-      if (!control || !suggestion) return;
-      control.value = [control.value.trim(), suggestion.trim()].filter(Boolean).join('\n\n');
-      control.dispatchEvent(new Event('input', { bubbles: true }));
-      setFinalState(row, 'Edited');
-      updateGate();
-    });
   });
-
-  syncAllClamps();
 
   acceptAllButton?.addEventListener('click', () => {
     rows.forEach((row) => {
@@ -2738,80 +2394,34 @@
       setFinalState(row, 'Accepted');
       row.dataset.finalTouched = 'false';
     });
+    syncUrgencyPills();
     updateGate();
   });
 
   const routingMapElement = root.querySelector('[data-routing-map]');
   const routingReason = root.querySelector('[data-routing-reason]');
-  const officeSelect = root.querySelector('[data-office-select]');
   let routingMap = {};
-  try {
-    if (routingMapElement) routingMap = JSON.parse(routingMapElement.textContent);
-  } catch {
-    if (routingReason) routingReason.textContent = 'Routing recommendations could not be loaded.';
-  }
-
+  try { if (routingMapElement) routingMap = JSON.parse(routingMapElement.textContent); } catch {}
   let currentRuleText = modeNote?.querySelector('[data-matched-rule-text]')?.textContent.trim() || 'Category default';
 
   const updateStickySummary = () => {
     const summaryTextEl = root.querySelector('[data-action-summary-text]');
     if (!summaryTextEl) return;
-    const urgency = root.querySelector('[name="urgency"]')?.value || 'Normal';
+    const urgency = root.querySelector('[name="urgency"]')?.value || 'not set';
     if (currentMode === 'within') {
       const officeName = officeSelect?.selectedOptions[0]?.text || 'selected office';
-      summaryTextEl.textContent = `Route to ${officeName} · ${urgency}`;
+      summaryTextEl.textContent = `Route to: ${officeName} · ${urgency}`;
     } else {
       const agencyName = agencySelect?.selectedOptions[0]?.text || 'external agency';
-      summaryTextEl.textContent = `Refer to ${agencyName} · ${urgency}`;
+      summaryTextEl.textContent = `Refer to: ${agencyName} · ${urgency}`;
     }
   };
 
-  const syncSuggestedBadge = () => {
-    const catId = root.querySelector('[name="category_id"]')?.value;
-    const decision = routingMap[catId];
-    const badge = root.querySelector('[data-suggested-badge]');
-    if (badge && officeSelect && decision) {
-      const isMatch = String(officeSelect.value) === String(decision.office_id) && Boolean(decision.office_id);
-      badge.style.display = isMatch ? 'inline-flex' : 'none';
-    }
-  };
-
-  const syncUnassignedNote = () => {
-    const note = root.querySelector('[data-unassigned-note]');
-    if (note && assignedSelect) {
-      note.style.display = (assignedSelect.value === '') ? 'flex' : 'none';
-    }
-  };
-
-  const applyLetterTemplate = (officeId, { force = false } = {}) => {
+  const applyLetterTemplate = (officeId) => {
     const template = letterTemplates[officeId];
     if (!template) return;
-    if (letterTextarea && (force || letterTextarea.dataset.touched !== 'true')) {
-      letterTextarea.value = template.letter || '';
-    }
-    const previewText = root.querySelector('[data-letter-preview-text]');
-    if (previewText) {
-      previewText.textContent = letterTextarea ? letterTextarea.value : (template.letter || '');
-    }
-    if (residentMessageTextarea && (force || residentMessageTextarea.dataset.touched !== 'true')) {
-      residentMessageTextarea.value = template.resident_message || '';
-    }
-    const personEl = root.querySelector('[data-agency-person]');
-    const emailEl = root.querySelector('[data-agency-email]');
-    const phoneEl = root.querySelector('[data-agency-phone]');
-    const addrEl = root.querySelector('[data-agency-address]');
-    if (personEl) personEl.textContent = template.contact_person || 'Not provided';
-    if (emailEl) emailEl.textContent = template.contact_email || 'Not provided';
-    if (phoneEl) phoneEl.textContent = template.contact_phone || 'Not provided';
-    if (addrEl) addrEl.textContent = template.address || 'Not provided';
-    if (agencyInfo) {
-      const parts = [];
-      if (template.contact_person) parts.push(`Contact: ${template.contact_person}`);
-      if (template.contact_email) parts.push(template.contact_email);
-      if (template.contact_phone) parts.push(template.contact_phone);
-      if (template.address) parts.push(template.address);
-      agencyInfo.textContent = parts.length ? parts.join(' · ') : 'Contact details not provided.';
-    }
+    if (letterTextarea && letterTextarea.dataset.touched !== 'true') letterTextarea.value = template.letter || '';
+    if (residentMessageTextarea && residentMessageTextarea.dataset.touched !== 'true') residentMessageTextarea.value = template.resident_message || '';
     updateStickySummary();
   };
 
@@ -2819,65 +2429,40 @@
     currentMode = mode === 'beyond' ? 'beyond' : 'within';
     if (fromUser) modeOverridden = true;
     if (authorityModeInput) authorityModeInput.value = currentMode;
+    const ruleDefaultMode = modeBanner?.dataset.ruleMode || 'within';
+    if (jurisdictionOverrideInput) {
+      jurisdictionOverrideInput.value = (fromUser && currentMode !== ruleDefaultMode) ? '1' : '0';
+    }
     const within = currentMode === 'within';
 
-    // Segmented toggle styling
-    root.querySelectorAll('.mode-seg-btn').forEach(btn => {
+    root.querySelectorAll('.mode-seg-btn').forEach((btn) => {
       const isTarget = btn.dataset.modeBtn === currentMode;
-      btn.className = `mode-seg-btn px-3 py-1.5 rounded-md font-semibold transition-all ${isTarget ? 'bg-white text-slate-900 shadow-sm font-bold' : 'text-slate-600 hover:text-slate-900'}`;
+      btn.className = `mode-seg-btn px-3 py-1.5 rounded-md font-bold transition ${isTarget ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}`;
     });
-
     if (modeBanner) {
-      modeBanner.classList.toggle('review-mode-banner-within', within);
-      modeBanner.classList.toggle('review-mode-banner-beyond', !within);
-      modeBanner.classList.toggle('border-l-emerald-600', within);
-      modeBanner.classList.toggle('bg-emerald-50/50', within);
-      modeBanner.classList.toggle('border-emerald-200', within);
-      modeBanner.classList.toggle('border-l-blue-600', !within);
-      modeBanner.classList.toggle('bg-blue-50/50', !within);
-      modeBanner.classList.toggle('border-blue-200', !within);
-    }
-    const modeIcon = root.querySelector('[data-mode-icon]');
-    if (modeIcon) {
-      modeIcon.className = `w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${within ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`;
-      modeIcon.innerHTML = within
-        ? '<i class="fa-solid fa-shield-halved text-base" aria-hidden="true"></i>'
-        : '<i class="fa-solid fa-arrow-up-right-from-square text-base" aria-hidden="true"></i>';
+      modeBanner.className = `review-mode-banner rounded-xl border border-l-[3px] p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 transition-all ${within ? 'border-l-emerald-600 bg-emerald-50/60 border-emerald-200' : 'border-l-indigo-600 bg-indigo-50/60 border-indigo-200'}`;
     }
     if (modeBadge) modeBadge.textContent = within ? 'Within barangay authority' : 'Beyond barangay authority';
     if (modeNote) {
-      if (within) {
-        modeNote.innerHTML = `Matched rule: <span data-matched-rule-text>${currentRuleText}</span>. Assign it to an office and staff member.`;
-      } else {
-        modeNote.textContent = 'This will be referred to an external agency. A referral letter is sent and follow-up is tracked.';
-      }
-    }
-    if (modeToggle) {
-      modeToggle.dataset.otherMode = within ? 'beyond' : 'within';
-      modeToggle.textContent = within ? "This isn't barangay authority" : 'Handle within the barangay instead';
+      modeNote.innerHTML = within
+        ? `Matched rule: <span data-matched-rule-text>${currentRuleText}</span>. Assign it to an office and staff member.`
+        : 'External referral required. A referral letter is prepared and 3-day follow-up is tracked.';
     }
     if (blockWithin) blockWithin.hidden = !within;
     if (blockBeyond) blockBeyond.hidden = within;
     if (officeSelect) officeSelect.disabled = !within;
     if (agencySelect) {
       agencySelect.disabled = within;
-      if (!within && !agencySelect.value && agencySelect.options.length > 1) {
-        agencySelect.selectedIndex = 1;
-      }
+      if (!within && !agencySelect.value && agencySelect.options.length > 1) agencySelect.selectedIndex = 1;
       if (agencyHiddenInput) agencyHiddenInput.value = agencySelect.value || '';
     }
     const followUpOwnerSelect = root.querySelector('#follow_up_owner_id');
     if (followUpOwnerSelect) followUpOwnerSelect.disabled = within;
     if (letterTextarea) letterTextarea.disabled = within;
     if (residentMessageTextarea) residentMessageTextarea.disabled = within;
-
-    // Toggle submit buttons in sticky bar
     if (routeButton) routeButton.style.display = within ? '' : 'none';
     if (referralSubmit) referralSubmit.style.display = within ? 'none' : '';
-
     if (!within && agencySelect) applyLetterTemplate(agencySelect.value);
-    syncSuggestedBadge();
-    syncUnassignedNote();
     updateStickySummary();
     updateGate();
   };
@@ -2886,110 +2471,39 @@
   let assignedTouched = false;
   assignedSelect?.addEventListener('change', () => {
     assignedTouched = true;
-    syncUnassignedNote();
+    const note = root.querySelector('[data-unassigned-note]');
+    if (note) note.style.display = assignedSelect.value === '' ? 'flex' : 'none';
     updateStickySummary();
   });
 
-  const syncDefaultAssignee = () => {
-    if (!officeSelect || !assignedSelect || assignedTouched) return;
-    const opt = officeSelect.selectedOptions[0];
-    if (opt && opt.dataset.defaultAssignee !== undefined) {
-      assignedSelect.value = opt.dataset.defaultAssignee || '';
-      syncUnassignedNote();
-    }
-  };
-
-  root.querySelectorAll('.mode-seg-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      setMode(btn.dataset.modeBtn, { fromUser: true });
-    });
+  root.querySelectorAll('.mode-seg-btn').forEach((btn) => {
+    btn.addEventListener('click', () => setMode(btn.dataset.modeBtn, { fromUser: true }));
   });
-
-  modeToggle?.addEventListener('click', () => {
-    setMode(modeToggle.dataset.otherMode === 'beyond' ? 'beyond' : 'within', { fromUser: true });
-  });
-
   agencySelect?.addEventListener('change', () => {
     agencySelect.dataset.touched = 'true';
     if (agencyHiddenInput) agencyHiddenInput.value = agencySelect.value || '';
     applyLetterTemplate(agencySelect.value);
-    updateStickySummary();
     updateGate();
   });
-
-  letterTextarea?.addEventListener('input', () => {
-    letterTextarea.dataset.touched = 'true';
-    const previewText = root.querySelector('[data-letter-preview-text]');
-    if (previewText) previewText.textContent = letterTextarea.value;
-  });
-
-  residentMessageTextarea?.addEventListener('input', () => {
-    residentMessageTextarea.dataset.touched = 'true';
-  });
-
   officeSelect?.addEventListener('change', () => {
     officeTouched = true;
-    syncDefaultAssignee();
-    syncSuggestedBadge();
     updateStickySummary();
     updateGate();
   });
-
-  // Edit letter toggle buttons
-  const btnEditLetter = root.querySelector('#btn-edit-letter');
-  const btnResetLetter = root.querySelector('#btn-reset-letter');
-  const btnDoneLetter = root.querySelector('#btn-done-letter');
-  const previewCard = root.querySelector('#letter-preview-card');
-  const editBox = root.querySelector('#letter-edit-box');
-
-  btnEditLetter?.addEventListener('click', () => {
-    if (previewCard) previewCard.style.display = 'none';
-    if (editBox) editBox.style.display = 'block';
-    if (btnEditLetter) btnEditLetter.style.display = 'none';
-    if (btnResetLetter) btnResetLetter.style.display = 'inline-flex';
-    if (btnDoneLetter) btnDoneLetter.style.display = 'inline-flex';
-    if (letterTextarea) letterTextarea.focus();
-  });
-
-  btnDoneLetter?.addEventListener('click', () => {
-    const previewText = root.querySelector('[data-letter-preview-text]');
-    if (previewText && letterTextarea) previewText.textContent = letterTextarea.value;
-    if (editBox) editBox.style.display = 'none';
-    if (previewCard) previewCard.style.display = 'block';
-    if (btnResetLetter) btnResetLetter.style.display = 'none';
-    if (btnDoneLetter) btnDoneLetter.style.display = 'none';
-    if (btnEditLetter) btnEditLetter.style.display = 'inline-flex';
-  });
-
-  btnResetLetter?.addEventListener('click', () => {
-    if (agencySelect) applyLetterTemplate(agencySelect.value, { force: true });
-  });
-
-  // Quick fill chips
-  root.querySelectorAll('.btn-quick-fill').forEach(btn => {
+  root.querySelectorAll('.btn-quick-fill').forEach((btn) => {
     btn.addEventListener('click', () => {
-      const targetId = btn.dataset.chipTarget;
-      const targetText = btn.dataset.chipText;
-      const targetArea = root.querySelector('#' + targetId);
-      if (targetArea && targetText) {
-        targetArea.value = targetText;
+      const targetArea = root.querySelector('#' + btn.dataset.chipTarget);
+      if (targetArea && btn.dataset.chipText) {
+        targetArea.value = btn.dataset.chipText;
         targetArea.dispatchEvent(new Event('input', { bubbles: true }));
         targetArea.focus();
       }
     });
   });
 
-  // Urgency pill sync with final control
   root.querySelector('[name="urgency"]')?.addEventListener('change', (e) => {
-    const urgency = e.target.value;
-    const pill = root.querySelector('[data-urgency-pill]');
-    const dot = root.querySelector('[data-urgency-dot]');
     const label = root.querySelector('[data-urgency-label]');
-    if (label) label.textContent = urgency;
-    if (pill && dot) {
-      pill.className = `inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border ${urgency === 'Critical' ? 'bg-red-50 text-red-800 border-red-200' : (urgency === 'High' ? 'bg-amber-50 text-amber-800 border-amber-200' : (urgency === 'Medium' ? 'bg-blue-50 text-blue-800 border-blue-200' : 'bg-slate-50 text-slate-700 border-slate-200'))}`;
-      dot.className = `w-2 h-2 rounded-full ${urgency === 'Critical' ? 'bg-red-600' : (urgency === 'High' ? 'bg-amber-500' : (urgency === 'Medium' ? 'bg-blue-500' : 'bg-slate-400'))}`;
-    }
+    if (label) label.textContent = e.target.value || 'not set';
     updateStickySummary();
   });
 
@@ -2998,57 +2512,33 @@
     if (!decision) return;
     const ruleMode = decision.within_authority ? 'within' : 'beyond';
     currentRuleText = decision.reason || `${decision.office_name || 'No office'}`;
-    if (routingReason) {
-      routingReason.innerHTML = `<i class="fa-solid fa-route text-blue-600" aria-hidden="true"></i> <span>Rule: ${decision.office_name || 'No office'} — ${decision.reason}</span>`;
+    if (routingReason) routingReason.textContent = `Rule: ${decision.office_name || 'No office'} — ${decision.reason}`;
+    if (decision.within_authority && officeSelect && !officeTouched && decision.office_id) {
+      officeSelect.value = String(decision.office_id);
+    } else if (!decision.within_authority && agencySelect && agencySelect.dataset.touched !== 'true' && decision.office_id) {
+      agencySelect.value = String(decision.office_id);
+      if (agencyHiddenInput) agencyHiddenInput.value = agencySelect.value;
+      applyLetterTemplate(agencySelect.value);
     }
-    if (modeNote && !modeOverridden) {
-      if (currentMode === 'within') {
-        modeNote.innerHTML = `Matched rule: <span data-matched-rule-text>${currentRuleText}</span>. Assign it to an office and staff member.`;
-      }
-    }
-    if (decision.within_authority) {
-      if (officeSelect && !officeTouched && decision.office_id) {
-        officeSelect.value = String(decision.office_id);
-        syncDefaultAssignee();
-      }
-    } else if (agencySelect && agencySelect.dataset.touched !== 'true' && decision.office_id) {
-      const matchingOpt = [...agencySelect.options].find(opt => String(opt.value) === String(decision.office_id));
-      if (matchingOpt) {
-        agencySelect.value = String(decision.office_id);
-        if (agencyHiddenInput) agencyHiddenInput.value = agencySelect.value;
-        applyLetterTemplate(agencySelect.value);
-      }
-    }
-    syncSuggestedBadge();
     if (!modeOverridden) setMode(ruleMode);
     updateStickySummary();
     updateGate();
   });
 
-  setMode(currentMode);
-  syncSuggestedBadge();
-  syncUnassignedNote();
-  updateStickySummary();
-
+  // AI Polling (stops after 24 attempts; never overwrites manual edits)
   const applyAiResult = (result) => {
     aiState = result.status;
     root.dataset.aiState = aiState;
     if (result.status === 'ready') {
       if (aiStateBadge) {
-        aiStateBadge.className = 'review-badge review-badge-blue';
-        aiStateBadge.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> AI suggestions ready';
+        aiStateBadge.className = 'inline-flex items-center gap-1.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-0.5 text-xs font-bold';
+        aiStateBadge.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles text-[10px]" aria-hidden="true"></i> AI ready';
       }
       const confidence = Number(result.confidence);
-      const high = Number(root.dataset.confidenceHigh);
-      const low = Number(root.dataset.confidenceLow);
       if (confidenceWrap) confidenceWrap.hidden = false;
-      if (confidenceBadge) {
-        confidenceBadge.textContent = `Confidence ${Number.isFinite(confidence) ? Math.round(confidence * 100) : '—'}%`;
-        confidenceBadge.className = `review-badge ${confidence >= high ? 'review-badge-green' : (confidence >= low ? 'review-badge-amber' : 'review-badge-red')}`;
-      }
-      if (lowConfidenceBadge) lowConfidenceBadge.hidden = !(Number.isFinite(confidence) && confidence < low);
+      if (confidenceBadge) confidenceBadge.textContent = `Confidence ${Number.isFinite(confidence) ? Math.round(confidence * 100) : '—'}%`;
       if (stateMessage) stateMessage.textContent = 'AI suggestions are ready. Your final values were not changed; choose Use AI or Accept for each suggestion.';
-      if (acceptAllButton) acceptAllButton.hidden = false;
+      if (acceptAllButton) { acceptAllButton.hidden = false; acceptAllButton.disabled = false; }
       rows.forEach((row) => {
         const value = result.values[row.dataset.field] || { value: null, label: null };
         row.dataset.aiValue = value.value ?? '';
@@ -3064,83 +2554,67 @@
         }
         updateRow(row);
       });
-      syncAllClamps();
       updateGate();
       return;
     }
-
     if (result.status === 'unavailable') {
-      if (aiStateBadge) {
-        aiStateBadge.className = 'review-badge review-badge-gray';
-        aiStateBadge.textContent = 'AI unavailable';
-      }
-      if (stateMessage) stateMessage.textContent = 'AI suggestions are not available. Your final values were not changed; confirm Category and Urgency manually.';
+      if (aiStateBadge) aiStateBadge.textContent = 'AI unavailable';
+      if (stateMessage) stateMessage.textContent = 'AI suggestions are not available. Confirm Category and Urgency manually.';
       if (acceptAllButton) acceptAllButton.hidden = true;
       rows.forEach(updateRow);
       updateGate();
     }
   };
 
+  let aiPollController = null;
+  let aiPollTimer = null;
+
+  root.querySelector('[data-stop-ai]')?.addEventListener('click', () => {
+    aiState = 'unavailable';
+    if (aiPollTimer) {
+      window.clearTimeout(aiPollTimer);
+      aiPollTimer = null;
+    }
+    if (aiPollController) {
+      aiPollController.abort();
+      aiPollController = null;
+    }
+  });
+
   const pollAi = async () => {
     if (aiState !== 'pending' || pollAttempts >= 24) return;
     pollAttempts += 1;
+    aiPollController = new AbortController();
     try {
-      const response = await fetch(pollUrl, { headers: { Accept: 'application/json' } });
+      const response = await fetch(pollUrl, {
+        headers: { Accept: 'application/json' },
+        signal: aiPollController.signal,
+      });
       if (!response.ok) throw new Error(`AI status request failed (${response.status}).`);
       const result = await response.json();
       if (result.status === 'pending') {
-        window.setTimeout(pollAi, 5000);
+        aiPollTimer = window.setTimeout(pollAi, 5000);
         return;
       }
       applyAiResult(result);
-    } catch (error) {
-      if (stateMessage) stateMessage.textContent = `${error.message} Your final values are unchanged. Retrying shortly.`;
-      window.setTimeout(pollAi, 5000);
+    } catch (err) {
+      if (err && err.name === 'AbortError') return;
+      aiPollTimer = window.setTimeout(pollAi, 5000);
     }
   };
 
-  root.querySelectorAll('[data-expand-review]').forEach((link) => {
-    link.addEventListener('click', (event) => {
-      event.preventDefault();
-      const details = link.closest('details');
-      if (details) details.open = true;
-    });
-  });
-
   form?.addEventListener('submit', (event) => {
     if (event.submitter?.value !== 'route' && event.submitter?.value !== 'referral') return;
-    // When staff confirms submission, mark any remaining review rows as confirmed
-    rows.forEach((row) => {
-      row.dataset.reviewed = 'true';
-    });
+    rows.forEach((row) => { row.dataset.reviewed = 'true'; });
     updateGate();
-    const submitterDisabled = event.submitter.value === 'route'
-      ? routeButton?.disabled
-      : referralSubmit?.disabled;
-    if (submitterDisabled) {
-      event.preventDefault();
-      return;
-    }
+    const submitterDisabled = event.submitter.value === 'route' ? routeButton?.disabled : referralSubmit?.disabled;
+    if (submitterDisabled) event.preventDefault();
   });
 
-  root.querySelectorAll('[data-history-tabs]').forEach((tabsCard) => {
-    const tabBtns = tabsCard.querySelectorAll('[data-tab-btn]');
-    const panels = tabsCard.querySelectorAll('[data-tab-pane]');
-    tabBtns.forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const target = btn.dataset.tabBtn;
-        tabBtns.forEach((b) => {
-          const active = b === btn;
-          b.classList.toggle('is-active', active);
-          b.classList.toggle('btn-outline', !active);
-        });
-        panels.forEach((p) => {
-          p.hidden = p.dataset.tabPane !== target;
-        });
-      });
-    });
-  });
-
+  setWorkspaceStep(currentWorkspaceStep);
+  syncUrgencyPills();
+  setMode(currentMode);
+  updateStickySummary();
   updateGate();
   if (aiState === 'pending') window.setTimeout(pollAi, 1500);
 })();

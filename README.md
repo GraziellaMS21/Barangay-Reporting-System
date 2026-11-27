@@ -1,6 +1,6 @@
 # Barangay Problem Reporting and Management System
 
-A municipal civic issue management web platform for local governance in **Barangay Calarian, Zamboanga City**. The system enables residents to report community incidents (drainage, garbage, streetlights, road damage, flooding) without an account, provides Google Gemini AI-assisted triage with human-in-the-loop review, enforces jurisdiction-based internal dispatch and external agency referrals, and provides real-time tracking, resolution verification, and analytics.
+A municipal civic issue management web platform for local governance in **Barangay Calarian, Zamboanga City**. The system enables residents to submit general concerns—covering both community problems (drainage, garbage, streetlights, road damage, flooding) and localized incidents—through a unified **Report a Concern** entry point without an account (separate from formal **File a Complaint** dispute intake), provides Google Gemini AI-assisted triage with human-in-the-loop review, enforces jurisdiction-based internal dispatch and external agency referrals, and provides real-time tracking, resolution verification, and analytics.
 
 Core principle: *"The AI suggests, the rules route, the officials decide."*
 

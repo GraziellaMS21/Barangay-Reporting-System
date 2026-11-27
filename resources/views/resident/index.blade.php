@@ -81,7 +81,7 @@
       </div>
     </button>
 
-    <!-- 2. Report a Community Problem Card -->
+    <!-- 2. Report a Concern Card -->
     <a
       href="{{ route('reports.create') }}"
       class="group relative flex flex-col justify-between text-left p-6 sm:p-7 rounded-2xl bg-white border-2 border-amber-200 hover:border-amber-800 hover:bg-amber-50 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-200 overflow-hidden focus:outline-none focus:ring-2 focus:ring-amber-800 focus:ring-offset-2"
@@ -99,7 +99,7 @@
         </div>
 
         <h2 class="text-xl sm:text-2xl font-extrabold text-slate-900 group-hover:text-amber-900 transition-colors mb-2">
-          Report a Community Problem
+          Report a Concern
         </h2>
 
         <p class="text-sm text-slate-600 leading-relaxed">
@@ -109,7 +109,7 @@
       </div>
 
       <div class="mt-6 pt-4 border-t border-amber-100 flex items-center justify-between text-amber-800 font-bold text-sm">
-        <span>Submit Problem Report</span>
+        <span>Report a Concern</span>
         <div class="w-9 h-9 rounded-full bg-amber-100 group-hover:bg-amber-900 group-hover:text-white flex items-center justify-center transition-all duration-200 group-hover:translate-x-1">
           <i class="fa-solid fa-arrow-right text-xs"></i>
         </div>

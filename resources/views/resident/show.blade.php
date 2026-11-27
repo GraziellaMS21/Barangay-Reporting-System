@@ -414,7 +414,7 @@
     @if($report->description)
       <div style="margin-top:1.25rem;padding-top:1rem;border-top:1px solid #f1f5f9;">
         <h4 style="font-size:0.85rem;font-weight:700;text-transform:uppercase;color:#64748b;margin:0 0 0.35rem;">
-          Reported Problem Details
+          Concern Details
         </h4>
         <p style="margin:0;font-size:0.95rem;color:var(--tx);line-height:1.6;white-space:pre-wrap;">{{ $report->description }}</p>
       </div>
@@ -814,7 +814,7 @@
                       </div>
 
                       <button type="submit" class="btn btn-gold" style="width:100%;background:#16a34a;border-color:#16a34a;color:#ffffff;font-weight:800;min-height:44px;padding:0.65rem 1.25rem;box-shadow:0 4px 10px rgba(22,163,74,0.25);display:flex;align-items:center;justify-content:center;gap:0.5rem;">
-                        <i class="fa-solid fa-circle-check"></i> Yes, Confirm Problem is Fixed
+                        <i class="fa-solid fa-circle-check"></i> Yes, Confirm Concern is Resolved
                       </button>
                     </form>
                   </div>

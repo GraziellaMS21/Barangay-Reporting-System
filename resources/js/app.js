@@ -11,7 +11,41 @@ import Chart from 'chart.js/auto';
 // Set Turbo.session.drive = false globally so unauthenticated/resident pages and documents are NEVER affected.
 // Authenticated layouts explicitly enable Turbo on <body> via data-turbo="true".
 Turbo.session.drive = false;
+Turbo.setProgressBarDelay(999999);
 window.Turbo = Turbo;
+
+const ensureLoadingOverlay = () => {
+  let overlay = document.getElementById('app-loading-overlay');
+  if (!overlay && document.body) {
+    overlay = document.createElement('div');
+    overlay.id = 'app-loading-overlay';
+    overlay.className = 'app-loading-overlay fixed inset-0 z-[1000] backdrop-blur-md';
+    overlay.setAttribute('role', 'status');
+    overlay.setAttribute('aria-live', 'polite');
+    overlay.setAttribute('aria-label', 'Loading');
+    overlay.innerHTML = '<div class="app-loading-spinner" aria-hidden="true"></div>';
+    document.body.appendChild(overlay);
+  }
+  return overlay;
+};
+
+export const showLoadingOverlay = () => {
+  const overlay = ensureLoadingOverlay();
+  if (!overlay) return;
+  overlay.classList.add('is-active');
+  document.body?.setAttribute('aria-busy', 'true');
+};
+
+export const hideLoadingOverlay = () => {
+  const overlay = document.getElementById('app-loading-overlay');
+  if (overlay) {
+    overlay.classList.remove('is-active');
+  }
+  document.body?.removeAttribute('aria-busy');
+};
+
+window.showLoadingOverlay = showLoadingOverlay;
+window.hideLoadingOverlay = hideLoadingOverlay;
 
 delete L.Icon.Default.prototype._getIconUrl;
 
@@ -849,12 +883,22 @@ const collapseStaffSidebar = () => {
 };
 
 document.addEventListener('turbo:before-visit', collapseStaffSidebar);
-document.addEventListener('turbo:visit', collapseStaffSidebar);
+document.addEventListener('turbo:visit', () => {
+  collapseStaffSidebar();
+  showLoadingOverlay();
+});
+document.addEventListener('turbo:submit-start', showLoadingOverlay);
+document.addEventListener('turbo:submit-end', hideLoadingOverlay);
+document.addEventListener('turbo:fetch-request-error', hideLoadingOverlay);
+document.addEventListener('turbo:before-cache', hideLoadingOverlay);
+document.addEventListener('pageshow', hideLoadingOverlay);
 document.addEventListener('turbo:load', () => {
   initPage();
   collapseStaffSidebar();
+  hideLoadingOverlay();
 });
 document.addEventListener('turbo:render', () => {
   updateSidebarActiveLinks();
   collapseStaffSidebar();
+  hideLoadingOverlay();
 });

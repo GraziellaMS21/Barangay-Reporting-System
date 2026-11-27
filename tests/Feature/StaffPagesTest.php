@@ -35,7 +35,7 @@ class StaffPagesTest extends TestCase
     {
         $this->get(route('reports.create'))
             ->assertOk()
-            ->assertSee('Report a problem in Barangay Calarian')
+            ->assertSee('Report a concern in Barangay Calarian')
             ->assertSee('aria-label="Open main navigation"', false)
             ->assertSee('aria-controls="site-navigation"', false)
             ->assertDontSee('fonts.googleapis.com')

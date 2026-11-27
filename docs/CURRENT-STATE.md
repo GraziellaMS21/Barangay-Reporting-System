@@ -277,7 +277,7 @@ The following specific gaps exist between the current codebase and the canonical
 ### Tasks 8 through 12 & Patch 2 (Resident Portal, Complaint Intake & Unified KP Chain) [Completed]
 - **Status**: Completed (2026-11-25) on `feature/resident-portal-and-complaints`
 - **Delivered**:
-  - **Resident Entry Screen (`resident/index.blade.php`)**: Public landing cards for **Emergency / 911** (modal with 911 + configured local contacts), **Report a Community Problem** (`/report`), **File a Complaint** (`/complaint`), and **Track a Report** (`/track`).
+  - **Resident Entry Screen (`resident/index.blade.php`)**: Public landing cards for **Emergency / 911** (modal with 911 + configured local contacts), **Report a Concern** (`/report` — unified entry point for community problems and incidents), **File a Complaint** (`/complaint` — separate formal dispute intake), and **Track a Report** (`/track`).
   - **Resident Complaint Intake & Acknowledgement (`/complaint`, `/complaint/received`)**: Public dispute intake saving to `complaint_intakes` in `pending` status; `/complaint/received` displays in-person sworn signing instructions before the Punong Barangay or Barangay Secretary at Barangay Calarian Hall without exposing respondent details or case tracking.
   - **Staff Pending Intake Queue & Docketing**: "Pending intake" tab on Cases & Blotter (`/admin/cases?tab=pending_intake`) with "Docket this" and "Redirect/Reject" actions.
   - **Unified Hearing-Summons-Service Chain (Patch 2)**:
@@ -287,6 +287,7 @@ The following specific gaps exist between the current codebase and the canonical
     - **1-Button Next Step Panel & 6-Stage Milestone Progress Bar** (`Signed` -> `Hearing & Summons` -> `Served` -> `Mediation` -> `Outcome` -> `Settlement`).
   - **Official Printables & Signatory Mapping**: Blade printables with `<x-ui.draft-watermark>` for blotter extract, complaint form, summons, conciliation notice, settlement, and CFA, wired to `SignatoryResolver`.
   - **Navigation & Cleanup**: Renamed "Report Queue" to "Community reports" and "Barangay Cases" to "Cases & Blotter"; removed obsolete `Case Form Fields` from sidebar navigation (`config/navigation.php`) and routes.
+  - **TR2.1, TR2.2 & TR2.3 (Resident Concern Terminology & Pre-Submission AI Assistance)**: Standardized resident-facing entry labels to **Report a Concern**, implemented stateless pre-submission concern classification endpoint `POST /report/analyze-concern` (`GeminiService::classifyConcernText()`), and integrated the manual-trigger **AI Assistance** card into Step 1 of `resident/create.blade.php` with explicit category acceptance/dismissal, stale-result detection, complaint guidance, and graceful fallback.
 
 ### Current Verification & Known Open Issues (2026-11-25)
 - **Full PHPUnit Suite**: `380 tests, 2,489 assertions` (`378 passed, 2 failed`):

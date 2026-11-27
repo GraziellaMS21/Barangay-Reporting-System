@@ -330,6 +330,7 @@ class GeminiExtractionTest extends TestCase
         $category = Category::query()->where('slug', 'drainage')->firstOrFail();
         $staff = $this->staffWithReportsView();
         $report = Report::factory()->create([
+            'category_id' => null,
             'description' => 'The resident original text.',
             'ai_status' => 'done',
         ]);
@@ -353,8 +354,8 @@ class GeminiExtractionTest extends TestCase
             ->assertSee('The resident original text.')
             ->assertSee('Confidence 81%')
             ->assertSee('Accept all AI suggestions')
-            ->assertSee('value="'.$category->id.'" selected', false)
-            ->assertSee('<option value="Medium" selected>', false);
+            ->assertDontSee('<option value="'.$category->id.'" selected>Drainage</option>', false)
+            ->assertDontSee('<option value="Medium" selected>', false);
 
         $this->actingAs($staff)
             ->patch(route('admin.reports.review', $report), [
@@ -728,6 +729,28 @@ class GeminiExtractionTest extends TestCase
 
         $this->assertSame('done', $report->fresh()->ai_status);
         $this->assertSame('Water is overflowing from a blocked drainage canal.', $report->fresh()->aiResult->summary);
+    }
+
+    public function test_staff_can_stop_pending_ai_analysis(): void
+    {
+        $this->seed(CategorySeeder::class);
+        $staff = $this->staffWithReportsView();
+        $report = Report::factory()->create([
+            'ai_status' => 'pending',
+        ]);
+
+        $this->actingAs($staff)
+            ->get(route('admin.reports.show', $report))
+            ->assertOk()
+            ->assertSee('data-stop-ai', false)
+            ->assertSee('Stop');
+
+        $this->actingAs($staff)
+            ->post(route('admin.reports.cancel-ai', $report))
+            ->assertRedirect()
+            ->assertSessionHas('success', 'AI analysis stopped. You can continue manual review.');
+
+        $this->assertSame('failed', $report->fresh()->ai_status);
     }
 
     /**

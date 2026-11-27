@@ -44,6 +44,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin,staff'])
         Route::patch('/reports/{report}/route', [AdminReportController::class, 'routeReport'])->name('reports.route');
         Route::patch('/reports/{report}/accept-and-route', [AdminReportController::class, 'acceptAndRoute'])->name('reports.accept-and-route');
         Route::post('/reports/{report}/retry-ai', [AdminReportController::class, 'retryAiAnalysis'])->name('reports.retry-ai');
+        Route::post('/reports/{report}/cancel-ai', [AdminReportController::class, 'cancelAiAnalysis'])->name('reports.cancel-ai');
         Route::get('/reports/{report}', [AdminReportController::class, 'show'])->name('reports.show');
         Route::get('/reports/{report}/audio', [ReportAudioController::class, 'stream'])->name('reports.audio');
         Route::post('/reports/{report}/audio/verify', [ReportAudioController::class, 'verify'])->name('reports.audio.verify');

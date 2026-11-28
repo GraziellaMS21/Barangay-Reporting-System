@@ -337,7 +337,31 @@ The following specific gaps exist between the current codebase and the canonical
 - Agency portal closure now synchronizes parent report via ReferralService::close().
 - Internal routing/referral/clarification workflows remain existing.
 
+## TR3 Re-Audit & Full Regression Closure (TR3.1-R1 through TR3.8-R1 — Member 1)
 
+- **Audit Completion**: Re-audited the complete Staff Intake and Classification workflow against `BARANGAY_WORKFLOW_MASTER_SPEC_EXPANDED.md`.
+- **Known Caveats Resolved**:
+  - `DuplicateReviewInterfaceTest.php`: Fixed missing pending count `(X pending)`, standardized `% similarity` indicator, rendered candidate timestamp, and restored explicit `<span class="text-xs text-rose-600 font-semibold">Emergency candidate cannot be selected for merge</span>` notice.
+  - All 6 tests in `DuplicateReviewInterfaceTest.php` now pass cleanly (48 assertions).
+- **Regression Verification**:
+  - Ran full 15-file TR3 regression suite:
+    - `DuplicateReviewInterfaceTest.php` (6 tests)
+    - `DuplicateDecisionTest.php` (5 tests)
+    - `DuplicateServiceTest.php` (6 tests)
+    - `AsyncDuplicateDetectionTest.php` (5 tests)
+    - `AsyncReportScreeningTest.php` (5 tests)
+    - `StaffClassificationOverrideReasonTest.php` (4 tests)
+    - `StaffJurisdictionAssessmentTest.php` (8 tests)
+    - `StaffPagesTest.php` (12 tests)
+    - `ReportQueueTest.php` (10 tests)
+    - `ReportQueueAndInfoThreadTest.php` (8 tests)
+    - `ReportPrivacyAndValidationTest.php` (12 tests)
+    - `ReportProgressUpdateTest.php` (8 tests)
+    - `StaffCaseManagementTest.php` (22 tests)
+    - `AdminReportAiFailureVisibilityTest.php` (5 tests)
+    - `ReportStatusServiceTest.php` (22 tests)
+  - **Result**: **138 tests passed, 887 assertions, 0 failures, 100% green (18.7s)**.
+- **TR3 Exit Gate**: All evidenced TR3 defects and caveats resolved; code verified and Pint-compliant. Ready for downstream TR4 reconciliation by Member 2 upon approval.
 
 ## TR4.2 Concern Assignment and Responsibility
 

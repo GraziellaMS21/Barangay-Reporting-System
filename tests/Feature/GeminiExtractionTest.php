@@ -33,6 +33,7 @@ class GeminiExtractionTest extends TestCase
         $staff = User::factory()->create(array_merge(['role' => 'staff'], $attributes));
         $staff->permissions()->sync([
             Permission::firstOrCreate(['slug' => 'reports.view'], ['label' => 'View Resident Reports Queue', 'group' => 'reports'])->id,
+            Permission::firstOrCreate(['slug' => 'reports.assign'], ['label' => 'Assign & Reassign Concerns', 'group' => 'reports'])->id,
         ]);
 
         return $staff;

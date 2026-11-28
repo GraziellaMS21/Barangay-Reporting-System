@@ -383,6 +383,75 @@ class Report extends Model
         return null;
     }
 
+    /**
+     * Describe responsibility without changing the canonical workflow.
+     *
+     * Assignment is only responsibility. Acceptance happens when the report is
+     * routed internally or referred externally. Intake statuses stay "not yet
+     * accepted" even if a staff member is assigned for review.
+     *
+     * @return array{
+     *     assigned: bool,
+     *     accepted: bool,
+     *     accepted_internal: bool,
+     *     accepted_external: bool,
+     *     under_review: bool,
+     *     label: string,
+     *     short_label: string,
+     *     tone: string
+     * }
+     */
+    public function responsibilityState(): array
+    {
+        $status = $this->status;
+        $acceptedExternally = $status === 'referred';
+        $acceptedInternally = in_array($status, [
+            'routed',
+            'in_progress',
+            'awaiting_confirmation',
+            'resolved',
+            'no_action',
+        ], true);
+        $accepted = $acceptedInternally || $acceptedExternally;
+        $assigned = $this->assigned_to !== null;
+        $underReview = ! $accepted && in_array($status, [
+            'submitted',
+            'under_review',
+            'reopened',
+            'needs_info',
+            'emergency_flagged',
+        ], true);
+
+        if ($acceptedExternally) {
+            $label = 'Accepted — external agency';
+            $shortLabel = 'Accepted (external)';
+            $tone = 'slate';
+        } elseif ($acceptedInternally) {
+            $label = 'Accepted — internal';
+            $shortLabel = 'Accepted (internal)';
+            $tone = 'green';
+        } elseif ($assigned) {
+            $label = 'Assigned — pending acceptance';
+            $shortLabel = 'Assigned';
+            $tone = 'blue';
+        } else {
+            $label = 'Not yet accepted';
+            $shortLabel = 'Unassigned';
+            $tone = 'gray';
+        }
+
+        return [
+            'assigned' => $assigned,
+            'accepted' => $accepted,
+            'accepted_internal' => $acceptedInternally,
+            'accepted_external' => $acceptedExternally,
+            'under_review' => $underReview,
+            'label' => $label,
+            'short_label' => $shortLabel,
+            'tone' => $tone,
+        ];
+    }
+
     public function getNextAction(): array
     {
         $isEmergency = $this->is_emergency || $this->status === 'emergency_flagged';

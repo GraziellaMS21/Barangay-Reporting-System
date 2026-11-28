@@ -39,6 +39,7 @@ class StaffCaseManagementTest extends TestCase
         $this->staff = User::factory()->staff()->create(['name' => 'Officer Staff']);
         $this->staff->permissions()->sync([
             Permission::firstOrCreate(['slug' => 'reports.view'], ['label' => 'View Resident Reports Queue', 'group' => 'reports'])->id,
+            Permission::firstOrCreate(['slug' => 'reports.assign'], ['label' => 'Assign & Reassign Concerns', 'group' => 'reports'])->id,
             Permission::firstOrCreate(['slug' => 'referrals.manage'], ['label' => 'Manage External Referrals', 'group' => 'referrals'])->id,
         ]);
         $this->admin = User::factory()->admin()->create(['name' => 'Chief Admin']);

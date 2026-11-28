@@ -29,6 +29,7 @@ class ReportQueueAndInfoThreadTest extends TestCase
         $this->staff = User::factory()->staff()->create(['name' => 'Officer Staff']);
         $this->staff->permissions()->sync([
             Permission::firstOrCreate(['slug' => 'reports.view'], ['label' => 'View Resident Reports Queue', 'group' => 'reports'])->id,
+            Permission::firstOrCreate(['slug' => 'reports.assign'], ['label' => 'Assign & Reassign Concerns', 'group' => 'reports'])->id,
         ]);
         $this->purok = Purok::factory()->create(['name' => 'Purok 1']);
         $this->category = Category::create([

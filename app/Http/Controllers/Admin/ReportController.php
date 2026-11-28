@@ -23,9 +23,11 @@ use App\Services\GeminiService;
 use App\Services\PriorityService;
 use App\Services\ProofPhotoService;
 use App\Services\ReferralService;
+use App\Services\ReportAssignmentService;
 use App\Services\ReportReviewService;
 use App\Services\ReportStatusService;
 use App\Services\RoutingService;
+use App\Services\WorkloadService;
 use App\Support\ReportStatus;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -117,6 +119,7 @@ class ReportController extends Controller
         $fiscalYears = FiscalYear::orderByDesc('year')->get();
         $yearFilter = $validated['year'] ?? null;
         $aiStatusFilter = $validated['ai_status'] ?? null;
+        $workload = app(WorkloadService::class)->summary($request->user());
 
         return view('admin.reports.index', compact(
             'reports',
@@ -136,7 +139,8 @@ class ReportController extends Controller
             'isMyCases',
             'fiscalYears',
             'yearFilter',
-            'aiStatusFilter'
+            'aiStatusFilter',
+            'workload'
         ));
     }
 
@@ -508,6 +512,40 @@ class ReportController extends Controller
             ]);
         }
 
+        foreach (AuditLog::query()
+            ->where('model', Report::class)
+            ->where('model_id', $report->id)
+            ->whereIn('action', ['assign_report', 'reassign_report'])
+            ->with('user')
+            ->orderBy('created_at')
+            ->get() as $assignmentAudit) {
+            $newValues = $assignmentAudit->new_values ?? [];
+            $oldValues = $assignmentAudit->old_values ?? [];
+            $newAssignee = $newValues['assignee_name'] ?? null;
+            $oldAssignee = $oldValues['assignee_name'] ?? null;
+            $reason = $newValues['reason'] ?? null;
+
+            $title = $assignmentAudit->action === 'reassign_report'
+                ? 'Reassigned concern'
+                : 'Assigned concern';
+            $body = $oldAssignee !== null
+                ? "From {$oldAssignee} to ".($newAssignee ?? 'Unassigned').'.'
+                : 'To '.($newAssignee ?? 'Unassigned').'.';
+            if (filled($reason)) {
+                $body .= " Reason: {$reason}.";
+            }
+            if (array_key_exists('office_name', $newValues) && $newValues['office_name'] !== ($oldValues['office_name'] ?? null)) {
+                $body .= ' Office: '.($oldValues['office_name'] ?? '—').' → '.($newValues['office_name'] ?? '—').'.';
+            }
+
+            $activityEntries->push([
+                'at' => $assignmentAudit->created_at,
+                'title' => $title,
+                'body' => $body,
+                'user' => $assignmentAudit->user?->name,
+            ]);
+        }
+
         $activityEntries = $activityEntries->sortByDesc('at')->values();
         $photoMismatchReviewed = AuditLog::query()
             ->where('model', Report::class)
@@ -665,6 +703,7 @@ class ReportController extends Controller
                 'integer',
                 Rule::exists('users', 'id')->where(fn ($query) => $query->whereIn('role', ['admin', 'staff'])),
             ],
+            'assign_reason' => ['nullable', 'string', 'max:500'],
             'review_note' => ['nullable', 'string', 'max:1000'],
             'override_reason' => ['nullable', 'string', 'max:500'],
             'jurisdiction_status' => ['nullable', 'string', 'in:within,outside,uncertain'],
@@ -718,6 +757,7 @@ class ReportController extends Controller
                 'landmark' => $validated['landmark'] ?? null,
                 'office_id' => $officeId === null ? null : (int) $officeId,
                 'assigned_to' => $assignedTo === null ? null : (int) $assignedTo,
+                'assign_reason' => $validated['assign_reason'] ?? null,
                 'review_note' => $reviewNote,
                 'override_reason' => $validated['override_reason'] ?? null,
                 'jurisdiction_status' => $validated['jurisdiction_status'] ?? null,
@@ -1033,7 +1073,8 @@ class ReportController extends Controller
         Report $report,
         RoutingService $routingService,
         PriorityService $priorityService,
-        ReportStatusService $statusService
+        ReportStatusService $statusService,
+        ReportAssignmentService $assignmentService
     ): RedirectResponse {
         $allowedStatuses = $report->is_emergency
             ? ['under_review', 'no_action', 'in_progress']
@@ -1055,17 +1096,21 @@ class ReportController extends Controller
                 'nullable',
                 Rule::in(ReportStatus::noActionReasons()),
             ],
-            'office_id' => ['nullable', 'exists:offices,id'],
+            'office_id' => ['nullable', 'integer', Rule::exists('offices', 'id')->where('is_active', true)],
         ], [
             'note.required' => 'A note is required for this status change.',
             'no_action_reason.required' => 'A reason code is required when taking no action.',
         ]);
 
         try {
-            DB::transaction(function () use ($report, $validated, $request, $routingService, $priorityService, $statusService) {
+            DB::transaction(function () use ($report, $validated, $request, $routingService, $priorityService, $statusService, $assignmentService) {
                 $toStatus = $validated['status'];
                 $note = $validated['note'] ?? null;
                 $officeId = $validated['office_id'] ?? null;
+
+                if ($officeId !== null) {
+                    $assignmentService->assertOfficeEligible((int) $officeId);
+                }
 
                 if ($toStatus === ReportStatus::AWAITING_CONFIRMATION && ! $report->proofPhotos()->exists()) {
                     throw new \InvalidArgumentException('At least one proof photo is required before awaiting confirmation.');
@@ -1117,17 +1162,32 @@ class ReportController extends Controller
         return back()->with('success', 'Report status updated successfully.');
     }
 
-    public function assign(Request $request, Report $report): RedirectResponse
-    {
+    public function assign(
+        Request $request,
+        Report $report,
+        ReportAssignmentService $assignmentService
+    ): RedirectResponse {
         $validated = $request->validate([
             'assigned_to' => [
                 'nullable',
                 Rule::exists('users', 'id')->where(fn ($q) => $q->whereIn('role', ['admin', 'staff'])),
             ],
+            'assign_reason' => ['nullable', 'string', 'max:500'],
         ]);
 
-        $report->assigned_to = $validated['assigned_to'] ? (int) $validated['assigned_to'] : null;
-        $report->save();
+        $actor = $request->user();
+        abort_unless($actor instanceof User, 403);
+
+        try {
+            $assignmentService->update(
+                $report,
+                $actor,
+                ['assigned_to' => $validated['assigned_to'] ?? null],
+                $validated['assign_reason'] ?? null
+            );
+        } catch (\InvalidArgumentException $exception) {
+            return back()->withErrors(['assigned_to' => $exception->getMessage()])->withInput();
+        }
 
         $assigneeName = $report->fresh()->assignee?->name ?? 'Unassigned';
 
@@ -1589,7 +1649,8 @@ class ReportController extends Controller
         Request $request,
         RoutingService $routingService,
         PriorityService $priorityService,
-        ReportStatusService $statusService
+        ReportStatusService $statusService,
+        ReportAssignmentService $assignmentService
     ): RedirectResponse {
         $validated = $request->validate([
             'action' => ['required', Rule::in(['assign_me', 'status'])],
@@ -1597,24 +1658,40 @@ class ReportController extends Controller
             'report_ids.*' => ['integer', 'exists:reports,id'],
             'status' => ['nullable', Rule::in(Report::MANUAL_STATUSES)],
             'note' => ['nullable', 'string', 'max:500'],
+            'assign_reason' => ['nullable', 'string', 'max:500'],
         ]);
 
         $user = $request->user();
         abort_unless($user instanceof User, 403);
+
+        if ($validated['action'] === 'assign_me') {
+            $assignmentService->authorize($user);
+            $needsReason = Report::query()
+                ->whereIn('id', $validated['report_ids'])
+                ->whereNotNull('assigned_to')
+                ->where('assigned_to', '!=', $user->id)
+                ->exists();
+            if ($needsReason && blank($validated['assign_reason'] ?? null)) {
+                return back()->withErrors(['assign_reason' => 'Provide a reason for reassigning reports that already have an assignee.'])->withInput();
+            }
+        }
 
         if ($validated['action'] === 'status' && ($validated['status'] ?? null) === null) {
             return back()->withErrors(['status' => 'Choose a status for the selected reports.']);
         }
 
         $note = $validated['note'] ?? null;
+        $reason = $validated['assign_reason'] ?? null;
         $changed = 0;
         $skipped = 0;
 
         foreach (Report::query()->whereIn('id', $validated['report_ids'])->get() as $report) {
             try {
                 if ($validated['action'] === 'assign_me') {
-                    $report->assigned_to = $user->id;
-                    $report->save();
+                    $didChange = $assignmentService->update($report, $user, ['assigned_to' => $user->id], $reason);
+                    if ($didChange || $report->fresh()->assigned_to === $user->id) {
+                        $changed++;
+                    }
                 } else {
                     $toStatus = $validated['status'];
 
@@ -1639,7 +1716,9 @@ class ReportController extends Controller
 
                     $statusService->transition($report, $toStatus, $note, $user, $extra);
                 }
-                $changed++;
+                if ($validated['action'] === 'status') {
+                    $changed++;
+                }
             } catch (\InvalidArgumentException) {
                 $skipped++;
             }
@@ -1782,24 +1861,47 @@ class ReportController extends Controller
         }
 
         $validated = $request->validate([
-            'office_id' => ['nullable', 'exists:offices,id'],
-            'assigned_to' => ['nullable', Rule::exists('users', 'id')->where(fn ($q) => $q->whereIn('role', ['admin', 'staff']))],
+            'office_id' => ['nullable', 'integer', Rule::exists('offices', 'id')->where('is_active', true)],
+            'assigned_to' => ['nullable', 'integer', Rule::exists('users', 'id')->where(fn ($q) => $q->whereIn('role', ['admin', 'staff']))],
+            'assign_reason' => ['nullable', 'string', 'max:500'],
             'review_note' => ['nullable', 'string', 'max:1000'],
         ]);
 
         $recommended = $report->category ? app(RoutingService::class)->recommendedOffice($report->category) : null;
         $oldOfficeId = $report->office_id;
+        $oldAssignedTo = $report->assigned_to;
 
-        $report->office_id = $validated['office_id'] ?: ($recommended?->id ?? $report->office_id);
-        $report->assigned_to = array_key_exists('assigned_to', $validated) && $validated['assigned_to'] !== null
+        $newOfficeId = $validated['office_id'] ?: ($recommended?->id ?? $report->office_id);
+        $newAssignedTo = array_key_exists('assigned_to', $validated) && $validated['assigned_to'] !== null
             ? (int) $validated['assigned_to']
             : $report->assigned_to;
-        if ($report->assigned_to === null && $recommended) {
-            // default assignee: current user fallback
-            $report->assigned_to = $reviewer->id;
+
+        $canAssign = $reviewer->hasPermission(ReportAssignmentService::PERMISSION);
+        if ($newAssignedTo === null && $recommended !== null && $canAssign) {
+            $newAssignedTo = $reviewer->id;
         }
+
         $report->review_note = $validated['review_note'] ?? $report->review_note;
-        $report->save();
+
+        if ($newOfficeId !== $oldOfficeId || $newAssignedTo !== $oldAssignedTo) {
+            try {
+                $assignmentService = app(ReportAssignmentService::class);
+                $assignmentService->update(
+                    $report,
+                    $reviewer,
+                    ['office_id' => $newOfficeId, 'assigned_to' => $newAssignedTo],
+                    $validated['assign_reason'] ?? null,
+                    null,
+                    true
+                );
+            } catch (\InvalidArgumentException $exception) {
+                return back()->withErrors(['assign' => $exception->getMessage()])->withInput();
+            }
+        } else {
+            $report->office_id = $newOfficeId;
+            $report->assigned_to = $newAssignedTo;
+            $report->save();
+        }
 
         if ($oldOfficeId !== $report->office_id) {
             AuditLog::query()->create([

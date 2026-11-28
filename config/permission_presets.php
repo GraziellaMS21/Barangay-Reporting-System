@@ -12,6 +12,7 @@ return [
                 'personnel.manage',
                 'users.manage',
                 'reports.view',
+                'reports.assign',
                 'reports.log_phone',
                 'reports_center.view',
                 'reports_center.export',

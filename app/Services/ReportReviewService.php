@@ -17,7 +17,8 @@ class ReportReviewService
         private readonly NotificationService $notificationService,
         private readonly RoutingService $routingService,
         private readonly ReportStatusService $statusService,
-        private readonly ReferralService $referralService
+        private readonly ReferralService $referralService,
+        private readonly ReportAssignmentService $assignmentService
     ) {}
 
     /**
@@ -41,6 +42,10 @@ class ReportReviewService
                 ? Office::query()->where('is_active', true)->findOrFail($data['office_id'])
                 : null;
             $oldValues = $this->reviewValues($lockedReport);
+            $oldAssignedTo = $lockedReport->assigned_to;
+            $oldOfficeId = $lockedReport->office_id;
+            $oldAssigneeName = $oldAssignedTo ? User::query()->whereKey($oldAssignedTo)->value('name') : null;
+            $oldOfficeName = $oldOfficeId ? Office::query()->whereKey($oldOfficeId)->value('name') : null;
 
             $aiCategoryId = $this->aiCategoryId($aiResult);
             $aiUrgency = $aiResult?->suggested_urgency;
@@ -63,6 +68,18 @@ class ReportReviewService
                 ? $data['authority_mode']
                 : $ruleMode;
 
+            if ($selectedOffice !== null) {
+                if ($chosenMode === 'within' && $selectedOffice->is_external) {
+                    throw new \InvalidArgumentException('Within-authority routing requires an internal barangay office.');
+                }
+                if ($chosenMode === 'beyond' && ! $selectedOffice->is_external) {
+                    throw new \InvalidArgumentException('Beyond-authority routing requires an external agency.');
+                }
+                if ($intent === 'referral' && ! $selectedOffice->is_external) {
+                    throw new \InvalidArgumentException('Choose an external agency before preparing the referral.');
+                }
+            }
+
             if ($lockedReport->reviewed_at === null) {
                 $lockedReport->resident_category_id ??= $lockedReport->category_id;
                 $lockedReport->resident_purok_id ??= $lockedReport->purok_id;
@@ -81,9 +98,21 @@ class ReportReviewService
             $lockedReport->office_id = array_key_exists('office_id', $data)
                 ? $selectedOffice?->id
                 : $lockedReport->office_id;
-            $lockedReport->assigned_to = array_key_exists('assigned_to', $data)
-                ? $data['assigned_to']
-                : $lockedReport->assigned_to;
+            if ($intent !== 'referral') {
+                $newAssignedTo = array_key_exists('assigned_to', $data)
+                    ? $data['assigned_to']
+                    : $lockedReport->assigned_to;
+                $assigneeChanged = $newAssignedTo !== $lockedReport->assigned_to;
+
+                if ($assigneeChanged) {
+                    $reason = trim((string) ($data['assign_reason'] ?? ''));
+                    if ($lockedReport->assigned_to !== null && $reason === '') {
+                        throw new \InvalidArgumentException('Provide a reason for changing the assigned staff member.');
+                    }
+                    $this->assignmentService->authorize($reviewer);
+                }
+                $lockedReport->assigned_to = $newAssignedTo;
+            }
             $jurisdictionStatus = $data['jurisdiction_status'] ?? null;
             if (filled($jurisdictionStatus)) {
                 if (! in_array($jurisdictionStatus, ['within', 'outside', 'uncertain'], true)) {
@@ -106,6 +135,20 @@ class ReportReviewService
                 : $lockedReport->review_note;
             $lockedReport->priority_score = $this->priorityService->calculate($lockedReport);
             $lockedReport->save();
+
+            $newAssignedTo = $lockedReport->assigned_to;
+            if ($intent !== 'referral' && $newAssignedTo !== $oldAssignedTo) {
+                $reason = trim((string) ($data['assign_reason'] ?? ''));
+                $this->assignmentService->record(
+                    $lockedReport,
+                    $oldAssignedTo,
+                    $oldOfficeId,
+                    $reviewer,
+                    $reason,
+                    $oldAssigneeName,
+                    $oldOfficeName
+                );
+            }
 
             $newValues = $this->reviewValues($lockedReport);
             if ($overrideReason !== '') {
@@ -199,6 +242,18 @@ class ReportReviewService
                 $lockedReport->office_id = $selectedOffice->id;
                 $lockedReport->assigned_to = null;
                 $lockedReport->save();
+
+                if ($oldAssignedTo !== null) {
+                    $this->assignmentService->record(
+                        $lockedReport,
+                        $oldAssignedTo,
+                        $oldOfficeId,
+                        $reviewer,
+                        'Referral prepared to '.$selectedOffice->name.'.',
+                        $oldAssigneeName,
+                        $oldOfficeName
+                    );
+                }
 
                 $this->referralService->prepareReferral(
                     $lockedReport,

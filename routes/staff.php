@@ -49,7 +49,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin,staff'])
         Route::get('/reports/{report}/audio', [ReportAudioController::class, 'stream'])->name('reports.audio');
         Route::post('/reports/{report}/audio/verify', [ReportAudioController::class, 'verify'])->name('reports.audio.verify');
         Route::patch('/reports/{report}/status', [AdminReportController::class, 'updateStatus'])->name('reports.status');
-        Route::patch('/reports/{report}/assign', [AdminReportController::class, 'assign'])->name('reports.assign');
+        Route::patch('/reports/{report}/assign', [AdminReportController::class, 'assign'])
+            ->middleware('permission:reports.assign')
+            ->name('reports.assign');
         Route::post('/reports/{report}/info-requests', [AdminReportController::class, 'storeInfoRequest'])->name('reports.info-requests.store');
         // JSON thread for the chat modal (open + light polling while it is open).
         Route::get('/reports/{report}/info-requests', [AdminReportController::class, 'infoThread'])->name('reports.info-requests.index');

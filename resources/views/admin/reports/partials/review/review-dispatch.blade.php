@@ -110,6 +110,8 @@
                   <i class="fa-solid fa-circle-exclamation text-amber-600" aria-hidden="true"></i>
                   <span>Optional — leaving Unassigned will not block routing.</span>
                 </div>
+                <input type="text" name="assign_reason" class="w-full h-9 text-xs rounded-lg border border-slate-300 bg-white px-2.5 mt-2" placeholder="Reason if replacing an existing assignee">
+                <p class="text-[11px] text-slate-500 mt-1 mb-0">Assignment is responsibility, not acceptance. Acceptance happens when the report is routed or referred.</p>
               </div>
             </div>
 

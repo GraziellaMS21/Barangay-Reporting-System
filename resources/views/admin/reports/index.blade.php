@@ -132,6 +132,42 @@
   :queue-route="$queueRoute"
 />
 
+@php
+  $canAssignReports = auth()->user()?->can('reports.assign') ?? false;
+@endphp
+
+@if(isset($workload))
+  <div class="mt-3 flex flex-wrap items-center gap-2 text-xs" role="status" aria-live="polite" aria-label="Active workload summary">
+    <span class="font-semibold text-slate-600">Active workload:</span>
+    @if($workload['is_admin'])
+      @foreach($workload['staff'] as $member)
+        <span class="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-slate-700 whitespace-nowrap">
+          {{ $member['name'] }} <strong class="text-slate-900">{{ $member['count'] }}</strong>
+        </span>
+      @endforeach
+      @foreach($workload['offices'] as $office)
+        <span class="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-blue-800 whitespace-nowrap">
+          {{ $office['name'] }} <strong>{{ $office['count'] }}</strong>
+        </span>
+      @endforeach
+    @else
+      @if($workload['own'])
+        <span class="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-slate-700 whitespace-nowrap">
+          You <strong class="text-slate-900">{{ $workload['own']['count'] }}</strong>
+        </span>
+      @endif
+      @foreach($workload['offices'] as $office)
+        <span class="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-blue-800 whitespace-nowrap">
+          {{ $office['name'] }} <strong>{{ $office['count'] }}</strong>
+        </span>
+      @endforeach
+    @endif
+    <span class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-amber-800 whitespace-nowrap">
+      Unassigned <strong>{{ $workload['unassigned'] }}</strong>
+    </span>
+  </div>
+@endif
+
 <div class="queue-toolbar">
   <span class="queue-count">{{ $reports->total() }} report{{ $reports->total() === 1 ? '' : 's' }}</span>
   <span class="queue-spacer"></span>
@@ -155,9 +191,12 @@
 <form id="queue-bulk-form" method="POST" action="{{ route('admin.reports.bulk-action') }}" class="bulk-bar" style="display:none;">
   @csrf
   <span class="bulk-count"><span id="bulk-count">0</span> selected</span>
-  <button type="submit" name="action" value="assign_me" class="bulk-btn">
-    <i class="fa-solid fa-user-plus" aria-hidden="true"></i> Assign to me
-  </button>
+  @if($canAssignReports)
+    <button type="submit" name="action" value="assign_me" class="bulk-btn">
+      <i class="fa-solid fa-user-plus" aria-hidden="true"></i> Assign to me
+    </button>
+    <input type="text" name="assign_reason" class="bulk-select" placeholder="Reason if reassigning" aria-label="Reason for reassignment" style="min-width:12rem;">
+  @endif
   <select name="status" class="bulk-select" aria-label="Status for bulk change">
     <option value="">Change status to…</option>
     @foreach(\App\Models\Report::MANUAL_STATUSES as $manualStatus)
@@ -331,6 +370,8 @@
               @else
                 <span class="hidden xl:inline text-xs text-slate-400">Unassigned</span>
               @endif
+              @php $responsibility = $report->responsibilityState(); @endphp
+              <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap @if($responsibility['tone'] === 'green') bg-emerald-50 text-emerald-700 border border-emerald-200 @elseif($responsibility['tone'] === 'blue') bg-blue-50 text-blue-700 border border-blue-200 @elseif($responsibility['tone'] === 'slate') bg-slate-100 text-slate-700 border border-slate-200 @else bg-slate-50 text-slate-500 border border-slate-200 @endif">{{ $responsibility['short_label'] }}</span>
             </div>
           </td>
           <td class="queue-col-actions relative z-20 text-center" data-label="Actions">
@@ -345,6 +386,7 @@
                   @csrf
                   @method('PATCH')
                   <input type="hidden" name="assigned_to" value="{{ auth()->id() }}">
+                   <input type="text" name="assign_reason" placeholder="Reason if reassigning" style="width:100%;font-size:0.8rem;padding:.35rem;border:1px solid var(--line);border-radius:6px;margin:.35rem 0;">
                   <button type="submit" class="kebab-item" @disabled($report->assigned_to === auth()->id())>
                     <i class="fa-solid fa-user-plus" aria-hidden="true"></i> Assign to me
                   </button>

@@ -10,6 +10,14 @@
           <span class="text-slate-300">|</span>
           <h1 class="font-mono text-base sm:text-lg font-extrabold text-slate-900 tracking-tight m-0">{{ $report->tracking_code }}</h1>
           <x-status-badge :status="$report->status" />
+          @php $responsibility = $report->responsibilityState(); @endphp
+          <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold border
+            @if($responsibility['tone'] === 'green') bg-emerald-50 text-emerald-700 border-emerald-200
+            @elseif($responsibility['tone'] === 'blue') bg-blue-50 text-blue-700 border-blue-200
+            @elseif($responsibility['tone'] === 'slate') bg-slate-100 text-slate-700 border-slate-200
+            @else bg-slate-50 text-slate-500 border-slate-200 @endif">
+            {{ $responsibility['label'] }}
+          </span>
           @if($report->is_emergency)
             <span class="inline-flex items-center gap-1 rounded-full bg-rose-100 text-rose-800 border border-rose-200 px-2.5 py-0.5 text-[11px] font-bold">
               <i class="fa-solid fa-triangle-exclamation text-[10px]" aria-hidden="true"></i> Emergency

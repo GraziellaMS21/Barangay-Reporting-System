@@ -37,6 +37,7 @@ class RequiredDataSeeder extends Seeder
             ['slug' => 'personnel.manage', 'label' => 'Manage Personnel & Positions', 'group' => 'personnel'],
             ['slug' => 'users.manage', 'label' => 'Manage User Accounts', 'group' => 'users'],
             ['slug' => 'reports.view', 'label' => 'View Resident Reports Queue', 'group' => 'reports'],
+            ['slug' => 'reports.assign', 'label' => 'Assign & Reassign Concerns', 'group' => 'reports'],
             ['slug' => 'reports.log_phone', 'label' => 'Record Phone Reports at Hotline', 'group' => 'reports'],
             ['slug' => 'reports_center.view', 'label' => 'View Reports Center', 'group' => 'reports_center'],
             ['slug' => 'reports_center.export', 'label' => 'Export Reports', 'group' => 'reports_center'],

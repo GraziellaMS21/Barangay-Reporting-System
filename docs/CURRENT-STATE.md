@@ -337,3 +337,18 @@ The following specific gaps exist between the current codebase and the canonical
 - Agency portal closure now synchronizes parent report via ReferralService::close().
 - Internal routing/referral/clarification workflows remain existing.
 
+
+
+## TR4.2 Concern Assignment and Responsibility
+
+- Added
+eports.assign permission (seeded, staff_full preset only; admins bypass).
+- Added ReportAssignmentService centralizing validation, permission, reason, and audit.
+- Added WorkloadService for derived staff/office/unassigned active counts (closed statuses excluded).
+- Assignment audit actions ssign_report /
+eassign_report include old/new assignee, office, actor, timestamp, reason.
+- Assignment does not change status; acceptance remains
+outed (internal) /
+eferred (external).
+- Added Report::responsibilityState() and UI badges/workload strip.
+- Assignment history appears in report activity timeline.

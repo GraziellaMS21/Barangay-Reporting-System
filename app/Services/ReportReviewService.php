@@ -23,7 +23,7 @@ class ReportReviewService
     /**
      * Save staff-approved report values and optionally route or refer the report.
      *
-     * @param  array{category_id: int, urgency: string, staff_description: string, purok_id: int|null, landmark: string|null, office_id: int|null, assigned_to: int|null, review_note: string|null, authority_mode?: string|null, referral_letter?: string|null, resident_message?: string|null}  $data
+     * @param  array{category_id: int, urgency: string, staff_description: string, purok_id: int|null, landmark: string|null, office_id: int|null, assigned_to: int|null, review_note: string|null, override_reason?: string|null, authority_mode?: string|null, referral_letter?: string|null, resident_message?: string|null}  $data
      */
     public function save(Report $report, array $data, User $reviewer, string $intent = 'save'): void
     {
@@ -41,6 +41,21 @@ class ReportReviewService
                 ? Office::query()->where('is_active', true)->findOrFail($data['office_id'])
                 : null;
             $oldValues = $this->reviewValues($lockedReport);
+
+            $aiCategoryId = $this->aiCategoryId($aiResult);
+            $aiUrgency = $aiResult?->suggested_urgency;
+            $overrideReason = trim((string) ($data['override_reason'] ?? ''));
+            $overridesAiClassification = $aiResult !== null
+                && (($aiCategoryId !== null && $category->id !== $aiCategoryId)
+                    || (filled($aiUrgency) && $data['urgency'] !== $aiUrgency));
+            $classificationChanged = $lockedReport->reviewed_at === null
+                || $lockedReport->category_id !== $category->id
+                || $lockedReport->urgency !== $data['urgency'];
+
+            // Overriding a concrete AI classification requires a written reason.
+            if ($overridesAiClassification && $classificationChanged && $overrideReason === '') {
+                throw new \InvalidArgumentException('Explain why you changed the AI-recommended category or urgency before saving the review.');
+            }
 
             // Jurisdiction mode: the routing rule decides, staff may override.
             $ruleMode = $routingDecision['within_authority'] ? 'within' : 'beyond';
@@ -69,6 +84,21 @@ class ReportReviewService
             $lockedReport->assigned_to = array_key_exists('assigned_to', $data)
                 ? $data['assigned_to']
                 : $lockedReport->assigned_to;
+            $jurisdictionStatus = $data['jurisdiction_status'] ?? null;
+            if (filled($jurisdictionStatus)) {
+                if (! in_array($jurisdictionStatus, ['within', 'outside', 'uncertain'], true)) {
+                    throw new \InvalidArgumentException('Invalid jurisdiction assessment.');
+                }
+                $jurisdictionNote = trim((string) ($data['jurisdiction_note'] ?? ''));
+                if (in_array($jurisdictionStatus, ['outside', 'uncertain'], true) && $jurisdictionNote === '') {
+                    throw new \InvalidArgumentException('Provide a justification for an outside or uncertain jurisdiction assessment.');
+                }
+                $lockedReport->jurisdiction_status = $jurisdictionStatus;
+                $lockedReport->jurisdiction_note = $jurisdictionNote === '' ? null : $jurisdictionNote;
+                $lockedReport->jurisdiction_assessed_by = $reviewer->id;
+                $lockedReport->jurisdiction_assessed_at = now();
+            }
+
             $lockedReport->reviewed_by = $reviewer->id;
             $lockedReport->reviewed_at = now();
             $lockedReport->review_note = array_key_exists('review_note', $data)
@@ -78,7 +108,15 @@ class ReportReviewService
             $lockedReport->save();
 
             $newValues = $this->reviewValues($lockedReport);
-            if ($this->differsFromAi($data, $category, $aiResult, $routingDecision['office']?->id)) {
+            if ($overrideReason !== '') {
+                $newValues['override_reason'] = $overrideReason;
+            }
+            $locationOrJurisdictionChanged = $oldValues['purok_id'] !== $newValues['purok_id']
+                || $oldValues['landmark'] !== $newValues['landmark']
+                || $oldValues['jurisdiction_status'] !== $newValues['jurisdiction_status']
+                || $oldValues['jurisdiction_note'] !== $newValues['jurisdiction_note'];
+
+            if ($this->differsFromAi($data, $category, $aiResult, $routingDecision['office']?->id) || $locationOrJurisdictionChanged) {
                 AuditLog::query()->create([
                     'user_id' => $reviewer->id,
                     'action' => 'staff_review',
@@ -90,6 +128,9 @@ class ReportReviewService
             }
 
             $statusNote = $this->reviewSummary($data, $category, $aiResult, $routingDecision['office']?->id);
+            if ($overrideReason !== '') {
+                $statusNote .= "\nClassification override reason: ".$overrideReason;
+            }
             if (($data['review_note'] ?? null) !== null && $data['review_note'] !== '') {
                 $statusNote .= "\nMessage to resident: ".$data['review_note'];
             }
@@ -253,6 +294,8 @@ class ReportReviewService
             'staff_description' => $report->staff_description,
             'purok_id' => $report->purok_id,
             'landmark' => $report->landmark,
+            'jurisdiction_status' => $report->jurisdiction_status,
+            'jurisdiction_note' => $report->jurisdiction_note,
             'office_id' => $report->office_id,
             'assigned_to' => $report->assigned_to,
         ];
@@ -268,12 +311,7 @@ class ReportReviewService
             return true;
         }
 
-        $aiCategoryId = $aiResult->suggested_category === 'unclassified'
-            ? null
-            : Category::query()
-                ->where('is_active', true)
-                ->where('slug', $aiResult->suggested_category)
-                ->value('id');
+        $aiCategoryId = $this->aiCategoryId($aiResult);
 
         return $category->id !== $aiCategoryId
             || $data['urgency'] !== $aiResult->suggested_urgency
@@ -291,12 +329,7 @@ class ReportReviewService
             return 'Review saved manually: Category, urgency, description, purok, and landmark reviewed.';
         }
 
-        $aiCategoryId = $aiResult->suggested_category === 'unclassified'
-            ? null
-            : Category::query()
-                ->where('is_active', true)
-                ->where('slug', $aiResult->suggested_category)
-                ->value('id');
+        $aiCategoryId = $this->aiCategoryId($aiResult);
         $decisions = [
             'Category '.($category->id === $aiCategoryId ? 'accepted' : 'edited'),
             'Urgency '.($data['urgency'] === $aiResult->suggested_urgency ? 'accepted' : 'edited'),
@@ -310,5 +343,18 @@ class ReportReviewService
         }
 
         return 'Review completed: '.implode('; ', $decisions).'.';
+    }
+
+    /** Resolve the AI-suggested category slug to an active category id. */
+    private function aiCategoryId(?ReportAiResult $aiResult): ?int
+    {
+        if ($aiResult === null || $aiResult->suggested_category === 'unclassified') {
+            return null;
+        }
+
+        return Category::query()
+            ->where('is_active', true)
+            ->where('slug', $aiResult->suggested_category)
+            ->value('id');
     }
 }

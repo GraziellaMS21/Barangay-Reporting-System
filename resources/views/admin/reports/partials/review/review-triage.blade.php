@@ -320,6 +320,46 @@
           </div>
         </div>
 
+        {{-- Classification override reason: required when staff depart from a concrete AI suggestion. --}}
+        <div class="rounded-xl border border-amber-200 bg-amber-50/60 p-3.5 space-y-1.5" data-override-reason-wrap>
+          <label for="override-reason" class="block text-xs font-extrabold text-amber-900">
+            Reason for changing the AI recommendation
+            <span class="font-normal text-amber-800">(required when you change the AI-suggested category or urgency)</span>
+          </label>
+          <textarea id="override-reason" name="override_reason" rows="2" maxlength="500" @disabled($emergencyActionOnly)
+                    class="w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-400/40 resize-none"
+                    placeholder="e.g. Resident described a blocked drainage canal, not the road damage the AI suggested.">{{ old('override_reason') }}</textarea>
+          <p class="text-[11px] text-amber-800 m-0">Recorded in the review history with your name and timestamp. Accepting the AI suggestion needs no reason.</p>
+        </div>
+
+        {{-- Geographic jurisdiction assessment (separate from GIS result). --}}
+        <div class="rounded-xl border border-slate-200 bg-slate-50 p-3.5 space-y-1.5">
+          <label for="jurisdiction-status" class="block text-xs font-extrabold text-slate-800">
+            Incident jurisdiction assessment
+          </label>
+          <p class="text-[11px] text-slate-500 m-0">
+            @if($report->lat !== null && $report->lng !== null)
+              Coordinates: {{ number_format($report->lat, 6) }}, {{ number_format($report->lng, 6) }} (original submission)
+            @else
+              No coordinates submitted.
+            @endif
+            @if($report->resident_purok_id)
+              · Resident-selected Purok: {{ $report->residentPurok?->name }}
+            @endif
+            @if($report->purok_id && $report->purok_id !== $report->resident_purok_id)
+              · Current operational Purok: {{ $report->purok?->name }}
+            @endif
+          </p>
+          <select id="jurisdiction-status" name="jurisdiction_status" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-900">
+            <option value="">Not assessed</option>
+            <option value="within" @selected(old('jurisdiction_status', $report->jurisdiction_status) === 'within')>Within Barangay Calarian</option>
+            <option value="outside" @selected(old('jurisdiction_status', $report->jurisdiction_status) === 'outside')>Outside Barangay Calarian</option>
+            <option value="uncertain" @selected(old('jurisdiction_status', $report->jurisdiction_status) === 'uncertain')>Uncertain / needs verification</option>
+          </select>
+          <textarea id="jurisdiction-note" name="jurisdiction_note" rows="2" maxlength="1000" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900" placeholder="Explanation / justification (required for outside or uncertain).">{{ old('jurisdiction_note', $report->jurisdiction_note) }}</textarea>
+          <p class="text-[11px] text-slate-600 m-0">GIS results inform this decision; staff make the final assessment. Outside/uncertain requires a justification.</p>
+        </div>
+
         @if($aiReady && ($aiResult->photo_description || $aiResult->key_facts))
           <details class="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs">
             <summary class="font-bold text-slate-700 cursor-pointer">AI details</summary>

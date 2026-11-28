@@ -7,6 +7,7 @@ use App\Models\Referral;
 use App\Models\ReferralAttachment;
 use App\Models\ReferralUpdate;
 use App\Services\AuditLogger;
+use App\Services\ReferralService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -63,7 +64,7 @@ class ReferralController extends Controller
         return view('agency.referrals.show', compact('referral'));
     }
 
-    public function update(Request $request, Referral $referral, AuditLogger $auditLogger): RedirectResponse
+    public function update(Request $request, Referral $referral, AuditLogger $auditLogger, ReferralService $referralService): RedirectResponse
     {
         if ($referral->office_id !== $request->user()->office_id) {
             abort(403, 'Unauthorized access to this referral.');
@@ -142,31 +143,15 @@ class ReferralController extends Controller
                 'note' => ['required', 'string', 'min:5', 'max:1000'],
             ]);
 
-            DB::transaction(function () use ($referral, $validated, $request, $auditLogger) {
-                $oldStatus = $referral->status;
-                $referral->update([
-                    'status' => 'closed',
-                    'outcome' => $validated['outcome'],
-                    'closed_at' => now(),
-                ]);
+            $referralService->close($referral, $request->user(), $validated['outcome'], $validated['note']);
 
-                ReferralUpdate::create([
-                    'referral_id' => $referral->id,
-                    'user_id' => $request->user()->id,
-                    'note' => "Closed with outcome: {$validated['outcome']}. Note: {$validated['note']}",
-                    'channel' => 'portal',
-                    'occurred_at' => now(),
-                    'visible_to_resident' => true,
-                ]);
-
-                $auditLogger->log(
-                    $request->user(),
-                    'agency.closed_referral',
-                    $referral,
-                    ['status' => $oldStatus],
-                    ['status' => 'closed', 'outcome' => $validated['outcome']]
-                );
-            });
+            $auditLogger->log(
+                $request->user(),
+                'agency.closed_referral',
+                $referral->fresh(),
+                [],
+                ['status' => 'closed', 'outcome' => $validated['outcome']]
+            );
 
             return redirect()->route('agency.referrals.show', $referral)->with('success', 'Referral closed.');
         }

@@ -309,3 +309,31 @@ The following specific gaps exist between the current codebase and the canonical
 - **First-Run & Fresh Install Audit (`docs/FIRST_RUN_FINDINGS.md`)**:
   - `F-01` (Critical): `php artisan migrate:fresh` fails on MySQL because `2026_11_24_222928_add_mediation_started_at_and_summons_superseded.php` uses `->after('first_meeting_on')` before `2026_12_01_400002` adds `first_meeting_on` (SQLite succeeds).
   - `F-02`–`F-10`: Detailed in [FIRST_RUN_FINDINGS.md](file:///C:/githubFiles/Barangay-Reporting-System-1/docs/FIRST_RUN_FINDINGS.md) and [ADMIN_FIRST_RUN_GUIDE.md](file:///C:/githubFiles/Barangay-Reporting-System-1/docs/ADMIN_FIRST_RUN_GUIDE.md) (unprotected `/setup` route, `'N/A'` emergency contact placeholders hidden on resident modal, empty `personnel` table on day 1, no single "Confirm All" button for 64 pending items, and no Purok CRUD UI).
+
+
+## TR3.4 Jurisdiction Assessment
+
+- Added jurisdiction_status, jurisdiction_note, jurisdiction_assessed_by, jurisdiction_assessed_at to reports.
+- Supported values: within, outside, uncertain. Outside/uncertain require justification.
+- Assessor and timestamp recorded on save.
+- Original resident coordinates/Purok/landmark preserved; operational Purok/landmark remain staff-correctable.
+- Location and jurisdiction changes audited.
+- GIS remains advisory; provisional boundaries not official.
+
+
+
+## TR3.5 Reporter and Incident Information Verification
+
+- Reporter information is displayed as submitted; anonymous reports show no contact details.
+- Reporter residence is not assumed from incident Purok.
+- Incident details, coordinates, photos, audio, and AI summary are presented for staff review.
+- Clarification requests use existing info request workflow.
+- No fabricated residential information.
+
+
+
+## TR3.6 Staff Decisions, Assignment, and Routing
+
+- Agency portal closure now synchronizes parent report via ReferralService::close().
+- Internal routing/referral/clarification workflows remain existing.
+

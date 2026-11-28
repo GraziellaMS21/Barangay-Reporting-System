@@ -666,6 +666,9 @@ class ReportController extends Controller
                 Rule::exists('users', 'id')->where(fn ($query) => $query->whereIn('role', ['admin', 'staff'])),
             ],
             'review_note' => ['nullable', 'string', 'max:1000'],
+            'override_reason' => ['nullable', 'string', 'max:500'],
+            'jurisdiction_status' => ['nullable', 'string', 'in:within,outside,uncertain'],
+            'jurisdiction_note' => ['nullable', 'string', 'max:1000'],
         ], [
             'category_id.required' => 'Select a category before saving the review.',
             'category_id.in' => 'The selected category is no longer available. Choose an active category.',
@@ -673,6 +676,7 @@ class ReportController extends Controller
             'staff_description.required' => 'Enter a reviewed description before saving.',
             'staff_description.max' => 'The reviewed description cannot exceed 2,000 characters.',
             'review_note.max' => 'The confirmation note cannot exceed 1,000 characters.',
+            'override_reason.max' => 'The override reason cannot exceed 500 characters.',
         ]);
 
         $reviewer = $request->user();
@@ -715,6 +719,9 @@ class ReportController extends Controller
                 'office_id' => $officeId === null ? null : (int) $officeId,
                 'assigned_to' => $assignedTo === null ? null : (int) $assignedTo,
                 'review_note' => $reviewNote,
+                'override_reason' => $validated['override_reason'] ?? null,
+                'jurisdiction_status' => $validated['jurisdiction_status'] ?? null,
+                'jurisdiction_note' => $validated['jurisdiction_note'] ?? null,
                 'authority_mode' => $validated['authority_mode'] ?? null,
                 'referral_letter' => $validated['referral_letter'] ?? null,
                 'resident_message' => $validated['resident_message'] ?? null,

@@ -111,9 +111,9 @@ Routing is modularized under `routes/` and registered via `routes/web.php`:
 - **Payload**:
   - `category_id` (integer, nullable per Decision 80, exists in `categories`)
   - `description` (string, required, min: 10, max: 2000)
-  - `lat` (numeric, nullable)
-  - `lng` (numeric, nullable)
-  - `purok_id` (integer, nullable, exists in `puroks`)
+  - `lat` (numeric, nullable, required with `lng`, between -90 and 90)
+  - `lng` (numeric, nullable, required with `lat`, between -180 and 180)
+  - `purok_id` (integer, nullable; validated to exist, be active (`is_active = true`), and respect environment mock restrictions via `Purok::allowsMockPuroks()`)
   - `landmark` (string, nullable, max: 255)
   - `people_at_risk` (boolean, nullable) — Safety toggle
   - `is_ongoing` (boolean, nullable)
@@ -125,6 +125,10 @@ Routing is modularized under `routes/` and registered via `routes/web.php`:
   - `reporter_email` (email, nullable; optional for guests, omitted if anonymous)
   - `is_anonymous` (boolean, nullable; when true, discards contact details and stores no IP)
   - `consent` (accepted, required)
+- **Location Validation & Integrity Rules**:
+  - At least one location method is required (`lat/lng` pair, `purok_id`, or `landmark`).
+  - Coordinate/Purok mismatches are intentionally non-blocking and preserved for human-in-the-loop staff jurisdiction review (TR2.5). Submissions outside the provisional Calarian boundary are accepted and saved for staff evaluation.
+  - The resident form dropdown in `GET /reports/create` deduplicates options to 7 clean choices (`Purok 1`–`Purok 7`), preferring geometry-backed prototype records so Leaflet polygon highlights and detection confirmation synchronize seamlessly.
 - **Response**: Redirects to `/report/success/{tracking_code}`.
 
 ### `GET /report/success/{tracking_code}`

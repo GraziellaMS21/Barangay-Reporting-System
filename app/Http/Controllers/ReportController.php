@@ -31,12 +31,37 @@ class ReportController extends Controller
 
     public function create(): View
     {
+        $allPuroks = Purok::query()
+            ->visibleInCurrentEnvironment()
+            ->where('is_active', true)
+            ->get();
+
+        $normalizedKey = static function (Purok $p): string {
+            if (is_string($p->code) && preg_match('/^(?:mock-)?(purok-\d+)$/i', $p->code, $m)) {
+                return strtolower($m[1]);
+            }
+
+            return strtolower(trim(preg_replace('/^MOCK\s+/i', '', (string) $p->name)));
+        };
+
+        // When both canonical and geometry-backed mock records exist for the same Purok,
+        // select the geometry-backed record for map highlighting & detection synchronization.
+        $puroks = $allPuroks
+            ->groupBy($normalizedKey)
+            ->map(static function ($group): Purok {
+                return $group->firstWhere('boundary_geometry', '!=', null) ?? $group->first();
+            })
+            ->sortBy(static function (Purok $p): int|string {
+                if (preg_match('/(\d+)/', $p->display_name, $m)) {
+                    return (int) $m[1];
+                }
+
+                return $p->display_name;
+            })
+            ->values();
+
         return view('resident.create', [
-            'puroks' => Purok::query()
-                ->visibleInCurrentEnvironment()
-                ->where('is_active', true)
-                ->orderBy('name')
-                ->get(),
+            'puroks' => $puroks,
             'contacts' => EmergencyContact::query()->active()->ordered()->get(),
             'categories' => Category::query()
                 ->where('is_active', true)
@@ -190,7 +215,17 @@ class ReportController extends Controller
             'photos.*' => ['image', 'mimes:jpg,jpeg,png', 'max:5120'],
             'lat' => ['nullable', 'required_with:lng', 'numeric', 'between:-90,90'],
             'lng' => ['nullable', 'required_with:lat', 'numeric', 'between:-180,180'],
-            'purok_id' => ['nullable', 'exists:puroks,id'],
+            'purok_id' => [
+                'nullable',
+                Rule::exists('puroks', 'id')
+                    ->where('is_active', true)
+                    ->when(! Purok::allowsMockPuroks(), static function ($query): void {
+                        $query->where(static function ($q): void {
+                            $q->whereNull('code')
+                                ->orWhere('code', 'not like', 'mock-%');
+                        });
+                    }),
+            ],
             'landmark' => ['nullable', 'string', 'max:255'],
             'reporter_email' => ['nullable', 'email', 'max:255'],
             'reporter_name' => ['nullable', 'string', 'max:100'],

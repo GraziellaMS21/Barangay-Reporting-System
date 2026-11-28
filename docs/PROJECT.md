@@ -36,7 +36,7 @@ The system provides a lightweight, mobile-responsive web platform where:
   1. The **Detected Location Information** card showing Barangay ("Calarian" / "Outside provisional boundary"), City ("Zamboanga City"), Purok (e.g., "MOCK PUROK 3 (Simulated)", "Not yet identified", or "Needs manual selection"), and Coordinates (lat/lng to 6 decimal places).
   2. Direct visual rendering on the Step 2 Leaflet map of the provisional Barangay Calarian boundary (dashed outline) and all seven mock Purok polygons with visually distinguishable palette colors and transparent fills.
   3. Interactive features including polygon click-to-pin placement, permanent centered labels, dynamic Purok polygon highlighting upon detection or selection, and an embedded responsive Map Boundaries & Puroks legend with interactive chips.
-  4. Full bilingual English/Filipino language support and prototype disclosure notices `[IMPLEMENTED & VERIFIED — TR2.4.2, TR2.4.3, TR2.4.3-FIX, TR2.4.3-FIX-2 & TR2.4.4]`. **Official Purok boundaries and official jurisdiction enforcement remain pending** until verified data is supplied by Barangay Calarian.
+  4. Full bilingual English/Filipino language support and prototype disclosure notices `[IMPLEMENTED & VERIFIED — TR2.4.2, TR2.4.3, TR2.4.3-FIX, TR2.4.3-FIX-2, TR2.4.4 & TR2.4.6-FIX]`. Clean resident-facing presentation (`Purok 1`–`Purok 7`) with active Purok validation, deduplicated prototype dropdown, and non-blocking coordinate-Purok mismatch handling. **Official Purok boundaries and official jurisdiction enforcement remain pending** until verified data is supplied by Barangay Calarian.
 
 ### 1.3 Active Scope vs. Deferred Features
 - **Active Scope (`[IMPLEMENTED]`, `[PARTIALLY IMPLEMENTED]`, or `[APPROVED DESIGN]`)**:

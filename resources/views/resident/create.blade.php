@@ -1788,7 +1788,7 @@
                 <select id="purok_id" name="purok_id" class="wizard-select">
                   <option value="" data-i18n="opt_select_purok">Select purok</option>
                   @foreach($puroks as $purok)
-                    <option value="{{ $purok->id }}" @selected(old('purok_id') == $purok->id)>{{ $purok->name }}</option>
+                    <option value="{{ $purok->id }}" @selected(old('purok_id') == $purok->id)>{{ $purok->display_name }}</option>
                   @endforeach
                 </select>
               </div>
@@ -3211,6 +3211,16 @@
       { stroke: '#4338ca', fill: '#6366f1' }, // Purok 7: Indigo
     ];
 
+    function formatResidentPurokName(name) {
+      if (!name) return '';
+      return String(name)
+        .replace(/^MOCK\s+/i, 'Purok ')
+        .replace(/\s*\(Simulated\)/i, '')
+        .replace(/\s*\(Pansamantala\)/i, '')
+        .replace(/PUROK\s+(\d+)/i, 'Purok $1')
+        .trim();
+    }
+
     async function loadMapBoundaries(map) {
       if (!map) return;
       if (boundariesLoaded) return;
@@ -3282,7 +3292,7 @@
               }
             });
 
-            const rawLabel = (purok.name || '').replace(/\s*\(Simulated\)/i, '');
+            const rawLabel = formatResidentPurokName(purok.name);
             layer.bindTooltip(rawLabel, {
               permanent: true,
               direction: 'center',
@@ -3316,7 +3326,7 @@
         const chip = document.createElement('div');
         chip.className = 'legend-purok-chip';
         chip.setAttribute('data-legend-purok-id', String(purok.id));
-        const displayName = (purok.name || '').replace(/\s*\(Simulated\)/i, '');
+        const displayName = formatResidentPurokName(purok.name);
         chip.innerHTML = `
           <span class="legend-swatch" style="background:${pal.fill};border-color:${pal.stroke};"></span>
           <span class="purok-chip-name">${displayName}</span>
@@ -3371,7 +3381,7 @@
         }, { sticky: true, className: 'barangay-boundary-tooltip' });
       }
       purokLayersMap.forEach((entry) => {
-        const rawLabel = (entry.purok.name || '').replace(/\s*\(Simulated\)/i, '');
+        const rawLabel = formatResidentPurokName(entry.purok.name);
         entry.layer.unbindTooltip();
         entry.layer.bindTooltip(rawLabel, {
           permanent: true,
@@ -4431,8 +4441,7 @@
       if (res.status === 'exact' && res.purok) {
         barVal.textContent = dict.loc_info_calarian || 'Calarian';
         barVal.style.color = 'var(--wiz-ink)';
-        const simSuffix = dict.loc_info_simulated || '(Simulated)';
-        purokVal.textContent = `${res.purok.name} ${simSuffix}`;
+        purokVal.textContent = formatResidentPurokName(res.purok.name);
         purokVal.style.color = '#065f46';
         if (badge) {
           badge.textContent = dict.loc_info_matched || 'Purok matched';
@@ -4576,7 +4585,7 @@
         box.style.borderColor = '#a7f3d0';
         box.style.color = '#065f46';
         if (iconEl) iconEl.className = 'fa-solid fa-circle-check';
-        if (titleEl) titleEl.textContent = `${dict.loc_exact_title || 'Suggested Purok:'} ${res.purok.name}`;
+        if (titleEl) titleEl.textContent = `${dict.loc_exact_title || 'Suggested Purok:'} ${formatResidentPurokName(res.purok.name)}`;
         if (locDetectDecision === 'confirmed') {
           if (descEl) descEl.textContent = dict.loc_exact_confirmed || 'Confirmed and selected.';
         } else if (locDetectDecision === 'dismissed') {
@@ -4591,7 +4600,7 @@
         box.style.color = '#92400e';
         if (iconEl) iconEl.className = 'fa-solid fa-circle-half-stroke';
         if (titleEl) titleEl.textContent = dict.loc_ambiguous_title || 'Near a Purok boundary';
-        const candidateNames = Array.isArray(res.candidates) ? res.candidates.map(c => c.name).filter(Boolean).join(', ') : '';
+        const candidateNames = Array.isArray(res.candidates) ? res.candidates.map(c => formatResidentPurokName(c.name)).filter(Boolean).join(', ') : '';
         if (descEl) descEl.textContent = (dict.loc_ambiguous_desc || 'This pin is near a boundary or overlaps multiple areas. Please select your Purok manually.') + (candidateNames ? ` (${candidateNames})` : '');
       } else if (res.status === 'outside_barangay') {
         box.style.background = '#fffbeb';

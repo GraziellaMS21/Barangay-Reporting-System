@@ -9,6 +9,8 @@ use App\Services\BoundaryService;
 use Database\Seeders\MockPurokBoundarySeeder;
 use Database\Seeders\PurokSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Tests\TestCase;
 
 class LocationDetectionTest extends TestCase
@@ -439,5 +441,152 @@ class LocationDetectionTest extends TestCase
             'consent' => '1',
             'has_consent_field' => '1',
         ])->assertSessionHasErrors(['location']);
+    }
+
+    public function test_submission_rejects_inactive_purok(): void
+    {
+        $inactive = Purok::create([
+            'name' => 'Inactive Purok Test',
+            'code' => 'purok-inactive-test',
+            'is_active' => false,
+        ]);
+
+        $this->post(route('reports.store'), [
+            'description' => 'Report referencing an inactive purok that should be rejected.',
+            'purok_id' => $inactive->id,
+            'consent' => '1',
+            'has_consent_field' => '1',
+        ])->assertSessionHasErrors(['purok_id']);
+
+        $this->assertDatabaseMissing('reports', [
+            'description' => 'Report referencing an inactive purok that should be rejected.',
+        ]);
+    }
+
+    public function test_submission_accepts_coordinate_and_purok_mismatch_without_blocking(): void
+    {
+        $this->seed(MockPurokBoundarySeeder::class);
+        $purok1 = Purok::query()->where('code', 'mock-purok-1')->firstOrFail();
+        $purok2 = Purok::query()->where('code', 'mock-purok-2')->firstOrFail();
+
+        // Coordinates fall squarely inside Mock Purok 1 [6.9290, 122.0232]
+        // But resident manually selected Purok 2
+        $this->post(route('reports.store'), [
+            'description' => 'Discrepancy test: coordinates in purok 1, dropdown set to purok 2.',
+            'lat' => 6.9290,
+            'lng' => 122.0232,
+            'purok_id' => $purok2->id,
+            'consent' => '1',
+            'has_consent_field' => '1',
+        ])->assertRedirect();
+
+        $report = Report::latest('id')->firstOrFail();
+        $this->assertSame($purok2->id, $report->purok_id);
+        $this->assertSame($purok2->id, $report->resident_purok_id);
+        $this->assertSame(6.9290, (float) $report->lat);
+        $this->assertSame(122.0232, (float) $report->lng);
+    }
+
+    public function test_submission_rejects_out_of_range_coordinates(): void
+    {
+        $purok = Purok::firstOrFail();
+
+        $this->post(route('reports.store'), [
+            'description' => 'Out of range latitude submission test.',
+            'lat' => 95.0,
+            'lng' => 122.0300,
+            'purok_id' => $purok->id,
+            'consent' => '1',
+            'has_consent_field' => '1',
+        ])->assertSessionHasErrors(['lat']);
+
+        $this->post(route('reports.store'), [
+            'description' => 'Out of range longitude submission test.',
+            'lat' => 6.9250,
+            'lng' => 195.0,
+            'purok_id' => $purok->id,
+            'consent' => '1',
+            'has_consent_field' => '1',
+        ])->assertSessionHasErrors(['lng']);
+
+        $this->assertDatabaseMissing('reports', [
+            'description' => 'Out of range latitude submission test.',
+        ]);
+        $this->assertDatabaseMissing('reports', [
+            'description' => 'Out of range longitude submission test.',
+        ]);
+    }
+
+    public function test_resident_dropdown_is_deduplicated_and_displays_clean_labels(): void
+    {
+        $this->seed(MockPurokBoundarySeeder::class);
+
+        $response = $this->get(route('reports.create'));
+        $response->assertOk();
+
+        $content = (string) $response->getContent();
+
+        // Extract select element with id="purok_id"
+        preg_match('/<select[^>]*id="purok_id"[^>]*>(.*?)<\/select>/s', $content, $selectMatch);
+        $this->assertNotEmpty($selectMatch, 'Purok select dropdown must exist in HTML.');
+
+        preg_match_all('/<option[^>]*value="([^"]*)"[^>]*>(.*?)<\/option>/s', $selectMatch[1], $optionMatches, PREG_SET_ORDER);
+
+        // Filter out empty placeholder option
+        $purokOptions = array_values(array_filter($optionMatches, fn ($m) => $m[1] !== ''));
+
+        // Exactly 7 options for Purok 1 through Purok 7
+        $this->assertCount(7, $purokOptions, 'Dropdown must have exactly 7 options without duplicates.');
+
+        $seenIds = [];
+        for ($i = 1; $i <= 7; $i++) {
+            $expectedName = "Purok {$i}";
+            $option = $purokOptions[$i - 1];
+            $optValue = (int) $option[1];
+            $optText = trim(strip_tags($option[2]));
+
+            $this->assertSame($expectedName, $optText, "Option {$i} label must be clean '{$expectedName}'.");
+            $this->assertStringNotContainsString('MOCK', $optText);
+            $this->assertStringNotContainsString('Simulated', $optText);
+
+            // Confirm option value points to an active Purok record
+            $dbPurok = Purok::query()->findOrFail($optValue);
+            $this->assertTrue($dbPurok->is_active);
+            $this->assertNotNull($dbPurok->boundary_geometry);
+
+            $seenIds[] = $optValue;
+        }
+
+        $this->assertCount(7, array_unique($seenIds), 'Dropdown options must have unique record IDs.');
+    }
+
+    public function test_purok_validation_rule_rejects_mock_puroks_in_production(): void
+    {
+        $this->seed(MockPurokBoundarySeeder::class);
+        $mockPurok = Purok::query()->where('code', 'mock-purok-1')->firstOrFail();
+
+        $originalEnv = $this->app->environment();
+        $this->app->detectEnvironment(fn () => 'production');
+
+        try {
+            $rule = Rule::exists('puroks', 'id')
+                ->where('is_active', true)
+                ->when(! Purok::allowsMockPuroks(), static function ($query): void {
+                    $query->where(static function ($q): void {
+                        $q->whereNull('code')
+                            ->orWhere('code', 'not like', 'mock-%');
+                    });
+                });
+
+            $validator = Validator::make(
+                ['purok_id' => $mockPurok->id],
+                ['purok_id' => ['nullable', $rule]]
+            );
+
+            $this->assertTrue($validator->fails());
+            $this->assertSame(['purok_id'], $validator->errors()->keys());
+        } finally {
+            $this->app->detectEnvironment(fn () => $originalEnv);
+        }
     }
 }

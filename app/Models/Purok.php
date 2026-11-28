@@ -37,6 +37,18 @@ class Purok extends Model
         });
     }
 
+    public function getDisplayNameAttribute(): string
+    {
+        $name = trim(preg_replace('/^MOCK\s+/i', '', (string) $this->name));
+        $name = trim(preg_replace('/\s*\(Simulated\)/i', '', $name));
+
+        if (preg_match('/^PUROK\s+(\d+)$/i', $name, $matches)) {
+            return 'Purok '.$matches[1];
+        }
+
+        return $name;
+    }
+
     public static function allowsMockPuroks(): bool
     {
         return app()->environment('local', 'testing');

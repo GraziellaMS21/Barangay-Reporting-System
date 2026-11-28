@@ -23,7 +23,7 @@ class MockPurokBoundarySeeder extends Seeder
         }
 
         foreach (self::mockDefinitions() as $item) {
-            Purok::firstOrCreate(
+            Purok::updateOrCreate(
                 ['code' => $item['code']],
                 [
                     'name' => $item['name'],

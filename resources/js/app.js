@@ -545,11 +545,12 @@ const initializeMaps = () => {
   const detailMapElement = document.getElementById('report-location-map');
   const staffMapElement = document.querySelector('[data-staff-report-map]');
 
-  if (reportMapElement && !reportMapElement._leaflet_id) {
-    const defaultCenter = [6.9214, 122.0790];
+  if (reportMapElement && !reportMapElement.dataset.customMap && !document.querySelector('.report-card') && !reportMapElement._leaflet_id) {
+    const defaultCenter = [6.9250, 122.0300];
     const latInput = document.getElementById('lat');
     const lngInput = document.getElementById('lng');
     const map = L.map(reportMapElement, { scrollWheelZoom: false }).setView(defaultCenter, 15);
+    window.leafletMapInstance = map;
     activeMapInstances.add(map);
     setupCooperativeMapGestures(map, reportMapElement);
 

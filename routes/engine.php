@@ -64,3 +64,7 @@ Route::get('/api/nearby-reports', function (Request $request) {
 Route::post('/api/detect-location', [ReportController::class, 'detectLocation'])
     ->middleware('throttle:30,1')
     ->name('api.detect-location');
+
+Route::get('/api/purok-boundaries', [ReportController::class, 'purokBoundaries'])
+    ->middleware('throttle:60,1')
+    ->name('api.purok-boundaries');

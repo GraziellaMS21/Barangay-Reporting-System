@@ -820,6 +820,191 @@
       border-radius: 14px;
       overflow: hidden;
       box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+      position: relative;
+      background: #e2e8f0;
+      width: 100%;
+    }
+
+    #map.map-frame {
+      width: 100%;
+      height: 320px;
+      min-height: 280px;
+      position: relative;
+      background: #e2e8f0;
+    }
+
+    #map .leaflet-tile {
+      max-width: none !important;
+      max-height: none !important;
+      width: 256px !important;
+      height: 256px !important;
+    }
+
+    #map .leaflet-container {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    .detected-location-card {
+      border: 1.5px solid #cbd5e1;
+      border-radius: 12px;
+      background: #ffffff;
+      padding: 0.85rem 1rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    }
+
+    .detected-location-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.65rem 1rem;
+    }
+
+    @media (max-width: 480px) {
+      .detected-location-grid {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+      }
+    }
+
+    /* Map Boundaries & Puroks Legend */
+    .map-boundary-legend {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 0.55rem 0.75rem;
+      margin-top: 0.55rem;
+      font-size: 0.78rem;
+      color: var(--wiz-ink);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    }
+
+    .map-boundary-legend .legend-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      margin-bottom: 0.4rem;
+      padding-bottom: 0.35rem;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .map-boundary-legend .legend-title {
+      font-weight: 700;
+      font-size: 0.8rem;
+      display: flex;
+      align-items: center;
+      color: var(--wiz-ink);
+    }
+
+    .map-boundary-legend .legend-simulated-pill {
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: #92400e;
+      background: #fef3c7;
+      border: 1px solid #fde68a;
+      border-radius: 999px;
+      padding: 0.12rem 0.5rem;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .map-boundary-legend .legend-items-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .map-boundary-legend .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.74rem;
+      color: var(--wiz-muted);
+    }
+
+    .map-boundary-legend .legend-swatch {
+      width: 14px;
+      height: 10px;
+      border-radius: 2px;
+      display: inline-block;
+      flex-shrink: 0;
+      border: 1.5px solid transparent;
+    }
+
+    .map-boundary-legend .swatch-calarian {
+      background: rgba(100, 116, 139, 0.15);
+      border: 1.5px dashed #334155;
+    }
+
+    .map-boundary-legend .legend-purok-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.3rem;
+      margin-top: 0.15rem;
+    }
+
+    .map-boundary-legend .legend-purok-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 999px;
+      padding: 0.15rem 0.5rem;
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: #334155;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.15s ease;
+    }
+
+    .map-boundary-legend .legend-purok-chip:hover {
+      border-color: #94a3b8;
+      background: #f1f5f9;
+    }
+
+    .map-boundary-legend .legend-purok-chip.is-active {
+      background: #eff6ff;
+      border-color: #3b82f6;
+      color: #1d4ed8;
+      box-shadow: 0 0 0 1px #3b82f6;
+    }
+
+    .map-boundary-legend .legend-hint {
+      margin: 0.35rem 0 0;
+      font-size: 0.71rem;
+      color: var(--wiz-muted);
+      font-style: italic;
+    }
+
+    /* Leaflet polygon labels and tooltips */
+    .purok-polygon-label {
+      background: rgba(255, 255, 255, 0.94) !important;
+      border: 1px solid rgba(15, 23, 42, 0.2) !important;
+      border-radius: 4px !important;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12) !important;
+      color: #0f172a !important;
+      font-size: 0.69rem !important;
+      font-weight: 700 !important;
+      padding: 1px 5px !important;
+      pointer-events: none !important;
+      white-space: nowrap !important;
+    }
+
+    .purok-polygon-label::before {
+      display: none !important;
+    }
+
+    .barangay-boundary-tooltip {
+      background: rgba(15, 23, 42, 0.92) !important;
+      border: 1px solid rgba(255, 255, 255, 0.25) !important;
+      color: #ffffff !important;
+      font-size: 0.72rem !important;
+      font-weight: 600 !important;
+      border-radius: 4px !important;
+      padding: 3px 7px !important;
+      pointer-events: none !important;
     }
 
     .btn-gps-action {
@@ -1562,8 +1747,33 @@
             <!-- Left Column: Map -->
             <div>
               <div class="map-container-box">
-                <div id="map" class="map-frame" style="height:300px;min-height:280px;" aria-label="Choose the report location on the map"></div>
+                <div id="map" class="map-frame" data-custom-map="true" style="height:320px;min-height:280px;" aria-label="Choose the report location on the map"></div>
               </div>
+
+              <!-- Map Boundaries & Puroks Legend -->
+              <div id="map-boundary-legend" class="map-boundary-legend" role="region" aria-label="Map Boundary Legend">
+                <div class="legend-header">
+                  <span class="legend-title">
+                    <i class="fa-solid fa-layer-group" style="color:var(--wiz-blue);margin-right:0.35rem;" aria-hidden="true"></i>
+                    <span data-i18n="legend_title">Map Boundaries &amp; Puroks</span>
+                  </span>
+                  <span class="legend-simulated-pill">
+                    <i class="fa-solid fa-flask" style="font-size:0.68rem;margin-right:0.25rem;" aria-hidden="true"></i>
+                    <span data-i18n="legend_preview_badge">Simulated Preview</span>
+                  </span>
+                </div>
+                <div class="legend-items-list">
+                  <div class="legend-item boundary-item">
+                    <span class="legend-swatch swatch-calarian"></span>
+                    <span class="legend-label" data-i18n="legend_calarian_boundary">Provisional Calarian Boundary (Unverified)</span>
+                  </div>
+                  <div class="legend-purok-chips" id="legend-purok-chips">
+                    <!-- Populated dynamically from API data -->
+                  </div>
+                </div>
+                <p class="legend-hint" data-i18n="legend_hint">Click anywhere on the map or inside any Purok to place your pin.</p>
+              </div>
+
               <div id="nearby-line" style="display:none;margin-top:0.55rem;padding:0.45rem 0.75rem;background:#fffbeb;border:1px solid #fde68a;border-radius:999px;font-size:0.8rem;"></div>
               <div id="nearby-list" style="display:none;margin-top:0.35rem;font-size:0.82rem;"></div>
             </div>
@@ -1620,9 +1830,40 @@
             @if($hasMockPuroks)
               <div id="mock-purok-disclosure" style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:0.55rem 0.85rem;font-size:0.78rem;color:#92400e;display:flex;align-items:center;gap:0.45rem;" role="note">
                 <i class="fa-solid fa-flask" aria-hidden="true"></i>
-                <span data-i18n="loc_mock_notice">Development Preview: These Purok boundaries are temporary mock data and do not represent official Barangay Calarian boundaries.</span>
+                <span data-i18n="loc_mock_notice">Development Preview: Purok boundaries are simulated for this prototype and have not yet been verified by Barangay Calarian.</span>
               </div>
             @endif
+
+            <!-- Detected Location Information Panel -->
+            <div id="detected-location-card" class="detected-location-card">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.55rem;border-bottom:1px solid #f1f5f9;padding-bottom:0.45rem;">
+                <strong style="color:var(--wiz-ink);font-size:0.88rem;display:flex;align-items:center;gap:0.35rem;">
+                  <i class="fa-solid fa-map-location-dot" style="color:var(--wiz-blue);"></i>
+                  <span data-i18n="loc_info_heading">Detected Location Information</span>
+                </strong>
+                <span id="loc-info-status-badge" style="font-size:0.72rem;font-weight:700;padding:0.15rem 0.5rem;border-radius:999px;background:#f1f5f9;color:#64748b;">
+                  <span data-i18n="loc_info_waiting">Awaiting pin</span>
+                </span>
+              </div>
+              <div class="detected-location-grid">
+                <div>
+                  <span style="display:block;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;color:var(--wiz-muted);" data-i18n="loc_info_barangay">Barangay</span>
+                  <span id="detected-barangay-val" style="font-size:0.85rem;font-weight:700;color:var(--wiz-ink);">—</span>
+                </div>
+                <div>
+                  <span style="display:block;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;color:var(--wiz-muted);" data-i18n="loc_info_city">City</span>
+                  <span id="detected-city-val" style="font-size:0.85rem;font-weight:700;color:var(--wiz-ink);">Zamboanga City</span>
+                </div>
+                <div>
+                  <span style="display:block;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;color:var(--wiz-muted);" data-i18n="loc_info_purok">Purok</span>
+                  <span id="detected-purok-val" style="font-size:0.85rem;font-weight:700;color:var(--wiz-ink);">Not yet identified</span>
+                </div>
+                <div>
+                  <span style="display:block;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;color:var(--wiz-muted);" data-i18n="loc_info_coords">Coordinates</span>
+                  <span id="detected-coords-val" style="font-size:0.82rem;font-weight:600;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;color:var(--wiz-ink);">—</span>
+                </div>
+              </div>
+            </div>
 
             <div id="loc-detect-loading" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:0.6rem 0.85rem;font-size:0.81rem;color:#1d4ed8;font-weight:600;" aria-live="polite">
               <i class="fa-solid fa-spinner fa-spin" style="margin-right:0.4rem;" aria-hidden="true"></i>
@@ -1642,7 +1883,7 @@
                   <button type="button" id="btn-confirm-detected-purok" onclick="confirmDetectedPurok()" style="background:var(--wiz-blue);color:#fff;border:none;border-radius:8px;padding:0.35rem 0.75rem;font-size:0.78rem;font-weight:700;cursor:pointer;" data-i18n="loc_btn_confirm_purok">
                     Confirm Purok
                   </button>
-                  <button type="button" id="btn-dismiss-detected-purok" onclick="dismissDetectedPurok()" style="background:#ffffff;color:var(--wiz-muted);border:1px solid #cbd5e1;border-radius:8px;padding:0.35rem 0.65rem;font-size:0.78rem;font-weight:600;cursor:pointer;" data-i18n="ai_btn_dismiss_cat">
+                  <button type="button" id="btn-dismiss-detected-purok" onclick="dismissDetectedPurok()" style="background:#ffffff;color:var(--wiz-muted);border:1px solid #cbd5e1;border-radius:8px;padding:0.35rem 0.65rem;font-size:0.78rem;font-weight:600;cursor:pointer;" data-i18n="loc_btn_dismiss">
                     Dismiss
                   </button>
                 </div>
@@ -2005,9 +2246,10 @@
         ai_class_uncertain: "Needs More Information",
         ai_confidence_prefix: "AI Confidence:",
         ai_confidence_suffix: "(advisory only)",
-        loc_mock_notice: "Development Preview: These Purok boundaries are temporary mock data and do not represent official Barangay Calarian boundaries.",
+        loc_mock_notice: "Development Preview: Purok boundaries are simulated for this prototype and have not yet been verified by Barangay Calarian.",
         loc_detect_loading: "Checking Barangay & Purok boundaries...",
         loc_btn_confirm_purok: "Confirm Purok",
+        loc_btn_dismiss: "Dismiss",
         loc_exact_title: "Suggested Purok:",
         loc_exact_desc: "Please confirm to apply this Purok, or dismiss to choose manually.",
         loc_exact_confirmed: "Confirmed and selected.",
@@ -2021,7 +2263,28 @@
         loc_in_provisional_title: "Inside provisional Barangay Calarian boundary",
         loc_in_provisional_desc: "Automatic Purok identification is unavailable because Purok boundary data is not configured. Please select your Purok or enter a landmark manually.",
         loc_unavailable_title: "Automatic Purok detection unavailable",
-        loc_unavailable_desc: "Please select your Purok or enter a landmark manually."
+        loc_unavailable_desc: "Please select your Purok or enter a landmark manually.",
+        loc_info_heading: "Detected Location Information",
+        loc_info_barangay: "Barangay",
+        loc_info_city: "City",
+        loc_info_purok: "Purok",
+        loc_info_coords: "Coordinates",
+        loc_info_waiting: "Awaiting pin",
+        loc_info_detecting: "Detecting...",
+        loc_info_matched: "Purok matched",
+        loc_info_unresolved: "Unresolved",
+        loc_info_ambiguous: "Near boundary",
+        loc_info_outside: "Outside boundary",
+        loc_info_not_identified: "Not yet identified",
+        loc_info_manual_selection: "Needs manual selection",
+        loc_info_outside_boundary: "Outside provisional boundary",
+        loc_info_simulated: "(Simulated)",
+        loc_info_calarian: "Calarian",
+        legend_title: "Map Boundaries & Puroks",
+        legend_preview_badge: "Simulated Preview",
+        legend_calarian_boundary: "Provisional Calarian Boundary (Unverified)",
+        legend_mock_puroks: "Mock Puroks 1–7 (Simulated)",
+        legend_hint: "Click anywhere on the map or inside any Purok to place your pin."
       },
       fil: {
         hero_title: "Mag-ulat ng concern sa Barangay Calarian",
@@ -2133,9 +2396,10 @@
         ai_class_uncertain: "Kailangan ng Karagdagang Impormasyon",
         ai_confidence_prefix: "Kumpiyansa ng AI:",
         ai_confidence_suffix: "(gabay lamang)",
-        loc_mock_notice: "Development Preview: Ang mga hangganan ng Purok na ito ay pansamantalang mock data lamang at hindi opisyal na hangganan ng Barangay Calarian.",
+        loc_mock_notice: "Paunang Bersyon: Ginaya lamang ang mga hangganan ng Purok para sa prototype na ito at hindi pa beripikado ng Barangay Calarian.",
         loc_detect_loading: "Sinusuri ang hangganan ng Barangay at Purok...",
         loc_btn_confirm_purok: "Kumpirmahin ang Purok",
+        loc_btn_dismiss: "Balewalain",
         loc_exact_title: "Iminungkahing Purok:",
         loc_exact_desc: "Paki-kumpirma upang gamitin ang Purok na ito, o balewalain upang pumili nang manu-mano.",
         loc_exact_confirmed: "Nakumpirma at napili na.",
@@ -2149,7 +2413,28 @@
         loc_in_provisional_title: "Nasa loob ng pansamantalang hangganan ng Barangay Calarian",
         loc_in_provisional_desc: "Hindi magagamit ang awtomatikong pagtukoy ng Purok dahil hindi pa naka-configure ang datos ng hangganan ng Purok. Paki-pili ang iyong Purok o maglagay ng landmark nang manu-mano.",
         loc_unavailable_title: "Hindi magagamit ang awtomatikong pagtukoy ng Purok",
-        loc_unavailable_desc: "Paki-pili ang iyong Purok o maglagay ng landmark nang manu-mano."
+        loc_unavailable_desc: "Paki-pili ang iyong Purok o maglagay ng landmark nang manu-mano.",
+        loc_info_heading: "Impormasyon ng Natukoy na Lokasyon",
+        loc_info_barangay: "Barangay",
+        loc_info_city: "Lungsod",
+        loc_info_purok: "Purok",
+        loc_info_coords: "Mga Coordinate",
+        loc_info_waiting: "Naghihintay ng pin",
+        loc_info_detecting: "Tinutukoy...",
+        loc_info_matched: "Tugmang Purok",
+        loc_info_unresolved: "Hindi matukoy",
+        loc_info_ambiguous: "Malapit sa hangganan",
+        loc_info_outside: "Nasa labas ng hangganan",
+        loc_info_not_identified: "Hindi pa natukoy",
+        loc_info_manual_selection: "Kailangan ng manu-manong pagpili",
+        loc_info_outside_boundary: "Nasa labas ng pansamantalang hangganan",
+        loc_info_simulated: "(Pansamantala)",
+        loc_info_calarian: "Calarian",
+        legend_title: "Mga Hangganan at Purok sa Mapa",
+        legend_preview_badge: "Pansamantalang Silip",
+        legend_calarian_boundary: "Pansamantalang Hangganan ng Calarian (Hindi Opisyal)",
+        legend_mock_puroks: "Mga Mock Purok 1–7 (Pansamantala)",
+        legend_hint: "Mag-click kahit saan sa mapa o sa loob ng anumang Purok upang ilagay ang iyong pin."
       }
     };
 
@@ -2247,11 +2532,29 @@
         });
       }
 
-      // Leaflet hidden-tab resize fix
+      // Leaflet hidden-tab resize fix: invalidate size with rAF and staged timeouts
       if (targetStep === 2) {
-        setTimeout(() => {
-          if (mapInstance) mapInstance.invalidateSize();
-        }, 60);
+        if (!mapInstance && typeof initReportMap === 'function') {
+          initReportMap();
+        }
+        requestAnimationFrame(() => {
+          if (mapInstance) {
+            mapInstance.invalidateSize({ animate: false });
+            if (typeof resetMapToDefaultCalarian === 'function') resetMapToDefaultCalarian();
+          }
+          setTimeout(() => {
+            if (mapInstance) {
+              mapInstance.invalidateSize({ animate: false });
+              if (typeof resetMapToDefaultCalarian === 'function') resetMapToDefaultCalarian();
+            }
+          }, 100);
+          setTimeout(() => {
+            if (mapInstance) {
+              mapInstance.invalidateSize({ animate: false });
+              if (typeof resetMapToDefaultCalarian === 'function') resetMapToDefaultCalarian();
+            }
+          }, 300);
+        });
       }
 
       // Smooth scroll top of .report-card into view if above viewport
@@ -2354,6 +2657,8 @@
       updateLocationStatusPill();
       if (typeof renderAiAnalysisResult === 'function' && aiLastResultData) renderAiAnalysisResult();
       if (typeof renderLocationDetectionResult === 'function' && locDetectLastResult) renderLocationDetectionResult();
+      if (typeof renderDetectedLocationCard === 'function') renderDetectedLocationCard();
+      if (typeof updateMapBoundaryTooltips === 'function') updateMapBoundaryTooltips();
     }
 
     function toggleDanger(checked) {
@@ -2741,30 +3046,93 @@
 
     // Leaflet Map Initialization
     let mapInstance = null;
-    document.addEventListener('DOMContentLoaded', () => {
-      const CALARIAN_CENTER = [6.925, 122.032];
-      const CALARIAN_BOUNDS = [[6.905, 122.010], [6.945, 122.105]];
-      if (typeof L !== 'undefined') {
-        const mapEl = document.getElementById('map');
-        if (mapEl && !mapEl._leaflet_id) {
-          mapInstance = L.map('map', { scrollWheelZoom: false }).setView(CALARIAN_CENTER, 14);
-          window.leafletMapInstance = mapInstance;
-          if (window.setupCooperativeMapGestures) {
-            window.setupCooperativeMapGestures(mapInstance, mapEl);
-          }
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OSM' }).addTo(mapInstance);
-          mapInstance.setMaxBounds(CALARIAN_BOUNDS);
-        } else if (window.leafletMapInstance) {
-          mapInstance = window.leafletMapInstance;
-          if (window.setupCooperativeMapGestures && mapEl) {
-            window.setupCooperativeMapGestures(mapInstance, mapEl);
-          }
-        }
+    let placePin = null;
+    const CALARIAN_CENTER = [6.9250, 122.0300];
 
-        let marker = null;
-        function placePin(lat, lng) {
-          if (marker) marker.setLatLng([lat, lng]);
-          else marker = L.marker([lat, lng], { draggable: true }).addTo(mapInstance);
+    function resetMapToDefaultCalarian() {
+      if (!mapInstance) return;
+      const currentLat = parseFloat(document.getElementById('lat')?.value);
+      const currentLng = parseFloat(document.getElementById('lng')?.value);
+      if (!Number.isNaN(currentLat) && !Number.isNaN(currentLng)) {
+        mapInstance.setView([currentLat, currentLng], 16);
+      } else if (calarianBoundaryLayer && typeof calarianBoundaryLayer.getBounds === 'function') {
+        try {
+          mapInstance.fitBounds(calarianBoundaryLayer.getBounds().pad(0.04), { animate: false });
+        } catch (e) {
+          mapInstance.setView(CALARIAN_CENTER, 15, { animate: false });
+        }
+      } else {
+        mapInstance.setView(CALARIAN_CENTER, 15, { animate: false });
+      }
+    }
+    window.resetMapToDefaultCalarian = resetMapToDefaultCalarian;
+
+    function initReportMap() {
+      const mapEl = document.getElementById('map');
+      if (!mapEl || typeof L === 'undefined') return;
+
+      if (mapEl._leaflet_id && window.leafletMapInstance) {
+        mapInstance = window.leafletMapInstance;
+        return;
+      }
+
+      if (mapEl._leaflet_id && !window.leafletMapInstance) {
+        return;
+      }
+
+      const CALARIAN_BOUNDS = [[6.885, 121.980], [6.965, 122.135]];
+
+      mapInstance = L.map('map', {
+        scrollWheelZoom: false,
+        fadeAnimation: true,
+        zoomAnimation: true,
+      }).setView(CALARIAN_CENTER, 15);
+
+      window.leafletMapInstance = mapInstance;
+
+      if (window.setupCooperativeMapGestures) {
+        window.setupCooperativeMapGestures(mapInstance, mapEl);
+      }
+
+      const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        subdomains: ['a', 'b', 'c'],
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
+        crossOrigin: true,
+        keepBuffer: 6,
+        updateWhenIdle: false,
+        updateWhenZooming: true,
+        tileSize: 256,
+        zoomOffset: 0
+      });
+      tileLayer.addTo(mapInstance);
+
+      tileLayer.on('tileerror', function(error) {
+        const tile = error && error.tile;
+        if (tile && !tile._retryCount) {
+          tile._retryCount = 1;
+          setTimeout(() => {
+            const originalSrc = tile.src;
+            tile.src = '';
+            tile.src = originalSrc;
+          }, 400);
+        }
+      });
+
+      mapInstance.setMaxBounds(CALARIAN_BOUNDS);
+      mapInstance.options.maxBoundsViscosity = 0.6;
+
+      loadMapBoundaries(mapInstance);
+
+      let marker = null;
+      placePin = function(lat, lng) {
+        if (marker) {
+          marker.setLatLng([lat, lng]);
+          marker.setZIndexOffset(1000);
+        } else {
+          marker = L.marker([lat, lng], { draggable: true }).addTo(mapInstance);
+          window.markerInstance = marker;
+          marker.setZIndexOffset(1000);
           marker.on('dragend', e => {
             const p = e.target.getLatLng();
             document.getElementById('lat').value = p.lat;
@@ -2775,62 +3143,298 @@
             triggerNearbyReportsCheck();
             scheduleLocationDetection(p.lat, p.lng);
           });
-          document.getElementById('lat').value = lat;
-          document.getElementById('lng').value = lng;
-          updateLocationStatusPill();
-          const step2Err = document.getElementById('step2-error');
-          if (step2Err) step2Err.classList.remove('is-visible');
-          triggerNearbyReportsCheck();
-          scheduleLocationDetection(lat, lng);
         }
+        window.markerInstance = marker;
+        document.getElementById('lat').value = lat;
+        document.getElementById('lng').value = lng;
+        updateLocationStatusPill();
+        const step2Err = document.getElementById('step2-error');
+        if (step2Err) step2Err.classList.remove('is-visible');
+        triggerNearbyReportsCheck();
+        scheduleLocationDetection(lat, lng);
+      };
+      window.placePin = placePin;
 
-        const oldLat = parseFloat(document.getElementById('lat').value);
-        const oldLng = parseFloat(document.getElementById('lng').value);
-        if (!Number.isNaN(oldLat) && !Number.isNaN(oldLng)) {
-          placePin(oldLat, oldLng);
-          mapInstance.setView([oldLat, oldLng], 16);
-        }
+      const oldLat = parseFloat(document.getElementById('lat')?.value);
+      const oldLng = parseFloat(document.getElementById('lng')?.value);
+      if (!Number.isNaN(oldLat) && !Number.isNaN(oldLng)) {
+        placePin(oldLat, oldLng);
+        mapInstance.setView([oldLat, oldLng], 16);
+      }
 
-        mapInstance.on('click', e => placePin(e.latlng.lat, e.latlng.lng));
+      mapInstance.on('click', e => {
+        if (placePin) placePin(e.latlng.lat, e.latlng.lng);
+      });
 
-        function requestGeolocation(btnEl) {
-          if (!navigator.geolocation) {
-            alert(currentLang === 'fil' ? 'Hindi suportado ang geolocation sa iyong browser.' : 'Geolocation is not supported by your browser.');
-            return;
+      // ResizeObserver to detect when map container becomes visible in Step 2 or changes size
+      if (typeof ResizeObserver !== 'undefined' && mapEl) {
+        let roTimer = null;
+        const ro = new ResizeObserver(entries => {
+          for (const entry of entries) {
+            if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
+              clearTimeout(roTimer);
+              roTimer = setTimeout(() => {
+                if (mapInstance) {
+                  mapInstance.invalidateSize({ animate: false });
+                  const cLat = parseFloat(document.getElementById('lat')?.value);
+                  const cLng = parseFloat(document.getElementById('lng')?.value);
+                  if (Number.isNaN(cLat) || Number.isNaN(cLng)) {
+                    resetMapToDefaultCalarian();
+                  }
+                }
+              }, 50);
+            }
           }
-          const origText = btnEl ? btnEl.innerHTML : '';
+        });
+        ro.observe(mapEl);
+      }
+
+      window.addEventListener('resize', () => {
+        if (mapInstance && mapEl && mapEl.offsetWidth > 0) {
+          mapInstance.invalidateSize({ animate: false });
+        }
+      });
+    }
+
+    let purokLayersMap = new Map();
+    let calarianBoundaryLayer = null;
+    let boundariesLoaded = false;
+    let mapBoundariesData = null;
+
+    const PUROK_PALETTE = [
+      { stroke: '#1d4ed8', fill: '#3b82f6' }, // Purok 1: Blue
+      { stroke: '#047857', fill: '#10b981' }, // Purok 2: Emerald
+      { stroke: '#6d28d9', fill: '#8b5cf6' }, // Purok 3: Purple
+      { stroke: '#b45309', fill: '#f59e0b' }, // Purok 4: Amber
+      { stroke: '#be123c', fill: '#f43f5e' }, // Purok 5: Rose
+      { stroke: '#0e7490', fill: '#06b6d4' }, // Purok 6: Cyan
+      { stroke: '#4338ca', fill: '#6366f1' }, // Purok 7: Indigo
+    ];
+
+    async function loadMapBoundaries(map) {
+      if (!map) return;
+      if (boundariesLoaded) return;
+
+      try {
+        const res = await fetch('{{ route('api.purok-boundaries') }}', {
+          headers: { 'Accept': 'application/json' }
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        mapBoundariesData = data;
+        boundariesLoaded = true;
+
+        // 1. Draw Provisional Barangay Calarian Boundary
+        if (data.barangay && data.barangay.geometry) {
+          calarianBoundaryLayer = L.geoJSON(data.barangay.geometry, {
+            style: {
+              color: '#334155',
+              weight: 2.5,
+              dashArray: '6, 6',
+              fillColor: '#64748b',
+              fillOpacity: 0.04,
+            },
+            interactive: true,
+          });
+
+          calarianBoundaryLayer.on('click', function(e) {
+            if (typeof placePin === 'function') placePin(e.latlng.lat, e.latlng.lng);
+          });
+
+          calarianBoundaryLayer.bindTooltip(function() {
+            return currentLang === 'fil'
+              ? 'Pansamantalang Hangganan ng Calarian (Hindi Opisyal)'
+              : 'Provisional Calarian Boundary (Unverified)';
+          }, { sticky: true, className: 'barangay-boundary-tooltip' });
+
+          calarianBoundaryLayer.addTo(map);
+          window.calarianBoundaryLayer = calarianBoundaryLayer;
+
+          // Center/fit bounds if no pin has been placed yet
+          const oldLatVal = parseFloat(document.getElementById('lat')?.value);
+          const oldLngVal = parseFloat(document.getElementById('lng')?.value);
+          if (Number.isNaN(oldLatVal) || Number.isNaN(oldLngVal)) {
+            resetMapToDefaultCalarian();
+          }
+        }
+
+        // 2. Draw 7 Mock Puroks with Distinct Visual Styles
+        if (Array.isArray(data.puroks)) {
+          data.puroks.forEach((purok, index) => {
+            const pal = PUROK_PALETTE[index % PUROK_PALETTE.length];
+            const defaultStyle = {
+              color: pal.stroke,
+              weight: 2,
+              opacity: 0.9,
+              fillColor: pal.fill,
+              fillOpacity: 0.18,
+              dashArray: null
+            };
+
+            const layer = L.geoJSON(purok.geometry, {
+              style: defaultStyle,
+              interactive: true,
+            });
+
+            layer.on('click', function(e) {
+              if (typeof placePin === 'function') {
+                placePin(e.latlng.lat, e.latlng.lng);
+              }
+            });
+
+            const rawLabel = (purok.name || '').replace(/\s*\(Simulated\)/i, '');
+            layer.bindTooltip(rawLabel, {
+              permanent: true,
+              direction: 'center',
+              className: 'purok-polygon-label',
+              interactive: false,
+            });
+
+            layer.addTo(map);
+            purokLayersMap.set(purok.id, { layer, purok, defaultStyle, pal });
+          });
+
+          renderLegendPurokChips(data.puroks, PUROK_PALETTE);
+
+          // If a purok is already selected or detected, highlight it
+          const selPurok = document.getElementById('purok_id')?.value;
+          if (selPurok) {
+            highlightPurokPolygon(parseInt(selPurok, 10));
+          }
+        }
+      } catch (err) {
+        console.warn('Could not load map boundaries:', err);
+      }
+    }
+
+    function renderLegendPurokChips(puroks, paletteList) {
+      const container = document.getElementById('legend-purok-chips');
+      if (!container || !Array.isArray(puroks)) return;
+      container.innerHTML = '';
+      puroks.forEach((purok, index) => {
+        const pal = paletteList ? paletteList[index % paletteList.length] : { stroke: '#3b82f6', fill: '#3b82f6' };
+        const chip = document.createElement('div');
+        chip.className = 'legend-purok-chip';
+        chip.setAttribute('data-legend-purok-id', String(purok.id));
+        const displayName = (purok.name || '').replace(/\s*\(Simulated\)/i, '');
+        chip.innerHTML = `
+          <span class="legend-swatch" style="background:${pal.fill};border-color:${pal.stroke};"></span>
+          <span class="purok-chip-name">${displayName}</span>
+        `;
+        chip.addEventListener('click', () => {
+          const entry = purokLayersMap.get(purok.id);
+          if (entry && mapInstance) {
+            try {
+              mapInstance.fitBounds(entry.layer.getBounds().pad(0.18));
+            } catch (e) {}
+            highlightPurokPolygon(purok.id);
+          }
+        });
+        container.appendChild(chip);
+      });
+    }
+
+    function highlightPurokPolygon(targetId) {
+      purokLayersMap.forEach((entry, id) => {
+        const isMatch = targetId != null && (
+          id === targetId ||
+          entry.purok.id == targetId ||
+          entry.purok.code === targetId ||
+          String(entry.purok.id) === String(targetId)
+        );
+        if (isMatch) {
+          entry.layer.setStyle({
+            color: entry.pal.stroke,
+            weight: 3.5,
+            opacity: 1.0,
+            fillColor: entry.pal.fill,
+            fillOpacity: 0.45,
+          });
+          entry.layer.bringToFront();
+          if (window.markerInstance) window.markerInstance.setZIndexOffset(1000);
+        } else {
+          entry.layer.setStyle(entry.defaultStyle);
+        }
+
+        const chip = document.querySelector(`[data-legend-purok-id="${id}"]`);
+        if (chip) chip.classList.toggle('is-active', isMatch);
+      });
+    }
+
+    function updateMapBoundaryTooltips() {
+      if (calarianBoundaryLayer) {
+        calarianBoundaryLayer.unbindTooltip();
+        calarianBoundaryLayer.bindTooltip(function() {
+          return currentLang === 'fil'
+            ? 'Pansamantalang Hangganan ng Calarian (Hindi Opisyal)'
+            : 'Provisional Calarian Boundary (Unverified)';
+        }, { sticky: true, className: 'barangay-boundary-tooltip' });
+      }
+      purokLayersMap.forEach((entry) => {
+        const rawLabel = (entry.purok.name || '').replace(/\s*\(Simulated\)/i, '');
+        entry.layer.unbindTooltip();
+        entry.layer.bindTooltip(rawLabel, {
+          permanent: true,
+          direction: 'center',
+          className: 'purok-polygon-label',
+          interactive: false,
+        });
+      });
+    }
+
+    window.loadMapBoundaries = loadMapBoundaries;
+    window.purokLayersMap = purokLayersMap;
+    window.highlightPurokPolygon = highlightPurokPolygon;
+    window.updateMapBoundaryTooltips = updateMapBoundaryTooltips;
+
+    function requestGeolocation(btnEl) {
+      if (!navigator.geolocation) {
+        alert(currentLang === 'fil' ? 'Hindi suportado ang geolocation sa iyong browser.' : 'Geolocation is not supported by your browser.');
+        return;
+      }
+      const origText = btnEl ? btnEl.innerHTML : '';
+      if (btnEl) {
+        btnEl.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> <span>${currentLang === 'fil' ? 'Hinahanap...' : 'Locating...'}</span>`;
+        btnEl.disabled = true;
+      }
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          if (!mapInstance && typeof initReportMap === 'function') {
+            initReportMap();
+          }
+          if (placePin) {
+            placePin(pos.coords.latitude, pos.coords.longitude);
+          }
+          if (mapInstance) {
+            mapInstance.setView([pos.coords.latitude, pos.coords.longitude], 16);
+            mapInstance.invalidateSize({ animate: false });
+          }
           if (btnEl) {
-            btnEl.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> <span>${currentLang === 'fil' ? 'Hinahanap...' : 'Locating...'}</span>`;
-            btnEl.disabled = true;
+            btnEl.innerHTML = origText;
+            btnEl.disabled = false;
           }
-          navigator.geolocation.getCurrentPosition(
-            pos => {
-              placePin(pos.coords.latitude, pos.coords.longitude);
-              mapInstance.setView([pos.coords.latitude, pos.coords.longitude], 16);
-              if (btnEl) {
-                btnEl.innerHTML = origText;
-                btnEl.disabled = false;
-              }
-            },
-            err => {
-              if (btnEl) {
-                btnEl.innerHTML = origText;
-                btnEl.disabled = false;
-              }
-              alert(currentLang === 'fil' ? 'Hindi makuha ang lokasyon. Mangyaring mag-click sa mapa o pumili ng purok.' : 'Unable to retrieve location. Please click on the map or select a purok.');
-            },
-            { timeout: 8000 }
-          );
-        }
+        },
+        err => {
+          if (btnEl) {
+            btnEl.innerHTML = origText;
+            btnEl.disabled = false;
+          }
+          alert(currentLang === 'fil' ? 'Hindi makuha ang lokasyon. Mangyaring mag-click sa mapa o pumili ng purok.' : 'Unable to retrieve location. Please click on the map or select a purok.');
+        },
+        { timeout: 8000 }
+      );
+    }
 
-        const btnLocate = document.getElementById('btn-locate');
-        if (btnLocate) {
-          btnLocate.addEventListener('click', () => requestGeolocation(btnLocate));
-        }
-        const btnQuickLocate = document.getElementById('btn-quick-locate');
-        if (btnQuickLocate) {
-          btnQuickLocate.addEventListener('click', () => requestGeolocation(btnQuickLocate));
-        }
+    document.addEventListener('DOMContentLoaded', () => {
+      initReportMap();
+
+      const btnLocate = document.getElementById('btn-locate');
+      if (btnLocate) {
+        btnLocate.addEventListener('click', () => requestGeolocation(btnLocate));
+      }
+      const btnQuickLocate = document.getElementById('btn-quick-locate');
+      if (btnQuickLocate) {
+        btnQuickLocate.addEventListener('click', () => requestGeolocation(btnQuickLocate));
       }
 
       // Location input listeners for status pill & error clearing
@@ -2892,6 +3496,10 @@
           recurringBtns[0].classList.toggle('active', recurringVal == '1');
           recurringBtns[1].classList.toggle('active', recurringVal == '0');
         }
+      }
+
+      if (typeof renderDetectedLocationCard === 'function') {
+        renderDetectedLocationCard();
       }
 
       // Server-Side Error Auto-Recovery: Jump to the step owning the first validation error
@@ -3744,11 +4352,152 @@
     if (purokDropdownEl) {
       purokDropdownEl.addEventListener('change', () => {
         locPurokManuallyEdited = true;
+        if (typeof highlightPurokPolygon === 'function') {
+          highlightPurokPolygon(purokDropdownEl.value ? parseInt(purokDropdownEl.value, 10) : null);
+        }
         if (locDetectLastResult && locDetectLastResult.status === 'exact' && locDetectDecision !== 'confirmed') {
           locDetectDecision = 'dismissed';
           renderLocationDetectionResult();
+        } else {
+          renderDetectedLocationCard();
         }
       });
+    }
+
+    function updateDetectedLocationCoords(lat, lng) {
+      const coordsVal = document.getElementById('detected-coords-val');
+      const badge = document.getElementById('loc-info-status-badge');
+      const dict = getAiDict();
+      if (!coordsVal) return;
+
+      if (lat != null && lng != null && !Number.isNaN(Number(lat)) && !Number.isNaN(Number(lng))) {
+        coordsVal.textContent = `${Number(lat).toFixed(6)}, ${Number(lng).toFixed(6)}`;
+        if (badge) {
+          badge.textContent = dict.loc_info_detecting || 'Detecting...';
+          badge.style.background = '#eff6ff';
+          badge.style.color = '#1d4ed8';
+        }
+      } else {
+        coordsVal.textContent = '—';
+        if (badge) {
+          badge.textContent = dict.loc_info_waiting || 'Awaiting pin';
+          badge.style.background = '#f1f5f9';
+          badge.style.color = '#64748b';
+        }
+      }
+    }
+
+    function renderDetectedLocationCard() {
+      const barVal = document.getElementById('detected-barangay-val');
+      const cityVal = document.getElementById('detected-city-val');
+      const purokVal = document.getElementById('detected-purok-val');
+      const coordsVal = document.getElementById('detected-coords-val');
+      const badge = document.getElementById('loc-info-status-badge');
+      if (!barVal || !purokVal) return;
+
+      const dict = getAiDict();
+      const res = locDetectLastResult;
+      const latInp = document.getElementById('lat');
+      const lngInp = document.getElementById('lng');
+      const lat = latInp ? parseFloat(latInp.value) : null;
+      const lng = lngInp ? parseFloat(lngInp.value) : null;
+
+      if (cityVal) {
+        cityVal.textContent = 'Zamboanga City';
+      }
+
+      if (lat != null && lng != null && !Number.isNaN(lat) && !Number.isNaN(lng)) {
+        if (coordsVal) coordsVal.textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+      } else {
+        if (coordsVal) coordsVal.textContent = '—';
+        barVal.textContent = '—';
+        purokVal.textContent = dict.loc_info_not_identified || 'Not yet identified';
+        purokVal.style.color = 'var(--wiz-muted)';
+        if (badge) {
+          badge.textContent = dict.loc_info_waiting || 'Awaiting pin';
+          badge.style.background = '#f1f5f9';
+          badge.style.color = '#64748b';
+        }
+        return;
+      }
+
+      if (!res) {
+        barVal.textContent = '—';
+        purokVal.textContent = dict.loc_info_not_identified || 'Not yet identified';
+        purokVal.style.color = 'var(--wiz-muted)';
+        return;
+      }
+
+      if (res.status === 'exact' && res.purok) {
+        barVal.textContent = dict.loc_info_calarian || 'Calarian';
+        barVal.style.color = 'var(--wiz-ink)';
+        const simSuffix = dict.loc_info_simulated || '(Simulated)';
+        purokVal.textContent = `${res.purok.name} ${simSuffix}`;
+        purokVal.style.color = '#065f46';
+        if (badge) {
+          badge.textContent = dict.loc_info_matched || 'Purok matched';
+          badge.style.background = '#ecfdf5';
+          badge.style.color = '#065f46';
+        }
+      } else if (res.status === 'boundary_ambiguous') {
+        barVal.textContent = dict.loc_info_calarian || 'Calarian';
+        barVal.style.color = 'var(--wiz-ink)';
+        purokVal.textContent = dict.loc_info_manual_selection || 'Needs manual selection';
+        purokVal.style.color = '#92400e';
+        if (badge) {
+          badge.textContent = dict.loc_info_ambiguous || 'Near boundary';
+          badge.style.background = '#fffbeb';
+          badge.style.color = '#92400e';
+        }
+      } else if (res.status === 'outside_barangay') {
+        barVal.textContent = dict.loc_info_outside_boundary || 'Outside provisional boundary';
+        barVal.style.color = '#b45309';
+        purokVal.textContent = '—';
+        purokVal.style.color = 'var(--wiz-muted)';
+        if (badge) {
+          badge.textContent = dict.loc_info_outside || 'Outside boundary';
+          badge.style.background = '#fffbeb';
+          badge.style.color = '#b45309';
+        }
+      } else if (res.status === 'purok_unresolved') {
+        barVal.textContent = dict.loc_info_calarian || 'Calarian';
+        barVal.style.color = 'var(--wiz-ink)';
+        purokVal.textContent = dict.loc_info_not_identified || 'Not yet identified';
+        purokVal.style.color = 'var(--wiz-muted)';
+        if (badge) {
+          badge.textContent = dict.loc_info_unresolved || 'Unresolved';
+          badge.style.background = '#eff6ff';
+          badge.style.color = '#1e40af';
+        }
+      } else if (res.status === 'boundary_data_unavailable' && res.in_barangay === true) {
+        barVal.textContent = dict.loc_info_calarian || 'Calarian';
+        barVal.style.color = 'var(--wiz-ink)';
+        purokVal.textContent = dict.loc_info_not_identified || 'Not yet identified';
+        purokVal.style.color = 'var(--wiz-muted)';
+        if (badge) {
+          badge.textContent = dict.loc_info_unresolved || 'Unresolved';
+          badge.style.background = '#eff6ff';
+          badge.style.color = '#1e40af';
+        }
+      } else {
+        barVal.textContent = '—';
+        purokVal.textContent = dict.loc_info_not_identified || 'Not yet identified';
+        purokVal.style.color = 'var(--wiz-muted)';
+        if (badge) {
+          badge.textContent = dict.loc_info_waiting || 'Awaiting pin';
+          badge.style.background = '#f1f5f9';
+          badge.style.color = '#64748b';
+        }
+      }
+
+      if (typeof highlightPurokPolygon === 'function') {
+        if (res && res.status === 'exact' && res.purok) {
+          highlightPurokPolygon(res.purok.id);
+        } else {
+          const selPurok = document.getElementById('purok_id')?.value;
+          highlightPurokPolygon(selPurok ? parseInt(selPurok, 10) : null);
+        }
+      }
     }
 
     function scheduleLocationDetection(lat, lng) {
@@ -3756,6 +4505,7 @@
       locDetectSeq += 1;
       const currentSeq = locDetectSeq;
       locDetectDecision = null;
+      updateDetectedLocationCoords(lat, lng);
 
       locDetectTimer = setTimeout(() => {
         runLocationDetection(lat, lng, currentSeq);
@@ -3817,6 +4567,7 @@
 
       if (res.status === 'no_coordinates') {
         box.style.display = 'none';
+        renderDetectedLocationCard();
         return;
       }
 
@@ -3874,6 +4625,7 @@
       }
 
       box.style.display = 'block';
+      renderDetectedLocationCard();
     }
 
     function confirmDetectedPurok() {

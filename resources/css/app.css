@@ -864,6 +864,7 @@ h3 {
     background: linear-gradient(135deg, #d6e6cf, #cfe0f3);
 }
 
+.map-frame.leaflet-container,
 .map-frame .leaflet-container {
     width: 100%;
     min-height: 240px;

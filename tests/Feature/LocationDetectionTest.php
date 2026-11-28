@@ -182,13 +182,101 @@ class LocationDetectionTest extends TestCase
             ->assertSee('Inside provisional Barangay Calarian boundary')
             ->assertDontSee('id="mock-purok-disclosure"', false);
 
-        // With mock Puroks seeded in testing env: shows development preview disclosure
+        // With mock Puroks seeded in testing env: shows development preview disclosure and detected location panel
         $this->seed(MockPurokBoundarySeeder::class);
 
         $this->get(route('reports.create'))
             ->assertOk()
             ->assertSee('id="mock-purok-disclosure"', false)
-            ->assertSee('Development Preview:');
+            ->assertSee('Development Preview:')
+            ->assertSee('id="detected-location-card"', false)
+            ->assertSee('Detected Location Information')
+            ->assertSee('id="detected-barangay-val"', false)
+            ->assertSee('id="detected-city-val"', false)
+            ->assertSee('id="detected-purok-val"', false)
+            ->assertSee('id="detected-coords-val"', false)
+            ->assertSee('Zamboanga City');
+    }
+
+    public function test_mock_purok_seeder_is_repeatable(): void
+    {
+        $this->seed(MockPurokBoundarySeeder::class);
+        $initialCount = Purok::query()->where('code', 'like', 'mock-%')->count();
+        $this->assertSame(7, $initialCount);
+
+        // Run seeder a second time
+        (new MockPurokBoundarySeeder)->run();
+        $this->assertSame(7, Purok::query()->where('code', 'like', 'mock-%')->count());
+    }
+
+    public function test_boundary_service_detects_every_individual_mock_purok(): void
+    {
+        $this->seed(MockPurokBoundarySeeder::class);
+        $calarianGeo = json_decode((string) file_get_contents(resource_path('gis/calarian_simplified.geojson')), true);
+        $calarianPolygon = $calarianGeo['features'][0]['geometry'];
+        $boundaryService = app(BoundaryService::class);
+
+        $mockCentroids = [
+            'mock-purok-1' => ['lat' => 6.9290, 'lng' => 122.02325],
+            'mock-purok-2' => ['lat' => 6.92475, 'lng' => 122.0275],
+            'mock-purok-3' => ['lat' => 6.92475, 'lng' => 122.0306],
+            'mock-purok-4' => ['lat' => 6.9250, 'lng' => 122.03385],
+            'mock-purok-5' => ['lat' => 6.92525, 'lng' => 122.03785],
+            'mock-purok-6' => ['lat' => 6.9215, 'lng' => 122.03435],
+            'mock-purok-7' => ['lat' => 6.92075, 'lng' => 122.03885],
+        ];
+
+        foreach ($mockCentroids as $code => $coords) {
+            $detection = $boundaryService->detectLocation($coords['lat'], $coords['lng'], $calarianPolygon);
+            $this->assertSame('exact', $detection['status'], "Failed for {$code}");
+            $this->assertTrue($detection['in_barangay']);
+            $this->assertNotNull($detection['purok']);
+            $this->assertSame($code, $detection['purok']['code']);
+
+            $this->postJson(route('api.detect-location'), $coords)
+                ->assertOk()
+                ->assertJson([
+                    'status' => 'exact',
+                    'in_barangay' => true,
+                    'purok' => ['code' => $code],
+                ]);
+        }
+    }
+
+    public function test_boundary_service_detects_unresolved_and_ambiguous_scenarios(): void
+    {
+        $this->seed(MockPurokBoundarySeeder::class);
+        $calarianGeo = json_decode((string) file_get_contents(resource_path('gis/calarian_simplified.geojson')), true);
+        $calarianPolygon = $calarianGeo['features'][0]['geometry'];
+        $boundaryService = app(BoundaryService::class);
+
+        // Inside Calarian, outside all 7 mock puroks -> purok_unresolved
+        $unresolved = $boundaryService->detectLocation(6.925, 122.020, $calarianPolygon);
+        $this->assertSame('purok_unresolved', $unresolved['status']);
+        $this->assertTrue($unresolved['in_barangay']);
+        $this->assertNull($unresolved['purok']);
+
+        $this->postJson(route('api.detect-location'), ['lat' => 6.925, 'lng' => 122.020])
+            ->assertOk()
+            ->assertJson([
+                'status' => 'purok_unresolved',
+                'in_barangay' => true,
+                'purok' => null,
+            ]);
+
+        // Boundary edge proximity -> boundary_ambiguous
+        $ambiguous = $boundaryService->detectLocation(6.920, 122.035, $calarianPolygon);
+        $this->assertSame('boundary_ambiguous', $ambiguous['status']);
+        $this->assertTrue($ambiguous['in_barangay']);
+        $this->assertNull($ambiguous['purok']);
+
+        $this->postJson(route('api.detect-location'), ['lat' => 6.920, 'lng' => 122.035])
+            ->assertOk()
+            ->assertJson([
+                'status' => 'boundary_ambiguous',
+                'in_barangay' => true,
+                'purok' => null,
+            ]);
     }
 
     public function test_endpoint_is_rate_limited(): void
@@ -219,5 +307,74 @@ class LocationDetectionTest extends TestCase
         $this->assertSame($purok->id, $report->resident_purok_id);
         $this->assertNull($report->lat);
         $this->assertNull($report->lng);
+    }
+
+    public function test_purok_boundaries_endpoint_returns_provisional_calarian_boundary_and_all_seven_mock_puroks(): void
+    {
+        $this->seed(MockPurokBoundarySeeder::class);
+
+        $response = $this->getJson(route('api.purok-boundaries'))
+            ->assertOk()
+            ->assertJsonStructure([
+                'barangay' => [
+                    'name',
+                    'is_provisional',
+                    'geometry' => [
+                        'type',
+                        'coordinates',
+                    ],
+                ],
+                'puroks' => [
+                    '*' => [
+                        'id',
+                        'code',
+                        'name',
+                        'is_mock',
+                        'geometry' => [
+                            'type',
+                            'coordinates',
+                        ],
+                    ],
+                ],
+            ]);
+
+        $data = $response->json();
+        $this->assertSame('Barangay Calarian', $data['barangay']['name']);
+        $this->assertTrue($data['barangay']['is_provisional']);
+        $this->assertSame('Polygon', $data['barangay']['geometry']['type']);
+
+        $this->assertCount(7, $data['puroks']);
+        $codes = collect($data['puroks'])->pluck('code')->all();
+        $this->assertSame([
+            'mock-purok-1',
+            'mock-purok-2',
+            'mock-purok-3',
+            'mock-purok-4',
+            'mock-purok-5',
+            'mock-purok-6',
+            'mock-purok-7',
+        ], $codes);
+
+        foreach ($data['puroks'] as $purok) {
+            $this->assertTrue($purok['is_mock']);
+            $this->assertSame('Polygon', $purok['geometry']['type']);
+            $this->assertNotEmpty($purok['geometry']['coordinates']);
+        }
+    }
+
+    public function test_resident_create_form_renders_boundary_legend_and_script_elements(): void
+    {
+        $this->seed(MockPurokBoundarySeeder::class);
+
+        $response = $this->get(route('reports.create'))
+            ->assertOk();
+
+        $content = $response->getContent();
+        $this->assertStringContainsString('id="map-boundary-legend"', $content);
+        $this->assertStringContainsString('id="legend-purok-chips"', $content);
+        $this->assertStringContainsString('data-i18n="legend_title"', $content);
+        $this->assertStringContainsString('data-i18n="legend_calarian_boundary"', $content);
+        $this->assertStringContainsString('loadMapBoundaries', $content);
+        $this->assertStringContainsString('highlightPurokPolygon', $content);
     }
 }

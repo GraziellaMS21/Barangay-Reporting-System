@@ -119,6 +119,52 @@ class ReportController extends Controller
         );
     }
 
+    /**
+     * Stateless read-only endpoint returning visible Purok boundaries and provisional Barangay boundary.
+     */
+    public function purokBoundaries(BoundaryService $boundaryService): JsonResponse
+    {
+        $barangayBoundary = null;
+        $path = config('reports.gis.barangay_boundary_path');
+        if (is_string($path) && trim($path) !== '' && is_file($path) && is_readable($path)) {
+            $decoded = json_decode((string) file_get_contents($path), true);
+            if (is_array($decoded)) {
+                $barangayBoundary = ($decoded['type'] ?? null) === 'FeatureCollection'
+                    ? ($decoded['features'][0]['geometry'] ?? null)
+                    : (($decoded['type'] ?? null) === 'Feature' ? ($decoded['geometry'] ?? null) : $decoded);
+            }
+        }
+
+        $puroks = Purok::query()
+            ->visibleInCurrentEnvironment()
+            ->where('is_active', true)
+            ->whereNotNull('boundary_geometry')
+            ->orderBy('id')
+            ->get(['id', 'code', 'name', 'boundary_geometry'])
+            ->filter(fn (Purok $p): bool => $boundaryService->validateGeometry($p->boundary_geometry)['valid'])
+            ->map(function (Purok $p): array {
+                $isMock = is_string($p->code) && str_starts_with($p->code, 'mock-');
+
+                return [
+                    'id' => $p->id,
+                    'code' => $p->code,
+                    'name' => $p->name,
+                    'is_mock' => $isMock,
+                    'geometry' => $p->boundary_geometry,
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'barangay' => [
+                'name' => 'Barangay Calarian',
+                'is_provisional' => true,
+                'geometry' => $barangayBoundary,
+            ],
+            'puroks' => $puroks,
+        ]);
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $isAnonymous = $request->boolean('is_anonymous');

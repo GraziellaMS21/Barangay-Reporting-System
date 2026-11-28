@@ -15,5 +15,11 @@ class DatabaseSeeder extends Seeder
         $this->call([
             RequiredDataSeeder::class,
         ]);
+
+        if (app()->environment('local', 'testing')) {
+            $this->call([
+                MockPurokBoundarySeeder::class,
+            ]);
+        }
     }
 }

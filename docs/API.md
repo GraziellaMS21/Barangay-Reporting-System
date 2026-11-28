@@ -59,11 +59,50 @@ Routing is modularized under `routes/` and registered via `routes/web.php`:
 
 ### `POST /api/detect-location` (`api.detect-location`)
 - **Controller**: `ReportController@detectLocation` (`routes/engine.php`)
-- **Status**: Built (TR2.4.2 Backend & TR2.4.3 Step 2 UI Integration; uses Git-tracked provisional outer boundary `resources/gis/calarian_simplified.geojson` and optional `local`/`testing`-only mock Puroks)
+- **Status**: Built (TR2.4.2 Backend, TR2.4.3 & TR2.4.3-FIX Step 2 UI Integration; uses Git-tracked provisional outer boundary `resources/gis/calarian_simplified.geojson` and 7 working mock Puroks `mock-purok-1` through `mock-purok-7` in `local`/`testing`)
 - **Middleware**: `throttle:30,1` (guest-accessible, CSRF-protected)
 - **Payload**: `{ lat: float (-90..90), lng: float (-180..180) }`
 - **Response (`200 OK`)**: `{ status ('exact'|'boundary_ambiguous'|'outside_barangay'|'purok_unresolved'|'no_coordinates'|'boundary_data_unavailable'|'invalid_boundary_data'), in_barangay (bool|null), purok ({ id, code, name }|null), candidates (array), message }`.
-- **Note**: Without mock or official Purok polygons, returns `boundary_data_unavailable` (with `in_barangay: true` inside the provisional Calarian polygon and `outside_barangay` outside it). Never creates or mutates Report records, and never assigns official Puroks automatically.
+- **Behavior & UI Integration**:
+  - In `local` and `testing` environments, the 7 mock Puroks (`MOCK PUROK 1`–`MOCK PUROK 7`) provide full geographic test coverage across Barangay Calarian.
+  - In the resident reporting form (`resources/views/resident/create.blade.php`, Step 2), the client consumes this endpoint to power the **Detected Location Information** card (`#detected-location-card`), presenting:
+    - **Barangay**: "Calarian" when inside the provisional boundary; "Outside provisional boundary" when outside.
+    - **City**: "Zamboanga City" (configured project location).
+    - **Purok**: Formatted name of the detected mock Purok (e.g. `MOCK PUROK 3 (Simulated)` / Filipino: `MOCK PUROK 3 (Pansamantala)`), "Not yet identified" if unresolved inside the boundary, or "Needs manual selection" if ambiguous.
+    - **Coordinates**: Latitude and longitude formatted to exactly 6 decimal places (e.g. `6.925000, 122.030000`).
+    - **Disclosure Notice**: Visible bilingual note stating Purok boundaries are simulated for the thesis prototype and not yet verified by Barangay Calarian.
+  - Live synchronization occurs across map clicks, draggable marker movement, and GPS geolocation.
+- **Note**: Never creates or mutates Report records, and never assigns official Puroks automatically. Official boundary verification remains pending with the barangay.
+
+### `GET /api/purok-boundaries` (`api.purok-boundaries`)
+- **Controller**: `ReportController@purokBoundaries` (`routes/engine.php`)
+- **Status**: Built (TR2.4.3-FIX-2 Map Boundary Visualization)
+- **Middleware**: `throttle:60,1` (guest-accessible)
+- **Payload**: None
+- **Response (`200 OK`)**:
+  ```json
+  {
+    "barangay": {
+      "name": "Barangay Calarian",
+      "is_provisional": true,
+      "geometry": { "type": "Polygon", "coordinates": [...] }
+    },
+    "puroks": [
+      {
+        "id": 8,
+        "code": "mock-purok-1",
+        "name": "MOCK PUROK 1",
+        "is_mock": true,
+        "geometry": { "type": "Polygon", "coordinates": [...] }
+      }
+    ]
+  }
+  ```
+- **Behavior & Safeguards**:
+  - Stateless read-only endpoint returning the provisional Calarian boundary geometry (from `resources/gis/calarian_simplified.geojson`) and visible active Puroks (from the `puroks` database table).
+  - Production safeguards: in production environments, `Purok::scopeVisibleInCurrentEnvironment()` excludes mock boundaries. In `local` and `testing`, all 7 mock Puroks are returned.
+  - Zero database writes; validated GeoJSON geometries only.
+  - Consumed by Step 2 in `resources/views/resident/create.blade.php` to render polygon overlays, labels, and the interactive legend.
 
 ### `POST /report`
 - **Controller**: `ReportController@store`

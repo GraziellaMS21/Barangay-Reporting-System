@@ -377,4 +377,67 @@ class LocationDetectionTest extends TestCase
         $this->assertStringContainsString('loadMapBoundaries', $content);
         $this->assertStringContainsString('highlightPurokPolygon', $content);
     }
+
+    public function test_submission_with_coordinates_and_detected_or_overridden_purok(): void
+    {
+        $this->seed(MockPurokBoundarySeeder::class);
+        $purok = Purok::query()->where('code', 'mock-purok-1')->firstOrFail();
+
+        $this->post(route('reports.store'), [
+            'description' => 'Water pipe burst along the street near mock purok 1.',
+            'lat' => 6.9290,
+            'lng' => 122.0232,
+            'purok_id' => $purok->id,
+            'consent' => '1',
+            'has_consent_field' => '1',
+        ])->assertRedirect();
+
+        $report = Report::latest('id')->firstOrFail();
+        $this->assertSame($purok->id, $report->purok_id);
+        $this->assertSame(6.9290, (float) $report->lat);
+        $this->assertSame(122.0232, (float) $report->lng);
+    }
+
+    public function test_submission_with_landmark_only_without_coordinates_or_purok(): void
+    {
+        $this->post(route('reports.store'), [
+            'description' => 'Streetlight not working near the local bakery landmark.',
+            'landmark' => 'In front of Calarian Golden Bakery',
+            'consent' => '1',
+            'has_consent_field' => '1',
+        ])->assertRedirect();
+
+        $report = Report::latest('id')->firstOrFail();
+        $this->assertNull($report->purok_id);
+        $this->assertNull($report->lat);
+        $this->assertNull($report->lng);
+        $this->assertSame('In front of Calarian Golden Bakery', $report->landmark);
+    }
+
+    public function test_submission_with_coordinates_outside_provisional_boundary(): void
+    {
+        // Resident submits pin outside boundary: backend must save it for staff review
+        $this->post(route('reports.store'), [
+            'description' => 'Flooding near the border canal outside boundary.',
+            'lat' => 6.9000,
+            'lng' => 122.0100,
+            'landmark' => 'Near coastal marker',
+            'consent' => '1',
+            'has_consent_field' => '1',
+        ])->assertRedirect();
+
+        $report = Report::latest('id')->firstOrFail();
+        $this->assertSame(6.9000, (float) $report->lat);
+        $this->assertSame(122.0100, (float) $report->lng);
+        $this->assertSame('Near coastal marker', $report->landmark);
+    }
+
+    public function test_submission_fails_when_all_location_assistance_options_are_omitted(): void
+    {
+        $this->post(route('reports.store'), [
+            'description' => 'Test report with no coordinates, purok, or landmark provided.',
+            'consent' => '1',
+            'has_consent_field' => '1',
+        ])->assertSessionHasErrors(['location']);
+    }
 }

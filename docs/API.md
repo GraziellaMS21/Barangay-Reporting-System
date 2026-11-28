@@ -71,7 +71,7 @@ Routing is modularized under `routes/` and registered via `routes/web.php`:
     - **Purok**: Formatted name of the detected mock Purok (e.g. `MOCK PUROK 3 (Simulated)` / Filipino: `MOCK PUROK 3 (Pansamantala)`), "Not yet identified" if unresolved inside the boundary, or "Needs manual selection" if ambiguous.
     - **Coordinates**: Latitude and longitude formatted to exactly 6 decimal places (e.g. `6.925000, 122.030000`).
     - **Disclosure Notice**: Visible bilingual note stating Purok boundaries are simulated for the thesis prototype and not yet verified by Barangay Calarian.
-  - Live synchronization occurs across map clicks, draggable marker movement, and GPS geolocation.
+  - Live synchronization occurs across map clicks, draggable marker movement, and GPS geolocation. Fully verified via automated browser CDP testing (TR2.4.4).
 - **Note**: Never creates or mutates Report records, and never assigns official Puroks automatically. Official boundary verification remains pending with the barangay.
 
 ### `GET /api/purok-boundaries` (`api.purok-boundaries`)

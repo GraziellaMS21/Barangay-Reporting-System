@@ -20,7 +20,30 @@ All foundation and core functional modules have been implemented and verified on
 
 ---
 
-## 2. Active Pending Tasks
+## 2. Active Roadmap by Continuous Member Allocation
+
+Per `docs/BARANGAY_WORKFLOW_MASTER_SPEC_EXPANDED.md` § 3.2, implementation and verification work is divided into four continuous ranges:
+
+### Member 1: TR3 — Staff Intake & Classification (REDO COMPLETED ✅)
+- **Scope**: TR3.1-R0 through TR3.8-R1. Reopen, re-audit, correct, and fully re-verify Staff Intake and Classification.
+- **Status**:
+  - `TR3.1-R1`: Re-audit complete across route, controller, view, service, and test maps.
+  - `TR3.8-R1`: Full regression verification completed. Fixed `DuplicateReviewInterfaceTest.php` caveats (pending counts, similarity indicator, candidate timestamps, emergency merge warnings).
+  - **Verification**: **138 tests passed, 887 assertions, 0 failures, 100% green**.
+  - **Exit Gate**: Ready for user review and approval to unlock Member 2 downstream TR4 reconciliation.
+
+### Member 2: TR4–TR5 — Concern Management & Formal Records (Gated on TR3 Approval)
+- **Scope**: Reconcile existing TR4.1/TR4.2 work, complete TR4.3–TR4.7 Concern Management, audit TR5.1, then complete TR5.2–TR5.9 (Blotter, Complaint, and Barangay Cases).
+
+### Member 3: TR6–TR7 — System Administration & Agency Workflow
+- **Scope**: TR6.1–TR6.8 (Office settings, permissions, GIS data integration), TR7.1–TR7.7 (Agency accounts, referrals, attachments).
+
+### Member 4: TR8–TR9 — Monitoring, Reports & Full-System Verification
+- **Scope**: TR8.1–TR8.8 (DILG compliance metrics, dashboards), TR9.1–TR9.9 (End-to-end integration, UAT, and deployment readiness).
+
+---
+
+## 3. Supplementary Active Tasks
 
 ### Task 1: Merge `dev` Branch into `main` (Release PR)
 - **Goal**: Bring `main` (currently at Phase 0/WS1) up to parity with `dev` which contains WS1 through WS6, WS7, and the Users/Roles rework.
